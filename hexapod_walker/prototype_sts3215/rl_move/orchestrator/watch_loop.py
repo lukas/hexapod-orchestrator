@@ -27,9 +27,17 @@ LOG = pathlib.Path("/workspace/orchestrator.log")
 POLL_S = 300
 MAX_CYCLES_PER_DAY = 8          # keep in sync with guardrails.yaml
 BACKOFF_AFTER_IDLE_CYCLES = 2   # cycles that launched nothing -> long sleep
-# Fable 5 via the user's own Anthropic key (BYOK) — bills to Anthropic
-# directly and bypasses Cursor plan usage limits.
+# Decision cycles run on Claude Code (headless) with the operator's own
+# Anthropic API key — Fable 5, billed directly to Anthropic. Cursor's CLI
+# was dropped because editor BYOK keys don't apply to headless sessions,
+# which left cycles stuck behind Cursor plan usage limits.
 AGENT_MODEL = "claude-fable-5"
+AGENT_CMD = [
+    "claude", "-p", "--bare",
+    "--model", AGENT_MODEL,
+    "--dangerously-skip-permissions",
+    "--output-format", "text",
+]
 
 WANDB_PROJECT = "l2k2/hexapod-balance"
 
@@ -56,8 +64,7 @@ def agent_cycle() -> bool:
     before = set(running_runs())
     log("starting agent cycle")
     proc = subprocess.run(
-        ["cursor-agent", "-p", PROMPT, "--force", "--output-format", "text",
-         "--model", AGENT_MODEL],
+        AGENT_CMD + [PROMPT],
         cwd=REPO,
         capture_output=True,
         text=True,
@@ -83,8 +90,8 @@ def main() -> None:
                 log("PAUSE present; idling")
                 time.sleep(POLL_S)
                 continue
-            if not os.environ.get("CURSOR_API_KEY"):
-                log("CURSOR_API_KEY not set; cannot run agent cycles. idling")
+            if not os.environ.get("ANTHROPIC_API_KEY"):
+                log("ANTHROPIC_API_KEY not set; cannot run agent cycles. idling")
                 time.sleep(POLL_S)
                 continue
 

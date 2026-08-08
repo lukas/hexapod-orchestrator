@@ -11,7 +11,8 @@ the next experiments within guardrails, snapshots the code, and launches.
 controller pod (hexapod-sweep-friction, tmux session "orchestrator")
   watch_loop.py                       # polls W&B every 5 min
     └─ when no tracked runs are running:
-         cursor-agent -p <ORCHESTRATOR_PROMPT.md>   # one decision cycle
+         claude -p --bare --model claude-fable-5 <ORCHESTRATOR_PROMPT.md>
+         # one decision cycle (Claude Code headless, operator's Anthropic key)
             1. pull checkpoints, run gate evals (eval_checkpoint.py)
             2. append results to EXPERIMENT_LOG.md
             3. decide next experiments (guardrails.yaml limits)
