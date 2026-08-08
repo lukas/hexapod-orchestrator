@@ -1,8 +1,12 @@
 # RL Plan — raw-joint policies to hardware candidates
 
-Rev 2026-08-08. Big goal: fluid real-world motion on the physical
-hexapod — walking above all. History: `RL_LOG.md` + `archive/`
-(campaign review; literature review = external priorities).
+Rev 2026-08-08b. Big goal: fluid real-world motion on the physical
+hexapod — walking above all. History: `RL_LOG.md` + `archive/`.
+**`archive/EXTERNAL_REVIEW_2026-08-08.md` is the binding external
+review (GPT + Claude, disagreements resolved): it sets the priority
+sequence, walk-reward strategy, and autonomy hardening below. Core
+diagnosis: the shuffle is a reward-landscape problem; four shaping
+levers refuted — stop iterating penalty coefficients.**
 
 ## State (evidence)
 
@@ -21,8 +25,12 @@ hexapod — walking above all. History: `RL_LOG.md` + `archive/`
   cycling contact/swing. Refuted levers: manual widening (→0.08,
   →0.07), 3× progress reward, **all-modes k_flag_leg=5.0** (flag leg
   merely transient; rise/raise collapsed — routing interference).
-- **Raise:** stuck 2–5/6 in every lineage. Undiagnosed (but
-  `cw-walk-nv` hit 5–6/6 without velocity obs — a clue).
+- **Raise:** stuck 2–5/6 in every lineage. Finish `cw-stance-raisemix`
+  before acting on hypotheses (don't overweight nv's good raise — one
+  run at known eval-noise levels). Then classify failures from
+  trajectories (lost contact / saturation / near-miss / tilt / weak
+  extension / current / ambiguous end-state). Nothing general ⇒
+  demote raise to canary status, stop spending compute (review §7).
 - Warm-start "seed twins" up TO AND INCLUDING cw-walk-w07/-s1 were
   bit-identical clones (verified: 0.0 weight diff; the interim
   `model.seed=` fix was cosmetic). Fixed via set_random_seed;
@@ -61,12 +69,26 @@ hexapod — walking above all. History: `RL_LOG.md` + `archive/`
 - ≥20 episodes for gate decisions (2-episode evals are binomial
   noise). Split all rise/lower stats by start kind. Eval at DR 0 and
   the run's own DR.
+- **Fixed-seed canaries for mid-run monitoring** (review §5a):
+  identical cases every probe (flat 1001/1002, bridge 2001/2002,
+  crouch 3001/3002, extend per mode). Question: "did this checkpoint
+  lose a behavior it demonstrated on identical cases?" Randomized
+  ≥20-ep harness stays the promotion standard.
+- **Regression auto-stop** (review §5c): warm-start multi-skill runs
+  store parent canary performance at launch; protected skill below
+  threshold 3 consecutive probes → auto-terminate. Implement before
+  the next warm-start launch (would have caught cw-walk-flag's rise
+  collapse millions of steps early).
 - **Noise-response curve per champion:** success at action std
   0/.02/.05/.10/.15/.20, stored with the checkpoint. Deterministic
   100% with a cliff at small std will erode in any fine-tune.
 - **Gait sanity lives in the evaluator, not only reward:** per-foot
-  contact fraction, clearance, swing count, stride, slip, joint
-  occupancy, supporting-leg count. Diagnose before changing rewards.
+  contact duty cycle, swing/touchdown counts, swing length, clearance,
+  slip, loading, joint occupancy, supporting-leg count. **A walking
+  checkpoint is INVALID if any leg is persistently sacrificed,
+  regardless of velocity error.** Flag-leg detection stays an eval
+  gate permanently, whatever happens to its reward term. Eval
+  definitions must be independent of reward terms.
 - **Current:** record per-servo max, p95/p99, time above soft
   threshold, cross-leg imbalance. Aggregate current is insufficient
   (18×0.6 A ≠ 3×2.4 A). No hot legs.
@@ -92,21 +114,31 @@ routing up front — no ad-hoc exemptions.
   over-threshold servo, no violent impact, quiescent at end.
 - **Walk:** success = commanded forward motion with visible
   alternating contacts on ALL SIX legs — judged by gait metrics AND
-  video. `reward.k_flag_leg` + `flag_leg_walk_only=1` (>50 mm
-  allowance, walk mode only — all-modes version refuted 08-08) is the
-  current lever. **Learning-progress curriculum replaces
-  manual widening:** bucket commands (0.02–0.03 … 0.10–0.12 m/s),
-  track per-bucket tracking/gait/falls/slip/stride/current/progress,
-  sample buckets that are improving; command-speed→performance curve
-  as a W&B metric. Lateral/yaw only after forward is real. If rise
-  erosion survives the gait fix, train walk separately, merge later.
+  video. `flag_leg_walk_only=1` is in test; **no further penalty-
+  coefficient iterations after it** (review §0). Escalation order if
+  flagw fails (review §2): (a) **speed-range diagnostic** — command
+  0.10–0.15 m/s; hypothesis: at 2–6 cm/s a drag-shuffle is genuinely
+  near-optimal, at speed stepping is forced. Outcome seeds the
+  curriculum frontier (fast→slow if true, slow→fast if false).
+  (b) Cheap: check per-servo current on shuffle reels — if dragging
+  legs run hot, a walk-routed effort/cost-of-transport term is nearly
+  free. (c) **Weak alternating-tripod phase reward** (Siekmann-style
+  periodic reward composition): actor sees sin/cos phase, modest
+  contact-state agreement reward, NO prescribed joints/trajectories/
+  rigid timing, walk-routed. (d) Dense 9-term step decomposition is
+  LAST-resort fallback (each contact term is farmable; saturate
+  clearance if ever built). Learning-progress curriculum
+  (`cw-walk-lp`): per-bucket tracking/valid-gait/falls/slip/current,
+  sample the improving frontier; re-seed buckets after (a). Lateral/
+  yaw only after forward is real. If rise erosion survives the gait
+  fix, train walk separately, merge later.
 - **Deployable walk obs, in order:** (1) asymmetric PPO (hardware-obs
-  actor, privileged critic); (2) +history, frame stack vs GRU;
-  (3) distillation (`distill_joint_policy.py`) only if those fail.
-  `cw-walk-nv` (zeroed velocity obs; 1/6 @ 4M, continuing to 8M) is
-  the naive baseline to beat.
-  If exploits persist after gait metrics + curriculum: a WEAK
-  alternating-tripod contact-phase prior, never hard trajectories.
+  actor, privileged critic — in flight, `cw-walk-aac`); (2) +history,
+  frame stack vs GRU (~300 ms = online system ID); (3) distillation
+  only if those fail. aac vs nv2 is a **fixed-budget comparison at
+  8M** (review §6): identical everything but critic obs; compare
+  curves + seed spread; do NOT extend nv past 8M unless aac fails to
+  dominate. The deployed artifact class is identical either way.
 - **DR progression:** 0–0.2 until the skill exists, 0.4 once
   reliable, broader after. Randomize the realistic uncertainties
   (friction, latency, deadband, strength, mass/CoM, joint-zero, IMU
@@ -140,18 +172,30 @@ hold → lower → rise → walk. Every session logs sim↔real divergence
 - Pods answer architecture-level questions, not micro reward tweaks;
   multi-seed only after a config wins.
 
-## Queue (in flight → next)
+## Queue (in flight → next; ordering per external review §1)
 
 In flight: `cw-walk-flagw`/-s1 (walk-only flag routing, gate =
 tracking AND no-flag-leg video AND rise retention), `cw-walk-nv2`
 (baseline continuation → 8M), `cw-stance-raisemix` (raise-heavy mix
-on the DR 1.0 stance champion), `cw-walk-lp`/-s1 (queue item 1,
-launched 08-08), `cw-walk-aac`/-s1 (queue item 2, launched 08-08).
+on the DR 1.0 stance champion), `cw-walk-aac`/-s1 (asym AC — review
+item 1), `cw-walk-lp`/-s1 (launched before the review reordered it;
+let it run, but re-seed its buckets after the speed diagnostic).
 
-1. Temporal deployable actor (frame stack vs GRU) on the best of
-   `aac`/`nv` once both report.
-2. Lower end-posture: routed flag term on the stance line once the
+1. **Speed-range diagnostic** (review §3, cheap, next free slot):
+   command 0.10–0.15 m/s, else identical to walk config, +twin if a
+   slot is free. Falsifiable both ways; reshapes the lp curriculum.
+2. Phase-based alternating-tripod reward IF flagw fails its gate.
+3. Temporal deployable actor (frame stack vs GRU) on the best of
+   `aac`/`nv2` at 8M.
+4. Lower end-posture: routed flag term on the stance line once the
    walk run proves it.
+5. Contact-from-proprioception auxiliary head, after (3). Dense
+   step-decomposition and model-size sweep stay last.
+
+Parallel infra (smoke slots, before next warm-start launch): fixed-
+seed canaries, regression auto-stop, gait-validity metrics in the
+harness, structured experiment ledger + mechanical launch/completion
+verification (review §5, §8).
 
 ## Done =
 

@@ -28,6 +28,14 @@ Context to read before deciding anything:
   literature review; its priority ordering (asymmetric actor–critic,
   learning-progress curriculum, temporal actor, reward routing) is
   reflected in the plan and outranks a model-size sweep.
+- `archive/EXTERNAL_REVIEW_2026-08-08.md` — **binding** integrated
+  external review (GPT + Claude second pass, disagreements resolved).
+  It sets the experiment priority sequence, the walk-reward escalation
+  order (speed diagnostic → effort/CoT check → phase prior → dense
+  decomposition last), the aac-vs-nv fixed-budget rule, and the
+  autonomy-hardening requirements below. Where this prompt and that
+  document overlap, they agree; if you find a conflict, follow the
+  review and flag it in RL_LOG.md.
 
 ## The cycle
 
@@ -56,14 +64,23 @@ Context to read before deciding anything:
    gait is worse than useless — it poisons every later decision. W&B
    scalars have repeatedly hidden exploits that one honest look caught.
 
-2. **Log to RL_LOG.md.** Append one short entry per finished run: W&B
-   outcome (steps, key eval metrics), harness numbers, **what the videos
-   showed in one or two plain, unflattering sentences** (pathologies
-   first, achievements second), a "hardware-ready: yes/no + reason"
-   line, verdict against its gate (PASS / partial / refuted /
-   regressed), and the champion update if it beat the current champion
-   for its skill. Champions are append-only checkpoint files; never
-   overwrite.
+2. **Log to RL_LOG.md — in the fixed verdict format.** Append one entry
+   per finished run, structured exactly as:
+   - **OBSERVATIONS** — machine-generated facts first: steps, harness
+     numbers, gait metrics, then what the frames visibly show
+     (pathologies first, achievements second). Include video
+     provenance: the reviewed file's checksum (`md5sum`) and frame
+     count, so a verdict can never reference a video nobody watched.
+   - **INTERPRETATION** — your reading, clearly separated from fact.
+   - **VERDICT** — PASS / FAIL / INCONCLUSIVE against the recorded
+     gate, plus "hardware-ready: yes/no + reason".
+   - **HYPOTHESIS STATUS** — SUPPORTED / REFUTED / INCONCLUSIVE for
+     the hypothesis recorded at launch.
+   Champion updates only if it beat the current champion for its
+   skill; champions are append-only checkpoint files, never
+   overwrite. Also update the run's entry in the structured ledger
+   (`rl_move/orchestrator/experiments.json`, see step 5) with status,
+   final checkpoint path + checksum, and verdict.
 
 3. **Review RL_PLAN.md.** With the new results in hand, ask whether the
    plan still points at the big goal. If a section is stale, contradicted
@@ -81,6 +98,15 @@ Context to read before deciding anything:
    make them, explain them in the log, and run the relevant unit tests
    plus a short smoke check before launching on them.
 
+   **Every experiment must be falsifiable before launch.** Record in the
+   ledger and W&B notes: the hypothesis, the prediction if it is true,
+   the prediction if it is false, the strongest alternative explanation,
+   and why this experiment distinguishes them. Reject any experiment
+   whose rationale reduces to "we haven't tried this coefficient" —
+   penalty-coefficient iteration on the walk reward is explicitly
+   refuted (review §0); follow the escalation order in RL_PLAN.md
+   instead.
+
 5. **Snapshot, then launch.** Before any launch, run
    `rl_move/orchestrator/snapshot.sh <first-new-run-name>` — it commits
    everything (including your RL_LOG.md and RL_PLAN.md edits), tags
@@ -96,10 +122,30 @@ Context to read before deciding anything:
    hypothesis, parent run/checkpoint, exact gate, and the snapshot commit
    hash. Append a launch entry per run to RL_LOG.md, commit and push.
 
-6. **Verify.** Confirm each launched run appears in W&B and its
-   `/tmp/train_<run-name>.log` is advancing before you exit. If a launch fails twice,
-   leave that pod idle and record it in RL_LOG.md under "## NEEDS
-   OPERATOR".
+6. **Verify mechanically (two-phase commit).** You are never
+   authoritative about operational state; only checked facts are. For
+   each launch, record an entry in
+   `rl_move/orchestrator/experiments.json` (a JSON list; create if
+   missing) with status `INTENT` BEFORE launching: run name, hypothesis
+   + predictions (step 4), parent checkpoint, git SHA/tag, seed, pod,
+   step budget, exact gate. After launching, verify EVERY item and only
+   then set status `RUNNING`:
+   - the training process exists on the target pod,
+   - `/tmp/train_<run-name>.log` exists and is advancing over a ≥60 s
+     window,
+   - the W&B run exists with the expected name, seed and config, and
+     its step count advances,
+   - no duplicate run of the same name,
+   - the pod's code is at the snapshot SHA.
+   Record the W&B run ID and each check's result in the ledger entry. A
+   run that fails verification is not launched, whatever you remember
+   doing — retry once, then leave the pod idle and record "## NEEDS
+   OPERATOR" in RL_LOG.md. (The phantom `cw-stance-raisemix` launch and
+   the round-8.5 duplicate cycle are the failure classes this closes.)
+   At completion (step 1 of the next cycle that handles it), verify
+   before writing a verdict: W&B state finished, expected steps
+   reached, checkpoint file exists (record checksum), eval artifacts
+   and video exist and decode.
 
 ## Judgment notes
 

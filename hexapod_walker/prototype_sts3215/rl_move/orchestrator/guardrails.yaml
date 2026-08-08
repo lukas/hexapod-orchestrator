@@ -15,6 +15,10 @@ compute:
   reserved_smoke_slots: 2
   max_steps_per_run: 6000000
   max_decision_cycles_per_day: 12  # watcher enforces; agent should not try to exceed
+  # Blast-radius cap (external review 8e): one confused cycle must not be
+  # able to burn a weekend of pods. Hard per-cycle ceilings:
+  max_new_launches_per_cycle: 4
+  max_new_steps_per_cycle: 16000000
   n_envs: 48        # per run; do not raise while pods host two runs
   # Periodic eval/video block ALL rollout workers (single-threaded). The old
   # 20k/25k defaults cost ~65% of wall clock. Never launch below these:
@@ -25,12 +29,26 @@ compute:
   log_file_pattern: /tmp/train_<run-name>.log
 
 experiments:
+  # Structured ledger (external review 8b): software-owned facts per run in
+  # rl_move/orchestrator/experiments.json — hypothesis+predictions, parent,
+  # git SHA, seed, gate, status (INTENT/RUNNING/FINISHED/FAILED), W&B ID,
+  # launch-verification results, checkpoint checksum, verdict. RL_LOG.md is
+  # narrative on top; the ledger is the record. Dedupe keys on the ledger.
+  ledger: rl_move/orchestrator/experiments.json
+  # Two-phase launch (external review 8a): write INTENT before launching;
+  # mark RUNNING only after mechanically verifying process + advancing log
+  # + W&B run/config + no duplicate + pod code at snapshot SHA. The agent
+  # is never authoritative about operational state.
+  require_mechanical_launch_verification: true
   # Warm-start from an existing champion unless the log records a reason
   # a fresh init is the hypothesis being tested.
   require_warm_start_default: true
-  # Every run needs, in its W&B notes AND the experiment log entry:
-  # hypothesis, parent checkpoint, exact gate (metric + threshold), code commit.
+  # Every run needs, in its W&B notes AND the ledger entry: falsifiable
+  # hypothesis (prediction-if-true, prediction-if-false, strongest
+  # alternative), parent checkpoint, exact gate, code commit. Experiments
+  # whose rationale is "try another coefficient" are forbidden (review §0).
   require_hypothesis_and_gate: true
+  require_falsifiable_predictions: true
   # One variable per run wherever possible; twins only with distinct seeds
   # (the model.seed overwrite fix must stay in place).
   one_variable_per_run: true
@@ -54,6 +72,16 @@ evaluation:
   # explicit "hardware-ready: yes/no" judgment. Scalar gates NEVER
   # override a bad video. Optimistic gloss is a guardrail violation.
   video_verdict_blunt: true
+  # Verdict format (external review 8c): OBSERVATIONS (mechanical facts +
+  # video checksum/frame count actually reviewed) / INTERPRETATION /
+  # VERDICT (PASS|FAIL|INCONCLUSIVE + hardware-ready yes|no) /
+  # HYPOTHESIS STATUS (SUPPORTED|REFUTED|INCONCLUSIVE).
+  verdict_format_structured: true
+  require_video_provenance: true
+  # Gait validity (external review 5b): a walking checkpoint is INVALID if
+  # any leg is persistently sacrificed, regardless of velocity error.
+  # Flag-leg detection is a permanent eval gate independent of reward terms.
+  gait_validity_gate: true
 
 plan:
   # Each cycle reviews RL_PLAN.md against the big goal (fluid real-world
@@ -67,7 +95,7 @@ plan:
 forbidden:
   - Any contact with the physical robot: no HTTP to 192.168.4.44 / hexapod.local,
     no SSH to the robot, no deploys to linux_control, no firmware changes.
-  - Creating, resizing, or deleting pods; the four pods above are the world.
+  - Creating, resizing, or deleting pods; the six pods above are the world.
   - Changing reward/env code without recording the diff rationale in the
     experiment log (code changes ARE allowed - that is the point - but must
     be explained and are snapshotted by tag).
