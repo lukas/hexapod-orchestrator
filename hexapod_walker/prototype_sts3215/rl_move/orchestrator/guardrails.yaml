@@ -4,14 +4,25 @@
 compute:
   pods: [hexapod-sweep-friction, hexapod-sweep-s3, hexapod-sweep-s4,
          hexapod-sweep-long5m, hexapod-sweep-lower, hexapod-sweep-walk]
-  # Each pod has 128 cores; one 48-env run saturates its learner around
-  # ~50-60 cores (measured 2026-08-08: 48 envs 3.6k fps, 96 envs 4.8k fps,
-  # 120 envs flat). Two 48-env runs per pod run at near-full speed each.
+  # CORRECTED 2026-08-08 (operator): `nproc` lies — it shows the 128-core
+  # host, but cgroup CPU LIMITS cap each pod. Actual limits:
+  #   s3 / s4 / long5m / walk: 56 cores   friction / lower: 30 cores
+  # One 48-env run wants ~50-60 cores. Measured fps consequences:
+  #   56-core pod, 1 run  -> ~1090 fps      (full speed)
+  #   56-core pod, 2 runs -> ~240 fps each  (~4.5x slower, NOT ~half)
+  #   30-core pod, 1 run  -> ~110 fps
+  #   30-core pod, 2 runs -> ~75 fps each   (5M steps ~= 18 h; avoid)
+  # Placement rules: ONE experiment per pod is the norm. friction/lower
+  # are for smoke tests, harness evals, and short diagnostics — put a
+  # full-budget experiment there only if nothing else is free and note
+  # the fps cost in the ledger. Doubling up on a 56-core pod is allowed
+  # only for cheap (<=1M step) diagnostics. When runs land somewhere
+  # slow, rebalancing (kill + relaunch from its own last checkpoint on a
+  # freed big pod) is allowed and should be logged.
   max_runs_per_pod: 2
-  # 6 pods x 2 = 12 slots; cap experiments at 10 so ~2 slots are always
-  # free for YOUR OWN smoke tests, harness evals, and code validation.
-  # Smokes: WANDB_MODE=disabled (or non-cw run names), short, kill when done.
-  max_concurrent_runs: 10
+  # Effective full-speed slots = the four 56-core pods. Cap experiments
+  # so smoke/eval capacity always remains on friction/lower.
+  max_concurrent_runs: 8
   reserved_smoke_slots: 2
   max_steps_per_run: 6000000
   max_decision_cycles_per_day: 12  # watcher enforces; agent should not try to exceed
