@@ -108,6 +108,11 @@ Context to read before deciding anything:
   be 1M steps, a consolidation 5–6M. Staggered finishes are a feature:
   they keep cycles small and pods busy. Never trim or pad a budget to make
   runs end together, and don't hold a freed pod waiting for a sibling run.
+- Pipeline your own work: training runs don't block you. Run harness
+  evals, video reviews, code changes, and smoke tests WHILE experiments
+  train — that's what the reserved smoke slots (see guardrails compute)
+  are for. Launch what's ready as soon as it's ready; never leave a slot
+  idle because analysis of an unrelated run is still in progress.
 - A run that misses its gate narrowly is usually worth one
   consolidate-in-place continuation (same settings, more steps). Two
   misses in a row means change the hypothesis, not the step count.
