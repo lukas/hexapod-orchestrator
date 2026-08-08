@@ -3,9 +3,9 @@
 
 compute:
   pods: [hexapod-sweep-friction, hexapod-sweep-s3, hexapod-sweep-s4, hexapod-sweep-long5m]
-  max_concurrent_runs: 4          # one training run per pod
+  max_concurrent_runs: 4           # one training run per pod
   max_steps_per_run: 6000000
-  max_decision_cycles_per_day: 8  # watcher enforces; agent should not try to exceed
+  max_decision_cycles_per_day: 12  # watcher enforces; agent should not try to exceed
   n_envs: 48
 
 experiments:
@@ -28,6 +28,19 @@ evaluation:
   episodes_per_mode: 6
   passes: [deterministic, stochastic]
   eval_at_own_dr: true
+  # Videos are mandatory: render eval videos and visually inspect the PNG
+  # frame strips for at least walk + rise before any verdict or launch.
+  # RL_LOG.md entries must describe what the motion looked like.
+  require_video_review: true
+
+plan:
+  # Each cycle reviews RL_PLAN.md against the big goal (fluid real-world
+  # motion on the physical hexapod, walking). Revisions allowed, but the
+  # plan must not grow: keep it the same length or shorter, archive dead
+  # material instead of appending.
+  file: RL_PLAN.md
+  may_revise: true
+  must_not_grow: true
 
 forbidden:
   - Any contact with the physical robot: no HTTP to 192.168.4.44 / hexapod.local,

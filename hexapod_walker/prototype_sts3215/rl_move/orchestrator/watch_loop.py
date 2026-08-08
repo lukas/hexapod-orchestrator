@@ -1,15 +1,21 @@
 #!/usr/bin/env python3
 """Watcher for the autonomous experiment loop.
 
-Polls W&B; when no tracked training run is active, invokes one headless
-Cursor agent cycle with the standing orchestrator prompt. State that
-matters (results, decisions, lineage) lives in the repo, not here.
+Polls W&B; whenever one or more training runs FINISH, invokes one headless
+agent decision cycle (Claude Code / Fable 5) with the standing orchestrator
+prompt plus the names of the newly finished runs. The agent evals the
+checkpoints (including watching motion videos), summarizes into RL_LOG.md,
+reviews RL_PLAN.md, snapshots the code, and launches replacement
+experiments on the freed pods. State that matters (results, decisions,
+lineage) lives in the repo; this file only remembers which finished runs
+were already handled.
 
 Run on the controller pod inside tmux:
     python3 rl_move/orchestrator/watch_loop.py
 Kill switch: `touch rl_move/orchestrator/PAUSE` (loop idles until removed).
 """
 import datetime
+import json
 import os
 import pathlib
 import subprocess
@@ -23,10 +29,11 @@ REPO = subprocess.check_output(
 PROMPT = (HERE / "ORCHESTRATOR_PROMPT.md").read_text()
 PAUSE = HERE / "PAUSE"
 LOG = pathlib.Path("/workspace/orchestrator.log")
+STATE = pathlib.Path("/workspace/orchestrator_state.json")
 
 POLL_S = 300
-MAX_CYCLES_PER_DAY = 8          # keep in sync with guardrails.yaml
-BACKOFF_AFTER_IDLE_CYCLES = 2   # cycles that launched nothing -> long sleep
+MAX_CYCLES_PER_DAY = 12         # keep in sync with guardrails.yaml
+BACKOFF_AFTER_FAILED_CYCLES = 2  # consecutive agent failures -> long sleep
 # Decision cycles run on Claude Code (headless) with the operator's own
 # Anthropic API key — Fable 5, billed directly to Anthropic. Cursor's CLI
 # was dropped because editor BYOK keys don't apply to headless sessions,
@@ -49,22 +56,49 @@ def log(msg: str) -> None:
         f.write(line + "\n")
 
 
-def running_runs() -> list[str]:
+def runs_by_state() -> tuple[set[str], set[str]]:
+    """Return (running, finished) run-name sets from W&B."""
     import wandb
 
     api = wandb.Api()
-    return [
+    running = {
+        r.name for r in api.runs(WANDB_PROJECT, filters={"state": "running"})
+    }
+    finished = {
         r.name
-        for r in api.runs(WANDB_PROJECT, filters={"state": "running"})
-    ]
+        for r in api.runs(
+            WANDB_PROJECT, filters={"state": {"$in": ["finished", "crashed", "failed"]}}
+        )
+    }
+    return running, finished
 
 
-def agent_cycle() -> bool:
-    """Run one decision cycle. Returns True if new runs got launched."""
-    before = set(running_runs())
-    log("starting agent cycle")
+def load_processed() -> set[str] | None:
+    if not STATE.exists():
+        return None
+    return set(json.loads(STATE.read_text())["processed"])
+
+
+def save_processed(processed: set[str]) -> None:
+    STATE.write_text(json.dumps({"processed": sorted(processed)}))
+
+
+def agent_cycle(newly_finished: set[str], still_running: set[str]) -> bool:
+    """Run one decision cycle. Returns True on agent success (rc == 0)."""
+    cycle_prompt = (
+        PROMPT
+        + "\n\n## This cycle\n"
+        + f"Runs that just finished: {', '.join(sorted(newly_finished))}\n"
+        + (
+            f"Runs still training (leave their pods alone): "
+            f"{', '.join(sorted(still_running))}\n"
+            if still_running
+            else "No other runs are training; all pods are available.\n"
+        )
+    )
+    log(f"starting agent cycle for: {', '.join(sorted(newly_finished))}")
     proc = subprocess.run(
-        AGENT_CMD + [PROMPT],
+        AGENT_CMD + [cycle_prompt],
         cwd=REPO,
         capture_output=True,
         text=True,
@@ -74,15 +108,12 @@ def agent_cycle() -> bool:
     log(f"agent cycle done rc={proc.returncode}; tail:\n{tail}")
     if proc.returncode != 0:
         log(f"agent stderr tail:\n{(proc.stderr or '')[-1000:]}")
-    after = set(running_runs())
-    launched = sorted(after - before)
-    log(f"launched: {launched or 'nothing'}")
-    return bool(launched)
+    return proc.returncode == 0
 
 
 def main() -> None:
     cycle_times: list[float] = []
-    idle_cycles = 0
+    failed_cycles = 0
     log("watcher started")
     while True:
         try:
@@ -95,9 +126,21 @@ def main() -> None:
                 time.sleep(POLL_S)
                 continue
 
-            active = running_runs()
-            if active:
-                log(f"{len(active)} running: {', '.join(sorted(active))}")
+            running, finished = runs_by_state()
+            processed = load_processed()
+            if processed is None:
+                # First start: don't reprocess pre-existing history.
+                save_processed(finished)
+                log(f"state initialized; {len(finished)} historical runs marked handled")
+                time.sleep(POLL_S)
+                continue
+
+            newly = finished - processed
+            if not newly:
+                log(
+                    f"{len(running)} running: {', '.join(sorted(running)) or 'none'}; "
+                    "nothing new finished"
+                )
                 time.sleep(POLL_S)
                 continue
 
@@ -107,14 +150,19 @@ def main() -> None:
                 log("daily cycle cap reached; idling 1h")
                 time.sleep(3600)
                 continue
-            if idle_cycles >= BACKOFF_AFTER_IDLE_CYCLES:
-                log("agent launched nothing twice; needs operator. idling 6h")
+            if failed_cycles >= BACKOFF_AFTER_FAILED_CYCLES:
+                log("agent failed twice in a row; needs operator. idling 6h")
                 time.sleep(6 * 3600)
-                idle_cycles = 0
+                failed_cycles = 0
                 continue
 
             cycle_times.append(now)
-            idle_cycles = 0 if agent_cycle() else idle_cycles + 1
+            if agent_cycle(newly, running):
+                processed |= newly
+                save_processed(processed)
+                failed_cycles = 0
+            else:
+                failed_cycles += 1
         except KeyboardInterrupt:
             raise
         except Exception as e:  # survive transient W&B/network errors

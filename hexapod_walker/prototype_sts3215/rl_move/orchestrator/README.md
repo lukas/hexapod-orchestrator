@@ -10,18 +10,22 @@ the next experiments within guardrails, snapshots the code, and launches.
 ```
 controller pod (hexapod-sweep-friction, tmux session "orchestrator")
   watch_loop.py                       # polls W&B every 5 min
-    └─ when no tracked runs are running:
+    └─ whenever a run FINISHES (others may still be training):
          claude -p --bare --model claude-fable-5 <ORCHESTRATOR_PROMPT.md>
          # one decision cycle (Claude Code headless, operator's Anthropic key)
-            1. pull checkpoints, run gate evals (eval_checkpoint.py)
-            2. append results to EXPERIMENT_LOG.md
-            3. decide next experiments (guardrails.yaml limits)
-            4. snapshot.sh <name>  →  git commit + tag exp/<name> + push
-            5. sync code to pods, launch runs, record W&B notes + commit hash
+            1. pull checkpoint, run gate evals WITH VIDEO, look at the
+               frame strips (motion quality, not just scalars)
+            2. append a short summary (incl. what videos showed) to RL_LOG.md
+            3. review RL_PLAN.md vs the big goal; revise without growing it
+            4. decide next experiment(s) for the freed pod(s)
+            5. snapshot.sh <name>  →  git commit + tag exp/<name> + push
+            6. sync code to pods, launch runs, record W&B notes + commit hash
 ```
 
-State lives in the repo (EXPERIMENT_LOG.md, lineage.json, tags), so every
-cycle is auditable and every run is pinned to an exact commit.
+State lives in the repo (RL_LOG.md at the prototype root, lineage.json,
+tags), so every cycle is auditable and every run is pinned to an exact
+commit. The watcher keeps a local set of already-handled finished runs in
+/workspace/orchestrator_state.json.
 
 ## One-time setup
 
