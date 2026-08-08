@@ -37,6 +37,10 @@ HERE = Path(__file__).resolve().parent
 GUARDRAILS = HERE / "guardrails.yaml"
 LEDGER = HERE / "experiments.json"
 LEDGER_LOCK = HERE / "experiments.json.lock"
+# Concurrent decision cycles both run this launcher; the live capacity
+# check -> process start window must not interleave or two cycles can
+# double-book a pod/node that looked free to both.
+LAUNCH_LOCK = HERE / "launch.lock"
 KUBECONFIG = str(Path.home() / ".kube" / "coreweave.yaml")
 # Established launch pattern on the training pods: module invocation from
 # the project root (NOT `python3 train_ppo_sim.py` from the sim dir).
@@ -113,14 +117,18 @@ def save_ledger(entries: list[dict]) -> None:
 
 
 @contextmanager
-def ledger_lock():
-    LEDGER_LOCK.touch(exist_ok=True)
-    with LEDGER_LOCK.open("r+") as fh:
+def file_lock(path: Path):
+    path.touch(exist_ok=True)
+    with path.open("r+") as fh:
         fcntl.flock(fh, fcntl.LOCK_EX)
         try:
             yield
         finally:
             fcntl.flock(fh, fcntl.LOCK_UN)
+
+
+def ledger_lock():
+    return file_lock(LEDGER_LOCK)
 
 
 def upsert_entry(entry: dict) -> None:
@@ -204,6 +212,18 @@ def refuse(entry: dict, reason: str) -> int:
 
 
 def cmd_launch(g: dict, a: argparse.Namespace, extra: list[str]) -> int:
+    """One launch at a time across all concurrent decision cycles.
+
+    The lock deliberately covers the verification sleeps too — simple
+    beats optimal here: a concurrent cycle's launch waits a few minutes
+    at worst, while an unlocked check->start window could double-book a
+    pod/node that looked free to both launchers.
+    """
+    with file_lock(LAUNCH_LOCK):
+        return _launch_locked(g, a, extra)
+
+
+def _launch_locked(g: dict, a: argparse.Namespace, extra: list[str]) -> int:
     comp = g["compute"]
     entry = {
         "run": a.run, "pod": a.pod, "steps": a.steps, "smoke": a.smoke,

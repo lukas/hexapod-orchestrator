@@ -22,6 +22,16 @@ fi
 RUN_NAME="${1:?usage: snapshot.sh <run-name> | snapshot.sh --sync <pod>}"
 TAG="exp/${RUN_NAME}"
 
+# Decision cycles run CONCURRENTLY (08-08 evening); the commit/tag/push
+# section is the one part that must not interleave. Serialize it with a
+# host-wide lock; a short wait here is normal when two cycles snapshot
+# at the same time.
+LOCK=/workspace/git_snapshot.lock
+if command -v flock >/dev/null; then
+  exec 9>"$LOCK"
+  flock 9
+fi
+
 git add -A hexapod_walker/prototype_sts3215
 if ! git diff --cached --quiet; then
   git commit -m "orchestrator snapshot before ${RUN_NAME}"
@@ -32,5 +42,10 @@ if git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null; then
   echo "tag ${TAG} already exists" >&2; exit 1
 fi
 git tag "${TAG}"
-git push origin HEAD --tags
+# One retry: an operator push can still land between the rebase and the
+# push (concurrent cycles can't — they wait on the lock above).
+git push origin HEAD --tags || {
+  git pull --rebase --autostash origin main
+  git push origin HEAD --tags
+}
 git rev-parse HEAD

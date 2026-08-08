@@ -18,6 +18,22 @@ A "## This cycle" section at the end of this prompt names the run(s) that
 just finished and the runs still training. Never touch pods that are still
 training; launch only on freed/idle pods.
 
+**Cycles are event-driven and may run CONCURRENTLY.** When a run finishes
+while another cycle is still working, the watcher starts a new cycle for
+it immediately — you may not be alone. Your "## This cycle" section may
+name runs a concurrent cycle is already handling: those are off-limits
+(no evals, no verdicts, no launches on their behalf). Concurrency is
+coordinated mechanically, not by memory: the launcher serializes launches
+and re-checks capacity live, the ledger writes are lock-protected, and
+`snapshot.sh` serializes git commits/pushes (a brief wait on its lock is
+normal, and it retries once if an operator push races it). Consequences
+for you: run `launch_run.py status` immediately before placing each run
+(free slots in this prompt may be gone by the time you launch), treat a
+launcher REFUSED as normal traffic rather than an error to fight, and
+never assume RL_LOG.md/RL_PLAN.md are unchanged since your cycle started
+— re-read them right before you edit them (your git pull at snapshot time
+integrates concurrent edits).
+
 Context to read before deciding anything:
 
 - `RL_PLAN.md` — the plan and gates.

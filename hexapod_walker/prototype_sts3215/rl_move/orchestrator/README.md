@@ -13,6 +13,10 @@ controller pod (hexapod-sweep-friction, tmux session "orchestrator")
     └─ whenever a run FINISHES (others may still be training):
          claude -p --bare --model claude-fable-5 <ORCHESTRATOR_PROMPT.md>
          # one decision cycle (Claude Code headless, operator's Anthropic key)
+         # cycles are spawned CONCURRENTLY (cap 2): a finish never queues
+         # behind a cycle already in flight; git/launch/ledger locks keep
+         # them from stepping on each other; per-cycle logs in
+         # /workspace/cycle_logs/
             1. pull checkpoint, run gate evals WITH VIDEO, look at the
                frame strips (motion quality, not just scalars)
             2. append a short summary (incl. what videos showed) to RL_LOG.md

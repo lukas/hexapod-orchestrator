@@ -40,6 +40,13 @@ compute:
   reserved_smoke_slots: 2
   max_steps_per_run: 6000000
   max_decision_cycles_per_day: 12  # watcher enforces; agent should not try to exceed
+  # Cycles are event-driven and CONCURRENT (08-08 evening): when a run
+  # finishes while another cycle is still working, the watcher spawns a
+  # second cycle immediately instead of queuing. Coordination is
+  # mechanical (launcher lock, ledger lock, snapshot.sh git lock); a
+  # cycle must never evaluate/verdict/launch for runs its prompt lists
+  # as belonging to a concurrent cycle.
+  max_concurrent_cycles: 2
   # Blast-radius cap (external review 8e): one confused cycle must not be
   # able to burn a weekend of pods. Hard per-cycle ceilings:
   max_new_launches_per_cycle: 4

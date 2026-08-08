@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 """Watcher for the autonomous experiment loop.
 
-Polls W&B; whenever one or more training runs FINISH, invokes one headless
+Polls W&B; whenever one or more training runs FINISH, spawns a headless
 agent decision cycle (Claude Code / Fable 5) with the standing orchestrator
-prompt plus the names of the newly finished runs. The agent evals the
-checkpoints (including watching motion videos), summarizes into RL_LOG.md,
-reviews RL_PLAN.md, snapshots the code, and launches replacement
-experiments on the freed pods. State that matters (results, decisions,
-lineage) lives in the repo; this file only remembers which finished runs
-were already handled.
+prompt plus the names of the newly finished runs. Cycles are event-driven
+and CONCURRENT (cap MAX_CONCURRENT_CYCLES): a finish never queues behind a
+cycle already in flight. The agent evals the checkpoints (including
+watching motion videos), summarizes into RL_LOG.md, reviews RL_PLAN.md,
+snapshots the code, and launches replacement experiments on the freed
+pods. State that matters (results, decisions, lineage) lives in the repo;
+this file only remembers which finished runs were already handled.
 
 Run on the controller pod inside tmux:
     python3 rl_move/orchestrator/watch_loop.py
@@ -43,6 +44,13 @@ FINDINGS = pathlib.Path("/workspace/checkup_findings.md")
 POLL_S = 300
 MAX_CYCLES_PER_DAY = 12         # keep in sync with guardrails.yaml
 BACKOFF_AFTER_FAILED_CYCLES = 2  # consecutive agent failures -> long sleep
+# Cycles are event-driven and CONCURRENT (08-08 evening): when a run
+# finishes while another cycle is still working, its verdict/relaunch no
+# longer queues behind that cycle. Serialization points that remain:
+# snapshot.sh takes a git lock, launch_run.py takes launch+ledger locks.
+MAX_CONCURRENT_CYCLES = 2
+CYCLE_TIMEOUT_S = 3 * 3600
+CYCLE_OUT_DIR = pathlib.Path("/workspace/cycle_logs")
 # Decision cycles run on Claude Code (headless) with the operator's own
 # Anthropic API key — Fable 5, billed directly to Anthropic. Cursor's CLI
 # was dropped because editor BYOK keys don't apply to headless sessions,
@@ -192,9 +200,14 @@ def checkup_worker() -> None:
         time.sleep(60)
 
 
-def agent_cycle(newly_finished: set[str], still_running: set[str],
-                findings: str = "") -> bool:
-    """Run one decision cycle. Returns True on agent success (rc == 0)."""
+def spawn_cycle(newly_finished: set[str], still_running: set[str],
+                findings: str, in_flight: set[str]) -> dict:
+    """Start one decision cycle as a CONCURRENT subprocess.
+
+    Returns a handle {proc, runs, out, t0}; reap_cycles() collects it.
+    Event-driven: each batch of newly finished runs gets its own cycle
+    immediately instead of queuing behind whichever cycle is running.
+    """
     if newly_finished:
         trigger = f"Runs that just finished: {', '.join(sorted(newly_finished))}\n"
     elif findings:
@@ -224,6 +237,17 @@ def agent_cycle(newly_finished: set[str], still_running: set[str],
             else "No other runs are training; all pods are available.\n"
         )
     )
+    if in_flight:
+        cycle_prompt += (
+            "Another decision cycle is running CONCURRENTLY and already "
+            f"handles: {', '.join(sorted(in_flight))}. Do NOT evaluate, "
+            "verdict, or launch on behalf of those runs. Concurrency is "
+            "coordinated mechanically — the launcher enforces capacity/"
+            "duplicates and snapshot.sh serializes git pushes (a brief "
+            "wait on its lock is normal). Re-run `launch_run.py status` "
+            "immediately before placing runs; free slots may have been "
+            "taken since this prompt was written.\n"
+        )
     if findings:
         cycle_prompt += (
             "\n## Watcher checkup findings (act on these first)\n"
@@ -237,29 +261,69 @@ def agent_cycle(newly_finished: set[str], still_running: set[str],
     )
     if pull.returncode != 0:
         log(f"git pull failed before cycle: {(pull.stderr or '')[-500:]}")
-    log(f"starting agent cycle for: {', '.join(sorted(newly_finished))}")
-    proc = subprocess.run(
-        AGENT_CMD + [cycle_prompt],
-        cwd=REPO,
-        capture_output=True,
-        text=True,
-        timeout=3 * 3600,
-    )
-    tail = (proc.stdout or "")[-2000:]
-    log(f"agent cycle done rc={proc.returncode}; tail:\n{tail}")
-    if proc.returncode != 0:
-        log(f"agent stderr tail:\n{(proc.stderr or '')[-1000:]}")
-    return proc.returncode == 0
+    CYCLE_OUT_DIR.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.datetime.now().strftime("%Y%m%dT%H%M%S")
+    label = "-".join(sorted(newly_finished)) or ("findings" if findings else "kick")
+    out = CYCLE_OUT_DIR / f"cycle_{stamp}_{label[:120]}.log"
+    with out.open("w") as fh:
+        proc = subprocess.Popen(
+            AGENT_CMD + [cycle_prompt],
+            cwd=REPO, stdout=fh, stderr=subprocess.STDOUT, text=True,
+        )
+    log(f"cycle spawned pid={proc.pid} for: {label} (log: {out})")
+    return {"proc": proc, "runs": set(newly_finished), "out": out,
+            "t0": time.time(), "label": label}
+
+
+def reap_cycles(active: list[dict], processed: set[str]) -> tuple[list[dict], int, int]:
+    """Collect finished cycles. Returns (still_active, n_ok, n_failed).
+
+    Successful cycles mark their runs processed; failed cycles leave them
+    unmarked so a later cycle can retry (ledger dedupe prevents double
+    verdicts for anything the failed cycle did complete)."""
+    still, n_ok, n_failed = [], 0, 0
+    for c in active:
+        rc = c["proc"].poll()
+        if rc is None:
+            if time.time() - c["t0"] > CYCLE_TIMEOUT_S:
+                c["proc"].kill()
+                log(f"cycle {c['label']} exceeded {CYCLE_TIMEOUT_S}s; killed")
+                n_failed += 1
+            else:
+                still.append(c)
+            continue
+        try:
+            tail = c["out"].read_text()[-2000:]
+        except OSError:
+            tail = "(cycle log unreadable)"
+        log(f"cycle {c['label']} done rc={rc}; tail:\n{tail}")
+        if rc == 0:
+            processed |= c["runs"]
+            n_ok += 1
+        else:
+            n_failed += 1
+    return still, n_ok, n_failed
 
 
 def main() -> None:
     cycle_times: list[float] = []
     failed_cycles = 0
     idle_polls = 0
+    active: list[dict] = []
     log("watcher started")
     threading.Thread(target=checkup_worker, daemon=True).start()
     while True:
         try:
+            processed = load_processed()
+            if processed is not None:
+                active, n_ok, n_failed = reap_cycles(active, processed)
+                if n_ok:
+                    save_processed(processed)
+                    failed_cycles = 0
+                    idle_polls = 0
+                elif n_failed:
+                    failed_cycles += n_failed
+
             if PAUSE.exists():
                 log("PAUSE present; idling")
                 time.sleep(POLL_S)
@@ -270,7 +334,6 @@ def main() -> None:
                 continue
 
             running, finished = runs_by_state()
-            processed = load_processed()
             if processed is None:
                 # First start: don't reprocess pre-existing history.
                 save_processed(finished)
@@ -278,17 +341,22 @@ def main() -> None:
                 time.sleep(POLL_S)
                 continue
 
-            newly = finished - processed - ledger_verdicted()
+            # Runs a live cycle is already handling must not fire a second one.
+            in_flight: set[str] = set()
+            for c in active:
+                in_flight |= c["runs"]
+            newly = finished - processed - ledger_verdicted() - in_flight
             try:
                 findings = FINDINGS.read_text().strip() if FINDINGS.exists() else ""
             except OSError:
                 findings = ""
+
             if not newly and not findings:
-                if running:
+                if running or active:
                     idle_polls = 0
                     log(
-                        f"{len(running)} running: {', '.join(sorted(running))}; "
-                        "nothing new finished"
+                        f"{len(running)} training, {len(active)} cycle(s) "
+                        f"active; nothing new finished"
                     )
                     time.sleep(POLL_S)
                     continue
@@ -304,8 +372,16 @@ def main() -> None:
             else:
                 idle_polls = 0
                 if findings:
-                    log("checkup findings pending — injecting into this cycle")
+                    log("checkup findings pending — injecting into next cycle")
 
+            if len(active) >= MAX_CONCURRENT_CYCLES:
+                log(
+                    f"{len(active)} cycles already active (cap "
+                    f"{MAX_CONCURRENT_CYCLES}); waiting to handle: "
+                    f"{', '.join(sorted(newly)) or 'findings/kick'}"
+                )
+                time.sleep(POLL_S)
+                continue
             now = time.time()
             cycle_times = [t for t in cycle_times if now - t < 86400]
             if len(cycle_times) >= MAX_CYCLES_PER_DAY:
@@ -322,13 +398,8 @@ def main() -> None:
             if findings:
                 # Delivered once; the full text also lives in orchestrator.log.
                 FINDINGS.write_text("")
-            if agent_cycle(newly, running, findings):
-                processed |= newly
-                save_processed(processed)
-                failed_cycles = 0
-                idle_polls = 0
-            else:
-                failed_cycles += 1
+            active.append(spawn_cycle(newly, running, findings, in_flight))
+            time.sleep(POLL_S)
         except KeyboardInterrupt:
             raise
         except Exception as e:  # survive transient W&B/network errors
