@@ -27,6 +27,9 @@ LOG = pathlib.Path("/workspace/orchestrator.log")
 POLL_S = 300
 MAX_CYCLES_PER_DAY = 8          # keep in sync with guardrails.yaml
 BACKOFF_AFTER_IDLE_CYCLES = 2   # cycles that launched nothing -> long sleep
+# Fable 5 via the user's own Anthropic key (BYOK) — bills to Anthropic
+# directly and bypasses Cursor plan usage limits.
+AGENT_MODEL = "claude-fable-5"
 
 WANDB_PROJECT = "l2k2/hexapod-balance"
 
@@ -53,7 +56,8 @@ def agent_cycle() -> bool:
     before = set(running_runs())
     log("starting agent cycle")
     proc = subprocess.run(
-        ["cursor-agent", "-p", PROMPT, "--force", "--output-format", "text"],
+        ["cursor-agent", "-p", PROMPT, "--force", "--output-format", "text",
+         "--model", AGENT_MODEL],
         cwd=REPO,
         capture_output=True,
         text=True,
