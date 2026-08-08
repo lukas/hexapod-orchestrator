@@ -26,14 +26,15 @@ levers refuted — stop iterating penalty coefficients.**
   widening (→0.08, →0.07), 3× progress reward, all-modes
   k_flag_leg=5.0 (rise/raise collapsed), walk-only k_flag_leg
   (`cw-walk-flagw` + twin, both 0/6 gait-valid — flag penalty DEAD),
-  and **speed pressure (`cw-walk-speedhi` 08-08): commands 0.10–0.15
-  did NOT force stepping — speed stuck at ~0.033 m/s, vel_err
-  0.08–0.11, leg 3 parked 12/12, a second leg flagged. Curriculum
-  frontier stays slow→fast.** Also: **walk-line `lower` is 0/6 in the
-  whole lineage incl. champion dr04b** (first measured cycle 11) —
-  interference erosion covers rise AND lower; lower stays a walk-line
-  eval tripwire; end-state policy comes from the stance line or a
-  merge.
+  speed pressure (`cw-walk-speedhi`: 0.10–0.15 commands, speed stuck
+  ~0.033, two flag legs — frontier stays slow→fast), and **LP bucket
+  reweighting (`cw-walk-lp-s1b` cycle 11b: wide sto vel_err 0.059,
+  speed pinned ~0.03 at every command, tripod tower; LP line CLOSED —
+  no bucket above the shuffle ceiling ever improves).** Also:
+  **walk-line `lower` is 0/6 in the whole lineage incl. champion
+  dr04b** (first measured cycle 11) — interference erosion covers rise
+  AND lower; lower stays a walk-line eval tripwire; end-state policy
+  comes from the stance line or a merge.
 - **Raise: DEMOTED TO CANARY (08-08).** Stuck 2–5/6 in every lineage;
   `cw-stance-raisemix` (2× raise samples) refuted the mix hypothesis
   (3/6 det, 4/6 sto). Classification: all failures = near-miss
@@ -186,19 +187,19 @@ hold → lower → rise → walk. Every session logs sim↔real divergence
 
 ## Queue (in flight → next; ordering per external review §1)
 
-In flight: `cw-walk-aac` + `cw-walk-aac-s1b` (asym AC — review item
-1; judge vs the called nv 8M baseline), `cw-walk-lp` + `cw-walk-lp-s1b`
-(LP speed curriculum), `cw-walk-phase` (alternating-tripod phase
-reward, launched cycle 11 on long5m, warm from dr04b via obs-pad
-transplant).
+In flight: `cw-walk-aac-s1c` (asym AC continuation → 8M fixed-budget
+comparison vs the called nv baseline; at 4M tracking tied, rise
+retention 11/12 vs 3/12), `cw-walk-phase` (phase reward, warm arm, DR
+0.4), `cw-walk-phase-stance` (basin-escape arm: stance-champion init
+via obs-pad transplant, DR 0.2 → anneal per operator addendum).
 
-1. Eval aac/aac-s1b and lp/lp-s1b as they finish (gait-validity gate;
-   lower now in walk-line eval modes as a tripwire).
-2. Temporal deployable actor (frame stack vs GRU) on the best of
-   `aac`/nv-8M-baseline — next architecture step after (1).
-3. If `cw-walk-phase` produces real stepping: consolidate, then
-   combine with the aac actor (transplant order: phase obs shifts the
-   privileged dims — not co-launchable with --asym-critic yet).
+1. Eval aac-s1c at 8M and the two phase arms as they finish
+   (gait-validity gate; lower in walk-line eval modes as a tripwire).
+2. Temporal deployable actor (frame stack vs GRU) on the 8M winner of
+   aac-s1c/nv-baseline — next architecture step after (1).
+3. If a phase arm produces real stepping: consolidate, anneal DR if
+   the stance arm won, then combine with the asym actor (phase obs
+   shifts privileged_idx — not co-launchable with --asym-critic yet).
 4. Contact-from-proprioception auxiliary head, after (2). Dense
    step-decomposition and model-size sweep stay last.
 
