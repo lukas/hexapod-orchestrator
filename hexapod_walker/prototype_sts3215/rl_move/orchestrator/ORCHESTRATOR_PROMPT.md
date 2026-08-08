@@ -46,8 +46,15 @@ Context to read before deciding anything:
    episodes/mode, deterministic AND stochastic, at the run's own DR scale,
    with any `--cfg-set` overrides it trained with) **with video enabled**.
    Then actually LOOK at the motion: read the PNG frame strips the harness
-   saves next to each video (they are images — view them) for at least the
-   headline modes of that run (walk and rise always; others as relevant).
+   saves next to each video (they are images — view them) for **EVERY mode
+   whose scalar appears in your verdict — passing modes especially.** A
+   success you have not watched is unverified; record it as
+   "N/6 (unwatched)" and it cannot support a PASS. Failures announce
+   themselves; exploits hide inside passes — the operator found a leg
+   pointed at the ceiling inside a 12/12 lower that no one was required
+   to watch (2026-08-08). One det strip per mode minimum, both det and
+   sto for the mode being gated. This costs minutes; a blessed exploit
+   costs days.
 
    **Be brutally honest — the operator has flagged that past log entries
    were far too positive about motion that looks insane.** Your default
@@ -209,6 +216,18 @@ motion. Concretely:
   penalty patches — and before adding any reward for a behavior the sim
   makes cheap, first ask whether the sim is mispricing it (e.g. static
   holds costing no current) and fix the price instead.
+- **Root cause is a required artifact, not a virtue.** Before ANY reward
+  term, coefficient change, or curriculum trick, write a causal chain in
+  the log: behavior ← incentive that pays for it ← pricing/observability
+  that creates the incentive ← sim-fidelity or objective defect at the
+  root. Then fix the DEEPEST link you can reach; a reward patch is the
+  last resort and requires one sentence on why the deeper links are
+  inaccessible. Canon from this campaign: flag legs ← static holds
+  underpriced by the dead-zone current model (sim defect, not a missing
+  penalty); "twin variance" ← a seeding bug, not run stochasticity;
+  "truncated W&B videos" ← file collision, not policy behavior. In every
+  case the patch would have been wasted compute and the root was
+  reachable in under a day.
 
 ## Judgment notes
 

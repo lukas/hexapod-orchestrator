@@ -89,10 +89,17 @@ evaluation:
   episodes_per_mode: 6
   passes: [deterministic, stochastic]
   eval_at_own_dr: true
-  # Videos are mandatory: render eval videos and visually inspect the PNG
-  # frame strips for at least walk + rise before any verdict or launch.
-  # RL_LOG.md entries must describe what the motion looked like.
+  # Videos are mandatory: visually inspect a frame strip for EVERY mode
+  # whose scalar appears in a verdict — passing modes especially (exploits
+  # hide in passes; a flagged leg shipped inside a 12/12 lower on
+  # 2026-08-08). An unwatched success is recorded "N/6 (unwatched)" and
+  # cannot support a PASS. RL_LOG.md entries must describe the motion.
   require_video_review: true
+  watched_modes: all_verdict_modes
+  # Root-cause chain (behavior <- incentive <- pricing <- sim/objective
+  # defect) is required in the log before any reward/coefficient change;
+  # reward patches are last resort with stated justification.
+  require_root_cause_chain: true
   # Operator directive 2026-08-08: log entries were too positive about
   # visibly broken motion. Video verdicts must lead with pathologies
   # (flag legs, tripods, dragging, jitter, lurching) and include an
