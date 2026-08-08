@@ -132,9 +132,9 @@ hold → lower → rise → walk. Every session logs sim↔real divergence
 
 ## Compute
 
-- 4 pods × 128 cores. One 48-env run saturates ~50–60 cores → **two
-  48-env runs per pod** at near-full speed (guardrails:
-  max_runs_per_pod 2, per-run log `/tmp/train_<run>.log`).
+- 6 pods × 128 cores (12 slots; cap 10 experiments, 2 slots reserved
+  for smokes). One 48-env run saturates ~50–60 cores → **two 48-env
+  runs per pod** (guardrails: per-run log `/tmp/train_<run>.log`).
 - Keep `--eval-every`/`--video-every` ≥200k; periodic eval/video now
   runs in a background worker process (validated 08-08, ~free).
 - Pods answer architecture-level questions, not micro reward tweaks;
@@ -142,16 +142,15 @@ hold → lower → rise → walk. Every session logs sim↔real divergence
 
 ## Queue (in flight → next)
 
-In flight: `cw-walk-flagw` + seed twin (walk-only flag routing, gate
-= tracking AND no-flag-leg video AND rise retention), `cw-walk-nv2`
+In flight: `cw-walk-flagw`/-s1 (walk-only flag routing, gate =
+tracking AND no-flag-leg video AND rise retention), `cw-walk-nv2`
 (baseline continuation → 8M), `cw-stance-raisemix` (raise-heavy mix
-on the DR 1.0 stance champion).
+on the DR 1.0 stance champion), `cw-walk-lp`/-s1 (queue item 1,
+launched 08-08), `cw-walk-aac`/-s1 (queue item 2, launched 08-08).
 
-1. Learning-progress speed curriculum on the walk champion.
-2. Asymmetric actor–critic; must beat the nv baseline at 8M.
-3. Temporal deployable actor (frame stack vs GRU) on the better of
-   (2)/`nv`.
-4. Lower end-posture: routed flag term on the stance line once the
+1. Temporal deployable actor (frame stack vs GRU) on the best of
+   `aac`/`nv` once both report.
+2. Lower end-posture: routed flag term on the stance line once the
    walk run proves it.
 
 ## Done =
