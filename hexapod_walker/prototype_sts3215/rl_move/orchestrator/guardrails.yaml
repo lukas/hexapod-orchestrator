@@ -20,9 +20,19 @@ compute:
   # slow, rebalancing (kill + relaunch from its own last checkpoint on a
   # freed big pod) is allowed and should be logged.
   max_runs_per_pod: 2
-  # Effective full-speed slots = the four 56-core pods. Cap experiments
-  # so smoke/eval capacity always remains on friction/lower.
-  max_concurrent_runs: 8
+  # NODE TOPOLOGY (operator, 08-08 evening): the six pods sit on TWO
+  # ~128-core physical nodes and the kernel schedules host-wide — pod
+  # cgroup limits do NOT protect you from a busy neighbor pod. Running
+  # 8 experiments "within pod limits" starved every one of them 4-5x,
+  # made them all finish in a clump, and idled the fleet during the
+  # verdict cycle. The launcher now reads live pod->node placement and
+  # REFUSES a non-smoke launch when the target node already hosts
+  # max_heavy_per_node trainers. Do not bypass with --allow-slow
+  # unless the ledger records why.
+  max_heavy_per_node: 2
+  # 2 heavy per node x 2 nodes = the real experiment budget. Smokes
+  # (<=1M steps, W&B-disabled) don't count against it.
+  max_concurrent_runs: 4
   reserved_smoke_slots: 2
   max_steps_per_run: 6000000
   max_decision_cycles_per_day: 12  # watcher enforces; agent should not try to exceed

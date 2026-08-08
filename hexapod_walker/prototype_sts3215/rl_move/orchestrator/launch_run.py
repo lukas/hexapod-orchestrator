@@ -65,6 +65,12 @@ def pod_cpu_limit(pod: str) -> int:
     return int(out.strip().rstrip("m") or 0)
 
 
+def pod_node(pod: str) -> str:
+    """Physical node hosting the pod (live — pods can be rescheduled)."""
+    return sh(["kubectl", "--kubeconfig", KUBECONFIG, "get", "pod", pod,
+               "-o", "jsonpath={.spec.nodeName}"]).strip()
+
+
 def pod_trainers(pod: str) -> list[str]:
     """Names (--run-name values) of main trainer processes on the pod.
 
@@ -131,19 +137,26 @@ def cmd_status(g: dict) -> int:
         running = wandb_running_runs()
     except Exception as e:  # W&B down should not hide pod state
         print(f"(W&B query failed: {e})")
-    print(f"{'POD':22s} {'CPU':>4s} {'FREE':>5s}  TRAINERS (wandb global_step)")
+    print(f"{'POD':22s} {'NODE':8s} {'CPU':>4s} {'FREE':>5s}  "
+          "TRAINERS (wandb global_step)")
+    node_counts: dict[str, int] = {}
     for pod in g["compute"]["pods"]:
         try:
             limit = pod_cpu_limit(pod)
             trainers = pod_trainers(pod)
+            node = pod_node(pod)
         except subprocess.CalledProcessError as e:
             print(f"{pod:22s}  unreachable: {e}")
             continue
+        node_counts[node] = node_counts.get(node, 0) + len(trainers)
         free = limit - CORES_PER_RUN * len(trainers)
         desc = ", ".join(
             f"{t}@{running.get(t, {}).get('global_step', '?')}"
             for t in trainers) or "-"
-        print(f"{pod:22s} {limit:4d} {max(free, 0):5d}  {desc}")
+        print(f"{pod:22s} {node:8s} {limit:4d} {max(free, 0):5d}  {desc}")
+    cap = g["compute"].get("max_heavy_per_node", 2)
+    for node, n in sorted(node_counts.items()):
+        print(f"node {node}: {n} trainer(s) / cap {cap}")
     return 0
 
 
@@ -216,6 +229,30 @@ def cmd_launch(g: dict, a: argparse.Namespace, extra: list[str]) -> int:
                              "record why.")
     if free < need:
         checks["allow_slow_override"] = True
+
+    # --- node-level co-tenancy check (08-08 evening: pod cgroup limits do
+    # NOT protect against neighbor pods on the same ~128-core node; 8
+    # "within-limits" experiments starved each other 4-5x and finished in
+    # a clump). Applies to experiments only; smokes are short and small.
+    if not a.smoke:
+        node = pod_node(a.pod)
+        node_trainers: list[str] = []
+        for pod in comp["pods"]:
+            try:
+                if pod_node(pod) == node:
+                    node_trainers.extend(pod_trainers(pod))
+            except subprocess.CalledProcessError:
+                pass
+        cap = comp.get("max_heavy_per_node", 2)
+        checks["node"] = node
+        checks["node_trainers"] = node_trainers
+        if len(node_trainers) >= cap and not a.allow_slow:
+            return refuse(entry, f"node {node} already runs "
+                                 f"{len(node_trainers)} trainer(s) "
+                                 f"({', '.join(node_trainers)}); cap "
+                                 f"{cap}/node. Pod limits lie — the node "
+                                 "is the real budget. Pick a pod on the "
+                                 "other node or wait.")
 
     # --- duplicate + concurrency checks -------------------------------------
     for pod in comp["pods"]:

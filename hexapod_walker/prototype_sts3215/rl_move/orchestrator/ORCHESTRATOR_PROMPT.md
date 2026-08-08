@@ -142,7 +142,16 @@ Context to read before deciding anything:
    walk, 30 on friction/lower — `nproc` lies), refuses placements that
    would starve runs, blocks duplicate names, enforces the concurrency
    cap and step budget, writes the INTENT→RUNNING ledger entry, and
-   verifies process/log/W&B advancement before reporting success. Its
+   verifies process/log/W&B advancement before reporting success.
+   **The real budget is the NODE, not the pod** (operator, 08-08
+   evening): the six pods share two ~128-core nodes and pod cgroup
+   limits don't protect against neighbor pods — 8 "within-limits"
+   experiments starved each other 4-5x and finished in a clump that
+   idled the fleet during one long verdict cycle. The launcher now
+   refuses a third experiment on a node (`max_heavy_per_node: 2`,
+   experiment cap 4 total). Prefer STAGGERED launches: 4 runs that
+   finish hours apart keep verdict cycles small and pods busy; do not
+   engineer simultaneous finishes. Its
    exit code is the truth: nonzero means NOT launched, whatever you
    remember doing. Smokes use `--smoke` with a non-cw name. W&B notes
    must contain: hypothesis, parent run/checkpoint, exact gate, and the
