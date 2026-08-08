@@ -22,8 +22,12 @@ hexapod — walking above all. History: `RL_LOG.md`,
   cycling contact/swing. Both manual range widenings (→0.08, →0.07)
   regressed; tripled progress reward did nothing.
 - **Raise:** stuck 2–5/6 in every lineage. Undiagnosed.
-- Warm-start "seed twins" before 08-08 were bit-identical clones
-  (PPO.load re-seeded from ancestor; fixed via set_random_seed).
+- Warm-start "seed twins" up TO AND INCLUDING cw-walk-w07/-s1 were
+  bit-identical clones (verified: 0.0 weight diff; the interim
+  `model.seed=` fix was cosmetic). Fixed via set_random_seed;
+  cw-walk-flag/-s1 verified genuinely divergent. Discard all earlier
+  "twin variance / best-of-2" conclusions; their eval spread (e.g.
+  vel_err 0.026 vs 0.043, same policy) calibrates 2-episode eval noise.
 - MuJoCo 3.11 shifted current readings (quiet-hold peak 2.46→2.60 A,
   right at the 2.5 A breaker). Re-validate torque→current calibration
   before trusting any current gate for hardware.
