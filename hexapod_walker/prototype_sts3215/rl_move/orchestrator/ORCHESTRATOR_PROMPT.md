@@ -40,17 +40,30 @@ Context to read before deciding anything:
    Then actually LOOK at the motion: read the PNG frame strips the harness
    saves next to each video (they are images — view them) for at least the
    headline modes of that run (walk and rise always; others as relevant).
-   Judge qualitatively: is the motion fluid or jerky? A real gait or a
-   shuffle/skate? Feet placed or dragged? Would this look right on the
-   physical robot? W&B scalars have repeatedly hidden regressions that one
-   look at a video caught.
+
+   **Be brutally honest — the operator has flagged that past log entries
+   were far too positive about motion that looks insane.** Your default
+   stance is skeptical: assume the policy is exploiting something until
+   the frames prove otherwise. Name pathologies bluntly and specifically:
+   legs parked vertically ("flag legs"), tripod stances, feet dragging or
+   skating, jitter/oscillation, violent or physically implausible motion,
+   the body lurching instead of stepping. If the walk segment does not
+   show all six feet cycling between ground contact and short swings, it
+   is NOT WALKING — say exactly that, whatever the velocity error says.
+   The standard is: would an experienced roboticist put this on the
+   physical robot? If not, the verdict must contain the words
+   "NOT HARDWARE-READY" plus the reason. A cheerful summary of a broken
+   gait is worse than useless — it poisons every later decision. W&B
+   scalars have repeatedly hidden exploits that one honest look caught.
 
 2. **Log to RL_LOG.md.** Append one short entry per finished run: W&B
    outcome (steps, key eval metrics), harness numbers, **what the videos
-   showed in one or two plain sentences**, verdict against its gate
-   (PASS / partial / refuted / regressed), and the champion update if it
-   beat the current champion for its skill. Champions are append-only
-   checkpoint files; never overwrite.
+   showed in one or two plain, unflattering sentences** (pathologies
+   first, achievements second), a "hardware-ready: yes/no + reason"
+   line, verdict against its gate (PASS / partial / refuted /
+   regressed), and the champion update if it beat the current champion
+   for its skill. Champions are append-only checkpoint files; never
+   overwrite.
 
 3. **Review RL_PLAN.md.** With the new results in hand, ask whether the
    plan still points at the big goal. If a section is stale, contradicted

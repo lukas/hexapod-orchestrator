@@ -43,6 +43,12 @@ evaluation:
   # frame strips for at least walk + rise before any verdict or launch.
   # RL_LOG.md entries must describe what the motion looked like.
   require_video_review: true
+  # Operator directive 2026-08-08: log entries were too positive about
+  # visibly broken motion. Video verdicts must lead with pathologies
+  # (flag legs, tripods, dragging, jitter, lurching) and include an
+  # explicit "hardware-ready: yes/no" judgment. Scalar gates NEVER
+  # override a bad video. Optimistic gloss is a guardrail violation.
+  video_verdict_blunt: true
 
 plan:
   # Each cycle reviews RL_PLAN.md against the big goal (fluid real-world

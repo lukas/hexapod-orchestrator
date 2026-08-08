@@ -14,10 +14,13 @@ hexapod — walking above all. History: `RL_LOG.md`,
   `cw-stance-dr10`). Frozen. Don't mutate; flag any eval where
   rise/lower drops below 5/6; never warm-start stand work from an
   eroded checkpoint.
-- **Walk:** tracks 0.02–0.06 m/s at DR 0.4 (`cw-walk-dr04b`, sto 4/6
-  @ vel_err 0.028) but whole lineage has a **vertical flag leg**
-  (5-leg shuffle) that scalars missed. Both manual range widenings
-  (→0.08, →0.07) regressed; tripled progress reward did nothing.
+- **Walk: scalars pass, motion is BAD.** Tracks 0.02–0.06 m/s at
+  DR 0.4 (`cw-walk-dr04b`, sto 4/6 @ vel_err 0.028) but videos show a
+  shuffling 3–5-leg exploit with legs parked vertically — nothing
+  like a gait that could transfer, even with perfect dynamics. Treat
+  the lineage as NOT HARDWARE-READY until videos show all six feet
+  cycling contact/swing. Both manual range widenings (→0.08, →0.07)
+  regressed; tripled progress reward did nothing.
 - **Raise:** stuck 2–5/6 in every lineage. Undiagnosed.
 - Warm-start "seed twins" before 08-08 were bit-identical clones
   (PPO.load re-seeded from ancestor; fixed via set_random_seed).
@@ -46,7 +49,9 @@ hexapod — walking above all. History: `RL_LOG.md`,
   (`eval_checkpoint.py`: same env/wrappers/reset as training eval,
   video + telemetry overlays). Scalars have repeatedly hidden
   exploits (flag leg, shuffle, lucky crouch draws). If a checkpoint
-  scores well but looks wrong, the metric is the bug.
+  scores well but looks wrong, the metric is the bug. Video verdicts
+  are written pathology-first with an explicit hardware-ready yes/no;
+  operator finding 2026-08-08: past summaries oversold broken motion.
 - ≥20 episodes for gate decisions (2-episode evals are binomial
   noise). Split all rise/lower stats by start kind. Eval at DR 0 and
   the run's own DR.
