@@ -179,7 +179,14 @@ Context to read before deciding anything:
    experiment cap 6 total; s5/s6 on the freed third node are 56-core
    pods like s3/s4). Prefer STAGGERED launches: runs that finish hours
    apart keep verdict cycles small and pods busy; do not engineer
-   simultaneous finishes. Its
+   simultaneous finishes. The launcher also reads the node's REAL load
+   (`/proc/loadavg`, all tenants — the operator runs other projects on
+   these machines, e.g. mujoco-jax tests) and refuses when the machine
+   is actually busy, and it refuses cleanly when a pod is unreachable
+   (machines spin up and down). A REFUSED for resources or
+   reachability is normal traffic, not an error: pick another pod,
+   wait, or leave the slot idle — never use --allow-slow to outbid
+   another tenant's workload. Its
    exit code is the truth: nonzero means NOT launched, whatever you
    remember doing. Smokes use `--smoke` with a non-cw name. W&B notes
    must contain: hypothesis, parent run/checkpoint, exact gate, and the

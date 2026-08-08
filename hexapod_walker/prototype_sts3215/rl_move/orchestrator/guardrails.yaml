@@ -37,6 +37,15 @@ compute:
   # 2 heavy per node x 3 nodes = the real experiment budget. Smokes
   # (<=1M steps, W&B-disabled) don't count against it.
   max_concurrent_runs: 6
+  # HOST-LOAD GATE (operator, 08-08 evening): the nodes are SHARED with
+  # other projects (e.g. mujoco-jax tests) and machines spin up/down.
+  # Trainer counts only see our runs, so the launcher additionally reads
+  # /proc/loadavg (host-wide, all tenants) from the target pod and
+  # refuses a full run when fewer than ~55 host cores are actually free
+  # (smokes need ~8). An unreachable pod is a clean REFUSED, never a
+  # crash. A refusal for resources is normal traffic: pick another pod,
+  # wait, or leave the slot idle — do not reach for --allow-slow to
+  # outbid another tenant.
   reserved_smoke_slots: 2
   max_steps_per_run: 6000000
   max_decision_cycles_per_day: 12  # watcher enforces; agent should not try to exceed

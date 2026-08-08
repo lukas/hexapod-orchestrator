@@ -78,6 +78,20 @@ def pod_node(pod: str) -> str:
                "-o", "jsonpath={.spec.nodeName}"]).strip()
 
 
+def node_host_load(pod: str) -> dict:
+    """Host-wide load and core count as seen from `pod`.
+
+    /proc/loadavg and nproc are NOT cgroup-scoped: they see the whole
+    ~128-core node, including OTHER tenants' pods (the operator runs
+    other projects on these machines, e.g. mujoco-jax tests). The
+    trainer-count checks elsewhere only see our own runs; this is the
+    check that notices someone else actually using the machine.
+    """
+    out = kexec(pod, "cat /proc/loadavg && nproc").split()
+    return {"load1": float(out[0]), "load5": float(out[1]),
+            "cores": int(out[-1])}
+
+
 def pod_trainers(pod: str) -> list[str]:
     """Names (--run-name values) of main trainer processes on the pod.
 
@@ -183,15 +197,21 @@ def cmd_status(g: dict) -> int:
     print(f"{'POD':22s} {'NODE':8s} {'CPU':>4s} {'FREE':>5s}  "
           "TRAINERS (wandb global_step)")
     node_counts: dict[str, int] = {}
+    node_loads: dict[str, dict | None] = {}
     for pod in g["compute"]["pods"]:
         try:
             limit = pod_cpu_limit(pod)
             trainers = pod_trainers(pod)
             node = pod_node(pod)
-        except subprocess.CalledProcessError as e:
-            print(f"{pod:22s}  unreachable: {e}")
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
+            print(f"{pod:22s}  unreachable (node may have spun down): {e}")
             continue
         node_counts[node] = node_counts.get(node, 0) + len(trainers)
+        if node not in node_loads:
+            try:
+                node_loads[node] = node_host_load(pod)
+            except Exception:
+                node_loads[node] = None
         free = limit - CORES_PER_RUN * len(trainers)
         desc = ", ".join(
             f"{t}@{running.get(t, {}).get('global_step', '?')}"
@@ -199,7 +219,10 @@ def cmd_status(g: dict) -> int:
         print(f"{pod:22s} {node:8s} {limit:4d} {max(free, 0):5d}  {desc}")
     cap = g["compute"].get("max_heavy_per_node", 2)
     for node, n in sorted(node_counts.items()):
-        print(f"node {node}: {n} trainer(s) / cap {cap}")
+        hl = node_loads.get(node)
+        load = (f"host load1 {hl['load1']:.1f} / {hl['cores']} cores "
+                "(ALL tenants)" if hl else "host load unknown")
+        print(f"node {node}: {n} trainer(s) / cap {cap} | {load}")
     return 0
 
 
@@ -267,8 +290,14 @@ def _launch_locked(g: dict, a: argparse.Namespace, extra: list[str]) -> int:
         entry["extra_args"] = extra
 
     # --- live capacity checks (never trust remembered facts) ---------------
-    limit = pod_cpu_limit(a.pod)
-    trainers = pod_trainers(a.pod)
+    # Machines spin up and down; an unreachable pod is a REFUSAL (pick
+    # another pod / escalate), never a traceback.
+    try:
+        limit = pod_cpu_limit(a.pod)
+        trainers = pod_trainers(a.pod)
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
+        return refuse(entry, f"{a.pod} unreachable during live checks "
+                             f"(node may have spun down): {e}")
     free = limit - CORES_PER_RUN * len(trainers)
     checks["cpu_limit"] = limit
     checks["existing_trainers"] = trainers
@@ -288,13 +317,17 @@ def _launch_locked(g: dict, a: argparse.Namespace, extra: list[str]) -> int:
     # "within-limits" experiments starved each other 4-5x and finished in
     # a clump). Applies to experiments only; smokes are short and small.
     if not a.smoke:
-        node = pod_node(a.pod)
+        try:
+            node = pod_node(a.pod)
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
+            return refuse(entry, f"{a.pod} unreachable while resolving its "
+                                 f"node (node may have spun down): {e}")
         node_trainers: list[str] = []
         for pod in comp["pods"]:
             try:
                 if pod_node(pod) == node:
                     node_trainers.extend(pod_trainers(pod))
-            except subprocess.CalledProcessError:
+            except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
                 pass
         cap = comp.get("max_heavy_per_node", 2)
         checks["node"] = node
@@ -306,6 +339,30 @@ def _launch_locked(g: dict, a: argparse.Namespace, extra: list[str]) -> int:
                                  f"{cap}/node. Pod limits lie — the node "
                                  "is the real budget. Pick a pod on the "
                                  "other node or wait.")
+
+    # --- host-load check: the nodes are SHARED with other projects --------
+    # The trainer counts above only see OUR runs; /proc/loadavg (host-wide,
+    # not cgroup-scoped) sees every tenant — e.g. the operator's mujoco-jax
+    # tests. Gate on what the machine is ACTUALLY doing right now.
+    try:
+        hl = node_host_load(a.pod)
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired,
+            ValueError, IndexError) as e:
+        return refuse(entry, f"cannot read host load via {a.pod} "
+                             f"(node may have spun down): {e}")
+    checks["host_load"] = hl
+    host_free = hl["cores"] - hl["load1"]
+    need_host = MIN_FREE_SMOKE if a.smoke else CORES_PER_RUN
+    if host_free < need_host and not a.allow_slow:
+        return refuse(entry, f"node hosting {a.pod} has only "
+                             f"~{host_free:.0f} of {hl['cores']} cores "
+                             f"actually free (load1 {hl['load1']:.1f}, "
+                             f"load5 {hl['load5']:.1f} — includes OTHER "
+                             f"projects' workloads, not just our runs); "
+                             f"a {'smoke' if a.smoke else 'full run'} needs "
+                             f"~{need_host}. Pick another pod, wait for the "
+                             "node to free up, or pass --allow-slow and "
+                             "record why.")
 
     # --- duplicate + concurrency checks -------------------------------------
     for pod in comp["pods"]:
