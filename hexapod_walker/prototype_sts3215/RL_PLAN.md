@@ -188,6 +188,28 @@ In flight: `cw-stance-posture` (stance champ + k_support_margin 0.3 +
 k_load_even 1.5 @ DR 1.0 — fix the lower/rise end-posture defect;
 probe-smoked first).
 
+0. **OPERATOR-DIRECTED (binding, 08-08 ~23:00Z): the embarrassingly
+   narrow walk (suggested name `cw-walk-step0`).** Dedicate one
+   experiment slot to a walk-ONLY policy FROM SCRATCH at DR 0:
+   `joint_walk` with NO rise/lower/raise in the goal mix, no
+   curriculum sophistication, no asymmetric critic (add only if this
+   fails and the log argues why), zero multi-task retention concerns.
+   The reward must EXPLICITLY pay for a real step: per-leg credit for
+   a completed lift → forward swing → touchdown event, with dragging
+   (foot translating while loaded) and parking (per-leg contact duty
+   pinned near 0 or 1) explicitly unpaid or priced — i.e. the tripod
+   park must be worth less than stepping by construction, not by a
+   side effect. Audited exploration settings (std 1.0, ent_coef
+   0.005–0.01, target_kl 0.02). Step-event reward is a new mechanism:
+   probe smoke first per audit §6. GATE (deliberately narrow): from a
+   normal stance, move forward 10 cm with ALL SIX legs repeatedly
+   cycling lift/swing/touchdown — per-leg duty in ~[0.2, 0.9], ≥2
+   swings per leg, no drag, no parked leg — det AND sto, video
+   verdict pathology-first. This is a deliberate fresh-init exception
+   to the warm-start default and a new-baseline exception to
+   one-variable comparisons. Speed targets, DR, and multi-task merge
+   come only AFTER this gate passes.
+
 1. Temporal deployable actor (frame stack, env-side history): code
    LANDED cycle 13 (`obs.history_frames`, newest-first stack,
    transplant-compatible); probe then 4M from a stance-basin init.
