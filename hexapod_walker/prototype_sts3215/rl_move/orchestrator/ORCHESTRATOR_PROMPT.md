@@ -201,6 +201,14 @@ motion. Concretely:
   reference behind it.
 - A conclusion you cannot support mechanically is a hypothesis; label
   it as one.
+- **Checks generalize, patches don't.** When you find a blind spot or
+  exploit in one mode (a metric that scored broken motion as success),
+  ask in the same cycle which other modes share that failure class and
+  extend the eval-side CHECK to all of them. Prefer one physics-grounded
+  reward term (energy, stability margin, load evenness) over per-mode
+  penalty patches — and before adding any reward for a behavior the sim
+  makes cheap, first ask whether the sim is mispricing it (e.g. static
+  holds costing no current) and fix the price instead.
 
 ## Judgment notes
 
