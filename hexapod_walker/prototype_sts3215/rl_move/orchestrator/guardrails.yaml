@@ -51,6 +51,12 @@ experiments:
   # + W&B run/config + no duplicate + pod code at snapshot SHA. The agent
   # is never authoritative about operational state.
   require_mechanical_launch_verification: true
+  # ALL training launches (experiments AND smokes) go through
+  # rl_move/orchestrator/launch_run.py, which enforces live capacity
+  # checks, duplicate/concurrency gates, the ledger, and post-launch
+  # verification. Raw `kubectl exec ... nohup train_ppo_sim.py` is a
+  # guardrail violation. Use `launch_run.py status` before placing runs.
+  require_launcher: true
   # Warm-start from an existing champion unless the log records a reason
   # a fresh init is the hypothesis being tested.
   require_warm_start_default: true

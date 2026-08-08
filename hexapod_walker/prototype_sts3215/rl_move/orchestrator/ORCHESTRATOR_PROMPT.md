@@ -112,15 +112,24 @@ Context to read before deciding anything:
    everything (including your RL_LOG.md and RL_PLAN.md edits), tags
    `exp/<name>`, pushes, and prints the commit hash. Abort the cycle if
    the push fails (escalation rule). Sync code to each target pod
-   (`snapshot.sh --sync <pod>`), then start training with the established
-   pattern (`train_ppo_sim.py`, nohup, `--wandb`, warm start via
-   `--init-from`, distinct `--seed`). Each pod may host up to TWO
-   concurrent runs (guardrails `max_runs_per_pod`); log each run to its
-   own file `/tmp/train_<run-name>.log`, never a shared `/tmp/train.log`.
-   Respect `min_eval_every`/`min_video_every` — the old dense-eval
-   defaults burned ~65% of wall clock. W&B notes must contain:
-   hypothesis, parent run/checkpoint, exact gate, and the snapshot commit
-   hash. Append a launch entry per run to RL_LOG.md, commit and push.
+   (`snapshot.sh --sync <pod>`), then launch **only** through
+   `rl_move/orchestrator/launch_run.py` — never raw nohup/kubectl:
+
+       python3 launch_run.py status   # live per-pod cores + free capacity
+       python3 launch_run.py launch --pod <pod> --run <cw-name> \
+           --steps <N> --hypothesis "..." --gate "..." --parent <ckpt> \
+           -- --init-from <ckpt> --seed <n> [more train args]
+
+   It reads REAL pod CPU limits (they differ: 56 cores on s3/s4/long5m/
+   walk, 30 on friction/lower — `nproc` lies), refuses placements that
+   would starve runs, blocks duplicate names, enforces the concurrency
+   cap and step budget, writes the INTENT→RUNNING ledger entry, and
+   verifies process/log/W&B advancement before reporting success. Its
+   exit code is the truth: nonzero means NOT launched, whatever you
+   remember doing. Smokes use `--smoke` with a non-cw name. W&B notes
+   must contain: hypothesis, parent run/checkpoint, exact gate, and the
+   snapshot commit hash. Append a launch entry per run to RL_LOG.md,
+   commit and push.
 
 6. **Verify mechanically (two-phase commit).** You are never
    authoritative about operational state; only checked facts are. For
