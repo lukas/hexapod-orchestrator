@@ -15,6 +15,193 @@ the learning brief live in **Appendix A**. Related code:
 
 ## 0. Status log
 
+> **Forward plan now lives in [`RL_PLAN_NEXT.md`](RL_PLAN_NEXT.md)**
+> (2026-08-07): raw-joint main line, visual-first checkpoint
+> validation, stand↔belly robustness, gait gates for walk, and the
+> hardware candidate gate. This file remains the Phase-1 reference
+> and history.
+
+**2026-08-07 (raw-joint CoreWeave sweep: verdicts + stack upgrade):**
+four parallel runs on the 18-joint action space (`--task joint_goal` /
+`joint_walk`, obs 68/70+, no IK), all from scratch, all beat the
+zero-action baseline (rise 1/5). What we learned:
+
+- **The action space was the ceiling, full stop.** From-scratch raw
+  joints hit belly-rise 5/5 at 2M steps while the 6-dim body-IK lineage
+  sat at flat-rise 0% after ~1.9M cumulative steps and five warm-start
+  surgeries (`09-consolidate`). Same reward, same DR. For anything that
+  moves feet (rise, lower, walk), fixed-foot IK cannot express the
+  answer; for body-pose tasks (hold/lean/track) the two are equivalent
+  (hold ~0.4–0.6° both). IK's remaining role is a human/teleop
+  interface, not an RL action space. BC warm-starting from the IK
+  teacher was also NET NEGATIVE (bc2m rise 3/4 + one over-current vs
+  scratch 5/5): the teacher's anti-curl prior is a liability.
+- **Run verdicts** (final gates, 10/10 survived everywhere):
+  `cw-lower` rise 5/5 + lower 2/2 at every eval — stand↔flat round
+  trip solved; the flagship lineage. `cw-friction` rise 5/5 with geom
+  friction randomized 0.3–1.6× per episode (`--friction-range`) — the
+  rise does NOT depend on a lucky friction draw; best sim-to-real
+  evidence yet. `cw-long5m` rise 5/5 at dr 0.4, but raise precision
+  stayed ~1/2 at 5M — more steps alone don't crack the 5 mm bar.
+  `cw-walk` return +249 but locomotion plateaued at a ~0.04 m/s
+  shuffle vs 0.03–0.12 commands.
+- **Why walk stalled** (fixes live in `walk_task.py` v2, run
+  `cw-walk2`, 10M): (1) policy was OPEN-LOOP on velocity — scored on a
+  quantity it couldn't sense; v2 appends measured body-frame vx/vy to
+  obs (70→72). (2) The velocity kernel has ~no gradient from standing
+  to walking, so "stand and collect the level-body kernel" was a local
+  optimum; v2 adds a linear progress term (v projected on the command,
+  capped 1.25×, negative against it). (3) Walk mix 0.40→0.70.
+  Velocity obs is privileged: hardware needs an estimator or a
+  distilled no-velocity student (deferred, sim-first).
+- **Two artifacts found by driving the policy interactively**
+  (`view.py --task joint_goal`, one-key stand/descend on 7/8): (a) a
+  fixed 5 s rise hold taught a rigid curl choreography — command height
+  early and the policy fights the ramp until the 2.5 A/2 s breaker
+  trips; fix = `goal.rise_hold_min_s` (hold ~ U(0.5, 5) s) in the
+  `cw-lower-smooth` fine-tune. (b) "Ignores some legs, rides others
+  hot": new `reward.k_current_max` (quadratic on PEAK per-servo
+  current) pays full-leg recruitment — sum-square current can't tell 18
+  motors at 0.6 A from 3 at 2.4 A. Both are `--cfg-set` overrides (new
+  flag; dotted config keys per run, shared defaults untouched).
+- **Stack upgraded: MuJoCo 2.3.7 → 3.11.0** (laptop venv rebuilt on
+  py3.14 — old 3.9 venv kept at `.venv-py39-bak`; pods pip-upgraded in
+  place, pins in `coreweave_pod_setup.sh`; pods hold numpy 2.4.6/scipy
+  1.17.1 — py3.11 image caps them; mujoco version is what must match).
+  A/B on the cw-lower checkpoint, 12 fixed-seed episodes: every skill
+  transfers (12/12 ok both), but physics drifts ~2 mm mean height
+  (12 mm peak), quiet-hold currents read ~0.1 A hotter (2.46→2.60 A
+  peak, i.e. AT the 2.5 A breaker) — current calibration should be
+  re-validated before trusting safety-trip stats. Fine-tunes riding
+  across the drift (cw-lower-smooth-mj3) treat it as free DR.
+- **MuJoCo viewer gotcha:** every letter key is a built-in vis/rnd
+  toggle (D hides the floor, S shadows, U actuator arrows) — custom
+  viewer bindings must live on digits/punctuation.
+- In flight: `cw-walk2` (locomotion v2, 10M) and `cw-lower-smooth-mj3`
+  (max-amp + hold-jitter fine-tune of cw-lower, 2M), both on the new
+  stack. Checkpoints for all finished runs live in
+  `rl_move/sim/policies/ppo_goal_cw_*.zip`.
+
+**2026-08-07 (warm-200k verdict + curl curriculum):** the +200k
+warm-start PASSED almost everywhere: return +160 vs +65 zero-action,
+10/10 survived, raise canary solved, hold fidget annealed 1.10°→0.53°,
+and crouch-rise went 6/6. The one hole: **zero-pose (belly) rise is
+0/6** — the final eval's "rise 4/4" was luck (all four draws were
+crouch starts; always split rise metrics by start pose). Diagnosis:
+the curl phase changes no height, so no height term pays it — the one
+step that makes standing possible had zero reward gradient, and the
+warm-started policy's curl-channel exploration noise had annealed to
+"never curl". Fixes (run 3, +200k warm-start from the 700k-total
+checkpoint):
+
+- **Feet-under-body scores** (rise only, sim-only): potential-based
+  progress `k_curl_progress·Δ(mean foot-XY dist to plant footprint)`
+  (full curl ≈ +4) + one-time milestones at 40/15 mm. Scripted
+  curl-then-rise from the belly banks ~+12 and stands; freezing banks 0.
+- **Bridge starts**: rise start-pose mix now 45% flat belly / 30%
+  PARTIALLY curled on the belly (joints blended 25–85% toward the
+  crouch — a reverse curriculum across the state-space cliff between
+  the solved crouch and the unsolved belly) / 25% full crouch.
+- **`--reset-log-std`**: warm starts can re-open exploration (log_std
+  back to the fresh-init −1.0) so collapsed channels get sampled again.
+- Interactive viewer (`rl_move/sim/view.py`, run under mjpython):
+  pose-&-poke or drive the policy with keyboard goals (arrows = lean,
+  U/J = height, 1-6 = unload, B = belly reset). Goal refs RAMP at
+  training rates — instant reference steps are out-of-distribution and
+  the policy ignores them. Viewer renders collision primitives by
+  default: the June 2026 STL re-export has stale visual offsets (feet
+  draw detached); physics runs on the primitives and is unaffected.
+
+**2026-08-07 (500k smoke verdict + staged rise + raise canary):** the
+500k light-DR run (fresh init, dr_scale 0.2) PASSED the gate on 3 of 5
+tasks — per-mode eval vs zero-action baseline, 8 episodes each:
+lean 3.06° vs 4.00°, track 1.61° vs 2.52°, unload 1.3 N residual foot
+force vs 4.3 N (return +49 vs −17 — the clearest win). Rise barely
+moved (1/8 completions, ends ~36 mm short) and hold slightly fidgets
+(0.78° vs 0.38° — stillness is optimal there; expected to anneal).
+No freeze shortcut, 10/10 survived, no safety terminations. Lesson
+learned the hard way: judge runs on PER-MODE evals — the mixed-mode
+aggregate hid the lean/track/unload wins behind hold's dilution.
+Follow-up (+200k warm-start from `ppo_goal.zip`, operator-approved):
+
+- **Rise decomposed into scored steps** (sim-only, privileged height):
+  potential-based progress `k_rise_progress·Δ|height_err|` per step
+  (full 50 mm rise ≈ +5 total; freezing while the ref ramps away is
+  CHARGED) + one-time milestones (+2 at 25/50/75/90% of the height
+  target — belly-off, half-way, nearly-there). Both small next to the
+  kernel's ~+250/episode ceiling, so they steer exploration without
+  redefining success. In `sim_env.step`; keys `reward_rise_progress`,
+  `reward_rise_milestone`.
+- **"raise" canary task** (p=0.15): from the plant stance, follow a
+  height ramp up 10–30 mm and hold. The simplest goal in the set,
+  encoded entirely in the existing height-ref channel (obs unchanged →
+  warm start stays valid). Gate: ~100% success (end |height_err| ≤
+  5 mm) — if it's not ~100%, the height pathway is broken, not
+  under-trained. The warm-started 500k policy already solves it
+  (0.5 mm), inherited from crouch-start rise episodes. (The operator's
+  "raise an arm" idea needs a per-leg action channel — pinned-feet body
+  IK can't lift a foot; deferred to the action-space rev.)
+- **Per-mode periodic eval** every 20k steps (2 eps/mode, deterministic,
+  goal generator forced to one mode at a time) → W&B `eval/<mode>/*`
+  plus `eval/rise_completed_frac`, `eval/raise_success_frac`. Mode mix
+  shifted toward the bottleneck: p_rise .20→.25, lean/track .25→.20.
+
+**2026-08-07 (reward redesign + zero-pose rise + preflight gate):** the
+first PPO runs exposed a reward shortcut — an unconditional alive bonus
+paid ~96% of achievable reward for freezing in place. Full redesign
+(matches external review):
+
+- **Reward = task kernel.** The only substantial positive term is
+  `k_track · exp(-err²/2σ²)`, a product of Gaussians over every commanded
+  objective (tilt σ 1.5°, height σ 10 mm, foot-force σ 1 N for unload).
+  Perfect tracking ≈ +1/tick, ignoring the goal ≈ 0, termination −10.
+  No unconditional alive. Penalties (gyro/action/current) deliberately
+  weak; small quadratic tilt/height terms give gradient where the kernel
+  is flat.
+- **6-dim action (was 5): body roll/pitch/height/x/y + CURL.** Curl
+  slides the foot anchors from wherever they started toward the plant
+  footprint. From the zero pose (legs straight out) raising the body with
+  pinned feet is geometrically impossible — standing up requires dragging
+  the feet inward, which is cheap while the belly carries the weight.
+  Zero action still means "hold" (only positive action curls). Obs 47
+  (+9 goal = 56); old checkpoints are incompatible — fresh starts only.
+- **Rise task starts at the ZERO pose** (belly down, legs straight — how
+  the operator places the robot): hold height 0 for 3 s (time to curl),
+  then ramp to +30–70 mm and hold. Freezing cannot solve it.
+- **Unload task measures the leg's ground-reaction force** (sim touch
+  sensor), not servo current — quiet-stand currents are ~0.1 A on every
+  leg so current can't distinguish loaded from unloaded (freezing scored
+  0.87/tick; with force it scores ~0.03). Unload episodes get a wide tilt
+  tolerance (σ 4°) because leaning away is HOW a pinned-feet robot opens
+  a contact (measured: shift alone 3.3→2.4 N; shift + 4° lean → 1.3 N).
+  `actions.max_x/y_mm` 5 → 40 so the CoM shift is meaningful.
+- **Sim physics fixes found by the new preflight** (all three were
+  producing phantom 2–3 A "over_current" at belly rest): (1) servo
+  firmware dead-zone is now modeled at the physics level — inside the
+  deadband the actuator reference follows q, so holding a settled pose
+  costs ~zero torque like real hardware; (2) reset settles LIMP (operator
+  lays the robot down torque-off) and captures the passive equilibrium as
+  q_nom; (3) kv damping moved from the (explicitly-integrated, clamped —
+  bang-bang unstable at 2 ms) velocity actuator into implicit DOF
+  damping, and the foot pads got their real mass/inertia. Quiet stand now
+  reads 0.09–0.33 A — matching hardware.
+- **Safety:** `max_delta_q_deg` 0.5 → 1.5/tick (37.5°/s, same as the bus
+  write_speed cap) so standing up is possible; unreachable IK now HOLDS
+  instead of terminating (curl exploration makes transient unreachability
+  normal); knee limit 150°.
+- **DR curriculum:** `--dr-scale 0..1` shrinks every randomization range
+  toward the calibrated nominal sim (sensor noise floors stay). Stage the
+  runs: light DR until the skill exists, then widen.
+- **Launch workflow (MANDATORY):** `python -m rl_move.sim.preflight
+  --dr-scale <s>` before every training run. It renders frozen/scripted/
+  failure episodes for all 5 goal modes, saves frame strips
+  (`logs/preflight/<ts>/`), prints per-component reward magnitudes, and
+  gates on `scripted >> frozen >> failure`. The agent must LOOK at the
+  frames. Videos during training carry a telemetry overlay (refs vs
+  actual, return, termination) and are reviewed, not just logged. A smoke
+  run passes only if tracking error clearly beats zero-action, rise
+  completes, and terminations are acceptable — not because return went up.
+
 **2026-08-07 (short + rebuild):** robot had an electrical short; user
 rebuilt it. Board recovered; `web_drive.py` on the robot was corrupted
 (SyntaxError crash-loop) and was redeployed from the repo. L0 knee servo
@@ -329,15 +516,56 @@ shifts. Any IK failure → reject / hold last safe / terminate + log.
 
 ---
 
-## 10. Action / observation
+## 10. Action / observation / eval definitions
 
-Action `[-1,1]^5` → roll±3°, pitch±3°, h±5 mm, x±5 mm, y±5 mm (config).
+**Action `[-1,1]^6` at 25 Hz** — body-pose offsets, not joint angles;
+fixed-foot body IK turns each action into 18 joint targets. Ranges from
+`config.yaml` (current values):
 
-Obs (46): `(q−q_nom)₁₈`, `qd₁₈`, roll, pitch, gyro₃, prev_action₅.  
-Normalize via config scales. Log accel always; optional later in obs.
+| ch | meaning | range |
+|----|---------|-------|
+| a0 | body roll | ±5° |
+| a1 | body pitch | ±5° |
+| a2 | body height offset | ±80 mm |
+| a3 | body x (fore/aft) shift | ±40 mm |
+| a4 | body y (lateral) shift | ±40 mm |
+| a5 | **curl-in rate** (negative = no-op) | 0..1 |
 
-Target tracking (Milestone 2+) adds target/error dims — do not train
-tracking without exposing the target to the policy.
+Curl (a5) is a rate with a **ratchet** (2026-08-07, run 05): positive
+values advance the foot anchors from their start positions toward the
+plant footprint (full travel ~2.5 s at rate 1.0) and the anchors never
+slide back out within an episode. Rationale: with the anchor tied to the
+*instantaneous* curl value (runs 03–04), an exploratory curl pulse
+yanked feet in for one tick and snapped them back the next — all
+jerk/penalty, no lasting progress — so PPO pinned curl negative exactly
+on belly starts (measured −0.5 flat / +0.86 where curl was inert).
+A one-pole low-pass filter smooths actions before IK.
+
+**Obs (56 = 47 proprio + 9 goal):** complementary-filtered roll/pitch,
+gyro, `(q−q_nom)₁₈`, `qd₁₈`, per-servo current estimate, prev action₆;
+goal block = roll/pitch/height refs, unload-leg one-hot, mode flags.
+Normalize via config scales.
+
+**Eval definitions** (periodic every ~20k steps, deterministic policy;
+same text is auto-appended to every W&B run's notes by
+`_spec_notes()` in `train_ppo_sim.py` so run pages are self-contained):
+
+- `eval/<mode>/return` — mean episode return (2 eps/mode).
+- `eval/<mode>/survived_frac` — fraction not safety-terminated.
+- `eval/<mode>/track_err_deg` — mean |tilt − reference| over episode.
+- `eval/<mode>/height_err_end_mm` — |height − ref| at episode end.
+- `eval/raise_success_frac` — survived AND final height err ≤ 5 mm
+  (deliberately tight; raise is the canary task).
+- `eval/rise_{flat,bridge,crouch}_frac` — rise completion **split by
+  start kind** (2 eps each); completed = survived AND final height err
+  ≤ 15 mm. Flat/bridge are THE curves the current effort must move;
+  crouch has been solved since run 02 and should stay at 1.0. A pooled
+  rise number is binomial noise — never report it unsplit.
+
+On warm starts the mature skills (hold/lean/track/unload/raise) begin
+near ceiling: flat eval lines there are expected, regression is the
+failure signal. The post-training gate additionally compares against a
+zero-action baseline.
 
 ---
 
