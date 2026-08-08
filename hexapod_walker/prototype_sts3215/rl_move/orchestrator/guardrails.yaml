@@ -66,6 +66,16 @@ experiments:
   # whose rationale is "try another coefficient" are forbidden (review §0).
   require_hypothesis_and_gate: true
   require_falsifiable_predictions: true
+  # Post-launch checkup (operator directive 2026-08-08): ~5 min after every
+  # launch, run `launch_run.py checkup --run <name>` and act on it (DEAD ->
+  # retry once then escalate; SUSPECT -> read log, kill/rebalance/fix).
+  # Never exit a cycle with an unchecked launch.
+  require_post_launch_checkup: true
+  checkup_after_s: 300
+  # Progress claims must cite metric + named baseline + delta + noise scale.
+  # Deltas inside the calibrated eval-noise band are "no evidence of
+  # change". Unbacked improvement language is a guardrail violation.
+  progress_claims_require_baseline_delta: true
   # One variable per run wherever possible; twins only with distinct seeds
   # (the model.seed overwrite fix must stay in place).
   one_variable_per_run: true

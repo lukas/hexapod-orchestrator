@@ -263,7 +263,28 @@ def cmd_launch(g: dict, a: argparse.Namespace, extra: list[str]) -> int:
     save_ledger(led)
 
     # --- launch + mechanical verification -----------------------------------
-    pid = kexec(a.pod, remote).strip().splitlines()[-1]
+    try:
+        pid = kexec(a.pod, remote).strip().splitlines()[-1]
+    except subprocess.TimeoutExpired:
+        # Known hang (cycle 10, twice, incl. with stdin redirected): the
+        # kubectl exec stream can stay attached even though the remote
+        # nohup command completed and the trainer started. Recover the
+        # trainer pid via /proc scan and continue verification; only fail
+        # if no process exists.
+        print("kubectl exec timed out; recovering trainer pid via /proc scan")
+        scan = ("for p in /proc/[0-9]*/cmdline; do "
+                "c=$(tr '\\0' ' ' < \"$p\" 2>/dev/null); "
+                'case "$c" in python*"--run-name ' + a.run + ' "*) '
+                'basename "${p%/cmdline}";; esac; done')
+        pids = kexec(a.pod, scan).split()
+        if not pids:
+            entry["status"] = "FAILED"
+            entry["failed_reason"] = ("launch kexec timed out and no "
+                                      "trainer process found on pod")
+            save_ledger(led)
+            print("VERIFICATION FAILED: kexec timeout and no trainer process")
+            return 1
+        pid = pids[0]
     checks["pid"] = pid
     print(f"launched pid {pid}; verifying...")
 
@@ -320,10 +341,87 @@ def cmd_launch(g: dict, a: argparse.Namespace, extra: list[str]) -> int:
     return 0
 
 
+def cmd_checkup(g: dict, a: argparse.Namespace) -> int:
+    """Post-launch health assessment (guardrails: run ~5 min after every
+    launch). Mechanical facts first; exit 0 HEALTHY, 2 SUSPECT, 1 DEAD.
+    The agent decides keep / kill+retry / rebalance — this only reports.
+    """
+    led = load_ledger()
+    entry = next((e for e in reversed(led)
+                  if e.get("run") == a.run
+                  and e.get("status") in ("RUNNING", "INTENT")), None)
+    if entry is None:
+        print(f"DEAD: no RUNNING/INTENT ledger entry for {a.run}")
+        return 1
+    pod, log = entry["pod"], entry["log"]
+    problems, facts = [], {"time": now()}
+
+    trainers = pod_trainers(pod)
+    facts["process_alive"] = a.run in trainers
+    if not facts["process_alive"]:
+        tail = kexec(pod, f"tail -c 600 {log} 2>/dev/null || true")
+        entry.setdefault("checkups", []).append(
+            {**facts, "verdict": "DEAD", "log_tail": tail[-600:]})
+        save_ledger(led)
+        print(f"DEAD: no {a.run} trainer process on {pod}. Log tail:\n{tail}")
+        return 1
+
+    # Crashes inside workers often keep the parent alive; the traceback
+    # in the log is the tell.
+    tb = kexec(pod, f"tail -n 300 {log} | grep -c 'Traceback' || true")
+    facts["tracebacks_in_tail"] = int(tb.strip() or 0)
+    if facts["tracebacks_in_tail"]:
+        problems.append(f"{facts['tracebacks_in_tail']} traceback(s) in "
+                        "recent log — read the log before trusting this run")
+
+    size1 = int(kexec(pod, f"stat -c %s {log}").strip())
+    wb1 = wandb_running_runs().get(a.run) or {}
+    s1 = wb1.get("global_step") or 0
+    time.sleep(45)
+    size2 = int(kexec(pod, f"stat -c %s {log}").strip())
+    wb2 = wandb_running_runs().get(a.run) or {}
+    s2 = wb2.get("global_step") or 0
+    facts["log_growth_bytes"] = size2 - size1
+    if size2 <= size1:
+        problems.append("log stopped growing")
+    if not entry.get("smoke"):
+        if not wb2:
+            problems.append("W&B no longer reports the run as running")
+        elif s2 <= s1:
+            problems.append(f"W&B global_step stalled at {s2}")
+        else:
+            fps = (s2 - s1) / 45.0
+            facts["fps"] = round(fps, 1)
+            # Expected floor by placement: solo on a 56-core pod ~1000+;
+            # sharing or a 30-core pod runs slower but should beat 60.
+            limit = pod_cpu_limit(pod)
+            solo = len(trainers) == 1
+            floor = 500.0 if (solo and limit >= 48) else 60.0
+            facts["placement"] = (f"{'solo' if solo else f'{len(trainers)} runs'} "
+                                  f"on {limit}-core pod")
+            if fps < floor:
+                problems.append(
+                    f"fps {fps:.0f} below expected floor {floor:.0f} for "
+                    f"{facts['placement']} — starved or misplaced; consider "
+                    "rebalancing")
+
+    verdict = "SUSPECT" if problems else "HEALTHY"
+    entry.setdefault("checkups", []).append(
+        {**facts, "verdict": verdict, "problems": problems})
+    save_ledger(led)
+    print(f"{verdict}: {a.run} on {pod} "
+          f"({facts.get('placement', 'smoke')}, fps={facts.get('fps', 'n/a')})")
+    for p in problems:
+        print(f"  - {p}")
+    return 0 if verdict == "HEALTHY" else 2
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("status")
+    cp = sub.add_parser("checkup")
+    cp.add_argument("--run", required=True)
     lp = sub.add_parser("launch")
     lp.add_argument("--pod", required=True)
     lp.add_argument("--run", required=True)
@@ -345,6 +443,8 @@ def main() -> int:
     g = load_guardrails()
     if a.cmd == "status":
         return cmd_status(g)
+    if a.cmd == "checkup":
+        return cmd_checkup(g, a)
     return cmd_launch(g, a, extra)
 
 

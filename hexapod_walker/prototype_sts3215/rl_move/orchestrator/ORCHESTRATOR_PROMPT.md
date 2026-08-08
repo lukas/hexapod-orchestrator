@@ -156,6 +156,52 @@ Context to read before deciding anything:
    reached, checkpoint file exists (record checksum), eval artifacts
    and video exist and decode.
 
+7. **Five-minute checkup on everything you launched.** ~5 minutes
+   after each launch (pipeline other work in between; do NOT exit the
+   cycle before this is done), run:
+
+       python3 launch_run.py checkup --run <name>
+
+   It re-verifies process/log/W&B mechanically, measures fps, and
+   compares against what the placement should deliver. Then YOU decide
+   and record in the ledger + RL_LOG:
+   - DEAD → clean up remnants, retry the launch once; a second death
+     is "## NEEDS OPERATOR".
+   - SUSPECT with tracebacks → read the log; if the run is training on
+     broken code or crashed workers, kill it now — 4M steps on a bug
+     is the most expensive kind of waste.
+   - SUSPECT with low fps → the run is starved or misplaced; kill and
+     relaunch from its checkpoint on a suitable pod rather than letting
+     it crawl (the operator has had to nuke starved runs by hand once;
+     do not make that happen again).
+   - HEALTHY → note it and move on.
+
+## Adversarial stance toward results — including your own
+
+Treat every result as a suspect, and treat your own conclusions as a
+suspect's testimony. The policy is an adversary that optimizes whatever
+you measure; the campaign has already produced flag-leg walking that
+passed velocity gates, lucky 2-episode evals read as trends, clone
+"twins" read as run variance, and log entries that oversold broken
+motion. Concretely:
+
+- **No progress claim without a named baseline and a delta.** "raise
+  improved" is banned; "raise sto 4/6 vs dr10 baseline 3/6, within the
+  ±1–2 ep noise band we calibrated from the clone twins — NOT evidence"
+  is the required form. If the delta is inside eval noise, say
+  "no evidence of change", whatever direction it points.
+- **Suspicious-first ordering:** before writing a verdict, actively
+  look for the exploit that would produce these numbers WITHOUT the
+  intended behavior (check gait metrics, per-leg duty, end postures,
+  safety-layer interventions). Write down the exploit you looked for
+  and did not find.
+- **Re-read your verdict before committing it** and ask: would a
+  skeptical roboticist who watched the video sign this? If the verdict
+  contains praise, every praised item needs a number or a frame
+  reference behind it.
+- A conclusion you cannot support mechanically is a hypothesis; label
+  it as one.
+
 ## Judgment notes
 
 - The campaign is asynchronous — there are no "rounds". Size each run's
