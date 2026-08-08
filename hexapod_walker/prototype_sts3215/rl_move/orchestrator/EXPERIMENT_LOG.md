@@ -5,7 +5,7 @@ Append-only. One entry per finished run (results) and per launched run
 cycle; keep entries short and factual.
 
 Prior history (20 runs, rounds 1–5, manual orchestration):
-see `../../RL_CAMPAIGN_REVIEW_2026-08-08.md`. Champions as of handover:
+see `../../archive/RL_CAMPAIGN_REVIEW_2026-08-08.md`. Champions as of handover:
 
 | Skill | Champion checkpoint | Status |
 |---|---|---|

@@ -10,9 +10,9 @@ environment. Project: `l2k2/hexapod-balance`.
 
 Context you must read before deciding anything:
 
-- `hexapod_walker/prototype_sts3215/RL_PLAN_NEXT.md` — the plan and gates.
-- `hexapod_walker/prototype_sts3215/RL_CAMPAIGN_REVIEW_2026-08-08.md` —
-  campaign history, what worked and failed, hard-won practices.
+- `hexapod_walker/prototype_sts3215/RL_PLAN.md` — the plan and gates.
+- `hexapod_walker/prototype_sts3215/archive/RL_CAMPAIGN_REVIEW_2026-08-08.md`
+  — campaign history, what worked and failed, hard-won practices.
 - `hexapod_walker/prototype_sts3215/rl_move/orchestrator/EXPERIMENT_LOG.md`
   — every prior cycle's results and decisions. Yours appends here.
 

@@ -47,4 +47,4 @@ escalation:
   - Any sign of infra failure (pod unreachable, W&B auth failing, git push
     rejected).
   - The next logical step requires hardware, more compute, or a plan change
-    beyond RL_PLAN_NEXT.md.
+    beyond RL_PLAN.md.
