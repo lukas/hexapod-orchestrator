@@ -47,6 +47,14 @@ AGENT_CMD = [
 ]
 
 WANDB_PROJECT = "l2k2/hexapod-balance"
+# Experiment naming convention. Runs without this prefix (e.g. auto-named
+# smoke/verification trainings) never trigger or block cycles — round 6.5
+# was a spurious cycle caused by the agent's own seed-fix smoke runs.
+RUN_PREFIX = "cw-"
+# If nothing is training and nothing new finished for this many consecutive
+# polls, kick a cycle anyway so the campaign can't deadlock (e.g. after a
+# blocked launch or a watcher restart with idle pods).
+IDLE_KICK_POLLS = 3
 
 
 def log(msg: str) -> None:
@@ -62,13 +70,16 @@ def runs_by_state() -> tuple[set[str], set[str]]:
 
     api = wandb.Api()
     running = {
-        r.name for r in api.runs(WANDB_PROJECT, filters={"state": "running"})
+        r.name
+        for r in api.runs(WANDB_PROJECT, filters={"state": "running"})
+        if r.name.startswith(RUN_PREFIX)
     }
     finished = {
         r.name
         for r in api.runs(
             WANDB_PROJECT, filters={"state": {"$in": ["finished", "crashed", "failed"]}}
         )
+        if r.name.startswith(RUN_PREFIX)
     }
     return running, finished
 
@@ -85,10 +96,19 @@ def save_processed(processed: set[str]) -> None:
 
 def agent_cycle(newly_finished: set[str], still_running: set[str]) -> bool:
     """Run one decision cycle. Returns True on agent success (rc == 0)."""
+    if newly_finished:
+        trigger = f"Runs that just finished: {', '.join(sorted(newly_finished))}\n"
+    else:
+        trigger = (
+            "No run just finished — this is an idle kick: pods are sitting "
+            "idle with no experiments training. Resume the campaign from "
+            "RL_LOG.md (a NEEDS OPERATOR section or planned-but-unlaunched "
+            "experiments); skip eval steps for runs already logged.\n"
+        )
     cycle_prompt = (
         PROMPT
         + "\n\n## This cycle\n"
-        + f"Runs that just finished: {', '.join(sorted(newly_finished))}\n"
+        + trigger
         + (
             f"Runs still training (leave their pods alone): "
             f"{', '.join(sorted(still_running))}\n"
@@ -122,6 +142,7 @@ def agent_cycle(newly_finished: set[str], still_running: set[str]) -> bool:
 def main() -> None:
     cycle_times: list[float] = []
     failed_cycles = 0
+    idle_polls = 0
     log("watcher started")
     while True:
         try:
@@ -145,12 +166,25 @@ def main() -> None:
 
             newly = finished - processed
             if not newly:
-                log(
-                    f"{len(running)} running: {', '.join(sorted(running)) or 'none'}; "
-                    "nothing new finished"
-                )
-                time.sleep(POLL_S)
-                continue
+                if running:
+                    idle_polls = 0
+                    log(
+                        f"{len(running)} running: {', '.join(sorted(running))}; "
+                        "nothing new finished"
+                    )
+                    time.sleep(POLL_S)
+                    continue
+                idle_polls += 1
+                if idle_polls < IDLE_KICK_POLLS:
+                    log(
+                        f"nothing running, nothing new finished "
+                        f"(idle poll {idle_polls}/{IDLE_KICK_POLLS})"
+                    )
+                    time.sleep(POLL_S)
+                    continue
+                log("pods idle too long — kicking a cycle to resume the campaign")
+            else:
+                idle_polls = 0
 
             now = time.time()
             cycle_times = [t for t in cycle_times if now - t < 86400]
@@ -169,6 +203,7 @@ def main() -> None:
                 processed |= newly
                 save_processed(processed)
                 failed_cycles = 0
+                idle_polls = 0
             else:
                 failed_cycles += 1
         except KeyboardInterrupt:
