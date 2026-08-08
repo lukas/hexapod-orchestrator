@@ -14,12 +14,16 @@ levers refuted — stop iterating penalty coefficients.**
   its flat-rise was a noise-fragile choreography; champion archived at
   `policies/best_flat_rise_run06_1540704.zip`; never BC from it).
 - **Stand↔belly: heights SOLVED at DR 1.0** (`cw-stand-dr10`,
-  `cw-stance-dr10`) — **but posture-strict eval (cycle 12) caveats the
-  jewel: stance-champ lower ends 0/12 with legs 0/2/4 hoisted (leg 4
-  vertical 244–281 mm); rise 5/12 (crouch/bridge starts leave legs 2/4
-  up); hold 12/12 clean.** `cw-stance-posture` (in flight) prices the
-  fix. Flag any eval where rise/lower height drops below 5/6; never
-  warm-start stand work from an eroded checkpoint.
+  `cw-stance-dr10`) — **posture-strict caveat stands: lower ends with
+  a vertical flag leg.** `cw-stance-posture` (cycle 13) split it:
+  support-margin + load-evenness pricing pulled NEAR-GROUND legs down
+  (legs 0/2: >100–200→58–91 mm; raise heights 11/12 best-ever) but
+  leg 4's vertical flag never moved — the terms have ZERO gradient on
+  an unloaded airborne leg and stance-clearance excludes
+  rise/lower/raise. Live hypothesis: endpoint pays, no path gradient;
+  only exploration bridges (`cw-stance-posture2`, std 1.0, in
+  flight). Flag any eval where rise/lower height drops below 5/6;
+  never warm-start stand work from an eroded checkpoint.
 - **Walk: no valid gait exists in any lineage.** dr04b lineage is
   0-for-9 on gait validity (widen ×2, 3× progress, flag ×2, speed, LP,
   phase, asym, 8M) with lower 0/6 and universal end-posture failure —
@@ -32,17 +36,14 @@ levers refuted — stop iterating penalty coefficients.**
   and the linear current charge is distribution-blind. Any future
   walk reward must price the park (time-averaged per-leg load), or
   change capability (temporal actor), not coefficients.
-- **Raise: DEMOTED TO CANARY (08-08).** Stuck 2–5/6 in every lineage;
-  `cw-stance-raisemix` (2× raise samples) refuted the mix hypothesis
-  (3/6 det, 4/6 sto). Classification: all failures = near-miss
-  under-lift 6–8 mm, no falls/tilt/current; raise executes on ~4 legs
-  (legs 2/4 unloaded even in passes). Only remaining lever is
-  coefficient iteration (forbidden, review §0/§7). Stays in canaries
-  + eval as a tripwire; no more compute.
+- **Raise: DEMOTED TO CANARY (08-08).** Stuck 2–5/6 everywhere;
+  raisemix refuted; failures = near-miss under-lift on ~4 legs. No
+  more compute; tripwire only. (Cycle 13: load-even pricing lifted
+  raise heights to 11/12 incidentally — still posture 0/12.)
 - Seed twins before cw-walk-flag/-s1 were bit-identical clones
-  (set_random_seed fix landed 08-08; earlier "twin variance" and
-  best-of-2 conclusions discarded). Twin eval spread of identical
-  weights (vel_err 0.026 vs 0.043) calibrates few-episode eval noise.
+  (set_random_seed fix 08-08; earlier twin conclusions discarded).
+  Twin eval spread of identical weights (vel_err 0.026 vs 0.043)
+  calibrates few-episode eval noise.
 - MuJoCo 3.11 shifted current readings (quiet-hold peak 2.46→2.60 A,
   right at the 2.5 A breaker). Re-validate torque→current calibration
   before trusting any current gate for hardware.
@@ -129,18 +130,15 @@ routing up front — no ad-hoc exemptions.
 - **Walk:** success = commanded forward motion with visible
   alternating contacts on ALL SIX legs — judged by gait metrics AND
   video. Refuted: flag penalty (both routings), speed pressure, LP
-  curriculum, **weak phase-contact reward in both basins (cycle 12:
-  zero-net agreement cannot outbid the cost savings of the tripod
-  park)**; **no penalty-coefficient iterations, period** (review §0).
-  Remaining rungs, in order: (1) **temporal actor** (frame stack ~8 @
-  25 Hz, code task — obs history must be env-side so harness/hardware
-  match; warm start via tail transplant; one variable: history), from
-  a stance-basin init; (2) walk-mode park pricing via TIME-AVERAGED
-  per-leg load evenness (instantaneous forms can't tell gait from
-  park — see cycle 12 routing caution); (3) dense 9-term step
-  decomposition stays LAST-resort. Lateral/yaw only after forward is
-  real. Rise/lower erosion persists → plan for walk-specialist +
-  later merge/distillation.
+  curriculum, weak phase-contact reward in both basins (zero-net
+  agreement cannot outbid the park's cost savings); **no
+  penalty-coefficient iterations, period** (review §0). Rungs:
+  (0) operator step-event baseline (queue item 0); (1) **temporal
+  actor** (history-8, landed cycle 13, cw-walk-hist8 in flight);
+  (2) walk-mode park pricing via TIME-AVERAGED per-leg load evenness
+  (instantaneous forms can't tell gait from park). Lateral/yaw only
+  after forward is real. Rise/lower erosion persists → plan for
+  walk-specialist + later merge/distillation.
 - **Deployable walk obs:** (1) asymmetric PPO — **CALLED at 8M (cycle
   12): retention tool (rise 11/12 vs nv 3/12, twice), not a gait fix
   (tracking within noise of blind at 4M and 8M). Keep --asym-critic
@@ -184,9 +182,10 @@ hold → lower → rise → walk. Every session logs sim↔real divergence
 
 ## Queue (in flight → next)
 
-In flight: `cw-stance-posture` (stance champ + k_support_margin 0.3 +
-k_load_even 1.5 @ DR 1.0 — fix the lower/rise end-posture defect;
-probe-smoked first).
+In flight: `cw-walk-hist8` (temporal actor rung: history-8 walk from
+stance champ, one-variable swap vs the phase-stance2 control);
+`cw-stance-posture2` (posture terms + std 1.0 — pre-registered
+exploration branch; canaries + auto-stop guard the jewels).
 
 0. **OPERATOR-DIRECTED (binding, 08-08 ~23:00Z): the embarrassingly
    narrow walk (suggested name `cw-walk-step0`).** Dedicate one
@@ -210,16 +209,16 @@ probe-smoked first).
    one-variable comparisons. Speed targets, DR, and multi-task merge
    come only AFTER this gate passes.
 
-1. Temporal deployable actor (frame stack, env-side history): code
-   LANDED cycle 13 (`obs.history_frames`, newest-first stack,
-   transplant-compatible); probe then 4M from a stance-basin init.
-   The gait and deployable-obs questions share this rung.
-2. If cw-stance-posture passes: it becomes the stance champion AND
-   the preferred init for the next walk-basin attempt (its posture
-   pricing transfers).
-3. Mirror-symmetry augmentation (audit MED, queued post-phase-verdict
-   — now due) after (1). Contact-from-proprioception aux head after.
-   Dense step-decomposition and model-size sweep stay last.
+1. If hist8 parks again: rung 2 = walk-mode TIME-AVERAGED per-leg
+   load pricing (instantaneous forms can't tell gait from park),
+   ideally on top of history. If posture2 plants leg 4, its lesson
+   (and possibly its ckpt) feeds the same rung.
+2. Mirror-symmetry augmentation (audit MED, due) after (1).
+   Contact-from-proprioception aux head after. Dense
+   step-decomposition and model-size sweep stay last.
+3. Stance-line note: the stance flag leg and the walk tripod park are
+   the SAME defect (unpriced airborne legs); fixes should be designed
+   once and routed per mode, not invented twice.
 
 Infra LANDED: canaries + auto-stop, gait-validity gate, end-posture
 gate (cycle 12), ledger + watcher dedupe.
