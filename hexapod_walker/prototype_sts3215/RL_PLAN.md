@@ -183,12 +183,11 @@ hold → lower → rise → walk. Every session logs sim↔real divergence
 
 ## Queue (in flight → next)
 
-In flight: `cw-stance-posture2` (posture terms + std 1.0 exploration
-branch) and `probe-walk-step0` (step-event smoke). `cw-walk-hist8`
+In flight: `cw-walk-step0` (4M, item 0; probe passed cycle 13).
+`cw-stance-posture2` finished — verdict cycle 14. `cw-walk-hist8`
 auto-stopped at 1.24M (canary 'lower'; wide-transplant drift at std
 1.0) — capability INCONCLUSIVE; history rejoins as a one-variable
-arm on the step0 baseline. Next launch: `cw-walk-step0` 4M (item 0)
-if the probe passes.
+arm on the step0 baseline.
 
 0. **OPERATOR-DIRECTED (binding, 08-08 ~23:00Z): the embarrassingly
    narrow walk (suggested name `cw-walk-step0`).** Dedicate one
