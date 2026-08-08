@@ -19,18 +19,22 @@ levers refuted — stop iterating penalty coefficients.**
   eroded checkpoint.
 - **Walk: scalars pass, motion is BAD.** Tracks 0.02–0.06 m/s at
   DR 0.4 (`cw-walk-dr04b`, sto 4/6 @ vel_err 0.028, re-validated
-  08-08) but videos show a shuffling 3–5-leg exploit with legs parked
-  vertically — nothing like a gait that could transfer, even with
-  perfect dynamics. NOT HARDWARE-READY until videos show all six feet
-  cycling contact/swing. Refuted levers: manual widening (→0.08,
-  →0.07), 3× progress reward, **all-modes k_flag_leg=5.0** (flag leg
-  merely transient; rise/raise collapsed — routing interference).
-- **Raise:** stuck 2–5/6 in every lineage. Finish `cw-stance-raisemix`
-  before acting on hypotheses (don't overweight nv's good raise — one
-  run at known eval-noise levels). Then classify failures from
-  trajectories (lost contact / saturation / near-miss / tilt / weak
-  extension / current / ambiguous end-state). Nothing general ⇒
-  demote raise to canary status, stop spending compute (review §7).
+  08-08; honestly 0/N under the gait-validity gate) but videos show a
+  shuffling 3–5-leg exploit with legs parked vertically — nothing
+  like a gait that could transfer. NOT HARDWARE-READY until videos
+  show all six feet cycling contact/swing. Refuted levers: manual
+  widening (→0.08, →0.07), 3× progress reward, all-modes
+  k_flag_leg=5.0 (rise/raise collapsed), and **walk-only k_flag_leg
+  (`cw-walk-flagw` 08-08): routing protected rise/raise but PPO paid
+  the fine rather than step — walk 0/6 gait-valid, worse exploit
+  (tripod anchor, legs 1/3/5 airborne). Flag penalty DEAD as gait fix.**
+- **Raise: DEMOTED TO CANARY (08-08).** Stuck 2–5/6 in every lineage;
+  `cw-stance-raisemix` (2× raise samples) refuted the mix hypothesis
+  (3/6 det, 4/6 sto). Classification: all failures = near-miss
+  under-lift 6–8 mm, no falls/tilt/current; raise executes on ~4 legs
+  (legs 2/4 unloaded even in passes). Only remaining lever is
+  coefficient iteration (forbidden, review §0/§7). Stays in canaries
+  + eval as a tripwire; no more compute.
 - Warm-start "seed twins" up TO AND INCLUDING cw-walk-w07/-s1 were
   bit-identical clones (verified: 0.0 weight diff; the interim
   `model.seed=` fix was cosmetic). Fixed via set_random_seed;
@@ -110,24 +114,23 @@ routing up front — no ad-hoc exemptions.
   over-threshold servo, no violent impact, quiescent at end.
 - **Walk:** success = commanded forward motion with visible
   alternating contacts on ALL SIX legs — judged by gait metrics AND
-  video. `flag_leg_walk_only=1` is in test; **no further penalty-
-  coefficient iterations after it** (review §0). Escalation order if
-  flagw fails (review §2): (a) **speed-range diagnostic** — command
-  0.10–0.15 m/s; hypothesis: at 2–6 cm/s a drag-shuffle is genuinely
-  near-optimal, at speed stepping is forced. Outcome seeds the
-  curriculum frontier (fast→slow if true, slow→fast if false).
-  (b) Cheap: check per-servo current on shuffle reels — if dragging
-  legs run hot, a walk-routed effort/cost-of-transport term is nearly
-  free. (c) **Weak alternating-tripod phase reward** (Siekmann-style
-  periodic reward composition): actor sees sin/cos phase, modest
-  contact-state agreement reward, NO prescribed joints/trajectories/
-  rigid timing, walk-routed. (d) Dense 9-term step decomposition is
-  LAST-resort fallback (each contact term is farmable; saturate
-  clearance if ever built). Learning-progress curriculum
-  (`cw-walk-lp`): per-bucket tracking/valid-gait/falls/slip/current,
-  sample the improving frontier; re-seed buckets after (a). Lateral/
-  yaw only after forward is real. If rise erosion survives the gait
-  fix, train walk separately, merge later.
+  video. `flag_leg_walk_only` refuted 08-08; **no penalty-coefficient
+  iterations, period** (review §0). Escalation (review §2):
+  (a) **speed-range diagnostic `cw-walk-speedhi` (LAUNCHED 08-08)** —
+  command 0.10–0.15 m/s; hypothesis: at 2–6 cm/s a drag-shuffle is
+  genuinely near-optimal, at speed stepping is forced. Outcome seeds
+  the curriculum frontier (fast→slow if true, slow→fast if false).
+  (b) Cheap: per-servo current on shuffle reels — flagw eval leg
+  imbalance was 1.6–1.9, no obviously hot dragging leg; effort term
+  not obviously free, keep open. (c) **Weak alternating-tripod phase
+  reward** (Siekmann-style periodic reward composition): actor sees
+  sin/cos phase, modest contact-state agreement reward, NO prescribed
+  joints/trajectories/rigid timing, walk-routed — NEXT if speedhi
+  says speed does not force stepping. (d) Dense 9-term step
+  decomposition stays LAST-resort. Learning-progress curriculum
+  (`cw-walk-lp`): re-seed buckets after (a). Lateral/yaw only after
+  forward is real. If rise erosion survives the gait fix, train walk
+  separately, merge later.
 - **Deployable walk obs, in order:** (1) asymmetric PPO (hardware-obs
   actor, privileged critic — in flight, `cw-walk-aac`); (2) +history,
   frame stack vs GRU (~300 ms = online system ID); (3) distillation
@@ -173,29 +176,26 @@ hold → lower → rise → walk. Every session logs sim↔real divergence
 
 ## Queue (in flight → next; ordering per external review §1)
 
-In flight: `cw-walk-flagw`/-s1 (walk-only flag routing, gate =
-tracking AND no-flag-leg video AND rise retention), `cw-walk-nv2`
-(baseline continuation → 8M), `cw-stance-raisemix` (raise-heavy mix
-on the DR 1.0 stance champion), `cw-walk-aac`/-s1 (asym AC — review
-item 1), `cw-walk-lp`/-s1 (launched before the review reordered it;
-let it run, but re-seed its buckets after the speed diagnostic).
+In flight: `cw-walk-flagw-s1` (twin; same refuted term — eval for
+variance info only), `cw-walk-nv2` (baseline continuation → 8M),
+`cw-walk-aac` + rebalanced `cw-walk-aac-s1b` (asym AC — review item
+1), `cw-walk-lp`/-s1 (re-seed its buckets after the speed
+diagnostic), `cw-walk-speedhi` (speed-range diagnostic, friction,
+1.5M — slow pod, noted).
 
-1. **Speed-range diagnostic** (review §3, cheap, next free slot):
-   command 0.10–0.15 m/s, else identical to walk config, +twin if a
-   slot is free. Falsifiable both ways; reshapes the lp curriculum.
-2. Phase-based alternating-tripod reward IF flagw fails its gate.
+1. Rebalance `cw-walk-lp-s1` (lower, starving) onto s4/long5m as they
+   free (operator note); eval flagw-s1 + nv2 when they finish.
+2. Phase-based alternating-tripod reward — NEXT walk experiment if
+   speedhi shows speed does not force stepping (flagw already failed).
 3. Temporal deployable actor (frame stack vs GRU) on the best of
    `aac`/`nv2` at 8M.
-4. Lower end-posture: routed flag term on the stance line once the
-   walk run proves it.
-5. Contact-from-proprioception auxiliary head, after (3). Dense
-   step-decomposition and model-size sweep stay last.
+4. Contact-from-proprioception auxiliary head, after (3). Dense
+   step-decomposition and model-size sweep stay last. (Lower
+   end-posture flag term DROPPED — flagw refuted the term.)
 
 Infra LANDED 08-08 cycle 9 (review §5, §8): fixed-seed canaries +
-regression auto-stop (default-on for warm starts), gait-validity gate
-in the harness (walk success now requires no sacrificed leg — dr04b
-honestly scores 0/3), `orchestrator/experiments.json` ledger, watcher
-dedupe keyed on the ledger (takes effect on next watcher restart).
+regression auto-stop, harness gait-validity gate, experiments.json
+ledger + watcher dedupe.
 
 ## Done =
 
