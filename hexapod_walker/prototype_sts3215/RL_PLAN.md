@@ -188,9 +188,10 @@ In flight: `cw-stance-posture` (stance champ + k_support_margin 0.3 +
 k_load_even 1.5 @ DR 1.0 — fix the lower/rise end-posture defect;
 probe-smoked first).
 
-1. Temporal deployable actor (frame stack, env-side history): CODE
-   task, then probe, then 4M from a stance-basin init. The gait
-   question and the deployable-obs question now share this rung.
+1. Temporal deployable actor (frame stack, env-side history): code
+   LANDED cycle 13 (`obs.history_frames`, newest-first stack,
+   transplant-compatible); probe then 4M from a stance-basin init.
+   The gait and deployable-obs questions share this rung.
 2. If cw-stance-posture passes: it becomes the stance champion AND
    the preferred init for the next walk-basin attempt (its posture
    pricing transfers).
