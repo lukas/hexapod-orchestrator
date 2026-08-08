@@ -82,6 +82,11 @@ Context to read before deciding anything:
 
 ## Judgment notes
 
+- The campaign is asynchronous — there are no "rounds". Size each run's
+  step budget to its own question (within the cap): a cheap diagnosis can
+  be 1M steps, a consolidation 5–6M. Staggered finishes are a feature:
+  they keep cycles small and pods busy. Never trim or pad a budget to make
+  runs end together, and don't hold a freed pod waiting for a sibling run.
 - A run that misses its gate narrowly is usually worth one
   consolidate-in-place continuation (same settings, more steps). Two
   misses in a row means change the hypothesis, not the step count.
