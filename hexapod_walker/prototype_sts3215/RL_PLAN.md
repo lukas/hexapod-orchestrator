@@ -134,7 +134,8 @@ routing up front — no ad-hoc exemptions.
   agreement cannot outbid the park's cost savings); **no
   penalty-coefficient iterations, period** (review §0). Rungs:
   (0) operator step-event baseline (queue item 0); (1) **temporal
-  actor** (history-8, landed cycle 13, cw-walk-hist8 in flight);
+  actor** (history-8, code landed cycle 13; stance-basin arm
+  auto-stopped under-dosed — rerun as one-variable arm on step0);
   (2) walk-mode park pricing via TIME-AVERAGED per-leg load evenness
   (instantaneous forms can't tell gait from park). Lateral/yaw only
   after forward is real. Rise/lower erosion persists → plan for
@@ -182,10 +183,12 @@ hold → lower → rise → walk. Every session logs sim↔real divergence
 
 ## Queue (in flight → next)
 
-In flight: `cw-walk-hist8` (temporal actor rung: history-8 walk from
-stance champ, one-variable swap vs the phase-stance2 control);
-`cw-stance-posture2` (posture terms + std 1.0 — pre-registered
-exploration branch; canaries + auto-stop guard the jewels).
+In flight: `cw-stance-posture2` (posture terms + std 1.0 exploration
+branch) and `probe-walk-step0` (step-event smoke). `cw-walk-hist8`
+auto-stopped at 1.24M (canary 'lower'; wide-transplant drift at std
+1.0) — capability INCONCLUSIVE; history rejoins as a one-variable
+arm on the step0 baseline. Next launch: `cw-walk-step0` 4M (item 0)
+if the probe passes.
 
 0. **OPERATOR-DIRECTED (binding, 08-08 ~23:00Z): the embarrassingly
    narrow walk (suggested name `cw-walk-step0`).** Dedicate one
