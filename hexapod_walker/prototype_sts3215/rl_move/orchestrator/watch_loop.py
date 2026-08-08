@@ -96,6 +96,14 @@ def agent_cycle(newly_finished: set[str], still_running: set[str]) -> bool:
             else "No other runs are training; all pods are available.\n"
         )
     )
+    # Sync with main first so the agent sees the operator's latest plan/log
+    # edits and its later push can't be rejected as non-fast-forward.
+    pull = subprocess.run(
+        ["git", "pull", "--rebase", "--autostash", "origin", "main"],
+        cwd=REPO, capture_output=True, text=True, timeout=300,
+    )
+    if pull.returncode != 0:
+        log(f"git pull failed before cycle: {(pull.stderr or '')[-500:]}")
     log(f"starting agent cycle for: {', '.join(sorted(newly_finished))}")
     proc = subprocess.run(
         AGENT_CMD + [cycle_prompt],

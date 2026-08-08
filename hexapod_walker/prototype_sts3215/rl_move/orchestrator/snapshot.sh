@@ -26,6 +26,8 @@ git add -A hexapod_walker/prototype_sts3215
 if ! git diff --cached --quiet; then
   git commit -m "orchestrator snapshot before ${RUN_NAME}"
 fi
+# Integrate anything the operator pushed from elsewhere before we push.
+git pull --rebase --autostash origin main
 if git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null; then
   echo "tag ${TAG} already exists" >&2; exit 1
 fi
