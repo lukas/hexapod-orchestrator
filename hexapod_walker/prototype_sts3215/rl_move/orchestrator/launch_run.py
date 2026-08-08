@@ -35,7 +35,10 @@ HERE = Path(__file__).resolve().parent
 GUARDRAILS = HERE / "guardrails.yaml"
 LEDGER = HERE / "experiments.json"
 KUBECONFIG = str(Path.home() / ".kube" / "coreweave.yaml")
-SIM_DIR = "/workspace/prototype_sts3215/rl_move/sim"
+# Established launch pattern on the training pods: module invocation from
+# the project root (NOT `python3 train_ppo_sim.py` from the sim dir).
+WORKDIR = "/workspace/prototype_sts3215"
+TRAIN_MODULE = "rl_move.sim.train_ppo_sim"
 WANDB_PROJECT = "l2k2/hexapod-balance"
 
 # One 48-env run wants ~50-60 cores. Assumed footprint per already-running
@@ -63,22 +66,26 @@ def pod_cpu_limit(pod: str) -> int:
 
 
 def pod_trainers(pod: str) -> list[str]:
-    """Names (--run-name values) of train_ppo_sim.py processes on the pod."""
+    """Names (--run-name values) of main trainer processes on the pod.
+
+    Matches only main trainers (`python* ... train_ppo_sim ...`); the
+    forkserver/spawn workers have -c or empty cmdlines and are excluded,
+    as is this scan's own bash wrapper.
+    """
     script = (
         "for p in /proc/[0-9]*; do c=$(tr '\\0' ' ' < $p/cmdline "
-        "2>/dev/null); case \"$c\" in *train_ppo_sim.py*) echo \"$c\";; "
-        "esac; done | sort -u"
+        "2>/dev/null); case \"$c\" in python*train_ppo_sim*|"
+        "*/python*train_ppo_sim*) case \"$c\" in *' -c '*) ;; *) "
+        "echo \"$c\";; esac;; esac; done | sort -u"
     )
     names = []
     for line in kexec(pod, script).splitlines():
         toks = line.split()
-        name = "?"
+        name = "unnamed"
         for i, t in enumerate(toks):
             if t == "--run-name" and i + 1 < len(toks):
                 name = toks[i + 1]
-        # SubprocVecEnv forks duplicate the cmdline; dedupe by name.
-        if name not in names:
-            names.append(name)
+        names.append(name)
     return names
 
 
@@ -230,11 +237,14 @@ def cmd_launch(g: dict, a: argparse.Namespace, extra: list[str]) -> int:
 
     # --- build command ------------------------------------------------------
     log = f"/tmp/train_{a.run}.log"
-    train = (f"python3 train_ppo_sim.py --task goal --subproc "
+    if "--subproc" not in extra:
+        extra = [*extra, "--subproc"]
+        entry["extra_args"] = extra
+    train = (f"python -m {TRAIN_MODULE} "
              f"--run-name {a.run} --steps {a.steps} "
              + " ".join(extra))
     envp = "WANDB_MODE=disabled " if a.smoke else ""
-    remote = (f"cd {SIM_DIR} && {envp}nohup {train} > {log} 2>&1 & echo $!")
+    remote = (f"cd {WORKDIR} && {envp}nohup {train} > {log} 2>&1 & echo $!")
     entry["command"] = remote
     entry["log"] = log
 
