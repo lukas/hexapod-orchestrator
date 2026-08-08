@@ -10,6 +10,7 @@ Run on the controller pod inside tmux:
 Kill switch: `touch rl_move/orchestrator/PAUSE` (loop idles until removed).
 """
 import datetime
+import os
 import pathlib
 import subprocess
 import sys
@@ -76,6 +77,10 @@ def main() -> None:
         try:
             if PAUSE.exists():
                 log("PAUSE present; idling")
+                time.sleep(POLL_S)
+                continue
+            if not os.environ.get("CURSOR_API_KEY"):
+                log("CURSOR_API_KEY not set; cannot run agent cycles. idling")
                 time.sleep(POLL_S)
                 continue
 
