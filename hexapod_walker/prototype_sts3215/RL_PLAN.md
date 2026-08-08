@@ -63,6 +63,15 @@ levers refuted — stop iterating penalty coefficients.**
   (8 frames @ 25 Hz) = implicit system ID. Ablate frame-stack vs
   small GRU. Model-size sweeps rank behind all of this.
 - Deterministic inference for eval and deployment, always.
+- **PPO settings (audit 08-08, binding —
+  `archive/BEST_PRACTICES_AUDIT_2026-08-08.md`):** from-scratch /
+  basin-escape arms train with `log_std_init 0.0` (std 1.0) and
+  `ent_coef 0.005–0.01` — the historic 0.37/0.001 is 3–10x below
+  field standard and taints pre-audit from-scratch refutations. All
+  runs set `target_kl≈0.02` (destructive-update guard). Entropy
+  collapse = health alarm. New mechanisms need a probe smoke first;
+  reward changes trigger the scale audit; mirror-symmetry
+  augmentation queued post-phase-verdict.
 
 ## Evaluation rules
 

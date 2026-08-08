@@ -36,6 +36,17 @@ Context to read before deciding anything:
   autonomy-hardening requirements below. Where this prompt and that
   document overlap, they agree; if you find a conflict, follow the
   review and flag it in RL_LOG.md.
+- `archive/BEST_PRACTICES_AUDIT_2026-08-08.md` — **binding** operator
+  audit vs field-standard locomotion RL. Its directives are in force:
+  from-scratch/basin-escape arms use `log_std_init 0.0` +
+  `ent_coef 0.005–0.01` (our historic std 0.37 / 0.001 is 3–10x below
+  every RSL-RL/Isaac locomotion config and is a prime suspect for
+  shuffle lock-in — treat pre-audit from-scratch refutations as
+  contaminated by under-exploration); ALL runs set `target_kl≈0.02`;
+  log entropy and treat entropy collapse as a run-health alarm; run
+  the reward/obs scale audit after any reward change; every new
+  mechanism gets a trivial probe smoke before a multi-M-step run uses
+  it; symmetry augmentation is queued post-phase-verdict.
 
 ## The cycle
 
