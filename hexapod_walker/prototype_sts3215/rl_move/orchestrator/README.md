@@ -27,6 +27,15 @@ tags), so every cycle is auditable and every run is pinned to an exact
 commit. The watcher keeps a local set of already-handled finished runs in
 /workspace/orchestrator_state.json.
 
+The watcher also owns post-launch checkups: ~5 min after every verified
+launch it runs `launch_run.py checkup` in a background thread
+(/workspace/checkup_state.json tracks which launches were checked).
+DEAD/SUSPECT verdicts are appended to /workspace/checkup_findings.md,
+which triggers the next agent cycle and is injected into its prompt.
+Agent cycles therefore exit right after launch verification instead of
+sleeping 5 minutes per launch; the standing prompt likewise requires all
+harness evals to run in parallel at cycle start.
+
 ## One-time setup
 
 1. Create a fine-grained GitHub token with contents:read/write on

@@ -56,6 +56,17 @@ Context to read before deciding anything:
    and run the gate harness (`rl_move/sim/eval_checkpoint.py`, 6
    episodes/mode, deterministic AND stochastic, at the run's own DR scale,
    with any `--cfg-set` overrides it trained with) **with video enabled**.
+
+   **Start ALL harness evals in PARALLEL, up front, before anything
+   else.** When several runs finished together, pull every checkpoint
+   first, then background every eval at once (`nohup ... &`, each with
+   its own `--out` dir and its own log file — never a shared one), then
+   do your reading (RL_LOG, plan, W&B curves) while they run and review
+   frames/write verdicts as each eval lands. The evals are ~single-core;
+   the controller can host them all simultaneously. Running them one
+   after another is a guardrail-relevant waste: serial evals measured
+   8–10 min each, so a three-eval cycle spent ~25 minutes waiting where
+   parallel evals spend ~10 total.
    Then actually LOOK at the motion: read the PNG frame strips the harness
    saves next to each video (they are images — view them) for **EVERY mode
    whose scalar appears in your verdict — passing modes especially.** A
@@ -184,15 +195,16 @@ Context to read before deciding anything:
    reached, checkpoint file exists (record checksum), eval artifacts
    and video exist and decode.
 
-7. **Five-minute checkup on everything you launched.** ~5 minutes
-   after each launch (pipeline other work in between; do NOT exit the
-   cycle before this is done), run:
-
-       python3 launch_run.py checkup --run <name>
-
-   It re-verifies process/log/W&B mechanically, measures fps, and
-   compares against what the placement should deliver. Then YOU decide
-   and record in the ledger + RL_LOG:
+7. **Checkups are the WATCHER's job — do not wait for them.** The
+   watcher runs `python3 launch_run.py checkup --run <name>` ~5 minutes
+   after every launch you verified in step 6, records the result in the
+   ledger, and — on DEAD or SUSPECT — immediately triggers a new cycle
+   whose prompt carries a "## Watcher checkup findings" section. Do NOT
+   sleep out the 5 minutes inside your cycle (that serialized every
+   launch into +5 min of wall clock while pods sat idle); exit as soon
+   as step 6 verification passes. When YOUR cycle's prompt contains
+   checkup findings, act on them FIRST and record the action in the
+   ledger + RL_LOG:
    - DEAD → clean up remnants, retry the launch once; a second death
      is "## NEEDS OPERATOR".
    - SUSPECT with tracebacks → read the log; if the run is training on
@@ -202,7 +214,7 @@ Context to read before deciding anything:
      relaunch from its checkpoint on a suitable pod rather than letting
      it crawl (the operator has had to nuke starved runs by hand once;
      do not make that happen again).
-   - HEALTHY → note it and move on.
+   - HEALTHY → nothing reaches you; healthy checkups are only logged.
 
 ## Adversarial stance toward results — including your own
 

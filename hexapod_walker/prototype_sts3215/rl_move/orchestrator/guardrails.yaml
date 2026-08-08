@@ -81,10 +81,16 @@ experiments:
   require_hypothesis_and_gate: true
   require_falsifiable_predictions: true
   # Post-launch checkup (operator directive 2026-08-08): ~5 min after every
-  # launch, run `launch_run.py checkup --run <name>` and act on it (DEAD ->
+  # launch, `launch_run.py checkup --run <name>` re-verifies the run.
+  # OWNED BY THE WATCHER since 08-08 evening: watch_loop.py runs it
+  # asynchronously for every verified launch; DEAD/SUSPECT findings trigger
+  # the next cycle and are injected into its prompt. The agent must NOT
+  # sleep out the 5 minutes inside a cycle (that serialized every launch
+  # into +5 min of wall clock) — verify the launch (two-phase) and exit;
+  # act on injected findings FIRST in the cycle that receives them (DEAD ->
   # retry once then escalate; SUSPECT -> read log, kill/rebalance/fix).
-  # Never exit a cycle with an unchecked launch.
   require_post_launch_checkup: true
+  checkup_owner: watcher
   checkup_after_s: 300
   # Progress claims must cite metric + named baseline + delta + noise scale.
   # Deltas inside the calibrated eval-noise band are "no evidence of

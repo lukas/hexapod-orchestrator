@@ -22,10 +22,12 @@ NOT launched; never record the run as running if this script failed.
 from __future__ import annotations
 
 import argparse
+import fcntl
 import json
 import subprocess
 import sys
 import time
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -34,6 +36,7 @@ import yaml
 HERE = Path(__file__).resolve().parent
 GUARDRAILS = HERE / "guardrails.yaml"
 LEDGER = HERE / "experiments.json"
+LEDGER_LOCK = HERE / "experiments.json.lock"
 KUBECONFIG = str(Path.home() / ".kube" / "coreweave.yaml")
 # Established launch pattern on the training pods: module invocation from
 # the project root (NOT `python3 train_ppo_sim.py` from the sim dir).
@@ -109,6 +112,38 @@ def save_ledger(entries: list[dict]) -> None:
     LEDGER.write_text(json.dumps(entries, indent=2) + "\n")
 
 
+@contextmanager
+def ledger_lock():
+    LEDGER_LOCK.touch(exist_ok=True)
+    with LEDGER_LOCK.open("r+") as fh:
+        fcntl.flock(fh, fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(fh, fcntl.LOCK_UN)
+
+
+def upsert_entry(entry: dict) -> None:
+    """Write `entry` into the ledger under the file lock, keyed on
+    (run, created).
+
+    The launch flow mutates its entry across minutes of verification
+    sleeps while the watcher's async checkups write the same file from
+    another process; an unlocked read-modify-write would lose whichever
+    update finished first.
+    """
+    with ledger_lock():
+        led = load_ledger()
+        key = (entry.get("run"), entry.get("created"))
+        for i, e in enumerate(led):
+            if (e.get("run"), e.get("created")) == key:
+                led[i] = entry
+                break
+        else:
+            led.append(entry)
+        save_ledger(led)
+
+
 def now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
@@ -164,9 +199,7 @@ def refuse(entry: dict, reason: str) -> int:
     print(f"REFUSED: {reason}")
     entry["status"] = "REFUSED"
     entry["refused_reason"] = reason
-    led = load_ledger()
-    led.append(entry)
-    save_ledger(led)
+    upsert_entry(entry)
     return 1
 
 
@@ -295,9 +328,7 @@ def cmd_launch(g: dict, a: argparse.Namespace, extra: list[str]) -> int:
         print(" ", remote)
         return 0
 
-    led = load_ledger()
-    led.append(entry)
-    save_ledger(led)
+    upsert_entry(entry)
 
     # --- launch + mechanical verification -----------------------------------
     try:
@@ -318,7 +349,7 @@ def cmd_launch(g: dict, a: argparse.Namespace, extra: list[str]) -> int:
             entry["status"] = "FAILED"
             entry["failed_reason"] = ("launch kexec timed out and no "
                                       "trainer process found on pod")
-            save_ledger(led)
+            upsert_entry(entry)
             print("VERIFICATION FAILED: kexec timeout and no trainer process")
             return 1
         pid = pids[0]
@@ -331,7 +362,7 @@ def cmd_launch(g: dict, a: argparse.Namespace, extra: list[str]) -> int:
                      "2>/dev/null; true")
         entry["status"] = "FAILED"
         entry["failed_reason"] = reason
-        save_ledger(led)
+        upsert_entry(entry)
         return 1
 
     time.sleep(20)
@@ -373,33 +404,47 @@ def cmd_launch(g: dict, a: argparse.Namespace, extra: list[str]) -> int:
 
     entry["status"] = "RUNNING"
     entry["verified"] = now()
-    save_ledger(led)
+    upsert_entry(entry)
     print(f"VERIFIED RUNNING: {a.run} on {a.pod} (ledger updated)")
     return 0
 
 
 def cmd_checkup(g: dict, a: argparse.Namespace) -> int:
-    """Post-launch health assessment (guardrails: run ~5 min after every
-    launch). Mechanical facts first; exit 0 HEALTHY, 2 SUSPECT, 1 DEAD.
+    """Post-launch health assessment (run by the WATCHER ~5 min after
+    every verified launch; the agent acts on findings next cycle).
+    Mechanical facts first; exit 0 HEALTHY, 2 SUSPECT, 1 DEAD.
     The agent decides keep / kill+retry / rebalance — this only reports.
     """
-    led = load_ledger()
-    entry = next((e for e in reversed(led)
+    entry = next((e for e in reversed(load_ledger())
                   if e.get("run") == a.run
                   and e.get("status") in ("RUNNING", "INTENT")), None)
     if entry is None:
         print(f"DEAD: no RUNNING/INTENT ledger entry for {a.run}")
         return 1
     pod, log = entry["pod"], entry["log"]
+    created = entry.get("created")
     problems, facts = [], {"time": now()}
+
+    def record(verdict: str, **extra: object) -> None:
+        # Re-find the entry under the lock: 45+ s elapse while measuring
+        # and the launch flow / other checkups may have written the ledger.
+        with ledger_lock():
+            led = load_ledger()
+            e = next((x for x in reversed(led)
+                      if x.get("run") == a.run
+                      and x.get("created") == created), None)
+            if e is None:
+                led.append(entry)
+                e = entry
+            e.setdefault("checkups", []).append(
+                {**facts, "verdict": verdict, **extra})
+            save_ledger(led)
 
     trainers = pod_trainers(pod)
     facts["process_alive"] = a.run in trainers
     if not facts["process_alive"]:
         tail = kexec(pod, f"tail -c 600 {log} 2>/dev/null || true")
-        entry.setdefault("checkups", []).append(
-            {**facts, "verdict": "DEAD", "log_tail": tail[-600:]})
-        save_ledger(led)
+        record("DEAD", log_tail=tail[-600:])
         print(f"DEAD: no {a.run} trainer process on {pod}. Log tail:\n{tail}")
         return 1
 
@@ -443,9 +488,7 @@ def cmd_checkup(g: dict, a: argparse.Namespace) -> int:
                     "rebalancing")
 
     verdict = "SUSPECT" if problems else "HEALTHY"
-    entry.setdefault("checkups", []).append(
-        {**facts, "verdict": verdict, "problems": problems})
-    save_ledger(led)
+    record(verdict, problems=problems)
     print(f"{verdict}: {a.run} on {pod} "
           f"({facts.get('placement', 'smoke')}, fps={facts.get('fps', 'n/a')})")
     for p in problems:

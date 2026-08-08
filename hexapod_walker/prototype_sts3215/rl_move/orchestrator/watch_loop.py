@@ -20,6 +20,7 @@ import os
 import pathlib
 import subprocess
 import sys
+import threading
 import time
 
 HERE = pathlib.Path(__file__).resolve().parent
@@ -28,8 +29,16 @@ REPO = subprocess.check_output(
 ).strip()
 PROMPT = (HERE / "ORCHESTRATOR_PROMPT.md").read_text()
 PAUSE = HERE / "PAUSE"
+LEDGER = HERE / "experiments.json"
 LOG = pathlib.Path("/workspace/orchestrator.log")
 STATE = pathlib.Path("/workspace/orchestrator_state.json")
+# Watcher-owned post-launch checkups (moved out of the agent cycle
+# 08-08 evening: sleeping out checkup_after_s inside the cycle serialized
+# every launch into +5 min of wall clock while pods sat idle).
+CHECKUP_AFTER_S = 300      # keep in sync with guardrails checkup_after_s
+CHECKUP_WINDOW_S = 3600    # entries older than this are never checked (stale)
+CHECKUP_STATE = pathlib.Path("/workspace/checkup_state.json")
+FINDINGS = pathlib.Path("/workspace/checkup_findings.md")
 
 POLL_S = 300
 MAX_CYCLES_PER_DAY = 12         # keep in sync with guardrails.yaml
@@ -111,10 +120,92 @@ def save_processed(processed: set[str]) -> None:
     STATE.write_text(json.dumps({"processed": sorted(processed)}))
 
 
-def agent_cycle(newly_finished: set[str], still_running: set[str]) -> bool:
+def _entry_key(e: dict) -> str:
+    return f"{e.get('run')}|{e.get('created')}"
+
+
+def _launch_ts(e: dict) -> float | None:
+    for k in ("verified", "created"):
+        v = e.get(k)
+        if v:
+            try:
+                return datetime.datetime.fromisoformat(v).timestamp()
+            except ValueError:
+                pass
+    return None
+
+
+def checkup_worker() -> None:
+    """Async post-launch checkups, owned by the watcher (not the agent).
+
+    Every RUNNING ledger entry gets `launch_run.py checkup` once,
+    ~CHECKUP_AFTER_S after its launch verification. HEALTHY results are
+    just logged; DEAD/SUSPECT results are appended to FINDINGS, which both
+    triggers the next agent cycle and is injected into its prompt so the
+    agent can retry/kill/rebalance. Entries older than CHECKUP_WINDOW_S
+    (stale statuses, backfills, watcher downtime) are skipped silently —
+    a checkup of a long-finished run would false-alarm as DEAD.
+    """
+    try:
+        done = set(json.loads(CHECKUP_STATE.read_text())["done"])
+    except Exception:
+        done = set()
+    while True:
+        try:
+            entries = json.loads(LEDGER.read_text())
+        except Exception:
+            entries = []
+        now = time.time()
+        for e in entries:
+            key = _entry_key(e)
+            if key in done or e.get("status") != "RUNNING":
+                continue
+            if e.get("checkups"):  # already checked (e.g. agent did it)
+                done.add(key)
+                continue
+            ts = _launch_ts(e)
+            if ts is None or now - ts > CHECKUP_WINDOW_S:
+                done.add(key)
+                continue
+            if now - ts < CHECKUP_AFTER_S:
+                continue
+            run = e["run"]
+            try:
+                proc = subprocess.run(
+                    [sys.executable, str(HERE / "launch_run.py"),
+                     "checkup", "--run", run],
+                    capture_output=True, text=True, timeout=600, cwd=REPO)
+                out = ((proc.stdout or "") + (proc.stderr or "")).strip()
+                log(f"checkup {run}: rc={proc.returncode}\n{out[-800:]}")
+                if proc.returncode != 0:
+                    stamp = datetime.datetime.now().isoformat(timespec="seconds")
+                    with FINDINGS.open("a") as f:
+                        f.write(f"### {run} (checkup rc={proc.returncode}, "
+                                f"{stamp})\n{out[-1500:]}\n\n")
+            except Exception as exc:
+                log(f"checkup {run} failed to execute: {exc!r}")
+            done.add(key)
+            try:
+                CHECKUP_STATE.write_text(json.dumps({"done": sorted(done)}))
+            except Exception:
+                pass
+        time.sleep(60)
+
+
+def agent_cycle(newly_finished: set[str], still_running: set[str],
+                findings: str = "") -> bool:
     """Run one decision cycle. Returns True on agent success (rc == 0)."""
     if newly_finished:
         trigger = f"Runs that just finished: {', '.join(sorted(newly_finished))}\n"
+    elif findings:
+        trigger = (
+            "No run just finished — this cycle was triggered by watcher "
+            "post-launch checkup findings (section below). Act on them per "
+            "the prompt's checkup rules (DEAD -> clean up + retry once, "
+            "then NEEDS OPERATOR; SUSPECT -> read the log, kill/rebalance/"
+            "fix), record the action, and exit; skip eval steps for runs "
+            "already logged.\n"
+        )
     else:
         trigger = (
             "No run just finished — this is an idle kick: pods are sitting "
@@ -133,6 +224,11 @@ def agent_cycle(newly_finished: set[str], still_running: set[str]) -> bool:
             else "No other runs are training; all pods are available.\n"
         )
     )
+    if findings:
+        cycle_prompt += (
+            "\n## Watcher checkup findings (act on these first)\n"
+            + findings + "\n"
+        )
     # Sync with main first so the agent sees the operator's latest plan/log
     # edits and its later push can't be rejected as non-fast-forward.
     pull = subprocess.run(
@@ -161,6 +257,7 @@ def main() -> None:
     failed_cycles = 0
     idle_polls = 0
     log("watcher started")
+    threading.Thread(target=checkup_worker, daemon=True).start()
     while True:
         try:
             if PAUSE.exists():
@@ -182,7 +279,11 @@ def main() -> None:
                 continue
 
             newly = finished - processed - ledger_verdicted()
-            if not newly:
+            try:
+                findings = FINDINGS.read_text().strip() if FINDINGS.exists() else ""
+            except OSError:
+                findings = ""
+            if not newly and not findings:
                 if running:
                     idle_polls = 0
                     log(
@@ -202,6 +303,8 @@ def main() -> None:
                 log("pods idle too long — kicking a cycle to resume the campaign")
             else:
                 idle_polls = 0
+                if findings:
+                    log("checkup findings pending — injecting into this cycle")
 
             now = time.time()
             cycle_times = [t for t in cycle_times if now - t < 86400]
@@ -216,7 +319,10 @@ def main() -> None:
                 continue
 
             cycle_times.append(now)
-            if agent_cycle(newly, running):
+            if findings:
+                # Delivered once; the full text also lives in orchestrator.log.
+                FINDINGS.write_text("")
+            if agent_cycle(newly, running, findings):
                 processed |= newly
                 save_processed(processed)
                 failed_cycles = 0
