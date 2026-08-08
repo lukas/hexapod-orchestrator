@@ -144,14 +144,15 @@ Context to read before deciding anything:
    cap and step budget, writes the INTENT→RUNNING ledger entry, and
    verifies process/log/W&B advancement before reporting success.
    **The real budget is the NODE, not the pod** (operator, 08-08
-   evening): the six pods share two ~128-core nodes and pod cgroup
+   evening): the eight pods share three ~128-core nodes and pod cgroup
    limits don't protect against neighbor pods — 8 "within-limits"
    experiments starved each other 4-5x and finished in a clump that
    idled the fleet during one long verdict cycle. The launcher now
    refuses a third experiment on a node (`max_heavy_per_node: 2`,
-   experiment cap 4 total). Prefer STAGGERED launches: 4 runs that
-   finish hours apart keep verdict cycles small and pods busy; do not
-   engineer simultaneous finishes. Its
+   experiment cap 6 total; s5/s6 on the freed third node are 56-core
+   pods like s3/s4). Prefer STAGGERED launches: runs that finish hours
+   apart keep verdict cycles small and pods busy; do not engineer
+   simultaneous finishes. Its
    exit code is the truth: nonzero means NOT launched, whatever you
    remember doing. Smokes use `--smoke` with a non-cw name. W&B notes
    must contain: hypothesis, parent run/checkpoint, exact gate, and the

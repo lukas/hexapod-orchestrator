@@ -3,7 +3,10 @@
 
 compute:
   pods: [hexapod-sweep-friction, hexapod-sweep-s3, hexapod-sweep-s4,
+         hexapod-sweep-s5, hexapod-sweep-s6,
          hexapod-sweep-long5m, hexapod-sweep-lower, hexapod-sweep-walk]
+  # s5/s6 added 08-08 evening (operator): third node g12ba48 was sitting
+  # idle. Both are 56-core-limit pods like s3/s4.
   # CORRECTED 2026-08-08 (operator): `nproc` lies — it shows the 128-core
   # host, but cgroup CPU LIMITS cap each pod. Actual limits:
   #   s3 / s4 / long5m / walk: 56 cores   friction / lower: 30 cores
@@ -20,19 +23,20 @@ compute:
   # slow, rebalancing (kill + relaunch from its own last checkpoint on a
   # freed big pod) is allowed and should be logged.
   max_runs_per_pod: 2
-  # NODE TOPOLOGY (operator, 08-08 evening): the six pods sit on TWO
-  # ~128-core physical nodes and the kernel schedules host-wide — pod
-  # cgroup limits do NOT protect you from a busy neighbor pod. Running
-  # 8 experiments "within pod limits" starved every one of them 4-5x,
-  # made them all finish in a clump, and idled the fleet during the
-  # verdict cycle. The launcher now reads live pod->node placement and
-  # REFUSES a non-smoke launch when the target node already hosts
-  # max_heavy_per_node trainers. Do not bypass with --allow-slow
-  # unless the ledger records why.
+  # NODE TOPOLOGY (operator, 08-08 evening): the pods sit on THREE
+  # ~128-core physical nodes (g142d86: friction/long5m/s3; g129004:
+  # lower/s4/walk; g12ba48: s5/s6) and the kernel schedules host-wide —
+  # pod cgroup limits do NOT protect you from a busy neighbor pod.
+  # Running 8 experiments "within pod limits" starved every one of
+  # them 4-5x, made them all finish in a clump, and idled the fleet
+  # during the verdict cycle. The launcher reads live pod->node
+  # placement and REFUSES a non-smoke launch when the target node
+  # already hosts max_heavy_per_node trainers. Do not bypass with
+  # --allow-slow unless the ledger records why.
   max_heavy_per_node: 2
-  # 2 heavy per node x 2 nodes = the real experiment budget. Smokes
+  # 2 heavy per node x 3 nodes = the real experiment budget. Smokes
   # (<=1M steps, W&B-disabled) don't count against it.
-  max_concurrent_runs: 4
+  max_concurrent_runs: 6
   reserved_smoke_slots: 2
   max_steps_per_run: 6000000
   max_decision_cycles_per_day: 12  # watcher enforces; agent should not try to exceed
@@ -142,7 +146,7 @@ forbidden:
     hexapod.local, no SSH to the robot, no deploys to linux_control,
     no firmware changes.
   - >-
-    Creating, resizing, or deleting pods; the six pods above are the world.
+    Creating, resizing, or deleting pods; the eight pods above are the world.
   - >-
     Launching training with raw kubectl/nohup instead of
     orchestrator/launch_run.py.

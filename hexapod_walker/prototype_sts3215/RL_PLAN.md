@@ -171,12 +171,12 @@ hold → lower → rise → walk. Every session logs sim↔real divergence
 
 ## Compute
 
-- 6 pods on **two ~128-core nodes** (08-08: g142d86 = friction/
-  long5m/s3; g129004 = lower/s4/walk; loadavg is host-wide). 12 slots
-  (cap 10 + 2 smoke) are LAUNCH slots, not throughput: a 48-env run
-  needs ~50–60 cores; >2–3 heavy runs per NODE starve each other (5
-  on g129004 → 100–400 fps vs ~570). Budget ~4–5 fast runs total;
-  per-run log `/tmp/train_<run>.log`.
+- 8 pods on **three ~128-core nodes** (08-08 evening: g142d86 =
+  friction/long5m/s3; g129004 = lower/s4/walk; g12ba48 = s5/s6, both
+  56-core). The launcher enforces the real budget mechanically:
+  `max_heavy_per_node: 2`, experiment cap 6. A 48-env run needs
+  ~50–60 cores; more per node starves everything (measured 4-5x).
+  Stagger launches; per-run log `/tmp/train_<run>.log`.
 - Keep `--eval-every`/`--video-every` ≥200k; periodic eval/video now
   runs in a background worker process (validated 08-08, ~free).
 - Pods answer architecture-level questions, not micro reward tweaks;
