@@ -90,6 +90,23 @@ def load_processed() -> set[str] | None:
     return set(json.loads(STATE.read_text())["processed"])
 
 
+def ledger_verdicted() -> set[str]:
+    """Runs whose experiments.json entry already carries a final status.
+
+    Dedupe keys on the structured ledger, not on the watcher's own state
+    file alone (external review 8b): the state file misses runs when a
+    cycle is interrupted or the watcher restarts mid-cycle — that re-fired
+    cw-walk-flag-s1/cw-walk-nv three times (rounds 8.5, 9). Exception-safe:
+    a missing/corrupt ledger never blocks the loop.
+    """
+    try:
+        entries = json.loads((HERE / "experiments.json").read_text())
+        return {e["run"] for e in entries
+                if e.get("status") in ("FINISHED", "FAILED")}
+    except Exception:
+        return set()
+
+
 def save_processed(processed: set[str]) -> None:
     STATE.write_text(json.dumps({"processed": sorted(processed)}))
 
@@ -164,7 +181,7 @@ def main() -> None:
                 time.sleep(POLL_S)
                 continue
 
-            newly = finished - processed
+            newly = finished - processed - ledger_verdicted()
             if not newly:
                 if running:
                     idle_polls = 0

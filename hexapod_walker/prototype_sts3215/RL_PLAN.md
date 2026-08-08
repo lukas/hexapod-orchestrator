@@ -69,16 +69,12 @@ levers refuted — stop iterating penalty coefficients.**
 - ≥20 episodes for gate decisions (2-episode evals are binomial
   noise). Split all rise/lower stats by start kind. Eval at DR 0 and
   the run's own DR.
-- **Fixed-seed canaries for mid-run monitoring** (review §5a):
-  identical cases every probe (flat 1001/1002, bridge 2001/2002,
-  crouch 3001/3002, extend per mode). Question: "did this checkpoint
-  lose a behavior it demonstrated on identical cases?" Randomized
-  ≥20-ep harness stays the promotion standard.
-- **Regression auto-stop** (review §5c): warm-start multi-skill runs
-  store parent canary performance at launch; protected skill below
-  threshold 3 consecutive probes → auto-terminate. Implement before
-  the next warm-start launch (would have caught cw-walk-flag's rise
-  collapse millions of steps early).
+- **Fixed-seed canaries + regression auto-stop — LANDED 08-08**
+  (review §5a/§5c; default-on for warm starts, `--no-canary` opts
+  out): identical rise flat/bridge/crouch + lower cases every probe;
+  parent baseline at launch; groups the parent passed 2/2 are
+  protected; 3 consecutive full-group failures auto-terminate.
+  Randomized ≥20-ep harness stays the promotion standard.
 - **Noise-response curve per champion:** success at action std
   0/.02/.05/.10/.15/.20, stored with the checkpoint. Deterministic
   100% with a cliff at small std will erode in any fine-tune.
@@ -164,9 +160,12 @@ hold → lower → rise → walk. Every session logs sim↔real divergence
 
 ## Compute
 
-- 6 pods × 128 cores (12 slots; cap 10 experiments, 2 slots reserved
-  for smokes). One 48-env run saturates ~50–60 cores → **two 48-env
-  runs per pod** (guardrails: per-run log `/tmp/train_<run>.log`).
+- 6 pods on **two ~128-core nodes** (08-08: g142d86 = friction/
+  long5m/s3; g129004 = lower/s4/walk; loadavg is host-wide). 12 slots
+  (cap 10 + 2 smoke) are LAUNCH slots, not throughput: a 48-env run
+  needs ~50–60 cores; >2–3 heavy runs per NODE starve each other (5
+  on g129004 → 100–400 fps vs ~570). Budget ~4–5 fast runs total;
+  per-run log `/tmp/train_<run>.log`.
 - Keep `--eval-every`/`--video-every` ≥200k; periodic eval/video now
   runs in a background worker process (validated 08-08, ~free).
 - Pods answer architecture-level questions, not micro reward tweaks;
@@ -192,10 +191,11 @@ let it run, but re-seed its buckets after the speed diagnostic).
 5. Contact-from-proprioception auxiliary head, after (3). Dense
    step-decomposition and model-size sweep stay last.
 
-Parallel infra (smoke slots, before next warm-start launch): fixed-
-seed canaries, regression auto-stop, gait-validity metrics in the
-harness, structured experiment ledger + mechanical launch/completion
-verification (review §5, §8).
+Infra LANDED 08-08 cycle 9 (review §5, §8): fixed-seed canaries +
+regression auto-stop (default-on for warm starts), gait-validity gate
+in the harness (walk success now requires no sacrificed leg — dr04b
+honestly scores 0/3), `orchestrator/experiments.json` ledger, watcher
+dedupe keyed on the ledger (takes effect on next watcher restart).
 
 ## Done =
 
