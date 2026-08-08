@@ -24,6 +24,10 @@ Context to read before deciding anything:
 - `RL_LOG.md` — every prior run's results and decisions. Yours appends here.
 - `archive/RL_CAMPAIGN_REVIEW_2026-08-08.md` — campaign history and
   hard-won practices.
+- `archive/HEXAPOD_RL_LITERATURE_REVIEW_2026-08-08.md` — external
+  literature review; its priority ordering (asymmetric actor–critic,
+  learning-progress curriculum, temporal actor, reward routing) is
+  reflected in the plan and outranks a model-size sweep.
 
 ## The cycle
 
@@ -70,13 +74,17 @@ Context to read before deciding anything:
    `exp/<name>`, pushes, and prints the commit hash. Abort the cycle if
    the push fails (escalation rule). Sync code to each target pod
    (`snapshot.sh --sync <pod>`), then start training with the established
-   pattern (`train_ppo_sim.py`, nohup, `/tmp/train.log`, `--wandb`, warm
-   start via `--init-from`, distinct `--seed`). W&B notes must contain:
+   pattern (`train_ppo_sim.py`, nohup, `--wandb`, warm start via
+   `--init-from`, distinct `--seed`). Each pod may host up to TWO
+   concurrent runs (guardrails `max_runs_per_pod`); log each run to its
+   own file `/tmp/train_<run-name>.log`, never a shared `/tmp/train.log`.
+   Respect `min_eval_every`/`min_video_every` — the old dense-eval
+   defaults burned ~65% of wall clock. W&B notes must contain:
    hypothesis, parent run/checkpoint, exact gate, and the snapshot commit
    hash. Append a launch entry per run to RL_LOG.md, commit and push.
 
 6. **Verify.** Confirm each launched run appears in W&B and its
-   `/tmp/train.log` is advancing before you exit. If a launch fails twice,
+   `/tmp/train_<run-name>.log` is advancing before you exit. If a launch fails twice,
    leave that pod idle and record it in RL_LOG.md under "## NEEDS
    OPERATOR".
 
