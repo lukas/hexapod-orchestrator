@@ -110,21 +110,33 @@ plan:
   must_not_grow: true
 
 forbidden:
-  - Any contact with the physical robot: no HTTP to 192.168.4.44 / hexapod.local,
-    no SSH to the robot, no deploys to linux_control, no firmware changes.
-  - Creating, resizing, or deleting pods; the six pods above are the world.
-  - Changing reward/env code without recording the diff rationale in the
+  - >-
+    Any contact with the physical robot: no HTTP to 192.168.4.44 /
+    hexapod.local, no SSH to the robot, no deploys to linux_control,
+    no firmware changes.
+  - >-
+    Creating, resizing, or deleting pods; the six pods above are the world.
+  - >-
+    Launching training with raw kubectl/nohup instead of
+    orchestrator/launch_run.py.
+  - >-
+    Changing reward/env code without recording the diff rationale in the
     experiment log (code changes ARE allowed - that is the point - but must
     be explained and are snapshotted by tag).
-  - Deleting W&B runs, checkpoints, or git history.
-  - Disabling the PAUSE kill switch, the watcher, or these guardrails.
+  - >-
+    Deleting W&B runs, checkpoints, or git history.
+  - >-
+    Disabling the PAUSE kill switch, the watcher, or these guardrails.
 
 escalation:
   # If any of these happen, do NOT launch new runs; write the situation to
   # EXPERIMENT_LOG.md under "## NEEDS OPERATOR" and exit the cycle:
-  - Two consecutive cycles where every launched run failed its gate badly
+  - >-
+    Two consecutive cycles where every launched run failed its gate badly
     (no metric moved toward its gate).
-  - Any sign of infra failure (pod unreachable, W&B auth failing, git push
+  - >-
+    Any sign of infra failure (pod unreachable, W&B auth failing, git push
     rejected).
-  - The next logical step requires hardware, more compute, or a plan change
+  - >-
+    The next logical step requires hardware, more compute, or a plan change
     beyond RL_PLAN.md.
