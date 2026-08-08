@@ -244,7 +244,12 @@ def cmd_launch(g: dict, a: argparse.Namespace, extra: list[str]) -> int:
              f"--run-name {a.run} --steps {a.steps} "
              + " ".join(extra))
     envp = "WANDB_MODE=disabled " if a.smoke else ""
-    remote = (f"cd {WORKDIR} && {envp}nohup {train} > {log} 2>&1 & echo $!")
+    # `< /dev/null` is load-bearing: without it the nohup'd trainer inherits
+    # the kubectl-exec stream and `kubectl exec` hangs until the trainer
+    # exits (observed cycle 10: launch verified fine but kexec timed out at
+    # 60 s, leaving a healthy run stuck at INTENT).
+    remote = (f"cd {WORKDIR} && {envp}nohup {train} > {log} 2>&1 "
+              f"< /dev/null & echo $!")
     entry["command"] = remote
     entry["log"] = log
 
