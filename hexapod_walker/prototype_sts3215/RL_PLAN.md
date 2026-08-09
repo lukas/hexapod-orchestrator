@@ -184,13 +184,14 @@ hold → lower → rise → walk. Every session logs sim↔real divergence
 
 ## Queue (in flight → next)
 
-In flight: `cw-stance-endpost-r1` (4M, terminal-posture pricing, one
-variable vs cw-stance-posture; first attempt lost to a missing parent
-ckpt on the new s5 pod). `cw-walk-step0` finished 4M (rew 586 and
-climbing) — operator says promising: continuation is relaunch-FIRST
-per item 0-a, owned by the cycle that picks it up. posture2 FAILED
-cycle 14 (std runaway; exploration refuted). hist8 INCONCLUSIVE;
-history rejoins on the step0 baseline.
+In flight: `cw-walk-step0-c2` (operator-launched ~00:55Z, item 0-a,
+`--no-canary` — see below). `cw-walk-step0` finished 4M rew 586;
+c1 improved (survived 6/10→10/10, rew 591) before a FALSE-POSITIVE
+canary auto-stop at 1.26M — c1 verdict cycle in flight.
+`cw-stance-endpost-r1` finished; its verdict cycle is in flight
+(first attempt lost to a missing parent ckpt on the new s5 pod).
+posture2 FAILED cycle 14 (std runaway; exploration refuted). hist8
+INCONCLUSIVE; history rejoins on the step0 baseline.
 
 0-a. **OPERATOR-DIRECTED (binding, 08-09 ~00:30Z): step0 is
    CONTINUE-WHILE-IMPROVING — relaunch FIRST, analyze SECOND.**
@@ -212,6 +213,16 @@ history rejoins on the step0 baseline.
    lineage on plateau (last quarter no better than the prior
    quarter) or gate pass. Tweaks are allowed but as SEPARATE
    one-variable arms next to the continuation, never folded into it.
+   **Canary note (08-09 ~00:55Z): step0-lineage continuations run
+   `--no-canary`.** c1 was auto-stopped at 1.26M by a false positive:
+   warm starts arm canaries from a parent-baseline probe, and the
+   walk-only parent accidentally "passed" rise_flat at baseline, so
+   the canary protected a skill this lineage never trained and killed
+   the run when it (meaninglessly) failed 3 probes. There is nothing
+   legitimate to protect in a single-skill from-scratch lineage — the
+   walk gate harness is the real check. Canaries stay ON for every
+   multi-skill / warm-started-from-multi-skill run; this exemption is
+   lineage-specific, not a precedent.
 
 0. **OPERATOR-DIRECTED (binding, 08-08 ~23:00Z): the embarrassingly
    narrow walk (suggested name `cw-walk-step0`).** Dedicate one
