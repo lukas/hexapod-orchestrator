@@ -1017,7 +1017,10 @@ def cmd_update(a: argparse.Namespace) -> int:
     # Mechanical W&B mirror (operator, 08-09): a verdict that only lives
     # in the ledger looks like an ignored result on the W&B page. Push
     # it to the run's notes immediately; ops.sh wandbnote may later
-    # replace it with a richer paragraph (same OUTCOME marker).
+    # replace it with a richer paragraph (same OUTCOME marker). Also
+    # package the run's ANALYSIS (ledger entry, rendered run page,
+    # harness eval outputs incl. report.json/frames/videos) as an
+    # `analysis-<run>` artifact attached to the W&B run.
     if "verdict" in keys and entry.get("verdict"):
         try:
             import wandb
@@ -1033,9 +1036,48 @@ def cmd_update(a: argparse.Namespace) -> int:
                            f"{str(entry['verdict']).strip()}\n")
                 r.update()
                 print(f"verdict mirrored to W&B notes: {r.url}")
+                try:
+                    _publish_analysis_artifact(r, a.run, entry)
+                except Exception as ex:
+                    print(f"WARN: analysis artifact failed: {ex}")
         except Exception as ex:  # never fail the ledger update over W&B
             print(f"WARN: could not mirror verdict to W&B notes: {ex}")
     return 0
+
+
+def _publish_analysis_artifact(api_run, run_name: str, entry: dict) -> None:
+    """Attach `analysis-<run>` (type run-analysis) to the W&B run:
+    the ledger entry, rl_docs/runs/<run>.md, logs/experiments/<run>/,
+    and every logs/ckpt_eval/<run>_* harness output directory. Skips
+    single files >100 MB (an eval reel gone wrong must not hang the
+    verdict cycle)."""
+    import tempfile
+    import wandb
+    proto = HERE.parent.parent
+    art = wandb.Artifact(f"analysis-{run_name}", type="run-analysis",
+                         metadata={"verdict": str(entry.get("verdict"))[:500],
+                                   "status": entry.get("status")})
+    with tempfile.NamedTemporaryFile("w", suffix=".json",
+                                     delete=False) as tf:
+        json.dump(entry, tf, indent=2, default=str)
+    art.add_file(tf.name, name="ledger_entry.json")
+    md = RUNS_DIR / f"{run_name}.md"
+    if md.exists():
+        art.add_file(str(md), name=f"{run_name}.md")
+    n_files = 0
+    dirs = [proto / "logs" / "experiments" / run_name]
+    dirs += sorted((proto / "logs" / "ckpt_eval").glob(
+        run_name.replace("-", "_") + "_*"))
+    for d in dirs:
+        if not d.is_dir():
+            continue
+        for f in sorted(d.rglob("*")):
+            if f.is_file() and f.stat().st_size < 100 * 1024 * 1024:
+                art.add_file(str(f), name=f"{d.name}/{f.relative_to(d)}")
+                n_files += 1
+    api_run.log_artifact(art)
+    print(f"analysis artifact analysis-{run_name} attached "
+          f"({n_files} eval files)")
 
 
 def main() -> int:
