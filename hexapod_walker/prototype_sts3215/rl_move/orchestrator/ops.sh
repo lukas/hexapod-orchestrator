@@ -1,0 +1,155 @@
+#!/usr/bin/env bash
+# ops.sh — one-stop helpers for orchestrator cycles (2026-08-09).
+# Born from transcript mining: cycles kept re-deriving these (pods have
+# no ps; eval_checkpoint must run as a module; ledger holds pod/log
+# paths; sleep-then-check is blocked by the harness). Use these instead
+# of composing kubectl/python by hand. See AGENT_NOTES.md.
+set -uo pipefail
+export KUBECONFIG="${KUBECONFIG:-$HOME/.kube/coreweave.yaml}"
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROTO="$(cd "$HERE/../.." && pwd)"          # …/hexapod_walker/prototype_sts3215
+LEDGER="$HERE/experiments.json"
+WANDB_PROJECT="l2k2/hexapod-balance"
+POD_PROTO=/workspace/prototype_sts3215      # pods' tree (NOT the controller's)
+
+entry_field() {  # entry_field <run> <field> — last ledger entry wins
+  python3 - "$1" "$2" <<'EOF'
+import json, sys
+run, field = sys.argv[1], sys.argv[2]
+val = ""
+for e in json.load(open(__import__("os").environ["LEDGER"])):
+    if isinstance(e, dict) and e.get("run") == run and e.get(field) is not None:
+        val = e[field]
+print(val)
+EOF
+}
+export LEDGER
+
+case "${1:-help}" in
+
+status)  # fleet in one shot: active ledger entries, live procs, watcher tail
+  python3 - <<'EOF'
+import json, os
+active = {}
+for e in json.load(open(os.environ["LEDGER"])):
+    if isinstance(e, dict) and e.get("status") in ("RUNNING", "INTENT"):
+        active[e.get("run")] = (e.get("status"), e.get("pod"))
+for r, (s, p) in active.items():
+    print(f"{s:8s} {r}  pod={p}")
+EOF
+  for pod in $(python3 -c "
+import json,os
+pods={e.get('pod') for e in json.load(open(os.environ['LEDGER']))
+      if isinstance(e,dict) and e.get('status')=='RUNNING'}
+print(' '.join(sorted(p for p in pods if p)))"); do
+    echo "--- $pod live procs:"
+    "$0" procs "$pod"
+  done
+  echo "--- watcher:"
+  tail -3 /workspace/orchestrator.log 2>/dev/null || true
+  ;;
+
+procs)  # procs <pod> — training/eval processes (pods have NO ps)
+  kubectl exec "$2" -- sh -c '
+    for p in /proc/[0-9]*/cmdline; do
+      c=$(tr "\0" " " < "$p" 2>/dev/null) || continue
+      case "$c" in
+        *train_ppo*|*eval_checkpoint*) echo "${p%/cmdline}: $c" | cut -c1-160;;
+      esac
+    done' 2>/dev/null || echo "(none or pod unreachable)"
+  ;;
+
+trainlog)  # trainlog <run> [lines] — tail the run's train log on its pod
+  run="$2"; n="${3:-30}"
+  pod=$(entry_field "$run" pod); log=$(entry_field "$run" log)
+  [ -z "$log" ] && log="/tmp/train_${run}.log"
+  [ -z "$pod" ] && { echo "no ledger entry for $run"; exit 1; }
+  echo "== $pod:$log =="
+  kubectl exec "$pod" -- tail -n "$n" "$log"
+  ;;
+
+entry)  # entry <run> — all ledger entries for the run, pretty-printed
+  python3 - "$2" <<'EOF'
+import json, os, sys
+for e in json.load(open(os.environ["LEDGER"])):
+    if isinstance(e, dict) and e.get("run") == sys.argv[1]:
+        print(json.dumps(e, indent=1))
+EOF
+  ;;
+
+wandb)  # wandb <run> — state, steps, reward trend (quarters), std, url
+  python3 - "$2" <<'EOF'
+import sys
+import wandb
+api = wandb.Api()
+name = sys.argv[1]
+runs = [r for r in api.runs("l2k2/hexapod-balance",
+                            filters={"display_name": name})]
+if not runs:
+    sys.exit(f"no W&B run named {name}")
+r = sorted(runs, key=lambda x: x.created_at)[-1]
+s = r.summary
+print(f"{r.name} [{r.id}] state={r.state} steps={s.get('global_step') or s.get('_step')}")
+print(f"ep_rew_mean={s.get('rollout/ep_rew_mean')} std={s.get('train/std')} "
+      f"fps={s.get('time/fps')}")
+hist = r.history(keys=["rollout/ep_rew_mean"], pandas=False, samples=200)
+vals = [h["rollout/ep_rew_mean"] for h in hist if h.get("rollout/ep_rew_mean") is not None]
+if len(vals) >= 8:
+    q = len(vals) // 4
+    print("reward quarters:", [round(sum(vals[i*q:(i+1)*q])/q, 1) for i in range(4)])
+print(r.url)
+EOF
+  ;;
+
+pullckpt)  # pullckpt <run> — fetch the run's checkpoint from its pod; md5
+  run="$2"; pod=$(entry_field "$run" pod)
+  [ -z "$pod" ] && { echo "no ledger entry for $run"; exit 1; }
+  name="ppo_goal_$(echo "$run" | tr - _).zip"
+  dest="$PROTO/rl_move/sim/policies/$name"
+  kubectl cp "$pod:$POD_PROTO/rl_move/sim/policies/$name" "$dest" && \
+    md5sum "$dest"
+  ;;
+
+evalcmd)  # evalcmd <run> — print the exact-path harness eval command
+  run="$2"
+  python3 - "$run" <<'EOF'
+import json, os, sys
+run = sys.argv[1]
+entry = None
+for e in json.load(open(os.environ["LEDGER"])):
+    if isinstance(e, dict) and e.get("run") == run and e.get("extra_args"):
+        entry = e
+args = entry["extra_args"] if entry else []
+def val(flag, default=None):
+    return args[args.index(flag) + 1] if flag in args else default
+task = val("--task", "joint_walk")
+ep = val("--episode-seconds", "15" if task == "joint_walk" else None)
+cfg = " ".join(f"--cfg-set {args[i+1]}" for i, a in enumerate(args) if a == "--cfg-set")
+modes = "--modes walk" if task == "joint_walk" else ""
+name = "ppo_goal_" + run.replace("-", "_")
+out = f"logs/ckpt_eval/{run.replace('-', '_')}_gate"
+print(f"# run from the PROTO dir; ALWAYS as a module (-m), never the .py path")
+print(f"nohup python3 -m rl_move.sim.eval_checkpoint rl_move/sim/policies/{name}.zip \\")
+print(f"  --task {task} {modes} --per-mode 6 --dr-scale 0.0 --seed 0 --stochastic \\")
+if ep: print(f"  --episode-seconds {ep} \\")
+if cfg: print(f"  {cfg} \\")
+print(f"  --video-every 1 --out {out} > /tmp/eval_{run}.log 2>&1 &")
+print(f"# then: ops.sh waitlog /tmp/eval_{run}.log 'WROTE|Traceback' 1800")
+EOF
+  ;;
+
+waitlog)  # waitlog <file> <regex> [timeout_s] — poll instead of sleep-and-pray
+  f="$2"; pat="$3"; t="${4:-900}"; el=0
+  until grep -qE "$pat" "$f" 2>/dev/null; do
+    sleep 15; el=$((el+15))
+    [ "$el" -ge "$t" ] && { echo "TIMEOUT after ${t}s; tail:"; tail -5 "$f" 2>/dev/null; exit 1; }
+  done
+  echo "matched after ~${el}s:"; grep -E "$pat" "$f" | tail -3
+  ;;
+
+*)
+  sed -n '2,6p' "$0"
+  echo "subcommands: status | procs <pod> | trainlog <run> [n] | entry <run> |"
+  echo "  wandb <run> | pullckpt <run> | evalcmd <run> | waitlog <file> <regex> [t]"
+  ;;
+esac

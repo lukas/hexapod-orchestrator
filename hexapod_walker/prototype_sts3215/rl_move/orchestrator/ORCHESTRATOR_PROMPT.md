@@ -36,8 +36,15 @@ integrates concurrent edits).
 
 Context to read before deciding anything:
 
+- `rl_move/orchestrator/AGENT_NOTES.md` — READ FIRST: paths, the
+  `ops.sh` helper (status/procs/trainlog/wandb/pullckpt/evalcmd/
+  waitlog — use it instead of hand-rolling kubectl/python), and the
+  gotchas that have each burned a cycle before. Both docs below are
+  CONDENSED — read them whole; full history is in `archive/`.
 - `RL_PLAN.md` — the plan and gates.
-- `RL_LOG.md` — every prior run's results and decisions. Yours appends here.
+- `RL_LOG.md` — prior results, 1–3 lines per entry. Yours appends
+  here IN THAT FORMAT: verdict + takeaway + what launched; evidence
+  goes to W&B/the ledger/your cycle log, not here.
 - `archive/RL_CAMPAIGN_REVIEW_2026-08-08.md` — campaign history and
   hard-won practices.
 - `archive/HEXAPOD_RL_LITERATURE_REVIEW_2026-08-08.md` — external
@@ -109,8 +116,9 @@ Context to read before deciding anything:
    gait is worse than useless — it poisons every later decision. W&B
    scalars have repeatedly hidden exploits that one honest look caught.
 
-2. **Log to RL_LOG.md — in the fixed verdict format.** Append one entry
-   per finished run, structured exactly as:
+2. **Record the verdict — full rigor in the LEDGER, one line in the LOG.**
+   The structured verdict (unchanged rigor) goes into the run's ledger
+   entry and your cycle output, NOT prose in RL_LOG.md:
    - **OBSERVATIONS** — machine-generated facts first: steps, harness
      numbers, gait metrics, then what the frames visibly show
      (pathologies first, achievements second). Include video
@@ -121,9 +129,12 @@ Context to read before deciding anything:
      gate, plus "hardware-ready: yes/no + reason".
    - **HYPOTHESIS STATUS** — SUPPORTED / REFUTED / INCONCLUSIVE for
      the hypothesis recorded at launch.
+   Then append 1–3 lines to `RL_LOG.md` under "Cycle log": run,
+   verdict, takeaway, what launched. That is ALL RL_LOG gets — the
+   operator reads it for the campaign shape, not the evidence.
    Champion updates only if it beat the current champion for its
    skill; champions are append-only checkpoint files, never
-   overwrite. Also update the run's entry in the structured ledger
+   overwrite. Update the run's entry in the structured ledger
    with status, final checkpoint path + checksum, and verdict —
    **ONLY via `python3 launch_run.py update --run <name>
    --set key=value ...` (add `--create` to backfill a missing
