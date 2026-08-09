@@ -53,16 +53,27 @@ MAX_CONCURRENT_CYCLES = 4  # operator 08-09: 2 bottlenecked triage of 12 simulta
 CYCLE_TIMEOUT_S = 3 * 3600
 CYCLE_OUT_DIR = pathlib.Path("/workspace/cycle_logs")
 # Decision cycles run on Claude Code (headless) with the operator's own
-# Anthropic API key — Fable 5, billed directly to Anthropic. Cursor's CLI
-# was dropped because editor BYOK keys don't apply to headless sessions,
+# Anthropic API key, billed directly to Anthropic. Cursor's CLI was
+# dropped because editor BYOK keys don't apply to headless sessions,
 # which left cycles stuck behind Cursor plan usage limits.
-AGENT_MODEL = "claude-fable-5"
-AGENT_CMD = [
-    "claude", "-p", "--bare",
-    "--model", AGENT_MODEL,
-    "--dangerously-skip-permissions",
-    "--output-format", "text",
-]
+#
+# Model tiering (operator cost order, 08-09 evening: ~$23/cycle on
+# fable was "really too expensive"): routine triage runs on Sonnet 5
+# (1/5 the $/tok); a triage cycle that hits a dig-in trigger emits
+# "DIG-IN: <run> — <why>" and exits, and reap_cycles() re-spawns just
+# those runs on Fable. Findings/idle-kick cycles (planning-shaped)
+# stay on Fable.
+AGENT_MODEL_TRIAGE = "claude-sonnet-5"
+AGENT_MODEL_DEEP = "claude-fable-5"
+
+
+def agent_cmd(model: str) -> list[str]:
+    return [
+        "claude", "-p", "--bare",
+        "--model", model,
+        "--dangerously-skip-permissions",
+        "--output-format", "text",
+    ]
 
 WANDB_PROJECT = "l2k2/hexapod-balance"
 # Experiment naming convention. Runs without this prefix (e.g. auto-named
@@ -405,7 +416,9 @@ def prestage_finished(run: str) -> None:
 
 def spawn_cycle(newly_finished: set[str], still_running: set[str],
                 findings: str, in_flight: set[str],
-                auto_started: dict[str, str] | None = None) -> dict:
+                auto_started: dict[str, str] | None = None,
+                model: str | None = None,
+                extra_prompt: str = "") -> dict:
     """Start one decision cycle as a CONCURRENT subprocess.
 
     Returns a handle {proc, runs, out, t0}; reap_cycles() collects it.
@@ -487,6 +500,12 @@ def spawn_cycle(newly_finished: set[str], still_running: set[str],
             "\n## Watcher checkup findings (act on these first)\n"
             + findings + "\n"
         )
+    if extra_prompt:
+        cycle_prompt += extra_prompt
+    # Triage runs on the cheap tier; findings/idle-kick (planning-shaped)
+    # and dig-in escalations run deep.
+    if model is None:
+        model = AGENT_MODEL_TRIAGE if newly_finished else AGENT_MODEL_DEEP
     # Sync with main first so the agent sees the operator's latest plan/log
     # edits and its later push can't be rejected as non-fast-forward.
     pull = subprocess.run(
@@ -501,12 +520,12 @@ def spawn_cycle(newly_finished: set[str], still_running: set[str],
     out = CYCLE_OUT_DIR / f"cycle_{stamp}_{label[:120]}.log"
     with out.open("w") as fh:
         proc = subprocess.Popen(
-            AGENT_CMD + [cycle_prompt],
+            agent_cmd(model) + [cycle_prompt],
             cwd=REPO, stdout=fh, stderr=subprocess.STDOUT, text=True,
         )
-    log(f"cycle spawned pid={proc.pid} for: {label} (log: {out})")
+    log(f"cycle spawned pid={proc.pid} model={model} for: {label} (log: {out})")
     return {"proc": proc, "runs": set(newly_finished), "out": out,
-            "t0": time.time(), "label": label}
+            "t0": time.time(), "label": label, "model": model}
 
 
 def reap_cycles(active: list[dict], processed: set[str]) -> tuple[list[dict], int, int]:
@@ -514,7 +533,11 @@ def reap_cycles(active: list[dict], processed: set[str]) -> tuple[list[dict], in
 
     Successful cycles mark their runs processed; failed cycles leave them
     unmarked so a later cycle can retry (ledger dedupe prevents double
-    verdicts for anything the failed cycle did complete)."""
+    verdicts for anything the failed cycle did complete).
+
+    Escalation: a cheap-tier triage cycle that prints "DIG-IN: <run> — why"
+    gets those runs re-spawned immediately on the deep model. Deep cycles
+    never re-escalate (no loop)."""
     still, n_ok, n_failed = [], 0, 0
     for c in active:
         rc = c["proc"].poll()
@@ -527,15 +550,29 @@ def reap_cycles(active: list[dict], processed: set[str]) -> tuple[list[dict], in
                 still.append(c)
             continue
         try:
-            tail = c["out"].read_text()[-2000:]
+            tail = c["out"].read_text()[-4000:]
         except OSError:
             tail = "(cycle log unreadable)"
-        log(f"cycle {c['label']} done rc={rc}; tail:\n{tail}")
+        log(f"cycle {c['label']} done rc={rc}; tail:\n{tail[-2000:]}")
         if rc == 0:
             processed |= c["runs"]
             n_ok += 1
         else:
             n_failed += 1
+        if c.get("model") != AGENT_MODEL_DEEP:
+            digs = re.findall(r"^DIG-IN: (\S+)(.*)$", tail, re.M)
+            dig_runs = {r for r, _ in digs if r in c["runs"]}
+            if dig_runs:
+                why = "; ".join(f"{r}:{w.strip(' —-')}" for r, w in digs)
+                log(f"escalating dig-in to {AGENT_MODEL_DEEP}: {sorted(dig_runs)}")
+                still.append(spawn_cycle(
+                    dig_runs, set(), "", set(),
+                    model=AGENT_MODEL_DEEP,
+                    extra_prompt=(
+                        "\n## Dig-in escalation\nA triage cycle flagged "
+                        f"these runs and did NOT verdict them: {why}. "
+                        "Do the dig-in yourself and finalize their "
+                        "verdicts.\n")))
     return still, n_ok, n_failed
 
 

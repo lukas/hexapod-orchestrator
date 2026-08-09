@@ -90,12 +90,19 @@ new line or digging into a failure, not on every cycle.
 3. **DIG IN only on a real trigger:** gate and video disagree; metrics
    anomalous vs parent beyond eval noise; a protected skill (rise/
    lower >= 5/6) eroded; canary auto-stop fired; the result decides a
-   fork in the plan; or you're about to change reward/env code. Then
-   use the full toolkit: all-mode det+sto strips, per-leg gait metrics,
-   structured OBSERVATIONS/INTERPRETATION/VERDICT in the ledger, and a
-   root-cause chain (behavior <- incentive <- pricing <- sim defect)
-   before any reward patch. Claims need a named baseline + delta
-   outside the noise band; deltas inside noise are "no evidence".
+   fork in the plan; or you're about to change reward/env code.
+   **Model tiering (operator cost order, 08-09): triage cycles run on
+   a cheaper model. If YOU are a triage cycle and a trigger fires, do
+   NOT dig in yourself: leave that run UNVERDICTED, finish your other
+   runs and refills, and end your final message with one line per
+   flagged run, exactly `DIG-IN: <run> — <one-line reason>` — the
+   watcher re-spawns those runs on the deep model.** Dig-in cycles
+   (your "## This cycle" says so) use the full toolkit: all-mode
+   det+sto strips, per-leg gait metrics, structured OBSERVATIONS/
+   INTERPRETATION/VERDICT in the ledger, and a root-cause chain
+   (behavior <- incentive <- pricing <- sim defect) before any reward
+   patch. Claims need a named baseline + delta outside the noise band;
+   deltas inside noise are "no evidence".
 
 4. **Refill the pipeline.** Keep every slot busy (`capacity.py`; idle
    slot needs a ledger-recorded HARD reason). **If more than 2 slots

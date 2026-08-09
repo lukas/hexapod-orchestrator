@@ -121,6 +121,14 @@ compute:
   # same half hour left 14 GPUs idle behind a 2-cycle triage bottleneck.
   # Keep in sync with watch_loop.py.
   max_concurrent_cycles: 4
+  # Model tiering (operator cost order, 08-09 evening: ~$23/cycle all-
+  # fable was too expensive). Triage = sonnet; dig-in escalations,
+  # checkup-findings and idle-kick cycles = fable. A triage cycle that
+  # hits a dig-in trigger leaves the run unverdicted and prints
+  # "DIG-IN: <run> — why"; the watcher re-spawns it on the deep model.
+  # Keep in sync with watch_loop.py AGENT_MODEL_*.
+  agent_model_triage: claude-sonnet-5
+  agent_model_deep: claude-fable-5
   # Blast-radius cap (external review 8e): one confused cycle must not be
   # able to burn a weekend of pods. Hard per-cycle ceilings:
   max_new_launches_per_cycle: 4
