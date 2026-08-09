@@ -23,11 +23,16 @@ levers refuted — stop iterating penalty coefficients.**
   alarm alongside collapse. Terminal pricing refuted twice (endpost
   r1/c1: redistribution manifold); reset diversity refuted (cycle
   26 bellyrest: basin visited — frac=1.0 eval 12/12 — hover still
-  chosen; policy THRESHOLD-RIDES the 60 mm allowance, now under
-  operator review). In flight: `cw-stance-lowerdense` (end-posture
-  charge over the WHOLE lower episode). Flag any eval where
-  rise/lower height drops below 5/6; never warm-start stand work
-  from an eroded checkpoint.
+  chosen); dense whole-episode charging refuted (cycle 28
+  lowerdense: hover PAYS the charge — it is ~2–5% of episode
+  income — and allowance-riding deepened; collateral RISE erosion,
+  stop rule tripped, ckpt quarantined). Diagnosis (cycle 28): the
+  hover is INCOME-POSITIVE — current model prices a planted
+  descent at 2.6 A / 4x current_hot, support_margin pays a tripod
+  more than six planted feet. **Stance line BLOCKED on operator
+  ruling (allowance + current pricing + margin shape); no shaping
+  arms.** Flag any eval where rise/lower height drops below 5/6;
+  never warm-start stand work from an eroded checkpoint.
 - **Walk: step0/lowent line is the only valid gait** (six legs
   cycling; blockers: 1/6 sto park, skating, det tracking). **DR is
   NOT the bottleneck (cycle 23): untrained h15b passes the full walk
@@ -298,12 +303,12 @@ gate clause — operator), rear-hemisphere hole (operator scope),
    both ways (slip unmoved OR gait collapse) ⇒ stance-anchoring is
    not effort-reachable ⇒ phase prior is the next review rung.
    Rear-hemisphere exposure arm BLOCKED on operator scope ruling.
-   Stance after
-   lowerdense: (a) spears PAY the dense charge ⇒ opposing-gradient
-   diagnosis (tilt/current), no more shaping; (b) all legs hover
-   40–60 mm ⇒ allowance is the binding defect, operator ruling
-   required before any further stance arm. Lower verdicts must
-   eyeball per-leg end_clear_mm for the 40–60 mm band + negatives.
+   Stance: lowerdense fired BOTH if-false branches (cycle 28);
+   opposing gradient named (current-relief + margin income ≫ the
+   posture charge). BLOCKED on the operator ruling (RL_LOG cycle
+   28 NEEDS OPERATOR); until then no stance arms. Lower verdicts
+   keep the per-leg end_clear_mm eyeball (40–60 mm band +
+   negatives).
 2. Mirror-symmetry augmentation (audit MED, due) after (1).
    Contact-from-proprioception aux head after. Dense
    step-decomposition and model-size sweep stay last.
