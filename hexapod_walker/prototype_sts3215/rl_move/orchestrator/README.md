@@ -1,66 +1,64 @@
 # Autonomous experiment orchestrator
 
-A self-driving loop that keeps the CoreWeave RL campaign running while the
-operator is away: when training runs finish, a headless Cursor agent
-evaluates the checkpoints, appends results to the experiment log, decides
-the next experiments within guardrails, snapshots the code, and launches.
+A self-driving loop that keeps the CoreWeave RL campaign running while
+the operator is away. Mechanical software owns state and throughput;
+an LLM cycle owns judgment (verdicts + what to try next). If this file
+and the code disagree, the code is right — fix this file.
 
-## Architecture
+## Architecture (2026-08-09)
 
 ```
 controller pod (hexapod-sweep-friction, tmux session "orchestrator")
-  watch_loop.py                       # polls W&B every 5 min
-    └─ whenever a run FINISHES (others may still be training):
-         claude -p --bare --model claude-fable-5 <ORCHESTRATOR_PROMPT.md>
-         # one decision cycle (Claude Code headless, operator's Anthropic key)
-         # cycles are spawned CONCURRENTLY (cap 2): a finish never queues
-         # behind a cycle already in flight; git/launch/ledger locks keep
-         # them from stepping on each other; per-cycle logs in
-         # /workspace/cycle_logs/
-            1. pull checkpoint, run gate evals WITH VIDEO, look at the
-               frame strips (motion quality, not just scalars)
-            2. append a short summary (incl. what videos showed) to RL_LOG.md
-            3. review RL_PLAN.md vs the big goal; revise without growing it
-            4. decide next experiment(s) for the freed pod(s)
-            5. snapshot.sh <name>  →  git commit + tag exp/<name> + push
-            6. sync code to pods, launch runs, record W&B notes + commit hash
+  watch_loop.py — polls W&B every 5 min, plus three background workers:
+    • backlog worker: every 2 min, `launch_run.py drain` pushes queued
+      specs from backlog.json onto free GPU pods (self-repairing:
+      syncs code, pushes checkpoints + W&B secret, retries 3x, then
+      parks in backlog_failed.json)
+    • checkup worker: ~5 min after each launch, `launch_run.py
+      checkup`; DEAD/SUSPECT findings are injected into the next cycle
+    • pre-stager: for each newly finished run, pulls the checkpoint,
+      starts the DR-0 gate eval, caches W&B data
+  when runs FINISH → spawns a decision cycle (cap 2, concurrent):
+    claude -p --bare --model claude-fable-5 <ORCHESTRATOR_PROMPT.md>
+    the cycle TRIAGES each finished run (~10 min: video, curves,
+    gate scalars), records verdicts via `launch_run.py update`
+    (auto-renders rl_docs/runs/<run>.md) + `ops.sh wandbnote`,
+    digs in only on a real trigger, and refills the pipeline by
+    queueing specs into the backlog. Logs: /workspace/cycle_logs/
 ```
 
-State lives in the repo (RL_LOG.md at the prototype root, lineage.json,
-tags), so every cycle is auditable and every run is pinned to an exact
-commit. The watcher keeps a local set of already-handled finished runs in
-/workspace/orchestrator_state.json.
+Training pods: `hexapod-mjx-train-0..15` (1 H200 + 24 cores each; see
+`CAPACITY.md`, live truth via `capacity.py`). New pods are initialized
+by `bootstrap_train_pod.sh`, which writes the `.bootstrapped` marker
+the drain requires before treating a pod as a slot.
 
-The watcher also owns post-launch checkups: ~5 min after every verified
-launch it runs `launch_run.py checkup` in a background thread
-(/workspace/checkup_state.json tracks which launches were checked).
-DEAD/SUSPECT verdicts are appended to /workspace/checkup_findings.md,
-which triggers the next agent cycle and is injected into its prompt.
-Agent cycles therefore exit right after launch verification instead of
-sleeping 5 minutes per launch; the standing prompt likewise requires all
-harness evals to run in parallel at cycle start.
+## State — machines own facts, the LLM owns interpretation
 
-## One-time setup
-
-1. Create a fine-grained GitHub token with contents:read/write on
-   `lukas/weird_objects`, and have a Cursor API key ready.
-2. Run `setup_controller.sh` from the laptop (it prompts for both secrets,
-   installs cursor-agent + a git clone on the controller pod, and starts the
-   tmux loop).
+- `experiments.json` — the ledger, single source of truth per run
+  (status, hypothesis, gate, verdict, W&B id). Edit ONLY via
+  `launch_run.py update`. Every update regenerates the browsable
+  per-run summary in `rl_docs/runs/`.
+- `backlog.json` — mechanical launch queue, fed by cycles/operator
+  (`launch_run.py backlog add`), drained automatically.
+- `RL_LOG.md` — 1 line per cycle; `RL_PLAN.md` — the plan (~120
+  lines). Everything else: `rl_docs/` (start at its README).
+- Code provenance: `snapshot.sh` commits/tags/pushes, `--sync` stamps
+  pods with `.code_sha`; the launcher refuses mismatched pods.
 
 ## Operating it
 
-- **Pause:** `touch PAUSE` in this directory on the controller pod
-  (the loop idles until the file is removed). Training keeps going.
-- **Stop:** kill the tmux session `orchestrator` on the controller pod.
-- **Audit:** read EXPERIMENT_LOG.md (committed every cycle), the
-  `exp/<run-name>` git tags, and W&B run notes — each records hypothesis,
-  gate, parent checkpoint, and code commit.
-- **Logs:** `/workspace/orchestrator.log` on the controller pod.
+- **Everything routine**: see `rl_docs/COMMANDS.md` (ops.sh helpers,
+  gotchas, which command answers which question).
+- **Pause cycles:** `touch PAUSE` in this directory on the controller
+  (training keeps going). Unpause: remove the file.
+- **Restart the watcher:** ONLY via `restart_watcher.sh` (nohup'd on
+  the controller). Hard-killing the tmux session murders in-flight
+  cycles, which only write their output at exit.
+- **Logs:** `/workspace/orchestrator.log` (watcher),
+  `/workspace/cycle_logs/` (cycles), `/tmp/train_<run>.log` (on pods).
 
 ## Safety
 
-The agent operates under `guardrails.yaml` and the standing prompt:
-sim/pods only, never the physical robot, hard caps on concurrent runs,
-steps per run, and decision cycles per day. The workspace hardware-safety
-rules also travel with the repo (AGENTS.md, .cursor/rules/).
+`guardrails.yaml` binds every cycle: sim/pods only, never the physical
+robot, caps on concurrent runs / steps / cycles per day. The workspace
+hardware-safety rules travel with the repo (AGENTS.md, .cursor/rules/).

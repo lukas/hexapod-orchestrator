@@ -87,15 +87,14 @@ the archive review's triggers fire.
 
 ## Queue
 
-1. **In flight:** `cw-walk-longdist-r2` (OPERATOR arm, 30 s narrow
-   band); rulings-(5)/(6) arms `cw-walk-fwdband` (forward-only
-   scope) and `cw-walk-loadslip` (episode-accumulated loaded-slip/m
-   income gate, cadence-proof — the definitive reward-side test:
-   still sliding while paying a ~70–90% stake CLOSES the reward
-   side); `cw-steer-fdiag` (c36, π/4 scope A/B vs fwdband; champ
-   baseline breaks on a diag sto draw). `stepdisp12` verdict LANDED
-   (c36): FAIL/refuted — cadence inflated past control with step
-   credit denied; walk income side is CLOSED.
+1. **In flight:** never listed here — a static doc can only be
+   stale. Live truth: `ops.sh census` (what's training),
+   `launch_run.py backlog list` (what's queued),
+   `rl_docs/runs/<run>.md` (what each finished run showed).
+   Landed verdicts that shape the plan: stepdisp12 + loadslip both
+   FAIL/refuted → the walk-reward income side is CLOSED (slip root
+   = sim contact/current pricing, operator calibration class),
+   pending only the loadslip-s1 seed concordance.
 2. **0-c objective arms, in order, one variable each:**
    (i) STABILITY: price |roll|+|pitch| beyond allowance + terminal
    fall charge; fold overspeed pricing in if it's the root cause.
