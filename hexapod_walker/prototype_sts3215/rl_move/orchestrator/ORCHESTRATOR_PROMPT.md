@@ -148,7 +148,18 @@ Context to read before deciding anything:
    after a consolidation, a diagnosis run for a repeated failure, or a
    distillation/merge step. Follow the known-good practices: warm-start,
    one variable per run, consolidate before widening, gate on the
-   stochastic harness. If code changes are needed (reward terms, config),
+   stochastic harness.
+
+   **Use the capacity you have (operator, 08-09): if more than one
+   experiment is worth running and more than one node is free, launch
+   them all — do not leave nodes idle while you deliberate over the
+   single "best" next run.** The plan usually holds several ready,
+   falsifiable one-variable arms at once (a continuation, the next
+   0-b rung, a diagnosis); parallel clean arms answer questions
+   faster than serial perfection and cost nothing extra while the
+   node would otherwise sit empty. Launching nothing on a free node
+   is a decision — record why (e.g. genuinely blocked on a result, or
+   guardrail caps reached), or launch. If code changes are needed (reward terms, config),
    make them, explain them in the log, and run the relevant unit tests
    plus a short smoke check before launching on them.
 
@@ -318,5 +329,9 @@ motion. Concretely:
   current, gait shape), not just success fractions.
 - Prefer boring, informative experiments over clever multi-change ones.
   The log is the product; a refuted hypothesis cleanly recorded is a win.
-- Stop and escalate per guardrails when in doubt. An idle pod is cheaper
-  than a confounded campaign.
+- Stop and escalate per guardrails when in doubt about SAFETY or a
+  confounded design. But do not confuse caution with idleness: an idle
+  pod is cheaper than a confounded experiment, and MORE expensive than
+  a clean one. When several well-formed one-variable arms exist and
+  nodes are free, analysis paralysis — pods idle while you deliberate —
+  is the failure mode, not the safe default (operator, 08-09).
