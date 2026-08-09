@@ -12,6 +12,16 @@ LEDGER="$HERE/experiments.json"
 WANDB_PROJECT="l2k2/hexapod-balance"
 POD_PROTO=/workspace/prototype_sts3215      # pods' tree (NOT the controller's)
 
+list_procs() {  # list_procs <pod> — training/eval processes (pods have NO ps)
+  kubectl exec "$1" -- sh -c '
+    for p in /proc/[0-9]*/cmdline; do
+      c=$(tr "\0" " " < "$p" 2>/dev/null) || continue
+      case "$c" in
+        *train_ppo*|*eval_checkpoint*) echo "${p%/cmdline}: $c" | cut -c1-160;;
+      esac
+    done' 2>/dev/null || echo "(none or pod unreachable)"
+}
+
 entry_field() {  # entry_field <run> <field> — last ledger entry wins
   python3 - "$1" "$2" <<'EOF'
 import json, sys
@@ -43,20 +53,14 @@ pods={e.get('pod') for e in json.load(open(os.environ['LEDGER']))
       if isinstance(e,dict) and e.get('status')=='RUNNING'}
 print(' '.join(sorted(p for p in pods if p)))"); do
     echo "--- $pod live procs:"
-    "$0" procs "$pod"
+    list_procs "$pod"
   done
   echo "--- watcher:"
   tail -3 /workspace/orchestrator.log 2>/dev/null || true
   ;;
 
 procs)  # procs <pod> — training/eval processes (pods have NO ps)
-  kubectl exec "$2" -- sh -c '
-    for p in /proc/[0-9]*/cmdline; do
-      c=$(tr "\0" " " < "$p" 2>/dev/null) || continue
-      case "$c" in
-        *train_ppo*|*eval_checkpoint*) echo "${p%/cmdline}: $c" | cut -c1-160;;
-      esac
-    done' 2>/dev/null || echo "(none or pod unreachable)"
+  list_procs "$2"
   ;;
 
 trainlog)  # trainlog <run> [lines] — tail the run's train log on its pod
