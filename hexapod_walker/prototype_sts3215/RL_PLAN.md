@@ -218,6 +218,26 @@ INCONCLUSIVE; history rejoins on a consolidated step0 baseline
    Canaries stay ON for every multi-skill / warm-started-from-
    multi-skill run; this exemption is lineage-specific.
 
+0-b. **OPERATOR-DIRECTED (binding, 08-09 ~01:05Z): step0-lineage next
+   rungs after the current segments (c2, lowent) verdict.** Both are
+   one-variable arms off the best step0-lineage checkpoint;
+   continue-while-improving (0-a) and `--no-canary` apply.
+   1. **LONGER HORIZON first (cheap, diagnostic):**
+      `--episode-seconds 15` (default is 5 — at 2–6 cm/s that caps
+      episodes at ~10–30 cm and hides slow-accumulating pathologies:
+      heading drift, posture wind-up, jitter build-up). Question:
+      does the gait SUSTAIN? Gate: ≥40 cm in 15 s, det AND sto, all
+      six legs cycling THROUGHOUT, no degradation in the final third
+      (frames, not scalars). If the gait dies after a few cycles,
+      fix that before robustifying.
+   2. **DR LADDER (the sim-to-real path):** successive warm-started
+      segments at dr 0.3 → 0.6 → 1.0, ONE rung per segment; gate =
+      the same walk gate at that rung's DR; drop back a rung if the
+      gait breaks (hist8 showed wide-distribution warm starts destroy
+      parent behavior — never jump straight to 1.0). Hardware-ready
+      requires the DR 1.0 rung. May run in parallel with (1) on a
+      separate pod if capacity allows, both off the same parent.
+
 0. **OPERATOR-DIRECTED (binding, 08-08 ~23:00Z): the embarrassingly
    narrow walk (suggested name `cw-walk-step0`).** Dedicate one
    experiment slot to a walk-ONLY policy FROM SCRATCH at DR 0:
