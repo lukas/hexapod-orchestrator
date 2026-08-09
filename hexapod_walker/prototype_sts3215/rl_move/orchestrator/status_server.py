@@ -252,6 +252,7 @@ def fast_worker() -> None:
                 "backlog": backlog_state(),
                 "orch_tail": read_tail(ORCH_LOG, 14),
                 "rl_log_tail": read_tail(PROTO / "RL_LOG.md", 8),
+                "rl_plan": (PROTO / "RL_PLAN.md").read_text(errors="replace"),
             }
         except Exception as e:
             SNAP["fast_err"] = repr(e)
@@ -477,6 +478,9 @@ def render() -> str:
                  f"<td class='dim'>{esc((e.get('created') or '')[5:16])}</td></tr>")
     h.append("</table>")
 
+    h.append("<h2>RL_PLAN.md (what the CW agents are working from)</h2>"
+             "<details open><summary class='dim'>collapse/expand</summary>"
+             "<pre>" + esc(f.get("rl_plan", "")) + "</pre></details>")
     h.append("<h2>Watcher log (tail)</h2><pre>"
              + esc("\n".join(f.get("orch_tail", []))) + "</pre>")
     h.append("<h2>RL_LOG.md (tail)</h2><pre>"

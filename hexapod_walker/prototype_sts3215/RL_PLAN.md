@@ -85,6 +85,14 @@ the archive review's triggers fire.
 
 ## Queue
 
+0. **UNIFIED JOYSTICK POLICY (operator, 08-09 evening — top
+   deliverable): ONE checkpoint that stands up, walks/steers, stops,
+   sits down from joystick commands.** No per-skill model zoo. Line
+   opens with `cw-uni-blend1` (driving champion + goal-mix blend
+   walk=0.7/hold=0.1/rise=0.1/lower=0.1); gate = joystick-gate
+   retention AND rise/lower >= 5/6 AND quiet hold. Erosion risk →
+   canary/regression rules apply; if walk erodes, ladder the mix
+   (0.9 first), don't abandon. Details: WISHLIST item -1.
 1. **In flight:** never listed here — a static doc can only be
    stale. Live truth: `ops.sh census` (what's training),
    `launch_run.py backlog list` (what's queued),
