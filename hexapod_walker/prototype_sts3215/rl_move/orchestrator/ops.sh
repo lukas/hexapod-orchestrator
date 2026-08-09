@@ -303,6 +303,22 @@ print("\nfinished + verdict '-' = triage queue; finished + processed '-' "
 EOF
   ;;
 
+drain)  # drain — push backlog onto free pods, DETACHED + creds sourced.
+  # launch_run.py drain is slow BY DESIGN (two-phase verify waits out
+  # each pod's ~5-8 min JAX/Warp compile) and dies without W&B creds
+  # (dedupe check). Both bit the operator on 08-09: run it nohup'd so
+  # an interrupted terminal can't kill verifications, with env sourced.
+  log=/tmp/drain_$(date +%H%M%S).log
+  nohup bash -c '
+    set -a
+    source /workspace/prototype_sts3215/rl_move/sim/wandb.env 2>/dev/null
+    source /root/orchestrator.env 2>/dev/null
+    set +a
+    cd "'"$PROTO"'" && python3 rl_move/orchestrator/launch_run.py drain
+  ' > "$log" 2>&1 &
+  echo "drain running detached (pid $!) -> $log; check: tail $log"
+  ;;
+
 killrun)  # killrun <run> — kill a run's training procs on its pod.
   # Pods have no pkill, and a naive /proc scan matches ITSELF (the
   # scanning shell's own cmdline contains the run name — a cycle killed
@@ -332,7 +348,7 @@ waitlog)  # waitlog <file> <regex> [timeout_s] — poll instead of sleep-and-pra
   sed -n '2,6p' "$0"
   echo "subcommands: status | triage [hours] | procs <pod> | trainlog <run> [n] |"
   echo "  entry <run> | wandb <run> | pullckpt <run> | pushckpt <pod> <ckpt> |"
-  echo "  evalcmd <run> | killrun <run> | waitlog <file> <regex> [t] |"
+  echo "  evalcmd <run> | drain | killrun <run> | waitlog <file> <regex> [t] |"
   echo "  expdir <run> | wandbdump <run> | wandbnote <run> \"paragraph\""
   ;;
 esac
