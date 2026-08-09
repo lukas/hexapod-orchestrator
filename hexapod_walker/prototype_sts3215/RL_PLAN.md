@@ -20,9 +20,12 @@ levers refuted — stop iterating penalty coefficients.**
   also exposed: flat ent 0.01 on a WARM start = std runaway
   (1.0→2.29, 2-for-2 with hist8), skills eroded, flag SPREAD. Warm
   starts keep ent 0.001 + inherited std; entropy RUNAWAY is a health
-  alarm alongside collapse. In flight: `cw-stance-endpost`
-  (schedule-gated terminal clearance charge, transients untaxed);
-  fallback = belly-rest reference states. Flag any eval where
+  alarm alongside collapse. Terminal pricing refuted twice (endpost
+  r1/c1: redistribution manifold); reset diversity refuted (cycle
+  26 bellyrest: basin visited — frac=1.0 eval 12/12 — hover still
+  chosen; policy THRESHOLD-RIDES the 60 mm allowance, now under
+  operator review). In flight: `cw-stance-lowerdense` (end-posture
+  charge over the WHOLE lower episode). Flag any eval where
   rise/lower height drops below 5/6; never warm-start stand work
   from an eroded checkpoint.
 - **Walk: step0/lowent line is the only valid gait** (six legs
@@ -191,8 +194,8 @@ hold → lower → rise → walk. Every session logs sim↔real divergence
 
 In flight (cycle 25): `cw-walk-parkstart-mjx-c1` (consolidate-in-
 place of parkstart-mjx at update parity, 20M GPU steps ≈ 305
-updates; no new variables) and `cw-stance-bellyrest` (35% of lower
-episodes start planted at the belly, off endpost-c1 ckpt). **WALK
+updates; no new variables) and `cw-stance-lowerdense` (dense lower
+end-posture window, off bellyrest ckpt; cycle 26). **WALK
 CHAMPION: `ppo_goal_cw_walk_parkstart_mjx.zip` md5 01d9ab60
 (cycle 25; named regression vs h15b: 5 s slow start).** **Cycle
 24: both if-false branches fired; pricing is closed on BOTH
@@ -231,19 +234,13 @@ Identical-config segments CLOSED (19c: deltas inside noise).
    rungs after the current segments (c2, lowent) verdict.** Both are
    one-variable arms off the best step0-lineage checkpoint;
    continue-while-improving (0-a) and `--no-canary` apply.
-   1. **LONGER HORIZON — DONE (h15b, cycle 19):** 15 s episodes;
-      gait sustains (≥40 cm, six legs cycling throughout, no
-      final-third decay); rung redundant for the gate but real
-      slip/std side-gains. 15 s is the lineage standard now.
-   2. **DR LADDER — CLOSED (cycle 23, evidence over premise):** the
-      rung-0.3 arm passed but the untrained champion passes the same
-      gate at DR 0.3 AND 0.6 (fwd 12/12, gv 12/12, 0 term, det slip
-      ≤1.0) and misses DR 1.0 only on det slip 1.008 — the skating
-      defect, present at every DR. Training rungs buy nothing
-      measurable for this gait; DR 1.0 hardware-readiness is reached
-      by fixing skating, not by DR exposure. Eval at own-DR stays
-      mandatory; re-open the ladder only if a future gait CHANGE
-      (pricing arms) breaks a DR level the parent passed.
+   1. **LONGER HORIZON — DONE (h15b, cycle 19):** gait sustains at
+      15 s; 15 s is the lineage standard now.
+   2. **DR LADDER — CLOSED (cycle 23):** untrained champion passes
+      DR 0.3 AND 0.6 and misses DR 1.0 only on det slip 1.008 = the
+      skating defect; training rungs buy nothing. Eval at own-DR
+      stays mandatory; re-open only if a gait CHANGE breaks a DR
+      level the parent passed.
 
 0-c. **OPERATOR-DIRECTED (binding, 08-09 ~02:10Z): the walk objective
    is DISTANCE, STABILITY, RELIABILITY** — not speed-band tracking.
@@ -300,8 +297,11 @@ Identical-config segments CLOSED (19c: deltas inside noise).
    blocker) then overspeed pricing (0-a iii); if-false (a)
    exit-works-park-stays ⇒ harvest starts from the policy's own
    park rollouts; (b) no-exit ⇒ rung-2 load evenness. Stance after
-   bellyrest: if-false ⇒ descent-posture ref during the ramp or
-   operator review of the 60 mm allowance.
+   lowerdense: (a) spears PAY the dense charge ⇒ opposing-gradient
+   diagnosis (tilt/current), no more shaping; (b) all legs hover
+   40–60 mm ⇒ allowance is the binding defect, operator ruling
+   required before any further stance arm. Lower verdicts must
+   eyeball per-leg end_clear_mm for the 40–60 mm band + negatives.
 2. Mirror-symmetry augmentation (audit MED, due) after (1).
    Contact-from-proprioception aux head after. Dense
    step-decomposition and model-size sweep stay last.
