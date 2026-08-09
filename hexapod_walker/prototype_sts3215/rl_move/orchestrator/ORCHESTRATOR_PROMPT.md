@@ -209,9 +209,14 @@ Context to read before deciding anything:
    another tenant's workload. Its
    exit code is the truth: nonzero means NOT launched, whatever you
    remember doing. Smokes use `--smoke` with a non-cw name. W&B notes
-   must contain: hypothesis, parent run/checkpoint, exact gate, and the
-   snapshot commit hash. Append a launch entry per run to RL_LOG.md,
-   commit and push.
+   must START with a human-readable paragraph — what this run tests and
+   why, in plain language — containing: hypothesis, parent
+   run/checkpoint, exact gate, and the snapshot commit hash (operator,
+   08-09: a run page that opens with the auto-generated env spec is a
+   violation; the trainer appends that spec BELOW your paragraph, and
+   the launcher composes a fallback paragraph from --hypothesis/--gate
+   if you omit --notes — but write a real one). Append a launch entry
+   per run to RL_LOG.md, commit and push.
 
 6. **Verify mechanically (two-phase commit).** You are never
    authoritative about operational state; only checked facts are. The

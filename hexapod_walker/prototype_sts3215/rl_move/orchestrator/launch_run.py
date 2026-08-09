@@ -25,6 +25,7 @@ import argparse
 import fcntl
 import json
 import re
+import shlex
 import subprocess
 import sys
 import time
@@ -387,6 +388,19 @@ def _launch_locked(g: dict, a: argparse.Namespace, extra: list[str]) -> int:
     log = f"/tmp/train_{a.run}.log"
     if "--subproc" not in extra:
         extra = [*extra, "--subproc"]
+        entry["extra_args"] = extra
+    # Operator directive 08-09: a run's W&B notes must LEAD with a human
+    # paragraph — what is being tested and why — with the trainer's
+    # auto-generated env spec below it. If the caller didn't pass --notes,
+    # compose that paragraph from the hypothesis/gate/parent this launcher
+    # already requires (cw-walk-step0-lowent shipped spec-only notes).
+    if "--notes" not in extra and (a.hypothesis or a.gate):
+        human = a.hypothesis or ""
+        if a.parent:
+            human += f" Parent: {a.parent}."
+        if a.gate:
+            human += f" Gate: {a.gate}"
+        extra = [*extra, "--notes", shlex.quote(human.strip())]
         entry["extra_args"] = extra
     train = (f"python -m {TRAIN_MODULE} "
              f"--run-name {a.run} --steps {a.steps} "
