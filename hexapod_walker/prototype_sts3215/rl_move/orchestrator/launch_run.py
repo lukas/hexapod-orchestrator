@@ -573,12 +573,53 @@ def cmd_checkup(g: dict, a: argparse.Namespace) -> int:
     return 0 if verdict == "HEALTHY" else 2
 
 
+def cmd_update(a: argparse.Namespace) -> int:
+    """Locked field update on a ledger entry — the ONLY sanctioned way
+    to edit experiments.json outside the launcher itself.
+
+    Hand-editing the file (read whole file -> modify -> dump) clobbers
+    concurrent writers: on 2026-08-09 a cycle's manual "reconstruction"
+    of one entry silently erased another launch's entry that had landed
+    in between (c1/lowent incident).
+    """
+    with ledger_lock():
+        led = load_ledger()
+        matches = [e for e in led if e.get("run") == a.run]
+        if not matches:
+            if not a.create:
+                print(f"no ledger entry for {a.run} (use --create to add one)")
+                return 1
+            entry = {"run": a.run, "created": now(),
+                     "note": "created via `update --create`"}
+            led.append(entry)
+            matches = [entry]
+        entry = matches[-1]  # newest entry for this run name
+        for kv in a.set or []:
+            key, _, val = kv.partition("=")
+            if not _:
+                print(f"bad --set (need key=value): {kv}")
+                return 1
+            try:
+                entry[key] = json.loads(val)
+            except (json.JSONDecodeError, ValueError):
+                entry[key] = val
+        save_ledger(led)
+    print(f"updated {a.run}: set {[kv.partition('=')[0] for kv in a.set or []]}")
+    return 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("status")
     cp = sub.add_parser("checkup")
     cp.add_argument("--run", required=True)
+    up = sub.add_parser("update", help="locked edit of a ledger entry")
+    up.add_argument("--run", required=True)
+    up.add_argument("--set", action="append", metavar="KEY=VALUE",
+                    help="field to set; VALUE parsed as JSON when possible")
+    up.add_argument("--create", action="store_true",
+                    help="create a minimal entry if none exists (backfill)")
     lp = sub.add_parser("launch")
     lp.add_argument("--pod", required=True)
     lp.add_argument("--run", required=True)
@@ -602,6 +643,8 @@ def main() -> int:
         return cmd_status(g)
     if a.cmd == "checkup":
         return cmd_checkup(g, a)
+    if a.cmd == "update":
+        return cmd_update(a)
     return cmd_launch(g, a, extra)
 
 

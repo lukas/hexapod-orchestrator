@@ -124,8 +124,13 @@ Context to read before deciding anything:
    Champion updates only if it beat the current champion for its
    skill; champions are append-only checkpoint files, never
    overwrite. Also update the run's entry in the structured ledger
-   (`rl_move/orchestrator/experiments.json`, see step 5) with status,
-   final checkpoint path + checksum, and verdict.
+   with status, final checkpoint path + checksum, and verdict —
+   **ONLY via `python3 launch_run.py update --run <name>
+   --set key=value ...` (add `--create` to backfill a missing
+   entry). NEVER hand-edit `experiments.json`**: a read-modify-dump
+   of the whole file clobbers concurrent writers — on 2026-08-09 a
+   cycle's manual edit silently erased another launch's entry, and
+   the cycle then mis-verdicted that launch as "raw/unledgered".
 
 3. **Review RL_PLAN.md.** With the new results in hand, ask whether the
    plan still points at the big goal. If a section is stale, contradicted
@@ -194,13 +199,13 @@ Context to read before deciding anything:
    commit and push.
 
 6. **Verify mechanically (two-phase commit).** You are never
-   authoritative about operational state; only checked facts are. For
-   each launch, record an entry in
-   `rl_move/orchestrator/experiments.json` (a JSON list; create if
-   missing) with status `INTENT` BEFORE launching: run name, hypothesis
-   + predictions (step 4), parent checkpoint, git SHA/tag, seed, pod,
-   step budget, exact gate. After launching, verify EVERY item and only
-   then set status `RUNNING`:
+   authoritative about operational state; only checked facts are. The
+   launcher itself writes the INTENT→RUNNING ledger entry (run name,
+   hypothesis, parent, pod, budget, gate) — you do not create it. Any
+   ledger edit you make afterwards (verdicts, checksums, corrections)
+   goes through `launch_run.py update` (step 2) — NEVER a hand edit
+   of `experiments.json`. After launching, verify EVERY item and only
+   then trust the run as `RUNNING`:
    - the training process exists on the target pod,
    - `/tmp/train_<run-name>.log` exists and is advancing over a ≥60 s
      window,
