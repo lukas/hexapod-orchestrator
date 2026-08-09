@@ -812,6 +812,21 @@ def cmd_backlog(a: argparse.Namespace, extra: list[str]) -> int:
         if any(it["run"] == a.run for it in items):
             print(f"{a.run} already queued")
             return 1
+        # Near-duplicate tripwire: concurrent cycles queued velsag AND
+        # velsag30 minutes apart (08-09) and only noticed post-launch.
+        # Same alpha-stem (digits/suffix stripped) as a queued or
+        # RUNNING run = probably the same axis; WARN, don't block.
+        stem = re.sub(r"[-_]?\d+[a-z]?$", "", a.run)
+        near = {it["run"] for it in items
+                if re.sub(r"[-_]?\d+[a-z]?$", "", it["run"]) == stem}
+        near |= {e.get("run") for e in load_ledger()
+                 if isinstance(e, dict) and e.get("status") == "RUNNING"
+                 and re.sub(r"[-_]?\d+[a-z]?$", "", e.get("run", "")) == stem}
+        near.discard(a.run)
+        if near:
+            print(f"WARNING: same-axis run(s) already queued/RUNNING: "
+                  f"{sorted(near)} — is {a.run} a duplicate? "
+                  "(queued anyway; remove via backlog.json if so)")
         items.append({"run": a.run, "steps": a.steps, "parent": a.parent,
                       "hypothesis": a.hypothesis, "gate": a.gate,
                       "extra_args": extra, "attempts": 0, "added": now()})

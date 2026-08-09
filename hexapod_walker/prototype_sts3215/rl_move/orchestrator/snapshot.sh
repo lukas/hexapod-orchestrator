@@ -34,15 +34,22 @@ if [ "${1:-}" = "--sync" ]; then
   # between commits, and an uncommitted doc edit was re-blocking every
   # drain launch an hour after the state-file fix (2026-08-09). Docs are
   # not trainer code either.
+  # ... and EXCLUDES eval/train artifacts + atomic-write temp files:
+  # untracked logs/, checkpoint zips and ledger .tmp files from
+  # concurrent cycles kept stamping transient -dirty markers that cost
+  # a drain attempt each (cycle 54, 08-09).
   P=hexapod_walker/prototype_sts3215
-  EXC1=":(exclude)$P/rl_move/orchestrator/experiments.json"
-  EXC2=":(exclude)$P/rl_move/orchestrator/backlog.json"
-  EXC3=":(exclude)$P/rl_move/orchestrator/backlog_failed.json"
-  EXC4=":(exclude)$P/rl_move/orchestrator/*.lock"
-  EXC5=":(exclude)$P/**/*.md"
-  EXC6=":(exclude)$P/*.md"
-  if ! git diff --quiet HEAD -- "$P" "$EXC1" "$EXC2" "$EXC3" "$EXC4" "$EXC5" "$EXC6" || \
-     [ -n "$(git status --porcelain -- "$P" "$EXC1" "$EXC2" "$EXC3" "$EXC4" "$EXC5" "$EXC6" | grep '^??' || true)" ]; then
+  EXC=(":(exclude)$P/rl_move/orchestrator/experiments.json"
+       ":(exclude)$P/rl_move/orchestrator/backlog.json"
+       ":(exclude)$P/rl_move/orchestrator/backlog_failed.json"
+       ":(exclude)$P/rl_move/orchestrator/*.lock"
+       ":(exclude)$P/**/*.md" ":(exclude)$P/*.md"
+       ":(exclude)$P/logs" ":(exclude)$P/wandb"
+       ":(exclude)$P/rl_move/sim/policies"
+       ":(exclude)$P/**/*.tmp*" ":(exclude)$P/**/*.zip"
+       ":(exclude)$P/**/*.mp4" ":(exclude)$P/**/*.png")
+  if ! git diff --quiet HEAD -- "$P" "${EXC[@]}" || \
+     [ -n "$(git status --porcelain -- "$P" "${EXC[@]}" | grep '^??' || true)" ]; then
     SHA="${SHA}-dirty"
   fi
   kubectl --kubeconfig="$KC" exec "$POD" -- \

@@ -41,7 +41,7 @@ for e in json.load(open(__import__("os").environ["LEDGER"])):
 print(val if val != "" else dead_val)
 EOF
 }
-export LEDGER
+export LEDGER PROTO
 
 case "${1:-help}" in
 
@@ -213,6 +213,118 @@ TEMPLATE
   echo "$d"
   ;;
 
+report)  # report <run|report.json> — the standard triage table from a
+  # harness eval. Transcript mining (08-09): cycles hand-wrote this
+  # exact json-parse >100 times. Accepts a run name (newest matching
+  # logs/ckpt_eval/*<run>*/report.json wins) or an explicit path.
+  python3 - "$2" <<'EOF'
+import glob, json, os, statistics, sys
+arg = sys.argv[1]
+proto = os.environ["PROTO"]
+if arg.endswith(".json"):
+    paths = [arg]
+else:
+    snake = arg.replace("-", "_").removeprefix("cw_walk_")
+    paths = sorted(glob.glob(f"{proto}/logs/ckpt_eval/*{snake}*/report.json"),
+                   key=os.path.getmtime)
+if not paths:
+    sys.exit(f"no report.json matching {arg} under logs/ckpt_eval/")
+for p in paths[-2:]:
+    d = json.load(open(p))
+    print(f"== {os.path.relpath(p, proto)}  dr={d.get('dr_scale')} "
+          f"std={round(d.get('policy_std', 0), 3)}")
+    for mode, eps in d["episodes"].items():
+        for i, e in enumerate(eps):
+            cells = [f"{mode}/{i}"]
+            for k, fmt in (("progress_ratio", "prog {:.2f}"),
+                           ("slip_per_m", "slip {:.2f}"),
+                           ("forward_dist_m", "fwd {:.2f}m"),
+                           ("gait_valid", "gv {}"),
+                           ("sacrificed_legs", "sac {}"),
+                           ("success", "ok {}")):
+                if e.get(k) is not None:
+                    cells.append(fmt.format(e[k]))
+            if e.get("terminated"):
+                cells.append(f"TERM {e.get('term_reason')}")
+            print("  " + "  ".join(str(c) for c in cells))
+        med = lambda k: (statistics.median(x[k] for x in eps if x.get(k)
+                         is not None) if any(x.get(k) is not None
+                                             for x in eps) else None)
+        agg = [f"{mode}: n={len(eps)}"]
+        if med("progress_ratio") is not None:
+            agg.append(f"prog med {med('progress_ratio'):.2f}")
+        if med("slip_per_m") is not None:
+            agg.append(f"slip med {med('slip_per_m'):.2f}")
+        if med("forward_dist_m") is not None:
+            agg.append(f"fwd med {med('forward_dist_m'):.2f}m")
+        gv = [x.get("gait_valid") for x in eps]
+        if any(v is not None for v in gv):
+            agg.append(f"gait_valid {sum(bool(v) for v in gv)}/{len(gv)}")
+        agg.append(f"terms {sum(bool(x.get('terminated')) for x in eps)}")
+        print("  -- " + "  ".join(agg))
+EOF
+  ;;
+
+review)  # review <run> — THE standard triage read in one command:
+  # ledger status+gate, W&B state/steps/reward-quarters, newest eval
+  # report table, video/contact-sheet paths, OUTCOME-note check.
+  # If this output plus one video answers pass/fail, you are DONE —
+  # record the verdict; dig in only on a trigger (prompt §dig-in).
+  run="$2"
+  echo "##### ledger"
+  st=$(entry_field "$run" status); gate=$(entry_field "$run" gate)
+  echo "status=$st  pod=$(entry_field "$run" pod)"
+  echo "gate: $gate"
+  echo "##### wandb"
+  bash "$0" wandb "$run" || true
+  echo "##### eval report"
+  bash "$0" report "$run" 2>/dev/null || echo "(no harness report yet — ops.sh evalcmd $run)"
+  echo "##### videos / contact sheets"
+  snake=$(echo "$run" | tr - _ | sed 's/^cw_walk_//')
+  ls -t "$PROTO"/logs/ckpt_eval/*${snake}*/*.mp4 "$PROTO"/logs/ckpt_eval/*${snake}*/*.png 2>/dev/null | head -8 \
+    || echo "(none)"
+  ;;
+
+frames)  # frames <video.mp4> [n] — n evenly-spaced frames -> one
+  # contact-sheet PNG beside the video. NOTE the harness already
+  # writes walk_*.png sheets next to every eval video — check those
+  # first; this is for train-log or W&B videos only.
+  v="$2"; n="${3:-8}"
+  python3 - "$v" "$n" <<'EOF'
+import sys
+import cv2
+import numpy as np
+v, n = sys.argv[1], int(sys.argv[2])
+cap = cv2.VideoCapture(v)
+total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+frames = []
+for i in np.linspace(0, max(total - 1, 0), n).astype(int):
+    cap.set(cv2.CAP_PROP_POS_FRAMES, int(i))
+    ok, f = cap.read()
+    if ok:
+        frames.append(cv2.resize(f, (f.shape[1] // 2, f.shape[0] // 2)))
+out = v.rsplit(".", 1)[0] + "_sheet.png"
+cv2.imwrite(out, np.hstack(frames))
+print(out)
+EOF
+  ;;
+
+logline)  # logline "text" — append ONE timestamped line to RL_LOG.md
+  # under the git lock. This is the ONLY sanctioned way to write
+  # RL_LOG from a cycle: free-form `cat >> RL_LOG.md` blocks bloated
+  # it from 200 to 580 lines in half a day (operator cleanup, 08-09).
+  # Detail belongs in the ledger verdict (auto-renders
+  # rl_docs/runs/<run>.md) and the W&B OUTCOME note, not here.
+  text="$2"
+  [ -n "$text" ] || { echo "usage: ops.sh logline \"one line\""; exit 1; }
+  (
+    command -v flock >/dev/null && { exec 9>>/workspace/git_snapshot.lock; flock 9; }
+    printf '%s %s\n' "- $(date -u +%m-%d\ %H:%M)" "$(echo "$text" | tr '\n' ' ')" \
+      >> "$PROTO/RL_LOG.md"
+  )
+  tail -1 "$PROTO/RL_LOG.md"
+  ;;
+
 wandbdump)  # wandbdump <run> — cache W&B summary/config/history locally
   run="$2"; d="$PROTO/logs/experiments/$run"; mkdir -p "$d"
   python3 - "$run" "$d" <<'EOF'
@@ -311,7 +423,7 @@ drain)  # drain — push backlog onto free pods, DETACHED + creds sourced.
   log=/tmp/drain_$(date +%H%M%S).log
   nohup bash -c '
     set -a
-    source /workspace/prototype_sts3215/rl_move/sim/wandb.env 2>/dev/null
+    source "'"$PROTO"'/rl_move/sim/wandb.env" 2>/dev/null
     source /root/orchestrator.env 2>/dev/null
     set +a
     cd "'"$PROTO"'" && python3 rl_move/orchestrator/launch_run.py drain
@@ -346,9 +458,11 @@ waitlog)  # waitlog <file> <regex> [timeout_s] — poll instead of sleep-and-pra
 
 *)
   sed -n '2,6p' "$0"
-  echo "subcommands: status | triage [hours] | procs <pod> | trainlog <run> [n] |"
+  echo "subcommands: review <run> (START HERE for triage) | report <run|json> |"
+  echo "  status | census | triage [hours] | procs <pod> | trainlog <run> [n] |"
   echo "  entry <run> | wandb <run> | pullckpt <run> | pushckpt <pod> <ckpt> |"
   echo "  evalcmd <run> | drain | killrun <run> | waitlog <file> <regex> [t] |"
-  echo "  expdir <run> | wandbdump <run> | wandbnote <run> \"paragraph\""
+  echo "  logline \"line\" | frames <mp4> [n] | expdir <run> | wandbdump <run> |"
+  echo "  wandbnote <run> \"paragraph\""
   ;;
 esac

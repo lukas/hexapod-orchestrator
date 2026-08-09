@@ -34,9 +34,14 @@ new line or digging into a failure, not on every cycle.
 
 ## The cycle
 
-1. **TRIAGE each finished run (~10 min).** The watcher already started
-   the gate eval (`## Pre-staged` section; `ops.sh waitlog` for it).
-   Look at exactly three things:
+1. **TRIAGE each finished run (~10 min). Start with
+   `ops.sh review <run>`** — it prints the ledger status+gate, W&B
+   state/steps/reward-quarters, the harness report table with
+   medians, and the video/contact-sheet paths in one shot. Do NOT
+   hand-write python to parse experiments.json, report.json, or the
+   W&B API for this standard read (transcript mining found >500 such
+   snippets in one day; the helpers exist — `ops.sh report`, `entry`,
+   `wandb`). Look at exactly three things:
    - the frame strip / video of the GATED mode (det),
    - the reward curve + gate scalars vs the parent's,
    - terminations/canary flags.
@@ -56,8 +61,10 @@ new line or digging into a failure, not on every cycle.
      paragraph to the BOTTOM of the run's W&B notes. Plain English for
      a human: what happened, what was learned, what we do next. No
      jargon, no metric dump — the graphs are right there on the page.
-   - RL_LOG.md gets 1 line per CYCLE (not per run): date, runs
-     verdicted, direction chosen. Detail lives in rl_docs/runs/.
+   - RL_LOG.md gets 1 line per CYCLE (not per run), written ONLY via
+     `ops.sh logline "c<N>: <runs->verdicts>; <direction>"`. Never
+     `cat >>` RL_LOG.md — free-form appends tripled the file in half
+     a day (operator trimmed it 08-09). Detail lives in rl_docs/runs/.
    - A PASS also updates `rl_docs/SKILLS.md` (one row: skill,
      checkpoint, evidence, envelope/limits) in the same cycle — the
      operator reads that file as "what can the robot do today".

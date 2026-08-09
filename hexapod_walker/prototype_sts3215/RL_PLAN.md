@@ -90,9 +90,9 @@ the archive review's triggers fire.
    `launch_run.py backlog list` (what's queued),
    `rl_docs/runs/<run>.md` (what each finished run showed).
    Landed verdicts that shape the plan: stepdisp12 + loadslip both
-   FAIL/refuted → the walk-reward income side is CLOSED (slip root
-   = sim contact/current pricing, operator calibration class),
-   pending only the loadslip-s1 seed concordance.
+   FAIL/refuted, seed-confirmed → the walk-reward income side is
+   CLOSED (slip root = sim contact/current pricing, operator
+   calibration class).
 2. **0-c objective arms, in order, one variable each:**
    (i) STABILITY: CLOSED as a reward lever — terminal fall charge
    refuted (dr05-fall300, falls too rare for gradient) and tilt
@@ -148,22 +148,17 @@ transfer. No new anti-slip reward coefficient arms (§8).
 
 ## Party tricks (operator vision, 08-09)
 
-QUADRUPED is PULLED FORWARD (operator, 08-09): an authorized
-parallel line whenever main-line arms can't fill the GPU pods.
-Sequence per the readiness review §4: scripted feasibility sweep
-(CoM inside four-foot polygon, torque/current margins, fronts in
-raised claw poses) BEFORE any RL reward design; then static
-four-leg stance as its own skill (both fronts clear + unloaded,
-four planted, level, low current, 10–15 s hold, 0 term); then
-weight shift; then quadruped stepping. Do NOT ask the six-leg
-walker to spontaneously stop using two legs.
-Fall recovery still waits for 0-c. (1) **FALL RECOVERY** — fallen
-poses become the start distribution; gate "regain stance and hold,
-12/12, under DR"; needs orientation-complete obs + fallen-pose
-reset generator + hard current pricing (quiet self-righting, no
-thrashing — 2026-08-06 incident). (2) **QUADRUPED MODE** — stand/
-walk on four rear legs, fronts free as claws: static stance →
-weight-shift under DR → quadruped walk. Full design sketches in
+**QUADRUPED** (pulled forward, operator 08-09; authorized parallel
+line whenever main-line arms can't fill the pods). Sequence per
+readiness review §4, feasibility-first — sweep = GO (c57, 39mm
+margin with −20mm shift + splay): next rung is the quad-hold goal
+mode [CODE] (both fronts clear + unloaded, four planted, level, low
+current, 10–15 s hold, 0 term) → weight shift → quadruped stepping.
+Never ask the six-leg walker to spontaneously stop using two legs.
+**FALL RECOVERY** waits for 0-c: fallen poses as start distribution,
+gate "regain stance and hold 12/12 under DR"; needs
+orientation-complete obs + fallen-pose resets + hard current pricing
+(quiet self-righting — 2026-08-06 incident). Full design sketches:
 `archive/RL_PLAN_FULL_2026-08-09.md`.
 
 ## Done =
