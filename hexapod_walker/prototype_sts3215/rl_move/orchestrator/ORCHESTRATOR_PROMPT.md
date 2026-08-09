@@ -36,11 +36,17 @@ integrates concurrent edits).
 
 Context to read before deciding anything:
 
-- `rl_move/orchestrator/AGENT_NOTES.md` — READ FIRST: paths, the
-  `ops.sh` helper (status/procs/trainlog/wandb/pullckpt/evalcmd/
-  waitlog — use it instead of hand-rolling kubectl/python), and the
-  gotchas that have each burned a cycle before. Both docs below are
-  CONDENSED — read them whole; full history is in `archive/`.
+- `rl_docs/README.md` — READ FIRST: the index of small purpose-built
+  docs. `rl_docs/GOAL.md` = the mission and current status in plain
+  English; `rl_docs/COMMANDS.md` = paths, the `ops.sh` helper
+  (status/procs/trainlog/wandb/pullckpt/evalcmd/waitlog/expdir/
+  wandbdump — use it instead of hand-rolling kubectl/python), and
+  the gotchas that have each burned a cycle before;
+  `rl_docs/EXPERIMENT_LOGS.md` = the per-run summary.md convention.
+  STANDING RULE: any command you had to figure out (failed/slow/
+  multiple tries) gets promoted to `ops.sh` or `COMMANDS.md` in the
+  same cycle. Both docs below are CONDENSED — read them whole; full
+  history is in `archive/`.
 - `RL_PLAN.md` — the plan and gates.
 - `RL_LOG.md` — prior results, 1–3 lines per entry. Yours appends
   here IN THAT FORMAT: verdict + takeaway + what launched; evidence
@@ -132,6 +138,11 @@ Context to read before deciding anything:
    Then append 1–3 lines to `RL_LOG.md` under "Cycle log": run,
    verdict, takeaway, what launched. That is ALL RL_LOG gets — the
    operator reads it for the campaign shape, not the evidence.
+   ALSO write the run's `logs/experiments/<run>/summary.md`
+   (template from `ops.sh expdir <run>`; format in
+   `rl_docs/EXPERIMENT_LOGS.md`): plain-English "what we tried and
+   why" + "what happened" first, details after, and cache the W&B
+   data beside it with `ops.sh wandbdump <run>`.
    Champion updates only if it beat the current champion for its
    skill; champions are append-only checkpoint files, never
    overwrite. Update the run's entry in the structured ledger
@@ -232,14 +243,21 @@ Context to read before deciding anything:
    another tenant's workload. Its
    exit code is the truth: nonzero means NOT launched, whatever you
    remember doing. Smokes use `--smoke` with a non-cw name. W&B notes
-   must START with a human-readable paragraph — what this run tests and
-   why, in plain language — containing: hypothesis, parent
-   run/checkpoint, exact gate, and the snapshot commit hash (operator,
-   08-09: a run page that opens with the auto-generated env spec is a
-   violation; the trainer appends that spec BELOW your paragraph, and
-   the launcher composes a fallback paragraph from --hypothesis/--gate
-   if you omit --notes — but write a real one). Append a launch entry
-   per run to RL_LOG.md, commit and push.
+   must START with 1–2 sentences A NON-EXPERT CAN READ — step back
+   and say what the robot-behavior problem is and what this run does
+   about it, zero jargon (operator, 08-09: "The robot's feet slide
+   while it walks; this run makes sliding unprofitable by X; if we're
+   right we'll see Y" — THAT readable). Then the technical part:
+   hypothesis, parent run/checkpoint, exact gate, snapshot commit
+   hash. A run page that opens with the auto-generated env spec or
+   with jargon is a violation; the trainer appends the spec BELOW
+   your paragraph, and the launcher composes a fallback from
+   --hypothesis/--gate if you omit --notes — but write a real one,
+   and write --hypothesis itself plain-first (it feeds the fallback
+   and the ledger). Create the run's experiment dir at launch
+   (`ops.sh expdir <run>`) — the verdict cycle completes its
+   summary.md. Append a launch entry per run to RL_LOG.md, commit
+   and push.
 
 6. **Verify mechanically (two-phase commit).** You are never
    authoritative about operational state; only checked facts are. The

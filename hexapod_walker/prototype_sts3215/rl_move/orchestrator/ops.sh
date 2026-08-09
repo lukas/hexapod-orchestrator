@@ -3,7 +3,9 @@
 # Born from transcript mining: cycles kept re-deriving these (pods have
 # no ps; eval_checkpoint must run as a module; ledger holds pod/log
 # paths; sleep-then-check is blocked by the harness). Use these instead
-# of composing kubectl/python by hand. See AGENT_NOTES.md.
+# of composing kubectl/python by hand. Docs: rl_docs/COMMANDS.md.
+# If you figure out a new slow/tricky command, ADD IT HERE (standing
+# rule in rl_docs/README.md).
 set -uo pipefail
 export KUBECONFIG="${KUBECONFIG:-$HOME/.kube/coreweave.yaml}"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -142,6 +144,58 @@ print(f"# then: ops.sh waitlog /tmp/eval_{run}.log 'WROTE|Traceback' 1800")
 EOF
   ;;
 
+expdir)  # expdir <run> — per-experiment log dir with summary.md template
+  run="$2"; d="$PROTO/logs/experiments/$run"
+  mkdir -p "$d"
+  if [ ! -f "$d/summary.md" ]; then
+    cat > "$d/summary.md" <<TEMPLATE
+# $run — <one-line outcome, fill at verdict time>
+
+## What we tried and why (plain English, 2-4 sentences)
+<for a human who knows nothing about the codebase: what robot
+behavior problem this attacks, what we changed, what we hoped for>
+
+## What happened
+<plain result: did the hoped-for thing occur; what the video showed;
+verdict PASS/FAIL and why>
+
+## Details
+- W&B: <url>   parent: <run>   ckpt md5: <md5>
+- gate: <gate + numbers>
+- eval artifacts: <paths>
+TEMPLATE
+  fi
+  echo "$d"
+  ;;
+
+wandbdump)  # wandbdump <run> — cache W&B summary/config/history locally
+  run="$2"; d="$PROTO/logs/experiments/$run"; mkdir -p "$d"
+  python3 - "$run" "$d" <<'EOF'
+import csv, json, sys
+import wandb
+name, d = sys.argv[1], sys.argv[2]
+api = wandb.Api()
+runs = [r for r in api.runs("l2k2/hexapod-balance",
+                            filters={"display_name": name})]
+if not runs:
+    sys.exit(f"no W&B run named {name}")
+r = sorted(runs, key=lambda x: x.created_at)[-1]
+json.dump({"id": r.id, "state": r.state, "url": r.url, "notes": r.notes,
+           "config": dict(r.config),
+           "summary": {k: v for k, v in r.summary.items()
+                       if not k.startswith("_") and isinstance(v, (int, float, str))}},
+          open(f"{d}/wandb_summary.json", "w"), indent=1, default=str)
+hist = list(r.scan_history())
+if hist:
+    keys = sorted({k for h in hist for k in h if not k.startswith("system")})
+    with open(f"{d}/wandb_history.csv", "w", newline="") as fh:
+        w = csv.DictWriter(fh, fieldnames=keys, extrasaction="ignore")
+        w.writeheader()
+        w.writerows(hist)
+print(f"cached {len(hist)} history rows -> {d}/")
+EOF
+  ;;
+
 waitlog)  # waitlog <file> <regex> [timeout_s] — poll instead of sleep-and-pray
   f="$2"; pat="$3"; t="${4:-900}"; el=0
   until grep -qE "$pat" "$f" 2>/dev/null; do
@@ -154,6 +208,7 @@ waitlog)  # waitlog <file> <regex> [timeout_s] — poll instead of sleep-and-pra
 *)
   sed -n '2,6p' "$0"
   echo "subcommands: status | procs <pod> | trainlog <run> [n] | entry <run> |"
-  echo "  wandb <run> | pullckpt <run> | evalcmd <run> | waitlog <file> <regex> [t]"
+  echo "  wandb <run> | pullckpt <run> | evalcmd <run> | waitlog <file> <regex> [t] |"
+  echo "  expdir <run> | wandbdump <run>"
   ;;
 esac
