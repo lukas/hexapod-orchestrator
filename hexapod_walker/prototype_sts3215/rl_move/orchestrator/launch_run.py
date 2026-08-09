@@ -835,6 +835,67 @@ def cmd_backlog(a: argparse.Namespace, extra: list[str]) -> int:
     return 0
 
 
+def cmd_respec(a: argparse.Namespace) -> int:
+    """Queue a follow-up run by CLONING a ledger entry's trainer args with
+    targeted overrides — the mechanical form of the most-repeated cycle
+    task (seed panels, ladder rungs, DR variants). Agents re-typed the
+    ~800-char arg vector for every follow-up and typo'd it more than
+    once (operator, 08-09 evening: 'if the models keep doing the same
+    thing, give them more scripts').
+
+        launch_run.py respec --from cw-walk-joyjit-dr05-c1 \
+            --run cw-walk-joyjit-dr05-s3 --seed 3 \
+            --hypothesis '…' --gate '…' \
+            [--steps N] [--arg='--episode-seconds=120'] [--cfg k=v]
+
+    --arg overrides/adds a trainer flag (use the = form, the value
+    starts with --); --cfg overrides/adds a --cfg-set KEY=V pair.
+    --out-name is derived from --run; --notes is replaced by the
+    hypothesis (pass --arg='--notes=…' to override).
+    """
+    src = [e for e in load_ledger() if isinstance(e, dict)
+           and e.get("run") == a.source and e.get("extra_args")]
+    if not src:
+        print(f"no ledger entry with extra_args for {a.source}")
+        return 1
+    entry = src[-1]
+    args = list(entry["extra_args"])
+
+    def set_flag(flag: str, val: str) -> None:
+        if flag in args:
+            args[args.index(flag) + 1] = val
+        else:
+            args.extend([flag, val])
+
+    if a.seed is not None:
+        set_flag("--seed", str(a.seed))
+    for spec in a.arg or []:
+        flag, _, val = spec.partition("=")
+        if not flag.startswith("--"):
+            print(f"bad --arg (need --flag=value): {spec}")
+            return 1
+        set_flag(flag, val)
+    for spec in a.cfg or []:
+        key = spec.split("=", 1)[0]
+        # replace an existing --cfg-set for the same key, else append
+        for i, v in enumerate(args):
+            if v == "--cfg-set" and args[i + 1].split("=", 1)[0] == key:
+                args[i + 1] = spec
+                break
+        else:
+            args.extend(["--cfg-set", spec])
+    set_flag("--out-name", "ppo_goal_" + a.run.replace("-", "_"))
+    if "--notes" not in (a.arg or []) and not any(
+            s.startswith("--notes=") for s in a.arg or []):
+        set_flag("--notes", f"respec of {a.source}: {a.hypothesis}")
+    ns = argparse.Namespace(
+        action="add", run=a.run, steps=a.steps or entry.get("steps"),
+        parent=a.parent or a.source, hypothesis=a.hypothesis, gate=a.gate)
+    print(f"respec {a.source} -> {a.run} "
+          f"(changed: seed={a.seed}, args={a.arg or []}, cfg={a.cfg or []})")
+    return cmd_backlog(ns, args)
+
+
 def _free_gpu_pods(g: dict) -> list[str]:
     free = []
     for pod in g["compute"]["gpu_pods"]:
@@ -1132,6 +1193,22 @@ def main() -> int:
     bp.add_argument("--hypothesis", default="")
     bp.add_argument("--gate", default="")
     bp.add_argument("--parent", default="")
+    rp = sub.add_parser("respec", help="queue a follow-up by cloning a "
+                                       "ledger entry's args with overrides")
+    rp.add_argument("--from", dest="source", required=True,
+                    metavar="RUN", help="run whose config to clone")
+    rp.add_argument("--run", required=True, help="new run name")
+    rp.add_argument("--seed", type=int, default=None)
+    rp.add_argument("--steps", type=int, default=None,
+                    help="default: same as source")
+    rp.add_argument("--parent", default="", help="default: the source run")
+    rp.add_argument("--hypothesis", required=True)
+    rp.add_argument("--gate", required=True)
+    rp.add_argument("--arg", action="append", default=None,
+                    metavar="--FLAG=VALUE",
+                    help="override/add a trainer flag (repeatable)")
+    rp.add_argument("--cfg", action="append", default=None, metavar="K=V",
+                    help="override/add a --cfg-set pair (repeatable)")
     lp = sub.add_parser("launch")
     lp.add_argument("--pod", required=True)
     lp.add_argument("--run", required=True)
@@ -1159,6 +1236,8 @@ def main() -> int:
         return cmd_update(a)
     if a.cmd == "backlog":
         return cmd_backlog(a, extra)
+    if a.cmd == "respec":
+        return cmd_respec(a)
     if a.cmd == "runsmd":
         return cmd_runsmd()
     if a.cmd == "drain":

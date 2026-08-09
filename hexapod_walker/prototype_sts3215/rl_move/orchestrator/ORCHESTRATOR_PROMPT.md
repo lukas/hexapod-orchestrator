@@ -109,8 +109,12 @@ new line or digging into a failure, not on every cycle.
    are free, queue MULTIPLE experiments this cycle — one per free
    slot, drawn from DIFFERENT lines** (operator, 08-09: a cycle that
    leaves 5 slots idle because it only thought of one idea has
-   failed). Default: queue specs into the backlog and let the drain
-   place them —
+   failed). **For any follow-up that clones an existing config (seed
+   panel, next ladder rung, DR/axis variant) use
+   `launch_run.py respec --from <run> --run <new> [--seed N]
+   [--arg='--flag=v'] [--cfg k=v] --hypothesis "…" --gate "…"` — never
+   re-type the arg vector by hand.** Genuinely new configs: queue specs
+   into the backlog and let the drain place them —
    `launch_run.py backlog add --run <cw-name> --steps N --parent ...
    --hypothesis "..." --gate "..." -- <train args>`. Direct
    `launch_run.py launch` only when a specific pod matters. Sources,
