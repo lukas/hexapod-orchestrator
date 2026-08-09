@@ -32,6 +32,14 @@ for POD in "$@"; do
   # Code + champion checkpoint; both are idempotent.
   bash "$HERE/snapshot.sh" --sync "$POD"
   bash "$HERE/ops.sh" pushckpt "$POD" rl_move/sim/policies/ppo_goal_cw_walk_anchorgate.zip || true
+  # W&B credentials: rl_move/sim/wandb.env is a gitignored secret, so code
+  # sync never carries it. Without it the trainer runs BLIND ("no API key —
+  # logging skipped") and the run never appears in W&B (bit us 2026-08-09:
+  # cw-chain-standwalksit trained 1.5M+ steps invisibly on train-6).
+  kubectl --kubeconfig "$KC" cp \
+    "$(dirname "$HERE")/sim/wandb.env" \
+    "$POD:/workspace/prototype_sts3215/rl_move/sim/wandb.env" \
+    || echo "$POD: wandb.env push FAILED — runs will not log to W&B"
   # Smoke: import chain + GPU visible.
   # The .bootstrapped marker gates the backlog drain: launch_run.py
   # treats an idle pod WITHOUT it as not-a-slot, so a freshly scheduled

@@ -498,6 +498,24 @@ def _launch_locked(g: dict, a: argparse.Namespace,
                                  f"{pod_ckpt}. Push it first: "
                                  f"ops.sh pushckpt {a.pod} {ckpt}")
 
+    # --- W&B credentials preflight (2026-08-09) -------------------------------
+    # rl_move/sim/wandb.env is a gitignored secret, so code sync never
+    # carries it to a fresh pod. Without it the trainer prints "no API key
+    # — logging skipped" and trains BLIND: 4 runs burned GPU-hours
+    # invisible to W&B before anyone noticed. Refuse up front.
+    if not a.smoke:
+        wenv = f"{WORKDIR}/rl_move/sim/wandb.env"
+        try:
+            has_env = kexec(a.pod, f"test -s '{wenv}' && echo OK || true").strip()
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
+            return refuse(entry, f"{a.pod} unreachable checking wandb.env: {e}")
+        checks["wandb_env_on_pod"] = has_env == "OK"
+        if has_env != "OK":
+            return refuse(entry, f"wandb.env missing on {a.pod} — the run "
+                                 "would train blind (no W&B). Push it: "
+                                 f"kubectl cp rl_move/sim/wandb.env "
+                                 f"{a.pod}:{wenv}")
+
     # --- build command ------------------------------------------------------
     log = f"/tmp/train_{a.run}.log"
     if is_gpu:
@@ -856,6 +874,13 @@ def cmd_drain(g: dict, a: argparse.Namespace) -> int:
             subprocess.run(["bash", str(HERE / "ops.sh"), "pushckpt",
                             pod, ckpt],
                            capture_output=True, text=True, timeout=600)
+        # Self-repair 3: W&B secret (gitignored, never in code sync).
+        wenv = HERE.parent / "sim" / "wandb.env"
+        if wenv.is_file():
+            subprocess.run(["kubectl", "--kubeconfig", KUBECONFIG, "cp",
+                            str(wenv),
+                            f"{pod}:{WORKDIR}/rl_move/sim/wandb.env"],
+                           capture_output=True, text=True, timeout=120)
         cmd = [sys.executable, str(HERE / "launch_run.py"), "launch",
                "--pod", pod, "--run", run, "--steps", str(it["steps"]),
                "--parent", it.get("parent", ""),
