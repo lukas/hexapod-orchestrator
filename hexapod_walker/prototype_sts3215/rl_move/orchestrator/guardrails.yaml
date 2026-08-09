@@ -2,9 +2,12 @@
 # The decision agent must read this file every cycle and stay within it.
 
 compute:
-  pods: [hexapod-sweep-friction, hexapod-sweep-s3, hexapod-sweep-s4,
-         hexapod-sweep-s5, hexapod-sweep-s6,
-         hexapod-sweep-long5m, hexapod-sweep-lower, hexapod-sweep-walk]
+  # ONE POOL (operator, 2026-08-09): all 4 nodes / 32 H200s belong to this
+  # project. Capacity truth lives in CAPACITY.md — do not re-derive it.
+  # The 7 relic CPU sweep pods were backed up (controller:
+  # /workspace/relic_backup/) and DELETED on 08-09 to free ~120 cores/node
+  # for GPU train pods. Only the controller remains on the CPU side.
+  pods: [hexapod-sweep-friction]
   # GPU SWITCH-OVER COMPLETE (operator, 2026-08-09): ALL training runs
   # (every non-smoke launch) run on the GPU-MJX pods below via
   # train_ppo_mjx — the launcher REFUSES CPU training launches. The CPU
@@ -20,10 +23,20 @@ compute:
   # full model DR under Warp: ~25% fps; DR-off parity with the pre-DR
   # stack.
   gpu_pods: [hexapod-mjx-train-0, hexapod-mjx-train-1,
-             hexapod-mjx-train-2, hexapod-mjx-train-3]
+             hexapod-mjx-train-2, hexapod-mjx-train-3,
+             hexapod-mjx-train-4, hexapod-mjx-train-5,
+             hexapod-mjx-train-6, hexapod-mjx-train-7,
+             hexapod-mjx-train-8, hexapod-mjx-train-9,
+             hexapod-mjx-train-10, hexapod-mjx-train-11,
+             hexapod-mjx-train-12, hexapod-mjx-train-13,
+             hexapod-mjx-train-14, hexapod-mjx-train-15]
   gpu:
-    # One H200 + 26-core cgroup per pod, all four on node g131eec
-    # (4-way split). Exactly ONE run per GPU pod — the GPU is the unit.
+    # 16 pods x (1 H200 + 24-26-core cgroup), 4 per node on all four
+    # nodes (operator: ONE POOL, >=4 slots/machine; scale-out
+    # coreweave_pods_mjx_scaleout.yaml). LIVE truth: capacity.py.
+    # Exactly ONE run per GPU pod — the GPU is the unit.
+    # A pod Pending on a CoreWeave hpc-verification health check is
+    # normal; the launcher's live checks skip unreachable pods.
     runs_per_pod: 1
     n_envs: 4096
     host_workers: 24
@@ -76,9 +89,9 @@ compute:
   # --allow-slow unless the ledger records why.
   max_heavy_per_node: 2
   # Since the 2026-08-09 switch-over the experiment budget is the GPU
-  # pod count (one run per GPU pod; 8 under the 8-way re-slice). The
-  # CPU node math above applies only to smokes/evals now.
-  max_concurrent_runs: 8
+  # pod count (one run per GPU pod; 16 after the one-pool scale-out).
+  # The CPU node math above applies only to smokes/evals now.
+  max_concurrent_runs: 16
   # HOST-LOAD GATE (operator, 08-08 evening): the nodes are SHARED with
   # other projects (e.g. mujoco-jax tests) and machines spin up/down.
   # Trainer counts only see our runs, so the launcher additionally reads
@@ -232,8 +245,9 @@ forbidden:
   - >-
     Creating, resizing, or deleting pods — EXCEPT the hexapod-mjx-train-N
     pods, which may be deleted/recreated ONLY while idle and ONLY via the
-    documented 4-way/8-way re-slice procedure (compute.gpu above). The
-    sweep pods and the controller are never touched.
+    documented re-slice/scale-out manifests (compute.gpu above,
+    CAPACITY.md). The controller (hexapod-sweep-friction) is never
+    touched. (The other sweep pods were retired+deleted 2026-08-09.)
   - >-
     Launching training with raw kubectl/nohup instead of
     orchestrator/launch_run.py.

@@ -207,6 +207,29 @@ def checkup_worker() -> None:
         time.sleep(60)
 
 
+def backlog_worker() -> None:
+    """Drain the mechanical experiment backlog into free GPU slots.
+
+    Operator ruling 2026-08-09: a free slot plus a non-empty backlog is
+    a bug. launch_run.py drain owns capacity/self-repair/verification;
+    this thread just makes sure it runs forever, agent or no agent.
+    """
+    backlog = HERE / "backlog.json"
+    while True:
+        try:
+            if not PAUSE.exists() and backlog.exists() \
+                    and json.loads(backlog.read_text()):
+                r = subprocess.run(
+                    [sys.executable, str(HERE / "launch_run.py"), "drain"],
+                    capture_output=True, text=True, timeout=2400, cwd=REPO)
+                out = ((r.stdout or "") + (r.stderr or "")).strip()
+                if "no free GPU slots" not in out:
+                    log(f"drain rc={r.returncode}\n{out[-1500:]}")
+        except Exception as exc:
+            log(f"drain worker error: {exc!r}")
+        time.sleep(120)
+
+
 def auto_continue_prefixes() -> list[str]:
     """Lineage prefixes flagged continue-while-improving in guardrails."""
     try:
@@ -480,6 +503,7 @@ def main() -> None:
     active: list[dict] = []
     log("watcher started")
     threading.Thread(target=checkup_worker, daemon=True).start()
+    threading.Thread(target=backlog_worker, daemon=True).start()
     while True:
         try:
             processed = load_processed()

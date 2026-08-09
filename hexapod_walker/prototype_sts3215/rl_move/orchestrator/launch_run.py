@@ -43,6 +43,13 @@ LEDGER_LOCK = HERE / "experiments.json.lock"
 # check -> process start window must not interleave or two cycles can
 # double-book a pod/node that looked free to both.
 LAUNCH_LOCK = HERE / "launch.lock"
+# Mechanical experiment queue (operator, 2026-08-09: "a free slot plus a
+# non-empty backlog is a bug"). Items are full launch specs; `drain`
+# pushes them onto free GPU pods, self-repairing code-sync and missing
+# checkpoints instead of refusing. The watcher calls drain continuously.
+BACKLOG = HERE / "backlog.json"
+BACKLOG_LOCK = HERE / "backlog.json.lock"
+BACKLOG_FAILED = HERE / "backlog_failed.json"
 KUBECONFIG = str(Path.home() / ".kube" / "coreweave.yaml")
 # Established launch pattern on the training pods: module invocation from
 # the project root (NOT `python3 train_ppo_sim.py` from the sim dir).
@@ -247,18 +254,30 @@ def refuse(entry: dict, reason: str) -> int:
 
 
 def cmd_launch(g: dict, a: argparse.Namespace, extra: list[str]) -> int:
-    """One launch at a time across all concurrent decision cycles.
+    """Checks + process start are serialized; verification is NOT.
 
-    The lock deliberately covers the verification sleeps too — simple
-    beats optimal here: a concurrent cycle's launch waits a few minutes
-    at worst, while an unlocked check->start window could double-book a
-    pod/node that looked free to both launchers.
+    The lock covers the live-capacity-check -> trainer-start window (an
+    unlocked window could double-book a pod that looked free to two
+    launchers). It used to cover the multi-minute verification sleeps
+    too, which serialized every launch into ~5 min of wall clock each
+    (operator, 2026-08-09: 3 repaired launches took 12+ min to appear).
+    Once the trainer process exists on the pod, pod_trainers() sees it,
+    so concurrent capacity checks are already correct — verify outside
+    the lock.
     """
     with file_lock(LAUNCH_LOCK):
-        return _launch_locked(g, a, extra)
+        res = _launch_locked(g, a, extra)
+    if isinstance(res, int):
+        return res
+    return _verify_started(g, a, res)
 
 
-def _launch_locked(g: dict, a: argparse.Namespace, extra: list[str]) -> int:
+def _launch_locked(g: dict, a: argparse.Namespace,
+                   extra: list[str]) -> int | dict:
+    """All gates + trainer start, under LAUNCH_LOCK.
+
+    Returns an exit code on refusal/dry-run/start-failure, or a context
+    dict for _verify_started() once the trainer process exists."""
     comp = g["compute"]
     gpu_pods = comp.get("gpu_pods", [])
     gpu = comp.get("gpu", {})
@@ -552,6 +571,18 @@ def _launch_locked(g: dict, a: argparse.Namespace, extra: list[str]) -> int:
         pid = pids[0]
     checks["pid"] = pid
     print(f"launched pid {pid}; verifying...")
+    return {"entry": entry, "checks": checks, "pid": pid,
+            "log": log, "is_gpu": is_gpu}
+
+
+def _verify_started(g: dict, a: argparse.Namespace, ctx: dict) -> int:
+    """Mechanical liveness verification of a just-started trainer.
+
+    Runs OUTSIDE the launch lock: the process already exists on the pod,
+    so concurrent capacity checks count it. Parallel drains/launches can
+    verify simultaneously instead of queueing ~5 min each."""
+    entry, checks = ctx["entry"], ctx["checks"]
+    pid, log, is_gpu = ctx["pid"], ctx["log"], ctx["is_gpu"]
 
     def fail(reason: str) -> int:
         print(f"VERIFICATION FAILED: {reason}")
@@ -721,6 +752,133 @@ def cmd_checkup(g: dict, a: argparse.Namespace) -> int:
     return 0 if verdict == "HEALTHY" else 2
 
 
+def _read_backlog() -> list[dict]:
+    if BACKLOG.exists():
+        return json.loads(BACKLOG.read_text())
+    return []
+
+
+def _write_backlog(items: list[dict]) -> None:
+    BACKLOG.write_text(json.dumps(items, indent=2) + "\n")
+
+
+def cmd_backlog(a: argparse.Namespace, extra: list[str]) -> int:
+    """Append/list mechanical launch specs (operator queue)."""
+    if a.action == "list":
+        for i, it in enumerate(_read_backlog()):
+            print(f"{i}: {it['run']} steps={it['steps']} "
+                  f"attempts={it.get('attempts', 0)}")
+        return 0
+    if not (a.run and a.steps and a.hypothesis and a.gate):
+        print("backlog add needs --run --steps --hypothesis --gate -- <args>")
+        return 1
+    with file_lock(BACKLOG_LOCK):
+        items = _read_backlog()
+        if any(it["run"] == a.run for it in items):
+            print(f"{a.run} already queued")
+            return 1
+        items.append({"run": a.run, "steps": a.steps, "parent": a.parent,
+                      "hypothesis": a.hypothesis, "gate": a.gate,
+                      "extra_args": extra, "attempts": 0, "added": now()})
+        _write_backlog(items)
+    print(f"queued {a.run} ({len(items)} item(s) in backlog)")
+    return 0
+
+
+def _free_gpu_pods(g: dict) -> list[str]:
+    free = []
+    for pod in g["compute"]["gpu_pods"]:
+        try:
+            if not pod_trainers(pod):
+                free.append(pod)
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
+            continue  # Pending/unreachable pod: not a free slot right now
+    return free
+
+
+def cmd_drain(g: dict, a: argparse.Namespace) -> int:
+    """Push backlog items onto free GPU pods until one side is empty.
+
+    SELF-REPAIRING (operator, 2026-08-09 — root cause of the idle
+    fleet was gates that refuse and wait for an intelligent actor):
+    before each launch this syncs the pod's code and pushes a missing
+    --init-from checkpoint instead of refusing. Launches run as child
+    processes; verifications overlap since the launch lock only covers
+    check->start. A free slot plus a non-empty backlog is a bug.
+    """
+    import concurrent.futures
+
+    def take_next() -> dict | None:
+        with file_lock(BACKLOG_LOCK):
+            items = _read_backlog()
+            if not items:
+                return None
+            it = items.pop(0)
+            _write_backlog(items)
+            return it
+
+    def requeue(it: dict, err: str) -> None:
+        it["attempts"] = it.get("attempts", 0) + 1
+        it["last_error"] = err[-400:]
+        with file_lock(BACKLOG_LOCK):
+            if it["attempts"] >= 3:
+                dead = (json.loads(BACKLOG_FAILED.read_text())
+                        if BACKLOG_FAILED.exists() else [])
+                dead.append(it)
+                BACKLOG_FAILED.write_text(json.dumps(dead, indent=2) + "\n")
+                print(f"PARKED {it['run']} after 3 failed attempts "
+                      f"(backlog_failed.json) — needs a human/cycle look")
+            else:
+                _write_backlog([*_read_backlog(), it])
+
+    def launch_one(pod: str, it: dict) -> None:
+        run = it["run"]
+        # Self-repair 1: pod code marker -> current HEAD.
+        sync = subprocess.run(["bash", str(HERE / "snapshot.sh"),
+                               "--sync", pod],
+                              capture_output=True, text=True, timeout=600)
+        if sync.returncode != 0:
+            requeue(it, f"sync {pod}: {sync.stderr or sync.stdout}")
+            return
+        # Self-repair 2: warm-start checkpoint present on the pod.
+        xa = it.get("extra_args") or []
+        if "--init-from" in xa:
+            ckpt = xa[xa.index("--init-from") + 1]
+            subprocess.run(["bash", str(HERE / "ops.sh"), "pushckpt",
+                            pod, ckpt],
+                           capture_output=True, text=True, timeout=600)
+        cmd = [sys.executable, str(HERE / "launch_run.py"), "launch",
+               "--pod", pod, "--run", run, "--steps", str(it["steps"]),
+               "--parent", it.get("parent", ""),
+               "--hypothesis", it["hypothesis"], "--gate", it["gate"],
+               "--", *xa]
+        r = subprocess.run(cmd, capture_output=True, text=True,
+                           timeout=1800)
+        out = (r.stdout or "") + (r.stderr or "")
+        print(f"drain {run} -> {pod}: rc={r.returncode}\n{out[-600:]}")
+        if r.returncode != 0:
+            requeue(it, out)
+
+    free = _free_gpu_pods(g)
+    if not free:
+        print("drain: no free GPU slots")
+        return 0
+    jobs = []
+    for pod in free:
+        it = take_next()
+        if it is None:
+            break
+        jobs.append((pod, it))
+    if not jobs:
+        print("drain: backlog empty")
+        return 0
+    print(f"drain: {len(jobs)} launch(es): "
+          + ", ".join(f"{it['run']}->{pod}" for pod, it in jobs))
+    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as ex:
+        list(ex.map(lambda j: launch_one(*j), jobs))
+    return 0
+
+
 def cmd_update(a: argparse.Namespace) -> int:
     """Locked field update on a ledger entry — the ONLY sanctioned way
     to edit experiments.json outside the launcher itself.
@@ -774,6 +932,15 @@ def main() -> int:
                          "field (default: newest entry for --run; needed "
                          "to mark stale duplicates, e.g. from the "
                          "2026-08-09 shadow-ledger import)")
+    dp = sub.add_parser("drain", help="push backlog items onto free "
+                                      "GPU pods (self-repairing)")
+    bp = sub.add_parser("backlog", help="queue mechanical launch specs")
+    bp.add_argument("action", choices=["add", "list"])
+    bp.add_argument("--run")
+    bp.add_argument("--steps", type=int)
+    bp.add_argument("--hypothesis", default="")
+    bp.add_argument("--gate", default="")
+    bp.add_argument("--parent", default="")
     lp = sub.add_parser("launch")
     lp.add_argument("--pod", required=True)
     lp.add_argument("--run", required=True)
@@ -799,6 +966,10 @@ def main() -> int:
         return cmd_checkup(g, a)
     if a.cmd == "update":
         return cmd_update(a)
+    if a.cmd == "backlog":
+        return cmd_backlog(a, extra)
+    if a.cmd == "drain":
+        return cmd_drain(g, a)
     return cmd_launch(g, a, extra)
 
 
