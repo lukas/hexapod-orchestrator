@@ -60,13 +60,14 @@ levers refuted — stop iterating penalty coefficients.**
   (cycle 30, if-false (a) verbatim): the clock LOCKED (agreement
   0.47→0.93, tripod duty at eval) and slip did NOT move — timing
   is orthogonal to anchoring. **Anchor-gated income MOVED slip
-  (cycle 31: det 1.543→1.240 real); consolidation c1 REFUTED
-  (cycle 32): frac 0.906 EARNED via CADENCE INFLATION — free slip
-  = cadence × tol, tol=10 floor ~0.9/m, gate non-binding (factor
-  0.82–0.93); fresh init re-derives the ride at 2x cadence (c33).
-  Tol 10→5 correction in flight (queue item 1).** Income GATING
-  works where charging (c24, c29) and timing (c30) do not;
-  cadence + per-leg swing asymmetry are exploit-watch columns.
+  once (cycle 31: det 1.543→1.240 real) then hit its PRICE
+  CEILING: tol=10 optimized to non-binding via CADENCE INFLATION
+  (c32, free slip = cadence × tol); fresh init re-derives the ride
+  at 2x cadence (c33); tol=5 BOUND (frac 0.74, −18% income) and
+  the policy PAID it rather than anchor — slip flat 1.222 (c34).
+  Tolerance rung CLOSED.** Income gating beats charging (c24, c29)
+  and timing (c30) but cannot outbid in-sim-free sliding; cadence
+  + per-leg swing asymmetry are exploit-watch columns.
 - **Raise: DEMOTED TO CANARY (08-08).** Stuck 2–5/6 everywhere;
   raisemix refuted; failures = near-miss under-lift on ~4 legs. No
   more compute; tripwire only. (Cycle 13: load-even pricing lifted
@@ -214,7 +215,7 @@ hold → lower → rise → walk. Every session logs sim↔real divergence
 
 ## Queue (in flight → next)
 
-In flight (cycle 33): `cw-walk-anchortol5` (tol 10→5 correction);
+In flight (cycle 34): `cw-walk-stepdisp12` (0-c.2, see item 1);
 stance line BLOCKED on operator ruling (cycle 28).
 **WALK CHAMPION: `ppo_goal_cw_walk_anchorgate.zip` md5 35234ddc
 (cycle 31; DR1.0 det slip 1.240 vs parkstart_mjx 1.543; 5 s slow
@@ -281,19 +282,18 @@ rear-hemisphere hole (operator scope), 5 s slow start (vs h15b).
    legacy-basin theory (cycle 33) — no further from-scratch walk
    arms without a pricing change.
 
-1. Walk: park lineage CLOSED (27); effort/CoT REFUTED (29); phase
-   prior REFUTED (30). Anchor gate is the LIVE lever (c31 det slip
-   1.543→1.240 real) but tol=10 was optimized to NON-BINDING via
-   cadence inflation (c1, cycle 32 — consolidation rung closed).
-   In flight: `cw-walk-anchortol5` (tol 10→5 off champion 35234ddc;
-   if-true: det slip ≤1.0 with cadence ≤~65 stances/ep; if-false:
-   stances ≥~75/ep with slip flat ⇒ per-touchdown allowance RESET
-   is the defect ⇒ tolerance rung CLOSED, escalate to
-   displacement-gated step-event credit (0-c.2) or operator
-   pricing). Fresh-init basin rung CLOSED (cycle 33, shape (a):
-   from-scratch re-derives the allowance-ride at 2x cadence, det
-   slip 1.479, out-of-band overspeed — paddling is the sim's
-   optimum; warm-start lineage stays the vehicle). Exploit watch:
+1. Walk rungs ALL CLOSED: park (27), effort/CoT (29), phase prior
+   (30), consolidation (32), fresh-init basin (33), tolerance (34)
+   — slip is NOT movable by income levers; the root (in-sim-free
+   sliding) is the cycle-28 operator pricing ruling. LAST
+   income-side question in flight: `cw-walk-stepdisp12` (0-c.2
+   displacement-gated step credit, 12 mm, off champion 35234ddc,
+   c1 = identical-config control) — CADENCE ATTRIBUTION, not a
+   slip arm (c34 audit: stakes 1–2% of step income — vacuous vs
+   slip). If-true: drift stops (step credit pays the ride);
+   if-false: drift recurs through denial (a_factor protection pays
+   it) ⇒ income channels fully mapped ⇒ walk slip line NEEDS
+   OPERATOR whole, no further walk reward arms. Exploit watch:
    unload-sweep, cadence inflation, per-leg swing asymmetry
    (drummer leg — gv can't see over-ACTIVE legs; cycle 33).
    Rear-hemisphere arm BLOCKED on operator.
