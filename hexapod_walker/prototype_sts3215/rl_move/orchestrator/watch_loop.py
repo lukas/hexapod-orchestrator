@@ -19,6 +19,7 @@ import datetime
 import json
 import os
 import pathlib
+import re
 import subprocess
 import sys
 import threading
@@ -200,8 +201,107 @@ def checkup_worker() -> None:
         time.sleep(60)
 
 
+def auto_continue_prefixes() -> list[str]:
+    """Lineage prefixes flagged continue-while-improving in guardrails."""
+    try:
+        import yaml
+        g = yaml.safe_load((HERE / "guardrails.yaml").read_text())
+        return list(g.get("experiments", {}).get("auto_continue_lineages") or [])
+    except Exception:
+        return []
+
+
+def reward_still_climbing(run_name: str) -> bool:
+    """True if rollout/ep_rew_mean's last quarter beats the quarter before.
+
+    Deliberately crude: this only decides whether the pod keeps training
+    the same config for another segment while the verdict cycle catches
+    up. The cycle owns the real judgment and can kill the continuation."""
+    import wandb
+    api = wandb.Api()
+    runs = list(api.runs(WANDB_PROJECT, filters={"display_name": run_name}))
+    if not runs:
+        return False
+    vals = [
+        h["rollout/ep_rew_mean"]
+        for h in runs[0].history(keys=["rollout/ep_rew_mean"],
+                                 samples=400, pandas=False)
+        if h.get("rollout/ep_rew_mean") is not None
+    ]
+    if len(vals) < 20:
+        return False
+    q = len(vals) // 4
+    last, prior = vals[-q:], vals[-2 * q:-q]
+    return sum(last) / len(last) > sum(prior) / len(prior)
+
+
+def next_segment_name(run: str) -> str:
+    m = re.match(r"^(.*-c)(\d+)$", run)
+    return f"{m.group(1)}{int(m.group(2)) + 1}" if m else run + "-c1"
+
+
+def try_auto_continue(run: str) -> str | None:
+    """Mechanically relaunch the next segment of a continue-while-improving
+    lineage (operator directive 0-a, RL_PLAN item 0-a/0-b).
+
+    Fired by the watcher the moment a flagged run finishes with reward
+    still climbing — no decision cycle in the loop, so the pod never
+    idles through a 15-25 min deliberation. The launcher still enforces
+    capacity, duplicate names, and ledger bookkeeping; the trailing
+    verdict cycle reviews the finished segment and may kill the
+    continuation. Any failure here just falls back to the normal cycle.
+    """
+    if not any(run.startswith(p) for p in auto_continue_prefixes()):
+        return None
+    try:
+        if not reward_still_climbing(run):
+            log(f"auto-continue: {run} not improving — leaving to the cycle")
+            return None
+        entries = [e for e in json.loads(LEDGER.read_text())
+                   if e.get("run") == run and e.get("extra_args")]
+        if not entries:
+            log(f"auto-continue: no launch entry for {run} in ledger")
+            return None
+        entry = entries[-1]
+        new = next_segment_name(run)
+        parent_out = "ppo_goal_" + run.replace("-", "_")
+        args = list(entry["extra_args"])
+
+        def set_flag(flag: str, val: str) -> None:
+            if flag in args:
+                args[args.index(flag) + 1] = val
+            else:
+                args.extend([flag, val])
+
+        set_flag("--init-from", f"rl_move/sim/policies/{parent_out}.zip")
+        set_flag("--out-name", "ppo_goal_" + new.replace("-", "_"))
+        set_flag("--notes",
+                 f"AUTO-CONTINUE (watcher, directive 0-a): segment after "
+                 f"{run}, reward still climbing at segment end; identical "
+                 "config. Trailing verdict cycle may kill this run.")
+        cmd = [sys.executable, str(HERE / "launch_run.py"), "launch",
+               "--pod", entry["pod"], "--run", new,
+               "--steps", str(entry["steps"]), "--parent", run,
+               "--hypothesis",
+               f"AUTO-CONTINUE of {run} (watcher, directive 0-a): reward "
+               f"still climbing at segment end; identical config, init-from "
+               f"{parent_out}.zip. Trailing cycle owns the verdict.",
+               "--gate", entry.get("gate", ""), "--"] + args
+        CYCLE_OUT_DIR.mkdir(parents=True, exist_ok=True)
+        out = CYCLE_OUT_DIR / f"auto_continue_{new}.log"
+        with out.open("w") as fh:
+            subprocess.Popen(cmd, cwd=REPO, stdout=fh,
+                             stderr=subprocess.STDOUT, text=True)
+        log(f"auto-continue: launching {new} on {entry['pod']} (log: {out})")
+        return new
+    except Exception as exc:
+        log(f"auto-continue failed for {run}: {exc!r} — leaving to the cycle")
+        return None
+
+
 def spawn_cycle(newly_finished: set[str], still_running: set[str],
-                findings: str, in_flight: set[str]) -> dict:
+                findings: str, in_flight: set[str],
+                auto_started: dict[str, str] | None = None) -> dict:
     """Start one decision cycle as a CONCURRENT subprocess.
 
     Returns a handle {proc, runs, out, t0}; reap_cycles() collects it.
@@ -247,6 +347,17 @@ def spawn_cycle(newly_finished: set[str], still_running: set[str],
             "wait on its lock is normal). Re-run `launch_run.py status` "
             "immediately before placing runs; free slots may have been "
             "taken since this prompt was written.\n"
+        )
+    if auto_started:
+        cycle_prompt += (
+            "Mechanical AUTO-CONTINUATIONS are already launching for some "
+            "finished runs (directive 0-a; verify via the ledger or "
+            "`launch_run.py status`): "
+            + ", ".join(f"{p} -> {n}" for p, n in sorted(auto_started.items()))
+            + ". Do NOT launch another continuation for these lineages. "
+            "Verdict the finished segment as usual; if the frames show "
+            "pathology or the segment-over-segment trend is flat/declining, "
+            "KILL the auto-continuation and record why.\n"
         )
     if findings:
         cycle_prompt += (
@@ -398,7 +509,16 @@ def main() -> None:
             if findings:
                 # Delivered once; the full text also lives in orchestrator.log.
                 FINDINGS.write_text("")
-            active.append(spawn_cycle(newly, running, findings, in_flight))
+            # Keep pods busy first, deliberate second: fire mechanical
+            # continuations for improving lineage runs before the cycle
+            # even starts (directive 0-a).
+            auto_started = {}
+            for r in sorted(newly):
+                cont = try_auto_continue(r)
+                if cont:
+                    auto_started[r] = cont
+            active.append(spawn_cycle(newly, running, findings, in_flight,
+                                      auto_started))
             time.sleep(POLL_S)
         except KeyboardInterrupt:
             raise

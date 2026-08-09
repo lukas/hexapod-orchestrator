@@ -70,6 +70,18 @@ compute:
   log_file_pattern: /tmp/train_<run-name>.log
 
 experiments:
+  # Continue-while-improving lineages (operator directive 0-a, 08-09):
+  # when a run whose name starts with one of these prefixes finishes with
+  # reward still climbing (last quarter beats the prior quarter), the
+  # WATCHER relaunches the next segment mechanically — identical config,
+  # init-from the finished checkpoint, -cN name — through the normal
+  # launcher (capacity checks, ledger, verification all apply). The
+  # trailing verdict cycle reviews the finished segment and must KILL the
+  # continuation if frames show pathology or the trend is flat. This
+  # exists because a pod idling 15-25 min through a deliberation cycle
+  # after every ~20-min segment wasted a third of the fleet's time.
+  auto_continue_lineages:
+    - cw-walk-step0
   # Structured ledger (external review 8b): software-owned facts per run in
   # rl_move/orchestrator/experiments.json — hypothesis+predictions, parent,
   # git SHA, seed, gate, status (INTENT/RUNNING/FINISHED/FAILED), W&B ID,
