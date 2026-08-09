@@ -212,17 +212,18 @@ def token_totals() -> dict:
     return {"total": total, "today": today, "n_days": len(days)}
 
 
-def wandb_done_runs() -> list[str]:
-    """cw- runs W&B says are finished/crashed/failed (ground truth for the
-    analysis pipeline — the ledger `triage` field alone misses runs that
-    finish while the watcher is paused, which is exactly when the operator
-    is staring at this page)."""
+def wandb_done_runs() -> list[dict]:
+    """cw- runs W&B says are finished/crashed/failed, with created time
+    (ground truth for the analysis pipeline — the ledger `triage` field
+    alone misses runs that finish while the watcher is paused, which is
+    exactly when the operator is staring at this page)."""
     import wandb
     api = wandb.Api()
-    return [r.name for r in api.runs(
-        "l2k2/hexapod-balance",
-        filters={"state": {"$in": ["finished", "crashed", "failed"]}})
-        if r.name.startswith("cw-")]
+    return [{"run": r.name, "created": str(r.created_at)}
+            for r in api.runs(
+                "l2k2/hexapod-balance",
+                filters={"state": {"$in": ["finished", "crashed", "failed"]}})
+            if r.name.startswith("cw-")]
 
 
 def census() -> list[dict]:
@@ -341,13 +342,19 @@ def render() -> str:
     final = {"FINISHED", "FAILED", "KILLED", "KILLED_BY_OPERATOR", "REFUSED"}
     latest = f.get("latest", {})
     training_now = {r for c in cen for r in (c.get("runs") or [])}
+    cutoff = (datetime.datetime.now(datetime.timezone.utc)
+              - datetime.timedelta(hours=24)).isoformat()
     pipeline = []
-    for run in s.get("wandb_done", []):
+    for d in s.get("wandb_done", []):
+        run = d["run"]
         if run in training_now:  # stale W&B duplicate of a live run
             continue
         e = latest.get(run)
         if e is None:
-            pipeline.append({"run": run, "state": "not in ledger"})
+            # pre-ledger history (analyzed in archived RL_LOG) — only a
+            # RECENT unledgered run is a real pipeline item (and a bug)
+            if d.get("created", "") >= cutoff:
+                pipeline.append({"run": run, "state": "NOT IN LEDGER (bug?)"})
         elif e["status"] not in final and not e["verdict"]:
             pipeline.append({"run": run,
                              "state": e["triage"] or "awaiting (unassigned)"})
