@@ -124,8 +124,11 @@ pushckpt)  # pushckpt <pod> <ckpt.zip> — copy a checkpoint TO a pod; md5 both
   # compare md5 before launching --init-from on a pod that didn't train
   # the parent.
   pod="$2"; src="$3"
-  [ -f "$src" ] || src="$PROTO/rl_move/sim/policies/$3"
+  [ -f "$src" ] || src="$PROTO/$3"
+  [ -f "$src" ] || src="$PROTO/rl_move/sim/policies/$(basename "$3")"
   [ -f "$src" ] || { echo "no such checkpoint: $3"; exit 1; }
+  # dest dir is excluded from snapshot.sh --sync; may not exist yet (c37)
+  kubectl exec "$pod" -- mkdir -p "$POD_PROTO/rl_move/sim/policies"
   name=$(basename "$src")
   kubectl cp "$src" "$pod:$POD_PROTO/rl_move/sim/policies/$name" && \
     md5sum "$src" && \
