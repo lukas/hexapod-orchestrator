@@ -498,7 +498,11 @@ def cmd_checkup(g: dict, a: argparse.Namespace) -> int:
     if entry is None:
         print(f"DEAD: no RUNNING/INTENT ledger entry for {a.run}")
         return 1
-    pod, log = entry["pod"], entry["log"]
+    # Reconstructed entries (operator raw launches) may lack "log";
+    # fall back to the guardrails pattern instead of crashing the
+    # watcher (KeyError 'log' on cw-walk-step0-c2, 2026-08-09).
+    pod = entry["pod"]
+    log = entry.get("log") or f"/tmp/train_{a.run}.log"
     created = entry.get("created")
     problems, facts = [], {"time": now()}
 
