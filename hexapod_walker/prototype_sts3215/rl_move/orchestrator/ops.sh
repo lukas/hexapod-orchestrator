@@ -215,6 +215,29 @@ print(f"cached {len(hist)} history rows -> {d}/")
 EOF
   ;;
 
+wandbnote)  # wandbnote <run> "paragraph" — append the human OUTCOME
+  # paragraph to the BOTTOM of the run's W&B notes (operator, 08-09:
+  # notes open with the plain-English plan; they should CLOSE with what
+  # happened and what was learned, targeted at a human).
+  run="$2"; text="$3"
+  python3 - "$run" "$text" <<'EOF'
+import sys
+import wandb
+name, text = sys.argv[1], sys.argv[2]
+api = wandb.Api()
+runs = [r for r in api.runs("l2k2/hexapod-balance",
+                            filters={"display_name": name})]
+if not runs:
+    sys.exit(f"no W&B run named {name}")
+r = sorted(runs, key=lambda x: x.created_at)[-1]
+marker = "--- OUTCOME"
+base = (r.notes or "").split(marker)[0].rstrip()
+r.notes = f"{base}\n\n{marker} ---\n{text.strip()}\n"
+r.update()
+print(f"notes updated: {r.url}")
+EOF
+  ;;
+
 waitlog)  # waitlog <file> <regex> [timeout_s] — poll instead of sleep-and-pray
   f="$2"; pat="$3"; t="${4:-900}"; el=0
   until grep -qE "$pat" "$f" 2>/dev/null; do
@@ -229,6 +252,6 @@ waitlog)  # waitlog <file> <regex> [timeout_s] — poll instead of sleep-and-pra
   echo "subcommands: status | procs <pod> | trainlog <run> [n] | entry <run> |"
   echo "  wandb <run> | pullckpt <run> | pushckpt <pod> <ckpt> | evalcmd <run> |"
   echo "  waitlog <file> <regex> [t] |"
-  echo "  expdir <run> | wandbdump <run>"
+  echo "  expdir <run> | wandbdump <run> | wandbnote <run> \"paragraph\""
   ;;
 esac

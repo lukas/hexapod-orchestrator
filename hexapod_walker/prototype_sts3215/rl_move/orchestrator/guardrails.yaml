@@ -200,13 +200,17 @@ evaluation:
   episodes_per_mode: 6
   passes: [deterministic, stochastic]
   eval_at_own_dr: true
-  # Videos are mandatory: visually inspect a frame strip for EVERY mode
-  # whose scalar appears in a verdict — passing modes especially (exploits
-  # hide in passes; a flagged leg shipped inside a 12/12 lower on
-  # 2026-08-08). An unwatched success is recorded "N/6 (unwatched)" and
-  # cannot support a PASS. RL_LOG.md entries must describe the motion.
+  # TRIAGE-FIRST (operator, 2026-08-09: "lightweight review unless
+  # there's something real to dig into"). Every verdict still requires
+  # eyes on the GATED mode's det frame strip/video — an unwatched
+  # success is unverified and cannot support a PASS (a flagged leg
+  # shipped inside a 12/12 lower on 2026-08-08). But all-mode det+sto
+  # strip review, provenance checksums, and the structured verdict
+  # essay apply only on a DIG-IN trigger: gate/video disagreement,
+  # metrics anomalous beyond eval noise, protected-skill erosion,
+  # canary auto-stop, plan-fork decisions, or reward/env code changes.
   require_video_review: true
-  watched_modes: all_verdict_modes
+  watched_modes: gated_mode_det  # all_verdict_modes on dig-in
   # Root-cause chain (behavior <- incentive <- pricing <- sim/objective
   # defect) is required in the log before any reward/coefficient change;
   # reward patches are last resort with stated justification.
@@ -217,12 +221,16 @@ evaluation:
   # explicit "hardware-ready: yes/no" judgment. Scalar gates NEVER
   # override a bad video. Optimistic gloss is a guardrail violation.
   video_verdict_blunt: true
-  # Verdict format (external review 8c): OBSERVATIONS (mechanical facts +
-  # video checksum/frame count actually reviewed) / INTERPRETATION /
-  # VERDICT (PASS|FAIL|INCONCLUSIVE + hardware-ready yes|no) /
-  # HYPOTHESIS STATUS (SUPPORTED|REFUTED|INCONCLUSIVE).
-  verdict_format_structured: true
-  require_video_provenance: true
+  # Verdict format (external review 8c) — DIG-IN ONLY since 08-09:
+  # OBSERVATIONS / INTERPRETATION / VERDICT (+ hardware-ready) /
+  # HYPOTHESIS STATUS. Clear pass/fail gets: ledger one-liner via
+  # launch_run.py update, 1-2 RL_LOG lines, and a human OUTCOME
+  # paragraph appended to the run's W&B notes (ops.sh wandbnote).
+  verdict_format_structured: dig_in_only
+  require_video_provenance: dig_in_only
+  # Every finished run's W&B notes must END with the OUTCOME paragraph:
+  # what happened + what was learned, plain English for a human.
+  require_wandb_outcome_note: true
   # Gait validity (external review 5b): a walking checkpoint is INVALID if
   # any leg is persistently sacrificed, regardless of velocity error.
   # Flag-leg detection is a permanent eval gate independent of reward terms.
