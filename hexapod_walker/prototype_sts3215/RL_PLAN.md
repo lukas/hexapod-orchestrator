@@ -59,11 +59,13 @@ levers refuted — stop iterating penalty coefficients.**
   18%-of-income charge paid, nothing moved. Phase prior REFUTED
   (cycle 30, if-false (a) verbatim): the clock LOCKED (agreement
   0.47→0.93, tripod duty at eval) and slip did NOT move — timing
-  is orthogonal to anchoring. Three levers (park-income gating
-  c24, effort pricing c29, timing reference c30) have failed to
-  move slip; velocity income is still fully collectible by
-  friction-sweep. Anchor-gated income (dense rung's stance-no-slip
-  component as an income GATE, not a charge) in flight.**
+  is orthogonal to anchoring. **Anchor-gated income MOVED slip
+  (cycle 31, first of four levers): DR1.0 det slip 1.543→1.240
+  beyond per-ep noise at unchanged speed, anchor_frac 0.767→0.837
+  still climbing at 20M; gate still missed (≤1.0) and sto unmoved
+  — near-miss, c1 consolidation + fresh-init basin test in
+  flight.** Income GATING works where charging (c24, c29) and
+  timing references (c30) do not.
 - **Raise: DEMOTED TO CANARY (08-08).** Stuck 2–5/6 everywhere;
   raisemix refuted; failures = near-miss under-lift on ~4 legs. No
   more compute; tripwire only. (Cycle 13: load-even pricing lifted
@@ -211,19 +213,19 @@ hold → lower → rise → walk. Every session logs sim↔real divergence
 
 ## Queue (in flight → next)
 
-In flight (cycle 29): `cw-walk-phaseprior` (see item 1); stance
-line BLOCKED on operator ruling (cycle 28). **WALK CHAMPION:
-`ppo_goal_cw_walk_parkstart_mjx.zip` md5 01d9ab60 (cycle 25;
-named regression vs h15b: 5 s slow start; consolidation CLOSED —
-cycle 27).**
+In flight (cycle 31): `cw-walk-anchorgate-c1` (consolidation) +
+`cw-walk-step0-anchor` (fresh-init basin test, auto-continue
+lineage); stance line BLOCKED on operator ruling (cycle 28).
+**WALK CHAMPION: `ppo_goal_cw_walk_anchorgate.zip` md5 35234ddc
+(cycle 31; DR1.0 det slip 1.240 vs parkstart_mjx 1.543; 5 s slow
+start regression vs h15b still stands).**
 **Closed rungs (details RL_LOG):** kernel/park pricing (24, both
 if-false); DR-ladder training arms VACUOUS (23; skating owns the
 DR1.0 slip clause); temporal actor at DR 0 (22); identical-config
 segments (19c, 27). Park lineage RESOLVED (27, see State).
-Walk defects now: skating/paddling (slip/m ~1.3–1.5, the DR 1.0
-blocker; pricing refuted 2x, phase prior in flight), overspeed 1.43
-(same object as the gate clause — operator), rear-hemisphere hole
-(operator scope), 5 s slow start (champion regression vs h15b).
+Walk defects now: skating/paddling (DR1.0 blocker; anchor gate
+moving it, det 1.24 c31), overspeed (gate clause — operator),
+rear-hemisphere hole (operator scope), 5 s slow start (vs h15b).
 
 0-a. **step0 lineage (compressed; details RL_LOG cycles 14–18).**
    step0 = first genuine six-leg gait; c1/c2 identical-config
@@ -281,21 +283,19 @@ blocker; pricing refuted 2x, phase prior in flight), overspeed 1.43
    if-false (b).
 
 1. Walk: park lineage CLOSED (27); effort/CoT REFUTED (29); phase
-   prior REFUTED (30, branch (a): timing locked, slip unmoved). In
-   flight: `cw-walk-anchorgate` — velocity income (kernel +
-   positive progress) multiplied by the anchored fraction of loaded
-   feet (foot ANCHORED = within 10 mm of its own touchdown point;
-   `reward.walk_anchor_gate=1.0`, `anchor_tol_mm=10`). Measured
-   (c30 scale audit): paddling collects 0.53–0.70 of income at
-   tol=10; anchored gait ~1.0 — paddling worth less BY CONSTRUCTION
-   (operator 0-c.2 / step0 mandate), not by a refuted charge.
-   If-false: (b) frac flat + income just drops ⇒ anchoring not
-   locally reachable at a ~2x-the-effort-arm stake ⇒ local-gradient
-   hypothesis dead, escalate to fresh-init walk WITH the gate from
-   step 0 (step0-style) or distillation; (c) frac >0.85 unearned +
-   slip unchanged ⇒ tolerance mis-set, ONE audit-driven correction
-   allowed (pre-registered); exploit watch: unload-sweep
-   (contact-threshold farming) shows as duty drop + swing spike
+   prior REFUTED (30). Anchor gate (income × anchored fraction of
+   loaded feet, tol 10 mm) is the LIVE lever (c31: det slip
+   1.543→1.240 real, sto unmoved, frac 0.837 still climbing; no
+   if-false shape fired). In flight: `cw-walk-anchorgate-c1`
+   (identical-config +20M; if-true frac >0.85 + slip det AND sto
+   ≤1.0; if-false frac/slip plateau ⇒ residual creep structural
+   under tol=10 for warm starts — rung closes for warm starts, one
+   audit-driven tolerance correction stays pre-registered) and
+   `cw-walk-step0-anchor` (fresh init, audited exploration, gate
+   on from first gradient step: paddle = legacy basin vs sim's
+   preferred transport; if fresh init paddles too, the root is the
+   sim's contact/current pricing — operator — or distillation).
+   Exploit watch stays: unload-sweep = duty drop + swing spike
    with slip high. Rear-hemisphere arm BLOCKED on operator.
    Stance: lowerdense fired BOTH if-false branches (cycle 28);
    opposing gradient named (current-relief + margin income ≫ the
