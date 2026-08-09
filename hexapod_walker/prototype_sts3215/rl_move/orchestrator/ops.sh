@@ -264,6 +264,61 @@ print(f"notes updated: {r.url}")
 EOF
   ;;
 
+triage)  # triage — "is anything being lost/ignored?" in one table:
+  # every W&B run from the last N hours (default 6) vs ledger verdict,
+  # W&B OUTCOME note, and watcher processed-state. Built 08-09 after
+  # the operator had to reverse-engineer this twice.
+  hrs="${2:-6}"
+  python3 - "$hrs" <<'EOF'
+import datetime as dt, json, os, sys
+import wandb
+hrs = float(sys.argv[1])
+cut = (dt.datetime.now(dt.timezone.utc)
+       - dt.timedelta(hours=hrs)).isoformat()
+led = {}
+for e in json.load(open(os.environ["LEDGER"])):
+    if isinstance(e, dict) and e.get("run"):
+        if e.get("status") not in ("REFUSED",):
+            led[e["run"]] = e
+try:
+    proc = set(json.load(open("/workspace/orchestrator_state.json"))
+               ["processed"])
+except Exception:
+    proc = set()
+api = wandb.Api()
+rows = []
+for r in api.runs("l2k2/hexapod-balance",
+                  filters={"created_at": {"$gt": cut}}):
+    e = led.get(r.name, {})
+    rows.append((r.name, r.state,
+                 "yes" if e.get("verdict") else "-",
+                 "yes" if "OUTCOME" in (r.notes or "") else "-",
+                 "yes" if r.name in proc else "-"))
+print(f"{'run':30s} {'wandb':9s} {'verdict':7s} {'note':5s} processed")
+for row in sorted(rows):
+    print(f"{row[0]:30s} {row[1]:9s} {row[2]:7s} {row[3]:5s} {row[4]}")
+print("\nfinished + verdict '-' = triage queue; finished + processed '-' "
+      "= watcher hasn't seen it end yet. Anything old in either state "
+      "is a real leak — say so in RL_LOG.")
+EOF
+  ;;
+
+killrun)  # killrun <run> — kill a run's training procs on its pod.
+  # Pods have no pkill, and a naive /proc scan matches ITSELF (the
+  # scanning shell's own cmdline contains the run name — a cycle killed
+  # its own kill command this way on 08-09). MUST skip $$.
+  run="$2"
+  pod="$(entry_field "$run" pod)"
+  [ -n "$pod" ] || { echo "no pod in ledger for $run"; exit 1; }
+  kubectl exec "$pod" -- bash -c '
+    for d in /proc/[0-9]*; do
+      p=${d#/proc/}; [ "$p" = "$$" ] && continue
+      c=$(tr "\0" " " < "$d/cmdline" 2>/dev/null)
+      case "$c" in *"$1"*) echo "kill $p: ${c:0:80}"; kill "$p";; esac
+    done' _ "$run"
+  echo "remember: launch_run.py update --run $run --set status=KILLED 'verdict=...'"
+  ;;
+
 waitlog)  # waitlog <file> <regex> [timeout_s] — poll instead of sleep-and-pray
   f="$2"; pat="$3"; t="${4:-900}"; el=0
   until grep -qE "$pat" "$f" 2>/dev/null; do
@@ -275,9 +330,9 @@ waitlog)  # waitlog <file> <regex> [timeout_s] — poll instead of sleep-and-pra
 
 *)
   sed -n '2,6p' "$0"
-  echo "subcommands: status | procs <pod> | trainlog <run> [n] | entry <run> |"
-  echo "  wandb <run> | pullckpt <run> | pushckpt <pod> <ckpt> | evalcmd <run> |"
-  echo "  waitlog <file> <regex> [t] |"
+  echo "subcommands: status | triage [hours] | procs <pod> | trainlog <run> [n] |"
+  echo "  entry <run> | wandb <run> | pullckpt <run> | pushckpt <pod> <ckpt> |"
+  echo "  evalcmd <run> | killrun <run> | waitlog <file> <regex> [t] |"
   echo "  expdir <run> | wandbdump <run> | wandbnote <run> \"paragraph\""
   ;;
 esac

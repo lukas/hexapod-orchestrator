@@ -1012,7 +1012,29 @@ def cmd_update(a: argparse.Namespace) -> int:
                 entry[key] = val
         save_ledger(led)
     render_run_md(entry)
-    print(f"updated {a.run}: set {[kv.partition('=')[0] for kv in a.set or []]}")
+    keys = [kv.partition("=")[0] for kv in a.set or []]
+    print(f"updated {a.run}: set {keys}")
+    # Mechanical W&B mirror (operator, 08-09): a verdict that only lives
+    # in the ledger looks like an ignored result on the W&B page. Push
+    # it to the run's notes immediately; ops.sh wandbnote may later
+    # replace it with a richer paragraph (same OUTCOME marker).
+    if "verdict" in keys and entry.get("verdict"):
+        try:
+            import wandb
+            api = wandb.Api()
+            runs = sorted(api.runs("l2k2/hexapod-balance",
+                                   filters={"display_name": a.run}),
+                          key=lambda r: r.created_at)
+            if runs:
+                r = runs[-1]
+                marker = "--- OUTCOME"
+                base = (r.notes or "").split(marker)[0].rstrip()
+                r.notes = (f"{base}\n\n{marker} ---\n"
+                           f"{str(entry['verdict']).strip()}\n")
+                r.update()
+                print(f"verdict mirrored to W&B notes: {r.url}")
+        except Exception as ex:  # never fail the ledger update over W&B
+            print(f"WARN: could not mirror verdict to W&B notes: {ex}")
     return 0
 
 
