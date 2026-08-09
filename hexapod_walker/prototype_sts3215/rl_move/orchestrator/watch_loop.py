@@ -49,7 +49,7 @@ BACKOFF_AFTER_FAILED_CYCLES = 2  # consecutive agent failures -> long sleep
 # finishes while another cycle is still working, its verdict/relaunch no
 # longer queues behind that cycle. Serialization points that remain:
 # snapshot.sh takes a git lock, launch_run.py takes launch+ledger locks.
-MAX_CONCURRENT_CYCLES = 2
+MAX_CONCURRENT_CYCLES = 4  # operator 08-09: 2 bottlenecked triage of 12 simultaneous finishes
 CYCLE_TIMEOUT_S = 3 * 3600
 CYCLE_OUT_DIR = pathlib.Path("/workspace/cycle_logs")
 # Decision cycles run on Claude Code (headless) with the operator's own

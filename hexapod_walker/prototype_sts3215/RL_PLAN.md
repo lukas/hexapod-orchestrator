@@ -119,12 +119,39 @@ pass 0.75–1.25; prefer narrow forward band + direct distance gate;
 (6) loaded slip accumulates episode-long, NEVER reset by touchdown
 (loaded foot-XY travel per meter = primary skating metric);
 (7) promotion = multi-seed panels + named corners; fixed panel =
-regression canary only.
+regression canary only;
+(8) **promotion criterion (operator, 08-09 ~10:3x): "closest to
+deployed on the real robot that I can joystick reliably."** Promote
+on physical deployability — distance, zero falls, attitude, loaded
+slip/m, per-servo current, low safety intervention — NOT on any one
+reward metric; det improvement with sto parity is sufficient (the
+c44 longdist-r2 promotion is operator-ACCEPTED under this rule).
+After reliable joystick walking, the bar becomes tricks (four-leg
+stance first).
+
+EXTERNAL READINESS REVIEW 2026-08-09 (operator-supplied, adopted):
+`archive/HEXAPOD_READINESS_RESEARCH_REVIEW_2026-08-09.md`. Its
+priorities are binding guidance: **P0** = contact/current
+calibration → retrain forward gait under corrected physics → freeze
+a forward-only policy by physical metrics → supported hardware
+ladder (§2 Gate C; first milestone is FORWARD joystick, not omni).
+**P1** = four-leg line in parallel on spare GPUs, feasibility FIRST
+(§4: scripted CoM/support-polygon/torque sweep with fronts raised —
+no reward design until geometry passes). **P2** = joystick envelope
+(speed band → diagonals → lateral → yaw → rear) only after forward
+transfer. No new anti-slip reward coefficient arms (§8).
 
 ## Party tricks (operator vision, 08-09)
 
 QUADRUPED is PULLED FORWARD (operator, 08-09): an authorized
 parallel line whenever main-line arms can't fill the GPU pods.
+Sequence per the readiness review §4: scripted feasibility sweep
+(CoM inside four-foot polygon, torque/current margins, fronts in
+raised claw poses) BEFORE any RL reward design; then static
+four-leg stance as its own skill (both fronts clear + unloaded,
+four planted, level, low current, 10–15 s hold, 0 term); then
+weight shift; then quadruped stepping. Do NOT ask the six-leg
+walker to spontaneously stop using two legs.
 Fall recovery still waits for 0-c. (1) **FALL RECOVERY** — fallen
 poses become the start distribution; gate "regain stance and hold,
 12/12, under DR"; needs orientation-complete obs + fallen-pose
