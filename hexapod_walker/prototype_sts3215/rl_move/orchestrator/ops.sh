@@ -24,15 +24,21 @@ list_procs() {  # list_procs <pod> — training/eval processes (pods have NO ps)
     done' 2>/dev/null || echo "(none or pod unreachable)"
 }
 
-entry_field() {  # entry_field <run> <field> — last ledger entry wins
+entry_field() {  # entry_field <run> <field> — last LIVE entry wins
+  # Prefer RUNNING/FINISHED/etc over REFUSED/KILLED husks: a late REFUSED
+  # duplicate (pod race) otherwise poisons pod/log lookups (hit 08-09,
+  # loadslip-s1 trainlog pointed at the wrong pod).
   python3 - "$1" "$2" <<'EOF'
 import json, sys
 run, field = sys.argv[1], sys.argv[2]
-val = ""
+val = dead_val = ""
 for e in json.load(open(__import__("os").environ["LEDGER"])):
     if isinstance(e, dict) and e.get("run") == run and e.get(field) is not None:
-        val = e[field]
-print(val)
+        if e.get("status") in ("REFUSED", "KILLED"):
+            dead_val = e[field]
+        else:
+            val = e[field]
+print(val if val != "" else dead_val)
 EOF
 }
 export LEDGER
