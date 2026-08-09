@@ -116,6 +116,22 @@ pullckpt)  # pullckpt <run> — fetch the run's checkpoint from its pod; md5
     md5sum "$dest"
   ;;
 
+pushckpt)  # pushckpt <pod> <ckpt.zip> — copy a checkpoint TO a pod; md5 both
+  # snapshot.sh --sync EXCLUDES rl_move/sim/policies (large files), so a
+  # warm-start parent must be pushed explicitly. cw-walk-longdist (operator
+  # launch, 2026-08-09) died at init on exactly this: FileNotFoundError on
+  # the champion zip, pod had code but no checkpoints. ALWAYS pushckpt +
+  # compare md5 before launching --init-from on a pod that didn't train
+  # the parent.
+  pod="$2"; src="$3"
+  [ -f "$src" ] || src="$PROTO/rl_move/sim/policies/$3"
+  [ -f "$src" ] || { echo "no such checkpoint: $3"; exit 1; }
+  name=$(basename "$src")
+  kubectl cp "$src" "$pod:$POD_PROTO/rl_move/sim/policies/$name" && \
+    md5sum "$src" && \
+    kubectl exec "$pod" -- md5sum "$POD_PROTO/rl_move/sim/policies/$name"
+  ;;
+
 evalcmd)  # evalcmd <run> — print the exact-path harness eval command
   run="$2"
   python3 - "$run" <<'EOF'
@@ -208,7 +224,8 @@ waitlog)  # waitlog <file> <regex> [timeout_s] — poll instead of sleep-and-pra
 *)
   sed -n '2,6p' "$0"
   echo "subcommands: status | procs <pod> | trainlog <run> [n] | entry <run> |"
-  echo "  wandb <run> | pullckpt <run> | evalcmd <run> | waitlog <file> <regex> [t] |"
+  echo "  wandb <run> | pullckpt <run> | pushckpt <pod> <ckpt> | evalcmd <run> |"
+  echo "  waitlog <file> <regex> [t] |"
   echo "  expdir <run> | wandbdump <run>"
   ;;
 esac
