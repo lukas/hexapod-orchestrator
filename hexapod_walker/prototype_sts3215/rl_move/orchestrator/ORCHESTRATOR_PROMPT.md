@@ -128,9 +128,13 @@ Context to read before deciding anything:
    **ONLY via `python3 launch_run.py update --run <name>
    --set key=value ...` (add `--create` to backfill a missing
    entry). NEVER hand-edit `experiments.json`**: a read-modify-dump
-   of the whole file clobbers concurrent writers — on 2026-08-09 a
-   cycle's manual edit silently erased another launch's entry, and
-   the cycle then mis-verdicted that launch as "raw/unledgered".
+   of the whole file can clobber concurrent writers (launcher,
+   watcher checkups, sibling cycles). Also: on the controller,
+   ALWAYS work in the git clone `/workspace/weird_objects` —
+   `/workspace/prototype_sts3215` is a deploy-layout copy whose
+   ledger files are symlinks into the clone, not a working tree
+   (2026-08-09: operator launches recorded there were invisible to
+   cycles until reconciled).
 
 3. **Review RL_PLAN.md.** With the new results in hand, ask whether the
    plan still points at the big goal. If a section is stale, contradicted
