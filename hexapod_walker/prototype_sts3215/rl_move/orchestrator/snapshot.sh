@@ -25,16 +25,18 @@ if [ "${1:-}" = "--sync" ]; then
   # (commit) BEFORE syncing, as the cycle protocol already requires.
   SHA="$(git rev-parse HEAD)"
   # Dirty check EXCLUDES the orchestrator's runtime state files
-  # (experiments.json ledger + backlog.json): the watcher rewrites them
-  # every few minutes, so including them made the tree perpetually
+  # (ledger, backlog + parked items, lock files): the watcher rewrites
+  # them every few minutes, so including them made the tree perpetually
   # "dirty" and the -dirty marker refused every drain launch while 9
   # GPUs idled (2026-08-09). They are operational state, not trainer
   # code — the marker exists to pin the CODE the pod runs.
   P=hexapod_walker/prototype_sts3215
   EXC1=":(exclude)$P/rl_move/orchestrator/experiments.json"
   EXC2=":(exclude)$P/rl_move/orchestrator/backlog.json"
-  if ! git diff --quiet HEAD -- "$P" "$EXC1" "$EXC2" || \
-     [ -n "$(git status --porcelain -- "$P" "$EXC1" "$EXC2" | grep '^??' || true)" ]; then
+  EXC3=":(exclude)$P/rl_move/orchestrator/backlog_failed.json"
+  EXC4=":(exclude)$P/rl_move/orchestrator/*.lock"
+  if ! git diff --quiet HEAD -- "$P" "$EXC1" "$EXC2" "$EXC3" "$EXC4" || \
+     [ -n "$(git status --porcelain -- "$P" "$EXC1" "$EXC2" "$EXC3" "$EXC4" | grep '^??' || true)" ]; then
     SHA="${SHA}-dirty"
   fi
   kubectl --kubeconfig="$KC" exec "$POD" -- \
