@@ -55,11 +55,15 @@ levers refuted — stop iterating penalty coefficients.**
   effort priced at ~4% of income — objective defect). fwd≥0.40 is
   unpassable at perfect tracking below ~0.030 m/s → the clause
   selected overspeed. Rear-hemisphere scope + gate redesign are
-  with the OPERATOR. **Effort/CoT pricing REFUTED (cycle 29): the
-  policy paid an 18%-of-income charge for 20M steps, current/drag/
-  slip all flat — two proofs now (with kernel-gating, cycle 24)
-  that pricing alone cannot reorganize this gait. Phase prior
-  (review rung 4) in flight.**
+  with the OPERATOR. **Effort/CoT pricing REFUTED (cycle 29):
+  18%-of-income charge paid, nothing moved. Phase prior REFUTED
+  (cycle 30, if-false (a) verbatim): the clock LOCKED (agreement
+  0.47→0.93, tripod duty at eval) and slip did NOT move — timing
+  is orthogonal to anchoring. Three levers (park-income gating
+  c24, effort pricing c29, timing reference c30) have failed to
+  move slip; velocity income is still fully collectible by
+  friction-sweep. Anchor-gated income (dense rung's stance-no-slip
+  component as an income GATE, not a charge) in flight.**
 - **Raise: DEMOTED TO CANARY (08-08).** Stuck 2–5/6 everywhere;
   raisemix refuted; failures = near-miss under-lift on ~4 legs. No
   more compute; tripwire only. (Cycle 13: load-even pricing lifted
@@ -230,17 +234,11 @@ blocker; pricing refuted 2x, phase prior in flight), overspeed 1.43
    step0-lineage continuations run `--no-canary`** (c1 false
    positive); canaries stay ON for multi-skill runs.
 
-0-b. **OPERATOR-DIRECTED (binding, 08-09 ~01:05Z): step0-lineage next
-   rungs after the current segments (c2, lowent) verdict.** Both are
-   one-variable arms off the best step0-lineage checkpoint;
-   continue-while-improving (0-a) and `--no-canary` apply.
-   1. **LONGER HORIZON — DONE (h15b, cycle 19):** gait sustains at
-      15 s; 15 s is the lineage standard now.
-   2. **DR LADDER — CLOSED (cycle 23):** untrained champion passes
-      DR 0.3 AND 0.6 and misses DR 1.0 only on det slip 1.008 = the
-      skating defect; training rungs buy nothing. Eval at own-DR
-      stays mandatory; re-open only if a gait CHANGE breaks a DR
-      level the parent passed.
+0-b. **OPERATOR-DIRECTED step0 rungs — BOTH CLOSED:** longer horizon
+   DONE (h15b, c19; 15 s is the lineage standard); DR ladder CLOSED
+   (c23: skating owns the DR 1.0 miss; training rungs vacuous;
+   own-DR eval stays mandatory; re-open only if a gait CHANGE
+   breaks a DR level the parent passed).
 
 0-c. **OPERATOR-DIRECTED (binding, 08-09 ~02:10Z): the walk objective
    is DISTANCE, STABILITY, RELIABILITY** — not speed-band tracking.
@@ -271,45 +269,44 @@ blocker; pricing refuted 2x, phase prior in flight), overspeed 1.43
    0-a pricing defects (skating, overspeed) fold INTO these arms
    where they're the root cause instead of waiting "until after 0-b".
 
-0. **OPERATOR-DIRECTED (binding, 08-08 ~23:00Z): the embarrassingly
-   narrow walk (suggested name `cw-walk-step0`).** Dedicate one
-   experiment slot to a walk-ONLY policy FROM SCRATCH at DR 0:
-   `joint_walk` with NO rise/lower/raise in the goal mix, no
-   curriculum sophistication, no asymmetric critic (add only if this
-   fails and the log argues why), zero multi-task retention concerns.
-   The reward must EXPLICITLY pay for a real step: per-leg credit for
-   a completed lift → forward swing → touchdown event, with dragging
-   (foot translating while loaded) and parking (per-leg contact duty
-   pinned near 0 or 1) explicitly unpaid or priced — i.e. the tripod
-   park must be worth less than stepping by construction, not by a
-   side effect. Audited exploration settings (std 1.0, ent_coef
-   0.005–0.01, target_kl 0.02). Step-event reward is a new mechanism:
-   probe smoke first per audit §6. GATE (deliberately narrow): from a
-   normal stance, move forward 10 cm with ALL SIX legs repeatedly
-   cycling lift/swing/touchdown — per-leg duty in ~[0.2, 0.9], ≥2
-   swings per leg, no drag, no parked leg — det AND sto, video
-   verdict pathology-first. This is a deliberate fresh-init exception
-   to the warm-start default and a new-baseline exception to
-   one-variable comparisons. Speed targets, DR, and multi-task merge
-   come only AFTER this gate passes.
+0. **OPERATOR-DIRECTED step0 walk (08-08 ~23:00Z) — GATE PASSED,
+   lineage established (cycles 14–18; step0 reward package =
+   k_step_event / k_drag_loaded / k_park_duty, walk-only, fresh
+   init at DR 0, audited exploration std 1.0 / ent 0.005–0.01 /
+   target_kl 0.02).** Its "worth less than stepping BY
+   CONSTRUCTION, not by a side effect" mandate is the design rule
+   for all walk income terms (applied again in the c30 anchor
+   gate). A fresh-init retry WITH the anchor gate from step 0 is
+   the pre-registered escalation if `cw-walk-anchorgate` fires
+   if-false (b).
 
-1. Walk: park lineage CLOSED (27); effort/CoT REFUTED (29, branch
-   (i): charge paid, nothing moved). In flight: `cw-walk-phaseprior`
-   — observable 0.4 Hz tripod clock (+2 obs, MJX transplant) +
-   k_phase_contact=1.0 agreement income, off the champion. This is
-   NOT cycle-12's refuted basin-escape phase arm: the parent has a
-   genuine gait; the test is whether a timing REFERENCE makes
-   anchored stance gradient-reachable where pricing provably isn't.
-   If-false: agreement up + slip unmoved ⇒ timing orthogonal to
-   anchoring; agreement flat ⇒ prior can't engage a warm gait;
-   gait degrades ⇒ kill. Rear-hemisphere arm BLOCKED on operator.
+1. Walk: park lineage CLOSED (27); effort/CoT REFUTED (29); phase
+   prior REFUTED (30, branch (a): timing locked, slip unmoved). In
+   flight: `cw-walk-anchorgate` — velocity income (kernel +
+   positive progress) multiplied by the anchored fraction of loaded
+   feet (foot ANCHORED = within 10 mm of its own touchdown point;
+   `reward.walk_anchor_gate=1.0`, `anchor_tol_mm=10`). Measured
+   (c30 scale audit): paddling collects 0.53–0.70 of income at
+   tol=10; anchored gait ~1.0 — paddling worth less BY CONSTRUCTION
+   (operator 0-c.2 / step0 mandate), not by a refuted charge.
+   If-false: (b) frac flat + income just drops ⇒ anchoring not
+   locally reachable at a ~2x-the-effort-arm stake ⇒ local-gradient
+   hypothesis dead, escalate to fresh-init walk WITH the gate from
+   step 0 (step0-style) or distillation; (c) frac >0.85 unearned +
+   slip unchanged ⇒ tolerance mis-set, ONE audit-driven correction
+   allowed (pre-registered); exploit watch: unload-sweep
+   (contact-threshold farming) shows as duty drop + swing spike
+   with slip high. Rear-hemisphere arm BLOCKED on operator.
    Stance: lowerdense fired BOTH if-false branches (cycle 28);
    opposing gradient named (current-relief + margin income ≫ the
    posture charge). BLOCKED on the operator ruling (RL_LOG cycle
    28 NEEDS OPERATOR); until then no stance arms. Lower verdicts
    keep the per-leg end_clear_mm eyeball (40–60 mm band +
    negatives).
-2. Mirror-symmetry augmentation (audit MED, due) after (1).
+2. Mirror-symmetry augmentation (audit MED, unblocked by the c30
+   phase verdict; UNIMPLEMENTED — needs obs/action mirror index
+   maps + trainer support + its own probe; one new mechanism per
+   cycle, so it gets the next free implementation cycle).
    Contact-from-proprioception aux head after. Dense
    step-decomposition and model-size sweep stay last.
    Architecture: operator reviewed and settled 08-09 — stay on
