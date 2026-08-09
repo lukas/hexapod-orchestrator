@@ -119,8 +119,14 @@ def ledger_verdicted() -> set[str]:
     """
     try:
         entries = json.loads((HERE / "experiments.json").read_text())
-        return {e["run"] for e in entries
-                if e.get("status") in ("FINISHED", "FAILED")}
+        # Key on the LATEST entry per run: a stale FAILED launch attempt
+        # that precedes a successful relaunch must not mark the run
+        # verdicted forever (orphaned cw-stance-endpost-c1, cycle 22).
+        latest: dict[str, str] = {}
+        for e in entries:  # ledger is append-ordered
+            if e.get("run"):
+                latest[e["run"]] = e.get("status", "")
+        return {r for r, s in latest.items() if s in ("FINISHED", "FAILED")}
     except Exception:
         return set()
 

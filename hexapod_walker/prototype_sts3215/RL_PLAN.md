@@ -56,9 +56,9 @@ levers refuted — stop iterating penalty coefficients.**
   refs. Measured vx/vy is privileged, sim-only.
 - **Asymmetric actor–critic:** privileged state (true velocity,
   contacts, pose) may go to the critic only; it vanishes at deploy.
-- **Temporal history beats bigger MLPs:** ~300 ms obs/action history
-  (8 frames @ 25 Hz) = implicit system ID. Ablate frame-stack vs
-  small GRU. Model-size sweeps rank behind all of this.
+- **Temporal history (8 frames ≈ 300 ms) = implicit system ID** for
+  DR/sim-to-real — but at DR 0 it bought NO cadence gain (cycle 22);
+  value is in the estimator ladder, not as a DR-0 gait fix.
 - Deterministic inference for eval and deployment, always.
 - **PPO settings (audit 08-08, binding —
   `archive/BEST_PRACTICES_AUDIT_2026-08-08.md`):** from-scratch /
@@ -132,8 +132,8 @@ routing up front — no ad-hoc exemptions.
   agreement cannot outbid the park's cost savings); **no
   penalty-coefficient iterations, period** (review §0). Rungs:
   (0) operator step-event baseline (queue item 0); (1) **temporal
-  actor** (history-8, code landed cycle 13; stance-basin arm
-  auto-stopped under-dosed — rerun as one-variable arm on step0);
+  actor — REFUTED at DR 0 (cycle 22: hist8 from-scratch passed the
+  step0 gate, cadence unchanged vs MLP; capability not binding)**;
   (2) walk-mode park pricing via TIME-AVERAGED per-leg load evenness
   (instantaneous forms can't tell gait from park). Lateral/yaw only
   after forward is real. Rise/lower erosion persists → plan for
@@ -182,11 +182,11 @@ hold → lower → rise → walk. Every session logs sim↔real divergence
 ## Queue (in flight → next)
 
 In flight: `cw-walk-h15b-dr03` (0-b rung 0.3 REDO off champion,
-long5m) + `cw-walk-step0-hist8` (temporal actor, from scratch, s6)
-+ `cw-walk-kgate` (park pricing via progress-gated kernel income,
-walk pod, cycle 21). Finished, verdict owned by its cycle:
+long5m) + `cw-walk-kgate` (park pricing via progress-gated kernel
+income, walk pod, cycle 21). Finished, verdict owned by its cycle:
 `cw-stance-endpost-c1` (slope rule; plateau ⇒ belly-rest reference
-states). **Cycle 20:** `cw-walk-lowent-dr03` was INVALID — long5m
+states). **Cycle 22:** `cw-walk-step0-hist8` REFUTED the temporal-
+actor rung at DR 0 (gate PASS, cadence unchanged; lineage closed). **Cycle 20:** `cw-walk-lowent-dr03` was INVALID — long5m
 ran pre-audit code, cfg-sets silently ignored 4M steps; eval-only:
 lowent gait still passed the DR0.3 gate (gv 12/12, 0 falls) — DR0.3
 looks survivable; rung redone on h15b. Infra: launcher REFUSES
