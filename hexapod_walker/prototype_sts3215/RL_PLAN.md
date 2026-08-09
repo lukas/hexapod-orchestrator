@@ -308,6 +308,20 @@ CLOSED lineage-wide; hist8 rejoined FROM SCRATCH on the step0 recipe
 Infra LANDED: canaries + auto-stop, gait-validity gate, end-posture
 gate (cycle 12), ledger + watcher dedupe.
 
+## After Done: party tricks (operator vision, 08-09)
+
+Once walk passes its DR 1.0 reliability gate (0-c.3) AND rise/lower
+are retained: **QUADRUPED MODE** — stand and walk on the four rear
+legs with the front two raised free, so the fronts can act as claws/
+manipulators. This composes existing skills (walk + unload + raise),
+but on a trapezoid support polygon instead of a hexagon — a real
+stability step that the 0-c pricing (attitude, falls, load evenness)
+should transfer to. Curriculum sketch when its turn comes: (a) static
+quadruped stance with fronts raised, hold quietly; (b) weight-shift
+and balance under DR; (c) quadruped walk. NOT to be started before
+the 0-c gates pass — this is the reward for reliability, not a
+detour from it. No binding gates yet; design them at kickoff.
+
 ## Done =
 
 One policy (or per-skill champion set) that from stance: holds
