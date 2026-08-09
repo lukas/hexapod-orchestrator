@@ -39,16 +39,19 @@ levers refuted — stop iterating penalty coefficients.**
   TRIPOD PARK is the shared attractor — and PRICING IT IS REFUTED
   (cycle 24): kgate's progress-gated kernel cut park income
   ~1250→274/ep and the park persisted at the same 1/6 rate, same
-  seed index, 4th consecutive segment.** It is a state-visitation
-  defect — and the reset-side fix WORKS but SATURATES (cycles
-  25/27): synthetic park starts converted the 4-segment det churn,
-  taught park-exit (0→11/12), fixed retention slip, weakened the
-  sto park to a 1/6 partial stall — and full update parity (c1,
-  ~305 updates) changed NOTHING further: same 11/12, same seed.
-  Dose refuted; the surviving pattern (synthetic exits work, own
-  park stays) is the distribution-mismatch signature → harvest the
-  policy's OWN park states as resets (in flight). Same defect class
-  as the stance flag leg — fix designed once, routed per mode.
+  seed index, 4th consecutive segment.** **RESOLVED
+  (cycle 27): there is no park attractor.** Own-park rate from
+  normal starts is ~0.15% (660 eps); the harness sto pass is a
+  FIXED 6-draw panel; the surviving "park" episode is the BACKWARD
+  command (−159°) — the champion has ZERO rear-hemisphere
+  competence (along-frac ~0 for |ang|>90°, n=32) and 43% forward
+  OVERSPEED via PADDLING (91% of slip mid-stance, all six legs,
+  slip ≈ body travel; drag ticks draw 1.38× planted current; total
+  effort priced at ~4% of income — objective defect). fwd≥0.40 is
+  unpassable at perfect tracking below ~0.030 m/s → the clause
+  selected overspeed. Rear-hemisphere scope + gate redesign are
+  with the OPERATOR; effort/CoT pricing arm in flight (review's
+  own escalation rung).
 - **Raise: DEMOTED TO CANARY (08-08).** Stuck 2–5/6 everywhere;
   raisemix refuted; failures = near-miss under-lift on ~4 legs. No
   more compute; tripwire only. (Cycle 13: load-even pricing lifted
@@ -290,12 +293,13 @@ Walk defects now: residual partial park (harvest arm), skating
    one-variable comparisons. Speed targets, DR, and multi-task merge
    come only AFTER this gate passes.
 
-1. Walk: branch (a) FIRED (cycle 27) ⇒ own-park harvest arm. Pass
-   ⇒ skating root-cause (the DR1.0 blocker) then overspeed pricing
-   (0-a iii). Park persists though harvested-state exits are
-   learned ⇒ noise-sequence artifact, reset diversity CLOSED ⇒
-   rung-2 time-averaged load evenness. Park-exit gates must also
-   check final-2s speed (27: a re-park crossed the fwd bar).
+1. Walk (rewritten by cycle-27 investigation): the harvest arm died
+   pre-launch (no own-parks exist); park lineage CLOSED. In flight:
+   `cw-walk-effort` — walk-routed effort/CoT term k_walk_effort=1.2
+   (18% of income) vs paddling/skating, the DR1.0 blocker. If-false
+   both ways (slip unmoved OR gait collapse) ⇒ stance-anchoring is
+   not effort-reachable ⇒ phase prior is the next review rung.
+   Rear-hemisphere exposure arm BLOCKED on operator scope ruling.
    Stance after
    lowerdense: (a) spears PAY the dense charge ⇒ opposing-gradient
    diagnosis (tilt/current), no more shaping; (b) all legs hover
