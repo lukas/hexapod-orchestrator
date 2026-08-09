@@ -185,7 +185,8 @@ hold → lower → rise → walk. Every session logs sim↔real divergence
 ## Queue (in flight → next)
 
 In flight: `cw-walk-lowent-h15b-c1` (cycle 19 continuation, walk pod)
-+ `cw-walk-lowent-dr03` (0-b rung 2). Stance: `cw-stance-endpost-c1`
++ `cw-walk-lowent-dr03` (0-b rung 2) + `cw-walk-step0-hist8`
+(temporal-actor rung, from scratch, s6). Stance: `cw-stance-endpost-c1`
 — r1 FAILED its gate (lower posture 0/12) but moved the flag leg for
 the FIRST time (229–264 → 133–207 mm); c1 tests descent-vs-plateau
 (slope rule in log; plateau ⇒ belly-rest reference states).
@@ -201,7 +202,10 @@ h15b-c1 (near-miss continuation) tests exploration-gated vs
 structural basin; structural ⇒ pricing (ii)/(iii), no 3rd segment.
 Walk defects: park basin, skating (reduced), det tracking partial
 (overspeed uncharged, step credit scales with stride). posture2
-FAILED c14; hist8 INCONCLUSIVE; history rejoins post-consolidation.
+FAILED c14. lowent-c1 (12M, cycle 19c): gate PASS, all deltas vs
+parent inside noise, park still 1/6 sto — identical-config segments
+CLOSED lineage-wide; hist8 rejoined FROM SCRATCH on the step0 recipe
+(cadence-regularity hypothesis, s6).
 
 0-a. **step0 lineage (compressed; details RL_LOG cycles 14–18).**
    step0 = first genuine six-leg gait (champion superseded by lowent
