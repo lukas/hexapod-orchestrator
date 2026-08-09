@@ -14,16 +14,17 @@ levers refuted — stop iterating penalty coefficients.**
   its flat-rise was a noise-fragile choreography; champion archived at
   `policies/best_flat_rise_run06_1540704.zip`; never BC from it).
 - **Stand↔belly: heights SOLVED at DR 1.0** (`cw-stand-dr10`,
-  `cw-stance-dr10`) — **posture-strict caveat stands: lower ends with
-  a vertical flag leg.** `cw-stance-posture` (cycle 13) split it:
-  support-margin + load-evenness pricing pulled NEAR-GROUND legs down
-  (legs 0/2: >100–200→58–91 mm; raise heights 11/12 best-ever) but
-  leg 4's vertical flag never moved — the terms have ZERO gradient on
-  an unloaded airborne leg and stance-clearance excludes
-  rise/lower/raise. Live hypothesis: endpoint pays, no path gradient;
-  only exploration bridges (`cw-stance-posture2`, std 1.0, in
-  flight). Flag any eval where rise/lower height drops below 5/6;
-  never warm-start stand work from an eroded checkpoint.
+  `cw-stance-dr10`) — **posture caveat stands: lower ends flag-leg.**
+  Posture pricing (cycle 13) moves near-ground legs only (airborne =
+  zero gradient); exploration REFUTED (posture2, cycle 14), which
+  also exposed: flat ent 0.01 on a WARM start = std runaway
+  (1.0→2.29, 2-for-2 with hist8), skills eroded, flag SPREAD. Warm
+  starts keep ent 0.001 + inherited std; entropy RUNAWAY is a health
+  alarm alongside collapse. In flight: `cw-stance-endpost`
+  (schedule-gated terminal clearance charge, transients untaxed);
+  fallback = belly-rest reference states. Flag any eval where
+  rise/lower height drops below 5/6; never warm-start stand work
+  from an eroded checkpoint.
 - **Walk: no valid gait exists in any lineage.** dr04b lineage is
   0-for-9 on gait validity (widen ×2, 3× progress, flag ×2, speed, LP,
   phase, asym, 8M) with lower 0/6 and universal end-posture failure —
@@ -183,11 +184,11 @@ hold → lower → rise → walk. Every session logs sim↔real divergence
 
 ## Queue (in flight → next)
 
-In flight: `cw-walk-step0` (4M, item 0; probe passed cycle 13).
-`cw-stance-posture2` finished — verdict cycle 14. `cw-walk-hist8`
-auto-stopped at 1.24M (canary 'lower'; wide-transplant drift at std
-1.0) — capability INCONCLUSIVE; history rejoins as a one-variable
-arm on the step0 baseline.
+In flight: `cw-walk-step0` (4M, item 0) and `cw-stance-endpost` (4M,
+terminal-posture pricing, one variable vs cw-stance-posture).
+posture2 verdicted FAIL cycle 14 (std runaway; exploration refuted).
+`cw-walk-hist8` capability INCONCLUSIVE (auto-stop 1.24M); history
+rejoins as a one-variable arm on the step0 baseline.
 
 0. **OPERATOR-DIRECTED (binding, 08-08 ~23:00Z): the embarrassingly
    narrow walk (suggested name `cw-walk-step0`).** Dedicate one
@@ -211,10 +212,10 @@ arm on the step0 baseline.
    one-variable comparisons. Speed targets, DR, and multi-task merge
    come only AFTER this gate passes.
 
-1. If hist8 parks again: rung 2 = walk-mode TIME-AVERAGED per-leg
-   load pricing (instantaneous forms can't tell gait from park),
-   ideally on top of history. If posture2 plants leg 4, its lesson
-   (and possibly its ckpt) feeds the same rung.
+1. Walk rung after step0's verdict: if step0 parks/shuffles, add
+   history-8 on the step0 reward as the one-variable capability arm;
+   rung 2 stays TIME-AVERAGED per-leg load pricing. Stance: if
+   endpost fails, belly-rest reference states (reset-side).
 2. Mirror-symmetry augmentation (audit MED, due) after (1).
    Contact-from-proprioception aux head after. Dense
    step-decomposition and model-size sweep stay last.
