@@ -87,7 +87,10 @@ Context to read before deciding anything:
    with any `--cfg-set` overrides it trained with) **with video enabled**.
 
    **Start ALL harness evals in PARALLEL, up front, before anything
-   else.** When several runs finished together, pull every checkpoint
+   else.** The watcher usually PRE-STAGES this — if your "## Pre-staged
+   by the watcher" section is present, checkpoints are pulled and DR-0
+   gate evals are already running; do not redo them, only add what is
+   missing (e.g. the own-DR pass for runs trained at DR>0). When several runs finished together, pull every checkpoint
    first, then background every eval at once (`nohup ... &`, each with
    its own `--out` dir and its own log file — never a shared one), then
    do your reading (RL_LOG, plan, W&B curves) while they run and review
@@ -193,7 +196,11 @@ Context to read before deciding anything:
    faster than serial perfection and cost nothing extra while the
    node would otherwise sit empty. Launching nothing on a free node
    is a decision — record why (e.g. genuinely blocked on a result, or
-   guardrail caps reached), or launch. If code changes are needed (reward terms, config),
+   guardrail caps reached), or launch. **When main-line arms can't
+   fill the free GPU pods, pull from the operator's backlog
+   (`rl_docs/WISHLIST.md`, topmost [READY] item not already
+   running) — an idle GPU pod now requires a ledger-recorded HARD
+   reason (guardrails `operator_unblock_policy`).** If code changes are needed (reward terms, config),
    make them, explain them in the log, and run the relevant unit tests
    plus a short smoke check before launching on them.
 

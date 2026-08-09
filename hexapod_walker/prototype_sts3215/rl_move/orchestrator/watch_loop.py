@@ -305,6 +305,40 @@ def try_auto_continue(run: str) -> str | None:
         return None
 
 
+def prestage_finished(run: str) -> None:
+    """Mechanically prep a finished run BEFORE its verdict cycle spawns.
+
+    Pulls the checkpoint, starts the DR-0 gate eval in the background,
+    and caches W&B summary/history — the identical first ~10 minutes
+    every verdict cycle used to spend composing by hand (operator
+    directive, 08-09: agent time is for judgment, not plumbing).
+    Runs in a daemon thread; every step is best-effort and logged.
+    The cycle re-does anything that failed.
+    """
+    ops = str(HERE / "ops.sh")
+    proto = str(HERE.parent.parent)
+
+    def sh(cmd: str, timeout: int = 900) -> subprocess.CompletedProcess:
+        return subprocess.run(["bash", "-c", cmd], capture_output=True,
+                              text=True, timeout=timeout, cwd=proto)
+
+    def worker() -> None:
+        try:
+            r = sh(f"bash {ops} pullckpt {run}", timeout=300)
+            tail = ((r.stdout or "") + (r.stderr or "")).strip().splitlines()
+            log(f"prestage {run}: pullckpt rc={r.returncode} "
+                f"{tail[-1] if tail else ''}")
+            r = sh(f'eval "$(bash {ops} evalcmd {run})"', timeout=120)
+            log(f"prestage {run}: gate eval started rc={r.returncode} "
+                f"(log /tmp/eval_{run}.log)")
+            r = sh(f"bash {ops} wandbdump {run}")
+            log(f"prestage {run}: wandbdump rc={r.returncode}")
+        except Exception as exc:
+            log(f"prestage {run} failed: {exc!r} (cycle will do it manually)")
+
+    threading.Thread(target=worker, daemon=True).start()
+
+
 def spawn_cycle(newly_finished: set[str], still_running: set[str],
                 findings: str, in_flight: set[str],
                 auto_started: dict[str, str] | None = None) -> dict:
@@ -364,6 +398,23 @@ def spawn_cycle(newly_finished: set[str], still_running: set[str],
             "Verdict the finished segment as usual; if the frames show "
             "pathology or the segment-over-segment trend is flat/declining, "
             "KILL the auto-continuation and record why.\n"
+        )
+    if newly_finished:
+        runs_ul = {r: r.replace("-", "_") for r in sorted(newly_finished)}
+        cycle_prompt += (
+            "\n## Pre-staged by the watcher (do NOT redo these)\n"
+            "For each newly finished run the watcher already pulled the "
+            "checkpoint to rl_move/sim/policies/, STARTED the DR-0 gate "
+            "eval in the background, and is caching W&B data to "
+            "logs/experiments/<run>/. Per run: eval log /tmp/eval_<run>.log,"
+            " eval out logs/ckpt_eval/<run_underscored>_gate — "
+            + "; ".join(f"{r} -> {u}_gate" for r, u in runs_ul.items())
+            + ". Go straight to reading docs, then "
+            "`ops.sh waitlog /tmp/eval_<run>.log 'WROTE|Traceback' 1800` "
+            "and review the frame strips. If the run trained at DR>0, "
+            "start the own-DR eval pass yourself immediately. If a "
+            "pre-stage step failed (see orchestrator.log), fall back to "
+            "doing it manually.\n"
         )
     if findings:
         cycle_prompt += (
@@ -523,6 +574,7 @@ def main() -> None:
                 cont = try_auto_continue(r)
                 if cont:
                     auto_started[r] = cont
+                prestage_finished(r)
             active.append(spawn_cycle(newly, running, findings, in_flight,
                                       auto_started))
             time.sleep(POLL_S)

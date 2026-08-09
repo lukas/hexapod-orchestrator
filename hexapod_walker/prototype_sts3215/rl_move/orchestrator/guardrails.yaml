@@ -275,6 +275,11 @@ operator_unblock_policy:
   #     proprioception aux head
   parallel_lines_when_blocked: [command-steering, quadruped-mode,
                                 mirror-symmetry, contact-aux-head]
+  # The full operator backlog lives in rl_docs/WISHLIST.md (operator-
+  # owned). Free pods pull the topmost [READY] item not already
+  # running; [CODE] items get a dedicated implementation cycle when
+  # 2+ pods would otherwise idle.
+  wishlist: rl_docs/WISHLIST.md
   # A GPU pod left idle through a full cycle without a ledger-recorded
   # HARD reason (capacity caps, verification failure, launcher REFUSED)
   # is a guardrail violation. "Waiting on the operator" alone is no
