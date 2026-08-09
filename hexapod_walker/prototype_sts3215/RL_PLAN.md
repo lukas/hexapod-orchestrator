@@ -310,17 +310,33 @@ gate (cycle 12), ledger + watcher dedupe.
 
 ## After Done: party tricks (operator vision, 08-09)
 
-Once walk passes its DR 1.0 reliability gate (0-c.3) AND rise/lower
-are retained: **QUADRUPED MODE** — stand and walk on the four rear
-legs with the front two raised free, so the fronts can act as claws/
-manipulators. This composes existing skills (walk + unload + raise),
-but on a trapezoid support polygon instead of a hexagon — a real
-stability step that the 0-c pricing (attitude, falls, load evenness)
-should transfer to. Curriculum sketch when its turn comes: (a) static
-quadruped stance with fronts raised, hold quietly; (b) weight-shift
-and balance under DR; (c) quadruped walk. NOT to be started before
-the 0-c gates pass — this is the reward for reliability, not a
-detour from it. No binding gates yet; design them at kickoff.
+Not to be started before the 0-c gates pass — these are the reward
+for reliability, not a detour from it. No binding gates yet; design
+them at kickoff.
+
+1. **FALL RECOVERY (the ultimate one — and arguably not a trick but
+   the missing half of reliability).** Get up after falling over.
+   Today a fall is a TERMINATION plus a penalty; recovery mode flips
+   that — fallen poses become the episode's START distribution
+   (random orientations: side, back, sprawled), and the gate is
+   "regain normal stance and hold, 12/12, under DR". Design notes
+   for kickoff: needs orientation-complete obs (tilt-only IMU
+   treatment assumes near-upright), a fallen-pose reset generator
+   (e.g. drop from random attitudes and settle), and hard current
+   limits in the reward — on hardware a thrashing recovery cooks
+   servos (see 2026-08-06 incident), so quiet, slow self-righting
+   outearns violent flips. Synergy: once this exists, walk-mode
+   falls stop being catastrophic in EVERY downstream skill, and a
+   recover→re-walk composite becomes the true hardware reliability
+   gate.
+2. **QUADRUPED MODE** — stand and walk on the four rear legs with
+   the front two raised free, so the fronts can act as claws/
+   manipulators. Composes existing skills (walk + unload + raise),
+   but on a trapezoid support polygon instead of a hexagon — a real
+   stability step that the 0-c pricing (attitude, falls, load
+   evenness) should transfer to. Curriculum sketch: (a) static
+   quadruped stance with fronts raised, hold quietly; (b)
+   weight-shift and balance under DR; (c) quadruped walk.
 
 ## Done =
 
