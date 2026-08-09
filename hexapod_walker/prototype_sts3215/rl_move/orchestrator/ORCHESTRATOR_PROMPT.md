@@ -150,6 +150,18 @@ Context to read before deciding anything:
    one variable per run, consolidate before widening, gate on the
    stochastic harness.
 
+   **GPU-MJX ONLY (operator switch-over, 2026-08-09): every training
+   run launches on a `gpu_pods` pod and runs `train_ppo_mjx` — the
+   launcher REFUSES CPU training launches.** The MJX stack has full
+   feature parity with the retired CPU trainer: per-world model-field
+   DR, fixed-seed canary probes + regression auto-stop, periodic
+   evals/videos, episode desync (see `rl_move/sim/MJX_PORT.md`). The
+   launcher injects `--impl warp --host-workers` from `compute.gpu`;
+   GPU cadence minimums apply (`min_eval_every` 1M, `min_video_every`
+   2M). One run per GPU pod — the H200 is the unit. CPU pods serve the
+   controller, eval-harness/video work, and `--smoke` runs only; the
+   node co-tenancy math in step 5 now applies only to those smokes.
+
    **Use the capacity you have (operator, 08-09): if more than one
    experiment is worth running and more than one node is free, launch
    them all — do not leave nodes idle while you deliberate over the

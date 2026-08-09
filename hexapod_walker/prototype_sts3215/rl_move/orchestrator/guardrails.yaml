@@ -5,6 +5,47 @@ compute:
   pods: [hexapod-sweep-friction, hexapod-sweep-s3, hexapod-sweep-s4,
          hexapod-sweep-s5, hexapod-sweep-s6,
          hexapod-sweep-long5m, hexapod-sweep-lower, hexapod-sweep-walk]
+  # GPU SWITCH-OVER COMPLETE (operator, 2026-08-09): ALL training runs
+  # (every non-smoke launch) run on the GPU-MJX pods below via
+  # train_ppo_mjx — the launcher REFUSES CPU training launches. The CPU
+  # pods above remain ONLY for: the controller (friction), eval
+  # harness/video work, and W&B-disabled smokes. Feature parity with the
+  # CPU trainer is closed: per-world MODEL-field DR (mass/geometry/
+  # friction/compliance/gravity/gains), fixed-seed canary probes +
+  # regression auto-stop, eval/video logging, and episode desync are all
+  # live in the MJX stack (MJX_PORT.md). Validated by pilots
+  # mjx-walk-lowent-dr03 (champion + DR 0.3: gait 6/6, PASS),
+  # mjx-evalvid-check (evals/videos/desync) and mjx-dr-canary-check2
+  # (model DR + canary baseline/auto-stop, 2026-08-09). Measured cost of
+  # full model DR under Warp: ~25% fps; DR-off parity with the pre-DR
+  # stack.
+  gpu_pods: [hexapod-mjx-train-0, hexapod-mjx-train-1,
+             hexapod-mjx-train-2, hexapod-mjx-train-3]
+  gpu:
+    # One H200 + 26-core cgroup per pod, all four on node g131eec
+    # (4-way split). Exactly ONE run per GPU pod — the GPU is the unit.
+    runs_per_pod: 1
+    n_envs: 4096
+    host_workers: 24
+    impl: warp
+    # GPU steps are ~18x cheaper in wall clock: 30M steps ~= 27 min.
+    # Budget cap is per run; the per-cycle caps below still apply.
+    max_steps_per_run: 40000000
+    # At ~20k fps the CPU-pod eval cadence would fire every 10 s; the MJX
+    # trainer's eval is skip-if-busy in a background thread, but keep it
+    # sane. Never launch below these on a GPU pod:
+    min_eval_every: 1000000
+    min_video_every: 2000000
+    # 4-way vs 8-way split (operator-approved re-slicing): DEFAULT is the
+    # 4-way split (4 pods x 1 GPU + 26 cores = max speed per experiment).
+    # If queued INTENT experiments exceed free GPU pods for a full cycle,
+    # the agent MAY re-slice to 8-way: 8 pods x 1 GPU + 12 cores
+    # (requests: cpu 12, limits 14, memory 24Gi; --host-workers 10;
+    # ~30-35k fps/run at 4096 envs). Procedure: only IDLE mjx-train pods
+    # may be deleted/recreated, using rl_move/sim/coreweave_pod_mjx_train.yaml
+    # with the name + cpu/memory fields sed-swapped; update gpu_pods here
+    # in the same commit. Re-slice back to 4-way when the queue drains.
+    allow_8way_split: true
   # s5/s6 added 08-08 evening (operator): third node g12ba48 was sitting
   # idle. Both are 56-core-limit pods like s3/s4.
   # CORRECTED 2026-08-08 (operator): `nproc` lies — it shows the 128-core
@@ -34,9 +75,10 @@ compute:
   # already hosts max_heavy_per_node trainers. Do not bypass with
   # --allow-slow unless the ledger records why.
   max_heavy_per_node: 2
-  # 2 heavy per node x 3 nodes = the real experiment budget. Smokes
-  # (<=1M steps, W&B-disabled) don't count against it.
-  max_concurrent_runs: 6
+  # Since the 2026-08-09 switch-over the experiment budget is the GPU
+  # pod count (one run per GPU pod; 8 under the 8-way re-slice). The
+  # CPU node math above applies only to smokes/evals now.
+  max_concurrent_runs: 8
   # HOST-LOAD GATE (operator, 08-08 evening): the nodes are SHARED with
   # other projects (e.g. mujoco-jax tests) and machines spin up/down.
   # Trainer counts only see our runs, so the launcher additionally reads
@@ -180,7 +222,10 @@ forbidden:
     hexapod.local, no SSH to the robot, no deploys to linux_control,
     no firmware changes.
   - >-
-    Creating, resizing, or deleting pods; the eight pods above are the world.
+    Creating, resizing, or deleting pods — EXCEPT the hexapod-mjx-train-N
+    pods, which may be deleted/recreated ONLY while idle and ONLY via the
+    documented 4-way/8-way re-slice procedure (compute.gpu above). The
+    sweep pods and the controller are never touched.
   - >-
     Launching training with raw kubectl/nohup instead of
     orchestrator/launch_run.py.

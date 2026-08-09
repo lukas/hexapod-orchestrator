@@ -47,7 +47,8 @@ KUBECONFIG = str(Path.home() / ".kube" / "coreweave.yaml")
 # Established launch pattern on the training pods: module invocation from
 # the project root (NOT `python3 train_ppo_sim.py` from the sim dir).
 WORKDIR = "/workspace/prototype_sts3215"
-TRAIN_MODULE = "rl_move.sim.train_ppo_sim"
+TRAIN_MODULE = "rl_move.sim.train_ppo_sim"      # CPU sweep pods (legacy)
+TRAIN_MODULE_GPU = "rl_move.sim.train_ppo_mjx"  # GPU-MJX pods (default)
 WANDB_PROJECT = "l2k2/hexapod-balance"
 
 # One 48-env run wants ~50-60 cores. Assumed footprint per already-running
@@ -97,14 +98,15 @@ def node_host_load(pod: str) -> dict:
 def pod_trainers(pod: str) -> list[str]:
     """Names (--run-name values) of main trainer processes on the pod.
 
-    Matches only main trainers (`python* ... train_ppo_sim ...`); the
-    forkserver/spawn workers have -c or empty cmdlines and are excluded,
-    as is this scan's own bash wrapper.
+    Matches main trainers of BOTH stacks (`train_ppo_sim` on CPU pods,
+    `train_ppo_mjx` on GPU pods); the forkserver/spawn workers have -c
+    or empty cmdlines and are excluded, as is this scan's own bash
+    wrapper.
     """
     script = (
         "for p in /proc/[0-9]*; do c=$(tr '\\0' ' ' < $p/cmdline "
-        "2>/dev/null); case \"$c\" in python*train_ppo_sim*|"
-        "*/python*train_ppo_sim*) case \"$c\" in *' -c '*) ;; *) "
+        "2>/dev/null); case \"$c\" in python*train_ppo_*|"
+        "*/python*train_ppo_*) case \"$c\" in *' -c '*) ;; *) "
         "echo \"$c\";; esac;; esac; done | sort -u"
     )
     names = []
@@ -200,7 +202,9 @@ def cmd_status(g: dict) -> int:
           "TRAINERS (wandb global_step)")
     node_counts: dict[str, int] = {}
     node_loads: dict[str, dict | None] = {}
-    for pod in g["compute"]["pods"]:
+    gpu_pods = g["compute"].get("gpu_pods", [])
+    for pod in g["compute"]["pods"] + gpu_pods:
+        is_gpu = pod in gpu_pods
         try:
             limit = pod_cpu_limit(pod)
             trainers = pod_trainers(pod)
@@ -208,17 +212,23 @@ def cmd_status(g: dict) -> int:
         except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
             print(f"{pod:22s}  unreachable (node may have spun down): {e}")
             continue
-        node_counts[node] = node_counts.get(node, 0) + len(trainers)
+        # GPU trainers don't count against CPU-node co-tenancy caps.
+        if not is_gpu:
+            node_counts[node] = node_counts.get(node, 0) + len(trainers)
         if node not in node_loads:
             try:
                 node_loads[node] = node_host_load(pod)
             except Exception:
                 node_loads[node] = None
-        free = limit - CORES_PER_RUN * len(trainers)
+        if is_gpu:
+            free_s = "free" if not trainers else "BUSY"
+        else:
+            free_s = str(max(limit - CORES_PER_RUN * len(trainers), 0))
         desc = ", ".join(
             f"{t}@{running.get(t, {}).get('global_step', '?')}"
             for t in trainers) or "-"
-        print(f"{pod:22s} {node:8s} {limit:4d} {max(free, 0):5d}  {desc}")
+        tag = " [GPU]" if is_gpu else ""
+        print(f"{pod:22s} {node:8s} {limit:4d} {free_s:>5s}  {desc}{tag}")
     cap = g["compute"].get("max_heavy_per_node", 2)
     for node, n in sorted(node_counts.items()):
         hl = node_loads.get(node)
@@ -250,17 +260,31 @@ def cmd_launch(g: dict, a: argparse.Namespace, extra: list[str]) -> int:
 
 def _launch_locked(g: dict, a: argparse.Namespace, extra: list[str]) -> int:
     comp = g["compute"]
+    gpu_pods = comp.get("gpu_pods", [])
+    gpu = comp.get("gpu", {})
+    is_gpu = a.pod in gpu_pods
     entry = {
         "run": a.run, "pod": a.pod, "steps": a.steps, "smoke": a.smoke,
         "hypothesis": a.hypothesis, "gate": a.gate, "parent": a.parent,
         "extra_args": extra, "created": now(), "status": "INTENT",
-        "checks": {},
+        "checks": {}, "stack": "gpu-mjx" if is_gpu else "cpu",
     }
     checks = entry["checks"]
 
     # --- static checks -----------------------------------------------------
-    if a.pod not in comp["pods"]:
+    if a.pod not in comp["pods"] and not is_gpu:
         return refuse(entry, f"pod {a.pod} not in guardrails pod list")
+    # STACK SWITCH-OVER (operator, 2026-08-09): every training run
+    # (anything with W&B, i.e. non-smoke) runs on the GPU-MJX stack.
+    # CPU pods keep serving the controller, eval harness work, and
+    # W&B-disabled smokes only. Enforced here mechanically so a stale
+    # prompt/ledger entry (e.g. watcher auto-continue of an old CPU
+    # segment) cannot quietly land a CPU run.
+    if not is_gpu and not a.smoke:
+        return refuse(entry, "CPU training launches are retired "
+                             "(2026-08-09 GPU-MJX switch-over): launch on "
+                             "a gpu_pods entry instead; CPU pods take "
+                             "only --smoke runs.")
     if a.smoke:
         if a.run.startswith("cw-"):
             return refuse(entry, "smoke runs must NOT use the cw- prefix "
@@ -270,9 +294,11 @@ def _launch_locked(g: dict, a: argparse.Namespace, extra: list[str]) -> int:
     else:
         if not a.run.startswith("cw-"):
             return refuse(entry, "experiments must use the cw- prefix")
-        if a.steps > comp["max_steps_per_run"]:
+        max_steps = (gpu.get("max_steps_per_run", comp["max_steps_per_run"])
+                     if is_gpu else comp["max_steps_per_run"])
+        if a.steps > max_steps:
             return refuse(entry, f"steps {a.steps} > max_steps_per_run "
-                                 f"{comp['max_steps_per_run']}")
+                                 f"{max_steps}")
         if not a.hypothesis or not a.gate:
             return refuse(entry, "experiments require --hypothesis and "
                                  "--gate (guardrails)")
@@ -280,15 +306,17 @@ def _launch_locked(g: dict, a: argparse.Namespace, extra: list[str]) -> int:
         if flag in extra:
             return refuse(entry, f"{flag} belongs to the launcher, not the "
                                  "passthrough args")
+    mins = gpu if is_gpu else comp
     for flag, key in (("--eval-every", "min_eval_every"),
                       ("--video-every", "min_video_every")):
         if flag in extra:
             v = int(extra[extra.index(flag) + 1])
-            if v < comp[key]:
+            if v < mins[key]:
                 return refuse(entry, f"{flag} {v} < guardrails {key} "
-                                     f"{comp[key]}")
+                                     f"{mins[key]}")
     if "--n-envs" not in extra:
-        extra = [*extra, "--n-envs", str(comp["n_envs"])]
+        n_envs = gpu["n_envs"] if is_gpu else comp["n_envs"]
+        extra = [*extra, "--n-envs", str(n_envs)]
         entry["extra_args"] = extra
 
     # --- live capacity checks (never trust remembered facts) ---------------
@@ -300,25 +328,42 @@ def _launch_locked(g: dict, a: argparse.Namespace, extra: list[str]) -> int:
     except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
         return refuse(entry, f"{a.pod} unreachable during live checks "
                              f"(node may have spun down): {e}")
-    free = limit - CORES_PER_RUN * len(trainers)
     checks["cpu_limit"] = limit
     checks["existing_trainers"] = trainers
-    checks["free_cores_estimate"] = free
-    need = MIN_FREE_SMOKE if a.smoke else MIN_FREE_FULL
-    if free < need and not a.allow_slow:
-        return refuse(entry, f"{a.pod} has ~{free} free cores "
-                             f"(limit {limit}, {len(trainers)} trainer(s) "
-                             f"x ~{CORES_PER_RUN}); need >= {need}. "
-                             "Pick another pod or pass --allow-slow and "
-                             "record why.")
-    if free < need:
-        checks["allow_slow_override"] = True
+    if is_gpu:
+        # GPU pods: the H200 is the unit — exactly ONE trainer per pod,
+        # no sharing, no core math. cgroup requests partition the node,
+        # so a busy neighbor GPU pod is expected, not contention.
+        if trainers:
+            return refuse(entry, f"{a.pod} already runs "
+                                 f"{', '.join(trainers)} — GPU pods host "
+                                 "exactly one run; pick a free GPU pod.")
+        try:
+            gpus = kexec(a.pod, "nvidia-smi -L").strip()
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
+            return refuse(entry, f"{a.pod}: nvidia-smi failed ({e}) — GPU "
+                                 "not visible; pod may need recreation")
+        checks["gpu"] = gpus.splitlines()[0]
+    else:
+        free = limit - CORES_PER_RUN * len(trainers)
+        checks["free_cores_estimate"] = free
+        need = MIN_FREE_SMOKE if a.smoke else MIN_FREE_FULL
+        if free < need and not a.allow_slow:
+            return refuse(entry, f"{a.pod} has ~{free} free cores "
+                                 f"(limit {limit}, {len(trainers)} trainer(s) "
+                                 f"x ~{CORES_PER_RUN}); need >= {need}. "
+                                 "Pick another pod or pass --allow-slow and "
+                                 "record why.")
+        if free < need:
+            checks["allow_slow_override"] = True
 
     # --- node-level co-tenancy check (08-08 evening: pod cgroup limits do
     # NOT protect against neighbor pods on the same ~128-core node; 8
     # "within-limits" experiments starved each other 4-5x and finished in
-    # a clump). Applies to experiments only; smokes are short and small.
-    if not a.smoke:
+    # a clump). Applies to CPU experiments only; smokes are short and
+    # small, and GPU pods partition their node by cgroup REQUESTS (all
+    # four busy at once is the design point, not starvation).
+    if not a.smoke and not is_gpu:
         try:
             node = pod_node(a.pod)
         except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
@@ -346,28 +391,31 @@ def _launch_locked(g: dict, a: argparse.Namespace, extra: list[str]) -> int:
     # The trainer counts above only see OUR runs; /proc/loadavg (host-wide,
     # not cgroup-scoped) sees every tenant — e.g. the operator's mujoco-jax
     # tests. Gate on what the machine is ACTUALLY doing right now.
-    try:
-        hl = node_host_load(a.pod)
-    except (subprocess.CalledProcessError, subprocess.TimeoutExpired,
-            ValueError, IndexError) as e:
-        return refuse(entry, f"cannot read host load via {a.pod} "
-                             f"(node may have spun down): {e}")
-    checks["host_load"] = hl
-    host_free = hl["cores"] - hl["load1"]
-    need_host = MIN_FREE_SMOKE if a.smoke else CORES_PER_RUN
-    if host_free < need_host and not a.allow_slow:
-        return refuse(entry, f"node hosting {a.pod} has only "
-                             f"~{host_free:.0f} of {hl['cores']} cores "
-                             f"actually free (load1 {hl['load1']:.1f}, "
-                             f"load5 {hl['load5']:.1f} — includes OTHER "
-                             f"projects' workloads, not just our runs); "
-                             f"a {'smoke' if a.smoke else 'full run'} needs "
-                             f"~{need_host}. Pick another pod, wait for the "
-                             "node to free up, or pass --allow-slow and "
-                             "record why.")
+    # GPU pods skip this: their node legitimately runs near 104/128 cores
+    # when all four are training, and cgroup requests reserve their share.
+    if not is_gpu:
+        try:
+            hl = node_host_load(a.pod)
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired,
+                ValueError, IndexError) as e:
+            return refuse(entry, f"cannot read host load via {a.pod} "
+                                 f"(node may have spun down): {e}")
+        checks["host_load"] = hl
+        host_free = hl["cores"] - hl["load1"]
+        need_host = MIN_FREE_SMOKE if a.smoke else CORES_PER_RUN
+        if host_free < need_host and not a.allow_slow:
+            return refuse(entry, f"node hosting {a.pod} has only "
+                                 f"~{host_free:.0f} of {hl['cores']} cores "
+                                 f"actually free (load1 {hl['load1']:.1f}, "
+                                 f"load5 {hl['load5']:.1f} — includes OTHER "
+                                 f"projects' workloads, not just our runs); "
+                                 f"a {'smoke' if a.smoke else 'full run'} "
+                                 f"needs ~{need_host}. Pick another pod, "
+                                 "wait for the node to free up, or pass "
+                                 "--allow-slow and record why.")
 
     # --- duplicate + concurrency checks -------------------------------------
-    for pod in comp["pods"]:
+    for pod in comp["pods"] + gpu_pods:
         try:
             if a.run in pod_trainers(pod):
                 return refuse(entry, f"a process for {a.run} already exists "
@@ -411,7 +459,16 @@ def _launch_locked(g: dict, a: argparse.Namespace, extra: list[str]) -> int:
 
     # --- build command ------------------------------------------------------
     log = f"/tmp/train_{a.run}.log"
-    if "--subproc" not in extra:
+    if is_gpu:
+        # train_ppo_mjx owns its parallelism (sharded host workers), and
+        # --subproc does not exist there.
+        if "--impl" not in extra:
+            extra = [*extra, "--impl", str(gpu.get("impl", "warp"))]
+        if "--host-workers" not in extra:
+            extra = [*extra, "--host-workers",
+                     str(gpu.get("host_workers", 24))]
+        entry["extra_args"] = extra
+    elif "--subproc" not in extra:
         extra = [*extra, "--subproc"]
         entry["extra_args"] = extra
     # Operator directive 08-09: a run's W&B notes must LEAD with a human
@@ -427,7 +484,8 @@ def _launch_locked(g: dict, a: argparse.Namespace, extra: list[str]) -> int:
             human += f" Gate: {a.gate}"
         extra = [*extra, "--notes", shlex.quote(human.strip())]
         entry["extra_args"] = extra
-    train = (f"python -m {TRAIN_MODULE} "
+    module = TRAIN_MODULE_GPU if is_gpu else TRAIN_MODULE
+    train = (f"python -m {module} "
              f"--run-name {a.run} --steps {a.steps} "
              + " ".join(extra))
     envp = "WANDB_MODE=disabled " if a.smoke else ""
@@ -494,12 +552,15 @@ def _launch_locked(g: dict, a: argparse.Namespace, extra: list[str]) -> int:
         return fail(f"process died; log tail:\n{tail}")
     time.sleep(40)
     size2 = int(kexec(a.pod, f"stat -c %s {log}").strip())
-    if size2 <= size1:
+    if size2 <= size1 and not is_gpu:
+        # GPU runs sit quiet for ~2-3 min while JAX/Warp compiles the
+        # batched tick; a static log with a live process is normal there.
+        # The W&B step-advance check below is the real GPU liveness gate.
         return fail(f"log not growing ({size1} -> {size2} bytes)")
     checks["log_growth_bytes"] = [size1, size2]
 
     if not a.smoke:
-        deadline = time.time() + 240
+        deadline = time.time() + (480 if is_gpu else 240)
         wb = None
         while time.time() < deadline:
             wb = wandb_running_runs().get(a.run)
@@ -610,13 +671,19 @@ def cmd_checkup(g: dict, a: argparse.Namespace) -> int:
         else:
             fps = (s2 - s1) / 45.0
             facts["fps"] = round(fps, 1)
-            # Expected floor by placement: solo on a 56-core pod ~1000+;
-            # sharing or a 30-core pod runs slower but should beat 60.
+            # Expected floor by placement: GPU-MJX pods run ~19-20k fps
+            # solo; solo on a 56-core CPU pod ~1000+; sharing or a
+            # 30-core pod runs slower but should beat 60.
             limit = pod_cpu_limit(pod)
             solo = len(trainers) == 1
-            floor = 500.0 if (solo and limit >= 48) else 60.0
-            facts["placement"] = (f"{'solo' if solo else f'{len(trainers)} runs'} "
-                                  f"on {limit}-core pod")
+            if pod in g["compute"].get("gpu_pods", []):
+                floor = 5000.0
+                facts["placement"] = "solo on GPU-MJX pod"
+            else:
+                floor = 500.0 if (solo and limit >= 48) else 60.0
+                facts["placement"] = (
+                    f"{'solo' if solo else f'{len(trainers)} runs'} "
+                    f"on {limit}-core pod")
             if fps < floor:
                 problems.append(
                     f"fps {fps:.0f} below expected floor {floor:.0f} for "
