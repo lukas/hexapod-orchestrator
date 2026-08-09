@@ -1075,7 +1075,13 @@ def _publish_analysis_artifact(api_run, run_name: str, entry: dict) -> None:
             if f.is_file() and f.stat().st_size < 100 * 1024 * 1024:
                 art.add_file(str(f), name=f"{d.name}/{f.relative_to(d)}")
                 n_files += 1
-    api_run.log_artifact(art)
+    # The public API can't create-and-link artifacts on a finished run;
+    # briefly resume the run so the artifact lands on ITS page/DAG.
+    w = wandb.init(entity="l2k2", project="hexapod-balance",
+                   id=api_run.id, resume="allow", reinit=True,
+                   settings=wandb.Settings(silent=True))
+    w.log_artifact(art)
+    w.finish()
     print(f"analysis artifact analysis-{run_name} attached "
           f"({n_files} eval files)")
 
