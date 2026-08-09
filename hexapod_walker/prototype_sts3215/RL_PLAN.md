@@ -49,6 +49,12 @@ speed-band tracking.
 - When nodes are free and multiple sound one-variable arms exist,
   launch them in parallel — idle pods during deliberation is a
   failure mode.
+- ASSUME AND GO (operator, 08-09): a design question with a
+  plausible recommendation never idles a pod — adopt it, log
+  "## ASSUMPTION (operator to review)", launch. Operator-ONLY
+  blockers (hardware) ⇒ idle pods pick up parallel lines (guardrails
+  `operator_unblock_policy`): command-steering, QUADRUPED MODE
+  (pulled forward), mirror-symmetry, contact-aux head.
 
 ## Architecture (settled — do not propose arms outside this)
 
@@ -87,8 +93,9 @@ the archive review's triggers fire.
    arm (stakes are 1–2% of step income; slip expected flat; cannot
    promote a champion). If-true: cadence drift stops (step credit
    pays the ride). If-false: drift recurs → income channels fully
-   mapped → **walk slip line goes to the OPERATOR whole** (contact/
-   current pricing ruling), no further walk reward arms.
+   mapped → apply rulings (5)+(6): loaded-slip metric + narrow
+   forward band as the next arms (ASSUME-AND-GO, log assumptions) —
+   do NOT park the line.
 2. **0-c objective arms, in order, one variable each:**
    (i) STABILITY: price |roll|+|pitch| beyond allowance + terminal
    fall charge; fold overspeed pricing in if it's the root cause.
@@ -116,9 +123,11 @@ pass 0.75–1.25; prefer narrow forward band + direct distance gate;
 (7) promotion = multi-seed panels + named corners; fixed panel =
 regression canary only.
 
-## After Done: party tricks (operator vision, 08-09)
+## Party tricks (operator vision, 08-09)
 
-Start only after 0-c gates pass. (1) **FALL RECOVERY** — fallen
+QUADRUPED is PULLED FORWARD (operator, 08-09): an authorized
+parallel line whenever main-line arms can't fill the GPU pods.
+Fall recovery still waits for 0-c. (1) **FALL RECOVERY** — fallen
 poses become the start distribution; gate "regain stance and hold,
 12/12, under DR"; needs orientation-complete obs + fallen-pose
 reset generator + hard current pricing (quiet self-righting, no

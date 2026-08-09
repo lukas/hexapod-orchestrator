@@ -90,7 +90,10 @@ compute:
   # outbid another tenant.
   reserved_smoke_slots: 2
   max_steps_per_run: 6000000
-  max_decision_cycles_per_day: 12  # watcher enforces; agent should not try to exceed
+  # Raised 12 -> 48 (operator, 2026-08-09 morning): at GPU speeds a run
+  # finishes every ~25-40 min; 12 cycles/day was sized for the CPU era
+  # and would idle the fleet for hours. Keep in sync with watch_loop.py.
+  max_decision_cycles_per_day: 48  # watcher enforces; agent should not try to exceed
   # Cycles are event-driven and CONCURRENT (08-08 evening): when a run
   # finishes while another cycle is still working, the watcher spawns a
   # second cycle immediately instead of queuing. Coordination is
@@ -243,9 +246,47 @@ forbidden:
   - >-
     Disabling the PAUSE kill switch, the watcher, or these guardrails.
 
+# OPERATOR DIRECTIVE 2026-08-09 (throughput — binding): the fleet idled a
+# whole night on questions the campaign could have answered itself. Idle
+# GPU pods are the failure mode, not the safe default.
+operator_unblock_policy:
+  # (1) ASSUME AND KEEP GOING. A design/gate/reward question that would
+  # previously park a line under "NEEDS OPERATOR" no longer stops work
+  # when a well-reasoned recommendation exists (from the rulings doc,
+  # the binding reviews, or the cycle's own root-cause analysis).
+  # Adopt the recommendation, record in RL_LOG under
+  # "## ASSUMPTION (operator to review)": the question, the assumption
+  # adopted, the evidence for it, and what to revisit if overruled.
+  # Then launch. Wrong-but-recorded beats idle.
+  assume_and_go: true
+  # (2) TRULY OPERATOR-ONLY blockers (hardware access/calibration,
+  # physical robot, spend approvals) still block THAT line — but idle
+  # pods must then pick up parallel lines. Authorized now (operator,
+  # 2026-08-09), each with its own lineage, gates, and pre-registration:
+  #   - command-steering: velocity-command competence / "drive it
+  #     around" arms — forward + forward-diagonal for promotion per the
+  #     rulings; wider hemisphere allowed as exploratory (non-promotion)
+  #     arms
+  #   - quadruped-mode: stand/walk on four rear legs (party-tricks
+  #     sketch): static stance -> weight-shift under DR -> quadruped
+  #     walk. Pulled FORWARD from "after Done" by the operator: allowed
+  #     whenever main-line arms cannot fill the GPU pods
+  #   - mirror-symmetry implementation cycle; contact-from-
+  #     proprioception aux head
+  parallel_lines_when_blocked: [command-steering, quadruped-mode,
+                                mirror-symmetry, contact-aux-head]
+  # A GPU pod left idle through a full cycle without a ledger-recorded
+  # HARD reason (capacity caps, verification failure, launcher REFUSED)
+  # is a guardrail violation. "Waiting on the operator" alone is no
+  # longer a valid idle reason — apply (1) or (2).
+  idle_gpu_needs_hard_reason: true
+
 escalation:
   # If any of these happen, do NOT launch new runs; write the situation to
-  # EXPERIMENT_LOG.md under "## NEEDS OPERATOR" and exit the cycle:
+  # EXPERIMENT_LOG.md under "## NEEDS OPERATOR" and exit the cycle.
+  # EXCEPTION (operator, 2026-08-09): design questions covered by
+  # operator_unblock_policy.assume_and_go are NOT escalations — adopt the
+  # recommendation, record the assumption, keep going:
   - >-
     Two consecutive cycles where every launched run failed its gate badly
     (no metric moved toward its gate).
