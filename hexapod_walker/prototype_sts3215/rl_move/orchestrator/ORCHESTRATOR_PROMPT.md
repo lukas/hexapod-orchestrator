@@ -58,6 +58,12 @@ new line or digging into a failure, not on every cycle.
      jargon, no metric dump — the graphs are right there on the page.
    - RL_LOG.md gets 1 line per CYCLE (not per run): date, runs
      verdicted, direction chosen. Detail lives in rl_docs/runs/.
+   - A verdict belongs ONLY to a run you evaluated. When a verdict
+     stops a CLASS of arms, name the evaluated run as the evidence
+     and write affected unevaluated runs as "no verdict yet, class
+     stopped by <run>" — the operator misread a class-stop note
+     naming cw-walk-diag45 as a diag45 FAIL (08-09). Never leave
+     that ambiguity in RL_LOG or a run's ledger entry.
    That's the whole record for a clear result. No structured verdict
    essay, no summary.md, no root-cause chain, no provenance checksums.
 
