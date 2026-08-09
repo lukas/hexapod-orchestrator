@@ -65,6 +65,26 @@ procs)  # procs <pod> — training/eval processes (pods have NO ps)
   list_procs "$2"
   ;;
 
+census)  # census — every train pod's live trainer, straight from /proc.
+  # THE ground truth for "what is actually running". W&B lags a fresh
+  # launch by up to ~8 min (JAX/Warp compile) and `ps` doesn't exist on
+  # the older pods — both misled a 2026-08-09 debugging session.
+  for pod in $(python3 -c "
+import yaml
+print(' '.join(yaml.safe_load(open('$HERE/guardrails.yaml'))['compute']['gpu_pods']))"); do
+    printf '%-24s ' "$pod:"
+    kubectl exec "$pod" -- sh -c '
+      found=""
+      for p in /proc/[0-9]*/cmdline; do
+        c=$(tr "\0" " " < "$p" 2>/dev/null) || continue
+        case "$c" in python*train_ppo*) found="$c";; esac
+      done
+      if [ -n "$found" ]; then
+        echo "$found" | sed "s/.*--run-name \([^ ]*\).*/\1/"
+      else echo idle; fi' 2>/dev/null || echo unreachable
+  done
+  ;;
+
 trainlog)  # trainlog <run> [lines] — tail the run's train log on its pod
   run="$2"; n="${3:-30}"
   pod=$(entry_field "$run" pod); log=$(entry_field "$run" log)

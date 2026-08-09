@@ -179,6 +179,10 @@ def upsert_entry(entry: dict) -> None:
         else:
             led.append(entry)
         save_ledger(led)
+    try:
+        render_run_md(entry)
+    except OSError:
+        pass  # docs mirror is best-effort; the ledger already has the facts
 
 
 def now() -> str:
@@ -608,8 +612,17 @@ def _verify_started(g: dict, a: argparse.Namespace, ctx: dict) -> int:
 
     def fail(reason: str) -> int:
         print(f"VERIFICATION FAILED: {reason}")
-        kexec(a.pod, f"kill {pid} 2>/dev/null; pkill -f 'run-name {a.run}' "
-                     "2>/dev/null; true")
+        # pkill pattern MUST be anchored to the python trainer: an
+        # unanchored 'run-name X' also matches the bash -c wrapper running
+        # this very cleanup, so pkill killed its own shell (exit 143) and
+        # the "failure" bubbled up as a crashed launch attempt (2026-08-09:
+        # cw-walk-highgait burned 2 backlog attempts on cleanup suicide).
+        try:
+            kexec(a.pod, f"kill {pid} 2>/dev/null; "
+                         f"pkill -f '^python -m rl_move[.]sim[.]train_ppo.*"
+                         f"--run-name {a.run} ' 2>/dev/null; true")
+        except subprocess.CalledProcessError:
+            pass  # cleanup best-effort; the verdict below is what matters
         entry["status"] = "FAILED"
         entry["failed_reason"] = reason
         upsert_entry(entry)
@@ -860,6 +873,16 @@ def cmd_drain(g: dict, a: argparse.Namespace) -> int:
 
     def launch_one(pod: str, it: dict) -> None:
         run = it["run"]
+        # Dedupe: a requeued item whose run meanwhile made it to W&B (e.g.
+        # a parallel drain's attempt succeeded after this one's cleanup
+        # failure) must be DROPPED, not retried into refusal-parking.
+        try:
+            if wandb_name_exists(run):
+                print(f"drain: {run} already exists in W&B — dropping "
+                      "backlog item (duplicate)")
+                return
+        except Exception:
+            pass  # W&B flake: fall through, cmd_launch's gate still holds
         # Self-repair 1: pod code marker -> current HEAD.
         sync = subprocess.run(["bash", str(HERE / "snapshot.sh"),
                                "--sync", pod],
@@ -913,6 +936,49 @@ def cmd_drain(g: dict, a: argparse.Namespace) -> int:
     return 0
 
 
+RUNS_DIR = HERE.parent.parent / "rl_docs" / "runs"
+
+
+def render_run_md(entry: dict) -> None:
+    """Write rl_docs/runs/<run>.md from a ledger entry.
+
+    One generated file per run (operator ask, 2026-08-09): a browsable
+    directory of past runs instead of everyone appending to one big
+    RL_LOG.md and merge-conflicting. NEVER hand-edit these — they are
+    overwritten from experiments.json on every ledger update. Narrative
+    goes in the ledger's hypothesis/verdict fields (or W&B notes)."""
+    run = entry.get("run")
+    if not run:
+        return
+    RUNS_DIR.mkdir(parents=True, exist_ok=True)
+    lines = [f"# {run}", "",
+             "<!-- GENERATED from experiments.json by launch_run.py — "
+             "do not edit -->", ""]
+    order = ["status", "created", "pod", "steps", "parent", "git_sha",
+             "wandb_id", "checkpoint", "hardware_ready", "hypothesis",
+             "gate", "verdict", "failed_reason", "refused_reason", "note"]
+    for k in order:
+        v = entry.get(k)
+        if v in (None, "", []):
+            continue
+        lines.append(f"**{k}**: {v}")
+        lines.append("")
+    (RUNS_DIR / f"{run}.md").write_text("\n".join(lines) + "\n")
+
+
+def cmd_runsmd() -> int:
+    """Backfill/refresh rl_docs/runs/ for every ledger entry."""
+    led = load_ledger()
+    newest = {}
+    for e in led:
+        if e.get("run"):
+            newest[e["run"]] = e
+    for e in newest.values():
+        render_run_md(e)
+    print(f"rendered {len(newest)} run file(s) -> {RUNS_DIR}")
+    return 0
+
+
 def cmd_update(a: argparse.Namespace) -> int:
     """Locked field update on a ledger entry — the ONLY sanctioned way
     to edit experiments.json outside the launcher itself.
@@ -945,6 +1011,7 @@ def cmd_update(a: argparse.Namespace) -> int:
             except (json.JSONDecodeError, ValueError):
                 entry[key] = val
         save_ledger(led)
+    render_run_md(entry)
     print(f"updated {a.run}: set {[kv.partition('=')[0] for kv in a.set or []]}")
     return 0
 
@@ -968,6 +1035,8 @@ def main() -> int:
                          "2026-08-09 shadow-ledger import)")
     dp = sub.add_parser("drain", help="push backlog items onto free "
                                       "GPU pods (self-repairing)")
+    sub.add_parser("runsmd", help="backfill rl_docs/runs/ summaries "
+                                  "from the ledger")
     bp = sub.add_parser("backlog", help="queue mechanical launch specs")
     bp.add_argument("action", choices=["add", "list"])
     bp.add_argument("--run")
@@ -1002,6 +1071,8 @@ def main() -> int:
         return cmd_update(a)
     if a.cmd == "backlog":
         return cmd_backlog(a, extra)
+    if a.cmd == "runsmd":
+        return cmd_runsmd()
     if a.cmd == "drain":
         return cmd_drain(g, a)
     return cmd_launch(g, a, extra)

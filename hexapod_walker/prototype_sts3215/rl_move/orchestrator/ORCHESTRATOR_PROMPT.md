@@ -48,13 +48,16 @@ new line or digging into a failure, not on every cycle.
 
 2. **Record it (minutes, not essays).** For a CLEAR pass or fail:
    - `launch_run.py update --run <name> --set status=... verdict="1-2
-     lines" hardware_ready=...` (never hand-edit experiments.json),
-   - 1-2 lines in RL_LOG.md ("Cycle log": run, verdict, takeaway,
-     what's next),
+     lines" hardware_ready=...` (never hand-edit experiments.json).
+     This auto-renders `rl_docs/runs/<run>.md` — the browsable per-run
+     record. Do NOT edit those files or append per-run detail to
+     RL_LOG.md; the ledger is the single write path.
    - `ops.sh wandbnote <run> "<paragraph>"` — appends an OUTCOME
      paragraph to the BOTTOM of the run's W&B notes. Plain English for
      a human: what happened, what was learned, what we do next. No
      jargon, no metric dump — the graphs are right there on the page.
+   - RL_LOG.md gets 1 line per CYCLE (not per run): date, runs
+     verdicted, direction chosen. Detail lives in rl_docs/runs/.
    That's the whole record for a clear result. No structured verdict
    essay, no summary.md, no root-cause chain, no provenance checksums.
 
@@ -69,16 +72,20 @@ new line or digging into a failure, not on every cycle.
    outside the noise band; deltas inside noise are "no evidence".
 
 4. **Refill the pipeline.** Keep every slot busy (`capacity.py`; idle
-   slot needs a ledger-recorded HARD reason). Default: queue specs
-   into the backlog and let the drain place them —
+   slot needs a ledger-recorded HARD reason). **If more than 2 slots
+   are free, queue MULTIPLE experiments this cycle — one per free
+   slot, drawn from DIFFERENT lines** (operator, 08-09: a cycle that
+   leaves 5 slots idle because it only thought of one idea has
+   failed). Default: queue specs into the backlog and let the drain
+   place them —
    `launch_run.py backlog add --run <cw-name> --steps N --parent ...
    --hypothesis "..." --gate "..." -- <train args>`. Direct
    `launch_run.py launch` only when a specific pod matters. Sources,
    in order: continuations of near-misses (one, not two), the plan's
-   next rung, `rl_docs/WISHLIST.md` topmost [READY]. Rules that stay:
-   warm-start by default, one variable per run, plain-English-first
-   hypothesis and W&B notes, falsifiable gate. Two misses in a row =
-   change the hypothesis, not the step count.
+   next rung, `rl_docs/WISHLIST.md` topmost [READY] items. Rules that
+   stay: warm-start by default, one variable per run,
+   plain-English-first hypothesis and W&B notes, falsifiable gate.
+   Two misses in a row = change the hypothesis, not the step count.
 
 5. **Code changes:** make them, smoke-test them, explain them in one
    log line, then `snapshot.sh <run-name>` (commits, tags, pushes)
