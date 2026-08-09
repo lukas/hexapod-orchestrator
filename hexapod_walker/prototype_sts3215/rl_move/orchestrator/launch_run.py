@@ -24,6 +24,7 @@ from __future__ import annotations
 import argparse
 import fcntl
 import json
+import re
 import subprocess
 import sys
 import time
@@ -506,7 +507,8 @@ def cmd_checkup(g: dict, a: argparse.Namespace) -> int:
     created = entry.get("created")
     problems, facts = [], {"time": now()}
 
-    def record(verdict: str, **extra: object) -> None:
+    def record(verdict: str, _status: str | None = None,
+               **extra: object) -> None:
         # Re-find the entry under the lock: 45+ s elapse while measuring
         # and the launch flow / other checkups may have written the ledger.
         with ledger_lock():
@@ -519,12 +521,26 @@ def cmd_checkup(g: dict, a: argparse.Namespace) -> int:
                 e = entry
             e.setdefault("checkups", []).append(
                 {**facts, "verdict": verdict, **extra})
+            if _status:
+                e["status"] = _status
             save_ledger(led)
 
     trainers = pod_trainers(pod)
     facts["process_alive"] = a.run in trainers
     if not facts["process_alive"]:
         tail = kexec(pod, f"tail -c 600 {log} 2>/dev/null || true")
+        # A missing process is NOT necessarily a death: short runs and
+        # canary auto-stops complete before/within the checkup window.
+        # The trainer's completion marker is "[train] N steps in Ts → ckpt"
+        # (cw-walk-step0-c1 false-positive DEAD, 2026-08-09: run had
+        # finished, saved its checkpoint, and been verdicted already).
+        if re.search(r"\[train\] \d+ steps in .*→", tail):
+            record("FINISHED_BEFORE_CHECKUP", _status="FINISHED",
+                   log_tail=tail[-600:])
+            print(f"FINISHED: {a.run} completed before checkup on {pod} "
+                  f"(completion marker in log; status set FINISHED). "
+                  f"Log tail:\n{tail}")
+            return 0
         record("DEAD", log_tail=tail[-600:])
         print(f"DEAD: no {a.run} trainer process on {pod}. Log tail:\n{tail}")
         return 1
@@ -588,7 +604,8 @@ def cmd_update(a: argparse.Namespace) -> int:
     """
     with ledger_lock():
         led = load_ledger()
-        matches = [e for e in led if e.get("run") == a.run]
+        matches = [e for e in led if e.get("run") == a.run
+                   and (not a.created or e.get("created") == a.created)]
         if not matches:
             if not a.create:
                 print(f"no ledger entry for {a.run} (use --create to add one)")
@@ -624,6 +641,11 @@ def main() -> int:
                     help="field to set; VALUE parsed as JSON when possible")
     up.add_argument("--create", action="store_true",
                     help="create a minimal entry if none exists (backfill)")
+    up.add_argument("--created", default=None, metavar="TIMESTAMP",
+                    help="select a specific duplicate by its 'created' "
+                         "field (default: newest entry for --run; needed "
+                         "to mark stale duplicates from the 2026-08-09 "
+                         "clobbering incident)")
     lp = sub.add_parser("launch")
     lp.add_argument("--pod", required=True)
     lp.add_argument("--run", required=True)
