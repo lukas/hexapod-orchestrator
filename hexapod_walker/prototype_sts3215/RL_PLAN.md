@@ -33,12 +33,13 @@ levers refuted — stop iterating penalty coefficients.**
   arms are closed as vacuous; fixing skating IS the DR 1.0 rung.**
   dr04b lineage 0-for-9 on gait validity — **RETIRED as warm-start
   source** (cycle 12). Phase reward refuted in BOTH basins. **The
-  TRIPOD PARK is the shared attractor** (lp tower, aac-s1c det,
-  phase-stance2, lowent sto[4]): parking avoids stepping costs; the
-  linear current charge is distribution-blind (flagged leg 0.24 A vs
-  0.28–0.44 A supporting, cycle 12) and the velocity kernel paid
-  parked robots until kgate (cycle 21). Price the park / route
-  income, or change capability (temporal actor) — not coefficients.
+  TRIPOD PARK is the shared attractor — and PRICING IT IS REFUTED
+  (cycle 24): kgate's progress-gated kernel cut park income
+  ~1250→274/ep and the park persisted at the same 1/6 rate, same
+  seed index, 4th consecutive segment.** It is a state-visitation
+  defect (park states rare at reset, entered under momentum);
+  reset-side fix (parked starts) in flight. Same defect class as
+  the stance flag leg — fix designed once, routed per mode.
 - **Raise: DEMOTED TO CANARY (08-08).** Stuck 2–5/6 everywhere;
   raisemix refuted; failures = near-miss under-lift on ~4 legs. No
   more compute; tripwire only. (Cycle 13: load-even pricing lifted
@@ -185,10 +186,14 @@ hold → lower → rise → walk. Every session logs sim↔real divergence
 
 ## Queue (in flight → next)
 
-In flight: `cw-walk-kgate` (park pricing via progress-gated kernel
-income; finished during cycle 23 — verdict owned by its own cycle).
-Finished, verdict owned by its cycle: `cw-stance-endpost-c1` (slope
-rule; plateau ⇒ belly-rest reference states). **Cycle 23:**
+In flight (cycle 24): `cw-walk-parkstart` (25% tripod-park starts
+off kgate ckpt md5 b703f7b0 — preferred walk warm-start, lowest
+std 1.342, carries 0-c.2 income routing; gate adds a park-exit
+eval at frac=1.0) and `cw-stance-bellyrest` (35% of lower episodes
+start planted at the belly, off endpost-c1 ckpt). **Cycle 24: both
+if-false branches fired; pricing is closed on BOTH lines** (kgate:
+park income cut ~1000/ep, park unchanged; endpost-c1: charge
+plateaued by leg0↔leg4 redistribution). **Cycle 23:**
 `cw-walk-h15b-dr03` PASSED the DR0.3 gate (first walk PASS at DR>0)
 but baseline probes proved the rung VACUOUS — see State; DR-ladder
 training arms CLOSED, skating owns the DR1.0 slip clause.
@@ -198,20 +203,14 @@ at DR 0 (gate PASS, cadence unchanged; lineage closed). **Cycle
 launcher REFUSES launch unless the pod's `.code_sha` marker
 (`snapshot.sh --sync`) equals local HEAD.
 **Cycle 19/21: h15b then h15b-c1 both FAILED the 15 s gate on the
-same two eps** (sto park, det duty-skew churn). Champion stays
-`ppo_goal_cw_walk_lowent_h15b.zip` md5 d0a12a94; c1 (md5 ed71b6f4,
-std 1.485) is the preferred warm-start parent. **Cycle 21: park is
-STRUCTURAL, not exploration-gated** — persisted at 1/6 sto with std
-below the pre-registered 1.5 threshold, same seed indices, 3
-segments running. Root cause measured: the r_walk kernel pays a
-PARKED robot 0.97–1.85/tick at 0.02–0.06 m/s commands (absolute-err
-pricing); k_park_duty (0.6/tick) discounts but can't flip the sign.
-Fix landed: `reward.walk_kernel_prog_gate` (income × achieved
-progress, default off) = 0-c.2's distance-income shift as one
-variable. Walk defects: park basin (priced now, kgate tests it),
-skating (retention metric now slip/m — raw slip is crawl-gameable,
-cycle 21), det tracking partial (overspeed uncharged). lowent-c1
-(19c): deltas inside noise — identical-config segments CLOSED.
+same two eps** (sto park, det duty-skew churn); champion stays
+`ppo_goal_cw_walk_lowent_h15b.zip` md5 d0a12a94. Cycle 21 proved
+the park exploration-independent (persists below std 1.5, 3
+segments); cycle 24 proved it pricing-independent (kgate). Walk
+defects now: park basin (reset-side arm in flight), skating
+(retention metric is slip/m — raw slip is crawl-gameable), det
+tracking partial (overspeed uncharged). Identical-config
+segments CLOSED (19c: deltas inside noise).
 
 0-a. **step0 lineage (compressed; details RL_LOG cycles 14–18).**
    step0 = first genuine six-leg gait (champion superseded by lowent
@@ -297,11 +296,12 @@ cycle 21), det tracking partial (overspeed uncharged). lowent-c1
    one-variable comparisons. Speed targets, DR, and multi-task merge
    come only AFTER this gate passes.
 
-1. Walk after kgate's verdict: if-true ⇒ overspeed pricing (0-a iii)
-   then skating root-cause (the DR1.0 blocker); if-false ⇒
-   reset-state diversity (parked starts) or rung-2 load evenness —
-   no coefficient retries. Stance: if endpost-c1 plateaus (slope
-   rule), belly-rest reference states.
+1. Walk after parkstart: if-true ⇒ skating root-cause (the DR1.0
+   blocker) then overspeed pricing (0-a iii); if-false (a)
+   exit-works-park-stays ⇒ harvest starts from the policy's own
+   park rollouts; (b) no-exit ⇒ rung-2 load evenness. Stance after
+   bellyrest: if-false ⇒ descent-posture ref during the ramp or
+   operator review of the 60 mm allowance.
 2. Mirror-symmetry augmentation (audit MED, due) after (1).
    Contact-from-proprioception aux head after. Dense
    step-decomposition and model-size sweep stay last.
