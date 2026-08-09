@@ -26,7 +26,11 @@ levers refuted — stop iterating penalty coefficients.**
   rise/lower height drops below 5/6; never warm-start stand work
   from an eroded checkpoint.
 - **Walk: step0/lowent line is the only valid gait** (six legs
-  cycling at DR 0; blockers: 1/6 sto park, skating, det tracking).
+  cycling; blockers: 1/6 sto park, skating, det tracking). **DR is
+  NOT the bottleneck (cycle 23): untrained h15b passes the full walk
+  gate at DR 0.3 AND 0.6 and misses DR 1.0 only on det slip
+  (1.008 vs ≤1.0) — i.e. the skating defect. DR-ladder TRAINING
+  arms are closed as vacuous; fixing skating IS the DR 1.0 rung.**
   dr04b lineage 0-for-9 on gait validity — **RETIRED as warm-start
   source** (cycle 12). Phase reward refuted in BOTH basins. **The
   TRIPOD PARK is the shared attractor** (lp tower, aac-s1c det,
@@ -181,17 +185,18 @@ hold → lower → rise → walk. Every session logs sim↔real divergence
 
 ## Queue (in flight → next)
 
-In flight: `cw-walk-h15b-dr03` (0-b rung 0.3 REDO off champion,
-long5m) + `cw-walk-kgate` (park pricing via progress-gated kernel
-income, walk pod, cycle 21). Finished, verdict owned by its cycle:
-`cw-stance-endpost-c1` (slope rule; plateau ⇒ belly-rest reference
-states). **Cycle 22:** `cw-walk-step0-hist8` REFUTED the temporal-
-actor rung at DR 0 (gate PASS, cadence unchanged; lineage closed). **Cycle 20:** `cw-walk-lowent-dr03` was INVALID — long5m
-ran pre-audit code, cfg-sets silently ignored 4M steps; eval-only:
-lowent gait still passed the DR0.3 gate (gv 12/12, 0 falls) — DR0.3
-looks survivable; rung redone on h15b. Infra: launcher REFUSES
-launch unless the pod's `.code_sha` marker (`snapshot.sh --sync`)
-equals local HEAD.
+In flight: `cw-walk-kgate` (park pricing via progress-gated kernel
+income; finished during cycle 23 — verdict owned by its own cycle).
+Finished, verdict owned by its cycle: `cw-stance-endpost-c1` (slope
+rule; plateau ⇒ belly-rest reference states). **Cycle 23:**
+`cw-walk-h15b-dr03` PASSED the DR0.3 gate (first walk PASS at DR>0)
+but baseline probes proved the rung VACUOUS — see State; DR-ladder
+training arms CLOSED, skating owns the DR1.0 slip clause.
+**Cycle 22:** `cw-walk-step0-hist8` REFUTED the temporal-actor rung
+at DR 0 (gate PASS, cadence unchanged; lineage closed). **Cycle
+20:** `cw-walk-lowent-dr03` INVALID (stale pod code); infra:
+launcher REFUSES launch unless the pod's `.code_sha` marker
+(`snapshot.sh --sync`) equals local HEAD.
 **Cycle 19/21: h15b then h15b-c1 both FAILED the 15 s gate on the
 same two eps** (sto park, det duty-skew churn). Champion stays
 `ppo_goal_cw_walk_lowent_h15b.zip` md5 d0a12a94; c1 (md5 ed71b6f4,
@@ -227,21 +232,19 @@ cycle 21), det tracking partial (overspeed uncharged). lowent-c1
    rungs after the current segments (c2, lowent) verdict.** Both are
    one-variable arms off the best step0-lineage checkpoint;
    continue-while-improving (0-a) and `--no-canary` apply.
-   1. **LONGER HORIZON first (cheap, diagnostic):**
-      `--episode-seconds 15` (default is 5 — at 2–6 cm/s that caps
-      episodes at ~10–30 cm and hides slow-accumulating pathologies:
-      heading drift, posture wind-up, jitter build-up). Question:
-      does the gait SUSTAIN? Gate: ≥40 cm in 15 s, det AND sto, all
-      six legs cycling THROUGHOUT, no degradation in the final third
-      (frames, not scalars). If the gait dies after a few cycles,
-      fix that before robustifying.
-   2. **DR LADDER (the sim-to-real path):** successive warm-started
-      segments at dr 0.3 → 0.6 → 1.0, ONE rung per segment; gate =
-      the same walk gate at that rung's DR; drop back a rung if the
-      gait breaks (hist8 showed wide-distribution warm starts destroy
-      parent behavior — never jump straight to 1.0). Hardware-ready
-      requires the DR 1.0 rung. May run in parallel with (1) on a
-      separate pod if capacity allows, both off the same parent.
+   1. **LONGER HORIZON — DONE (h15b, cycle 19):** 15 s episodes;
+      gait sustains (≥40 cm, six legs cycling throughout, no
+      final-third decay); rung redundant for the gate but real
+      slip/std side-gains. 15 s is the lineage standard now.
+   2. **DR LADDER — CLOSED (cycle 23, evidence over premise):** the
+      rung-0.3 arm passed but the untrained champion passes the same
+      gate at DR 0.3 AND 0.6 (fwd 12/12, gv 12/12, 0 term, det slip
+      ≤1.0) and misses DR 1.0 only on det slip 1.008 — the skating
+      defect, present at every DR. Training rungs buy nothing
+      measurable for this gait; DR 1.0 hardware-readiness is reached
+      by fixing skating, not by DR exposure. Eval at own-DR stays
+      mandatory; re-open the ladder only if a future gait CHANGE
+      (pricing arms) breaks a DR level the parent passed.
 
 0-c. **OPERATOR-DIRECTED (binding, 08-09 ~02:10Z): the walk objective
    is DISTANCE, STABILITY, RELIABILITY** — not speed-band tracking.
@@ -295,9 +298,10 @@ cycle 21), det tracking partial (overspeed uncharged). lowent-c1
    come only AFTER this gate passes.
 
 1. Walk after kgate's verdict: if-true ⇒ overspeed pricing (0-a iii)
-   then DR ladder; if-false ⇒ reset-state diversity (parked starts)
-   or rung-2 load evenness — no coefficient retries. Stance: if
-   endpost-c1 plateaus (slope rule), belly-rest reference states.
+   then skating root-cause (the DR1.0 blocker); if-false ⇒
+   reset-state diversity (parked starts) or rung-2 load evenness —
+   no coefficient retries. Stance: if endpost-c1 plateaus (slope
+   rule), belly-rest reference states.
 2. Mirror-symmetry augmentation (audit MED, due) after (1).
    Contact-from-proprioception aux head after. Dense
    step-decomposition and model-size sweep stay last.
