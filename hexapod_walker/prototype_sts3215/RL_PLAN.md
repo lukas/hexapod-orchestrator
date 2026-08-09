@@ -60,12 +60,12 @@ levers refuted — stop iterating penalty coefficients.**
   (cycle 30, if-false (a) verbatim): the clock LOCKED (agreement
   0.47→0.93, tripod duty at eval) and slip did NOT move — timing
   is orthogonal to anchoring. **Anchor-gated income MOVED slip
-  (cycle 31, first of four levers): DR1.0 det slip 1.543→1.240
-  beyond per-ep noise at unchanged speed, anchor_frac 0.767→0.837
-  still climbing at 20M; gate still missed (≤1.0) and sto unmoved
-  — near-miss, c1 consolidation + fresh-init basin test in
-  flight.** Income GATING works where charging (c24, c29) and
-  timing references (c30) do not.
+  (cycle 31: det 1.543→1.240 real); consolidation c1 REFUTED
+  (cycle 32): frac 0.906 EARNED via CADENCE INFLATION — free slip
+  = cadence × tol, tol=10 floor ~0.9/m, gate non-binding (factor
+  0.82–0.93). Tol 10→5 correction in flight (queue item 1).**
+  Income GATING works where charging (c24, c29) and timing (c30)
+  do not; cadence/stance count is a required exploit-watch column.
 - **Raise: DEMOTED TO CANARY (08-08).** Stuck 2–5/6 everywhere;
   raisemix refuted; failures = near-miss under-lift on ~4 legs. No
   more compute; tripwire only. (Cycle 13: load-even pricing lifted
@@ -213,16 +213,15 @@ hold → lower → rise → walk. Every session logs sim↔real divergence
 
 ## Queue (in flight → next)
 
-In flight (cycle 31): `cw-walk-anchorgate-c1` (consolidation) +
-`cw-walk-step0-anchor` (fresh-init basin test, auto-continue
-lineage); stance line BLOCKED on operator ruling (cycle 28).
+In flight (cycle 32): `cw-walk-anchortol5` (tol 10→5 correction) +
+`cw-walk-step0-anchor` (fresh-init basin test, auto-continue);
+stance line BLOCKED on operator ruling (cycle 28).
 **WALK CHAMPION: `ppo_goal_cw_walk_anchorgate.zip` md5 35234ddc
 (cycle 31; DR1.0 det slip 1.240 vs parkstart_mjx 1.543; 5 s slow
 start regression vs h15b still stands).**
-**Closed rungs (details RL_LOG):** kernel/park pricing (24, both
-if-false); DR-ladder training arms VACUOUS (23; skating owns the
-DR1.0 slip clause); temporal actor at DR 0 (22); identical-config
-segments (19c, 27). Park lineage RESOLVED (27, see State).
+**Closed rungs (details RL_LOG):** kernel/park pricing (24);
+DR-ladder training arms VACUOUS (23); temporal actor at DR 0 (22);
+identical-config segments (19c, 27, 32). Park RESOLVED (27).
 Walk defects now: skating/paddling (DR1.0 blocker; anchor gate
 moving it, det 1.24 c31), overspeed (gate clause — operator),
 rear-hemisphere hole (operator scope), 5 s slow start (vs h15b).
@@ -283,20 +282,21 @@ rear-hemisphere hole (operator scope), 5 s slow start (vs h15b).
    if-false (b).
 
 1. Walk: park lineage CLOSED (27); effort/CoT REFUTED (29); phase
-   prior REFUTED (30). Anchor gate (income × anchored fraction of
-   loaded feet, tol 10 mm) is the LIVE lever (c31: det slip
-   1.543→1.240 real, sto unmoved, frac 0.837 still climbing; no
-   if-false shape fired). In flight: `cw-walk-anchorgate-c1`
-   (identical-config +20M; if-true frac >0.85 + slip det AND sto
-   ≤1.0; if-false frac/slip plateau ⇒ residual creep structural
-   under tol=10 for warm starts — rung closes for warm starts, one
-   audit-driven tolerance correction stays pre-registered) and
-   `cw-walk-step0-anchor` (fresh init, audited exploration, gate
-   on from first gradient step: paddle = legacy basin vs sim's
-   preferred transport; if fresh init paddles too, the root is the
-   sim's contact/current pricing — operator — or distillation).
-   Exploit watch stays: unload-sweep = duty drop + swing spike
-   with slip high. Rear-hemisphere arm BLOCKED on operator.
+   prior REFUTED (30). Anchor gate is the LIVE lever (c31 det slip
+   1.543→1.240 real) but tol=10 was optimized to NON-BINDING via
+   cadence inflation (c1, cycle 32 — consolidation rung closed).
+   In flight: `cw-walk-anchortol5` (tol 10→5 off champion 35234ddc;
+   if-true: det slip ≤1.0 with cadence ≤~65 stances/ep; if-false:
+   stances ≥~75/ep with slip flat ⇒ per-touchdown allowance RESET
+   is the defect ⇒ tolerance rung CLOSED, escalate to
+   displacement-gated step-event credit (0-c.2) or operator
+   pricing) and `cw-walk-step0-anchor` (fresh init, audited
+   exploration, gate from first gradient step: paddle = legacy
+   basin vs sim's preferred transport; if fresh init paddles too,
+   the root is the sim's contact/current pricing — operator — or
+   distillation). Exploit watch: unload-sweep (duty drop + swing
+   spike, slip high) AND cadence inflation (stance count ↑, slip
+   flat). Rear-hemisphere arm BLOCKED on operator.
    Stance: lowerdense fired BOTH if-false branches (cycle 28);
    opposing gradient named (current-relief + margin income ≫ the
    posture charge). BLOCKED on the operator ruling (RL_LOG cycle
