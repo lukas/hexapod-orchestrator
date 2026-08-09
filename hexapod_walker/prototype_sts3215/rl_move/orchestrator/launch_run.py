@@ -644,8 +644,8 @@ def main() -> int:
     up.add_argument("--created", default=None, metavar="TIMESTAMP",
                     help="select a specific duplicate by its 'created' "
                          "field (default: newest entry for --run; needed "
-                         "to mark stale duplicates from the 2026-08-09 "
-                         "clobbering incident)")
+                         "to mark stale duplicates, e.g. from the "
+                         "2026-08-09 shadow-ledger import)")
     lp = sub.add_parser("launch")
     lp.add_argument("--pod", required=True)
     lp.add_argument("--run", required=True)
