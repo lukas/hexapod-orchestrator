@@ -88,11 +88,19 @@ the archive review's triggers fire.
 0. **UNIFIED JOYSTICK POLICY (operator, 08-09 evening — top
    deliverable): ONE checkpoint that stands up, walks/steers, stops,
    sits down from joystick commands.** No per-skill model zoo. Line
-   opens with `cw-uni-blend1` (driving champion + goal-mix blend
+   opens with `cw-uni-blend1-r2` (driving champion + goal-mix blend
    walk=0.7/hold=0.1/rise=0.1/lower=0.1); gate = joystick-gate
-   retention AND rise/lower >= 5/6 AND quiet hold. Erosion risk →
-   canary/regression rules apply; if walk erodes, ladder the mix
-   (0.9 first), don't abandon. Details: WISHLIST item -1.
+   retention AND rise/lower >= 5/6 AND quiet hold AND video shows no
+   leg-through-floor. Erosion risk → canary/regression rules apply;
+   if walk erodes, ladder the mix (0.9 first), don't abandon.
+   Details: WISHLIST item -1. **SIM FIX 273ebde (08-09 22:xx) is a
+   hard prerequisite for this line: before it, femur/tibia/knee-servo
+   had no floor collision, so any rise/lower trained pre-fix could
+   sweep shins through the ground (blend1 killed for this; the
+   chain-standwalksit flail the operator saw was on the broken
+   floor). Rise/lower checkpoints predating 273ebde are suspect near
+   the ground; walk-only lineages verified unaffected (zero
+   shin-floor contacts in champion gait).**
 1. **In flight:** never listed here — a static doc can only be
    stale. Live truth: `ops.sh census` (what's training),
    `launch_run.py backlog list` (what's queued),
