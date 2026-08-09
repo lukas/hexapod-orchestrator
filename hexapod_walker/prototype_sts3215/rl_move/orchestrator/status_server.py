@@ -113,11 +113,11 @@ def recent_cycle_logs(n: int = 8) -> list[dict]:
     return out
 
 
-def ledger_rows(n: int = 40) -> tuple[list[dict], dict]:
+def ledger_rows(n: int = 40) -> tuple[list[dict], dict, dict]:
     try:
         entries = json.loads((HERE / "experiments.json").read_text())
     except Exception:
-        return [], {}
+        return [], {}, {}
     latest: dict[str, dict] = {}
     for e in entries:
         if isinstance(e, dict) and e.get("run"):
@@ -128,7 +128,11 @@ def ledger_rows(n: int = 40) -> tuple[list[dict], dict]:
         counts[s] = counts.get(s, 0) + 1
     rows = sorted(latest.values(),
                   key=lambda e: e.get("created", ""), reverse=True)[:n]
-    return rows, counts
+    # slim latest-per-run map for the analysis-pipeline computation
+    slim = {r: {"status": e.get("status", ""), "triage": e.get("triage", ""),
+                "verdict": bool(e.get("verdict"))}
+            for r, e in latest.items()}
+    return rows, counts, slim
 
 
 def backlog_state() -> dict:
@@ -208,6 +212,19 @@ def token_totals() -> dict:
     return {"total": total, "today": today, "n_days": len(days)}
 
 
+def wandb_done_runs() -> list[str]:
+    """cw- runs W&B says are finished/crashed/failed (ground truth for the
+    analysis pipeline — the ledger `triage` field alone misses runs that
+    finish while the watcher is paused, which is exactly when the operator
+    is staring at this page)."""
+    import wandb
+    api = wandb.Api()
+    return [r.name for r in api.runs(
+        "l2k2/hexapod-balance",
+        filters={"state": {"$in": ["finished", "crashed", "failed"]}})
+        if r.name.startswith("cw-")]
+
+
 def census() -> list[dict]:
     pods = load_guardrails()["compute"]["gpu_pods"]
 
@@ -223,8 +240,9 @@ def census() -> list[dict]:
 def fast_worker() -> None:
     while True:
         try:
-            rows, counts = ledger_rows()
+            rows, counts, slim = ledger_rows()
             SNAP["fast"] = {
+                "latest": slim,
                 "at": time.time(),
                 "watcher": watcher_state(),
                 "cycles": live_cycles(),
@@ -243,7 +261,8 @@ def slow_worker() -> None:
     while True:
         try:
             SNAP["slow"] = {"at": time.time(), "census": census(),
-                            "tokens": token_totals()}
+                            "tokens": token_totals(),
+                            "wandb_done": wandb_done_runs()}
         except Exception as e:
             SNAP["slow_err"] = repr(e)
         time.sleep(SLOW_S)
@@ -315,8 +334,24 @@ def render() -> str:
              f"auto-reloads every 30 s · fleet/token data every "
              f"{SLOW_S} s{(' · ' + esc(sub)) if sub else ''}</div>")
 
-    pipeline = [e for e in f.get("ledger", [])
-                if e.get("triage") and e["triage"] != "done"]
+    # finished on W&B but no verdict in the ledger = not yet analyzed.
+    # W&B is the ground truth for "finished"; the triage field only adds
+    # the awaiting/in-cycle detail (it's watcher-stamped and misses runs
+    # that finish while the watcher is paused).
+    final = {"FINISHED", "FAILED", "KILLED", "KILLED_BY_OPERATOR", "REFUSED"}
+    latest = f.get("latest", {})
+    training_now = {r for c in cen for r in (c.get("runs") or [])}
+    pipeline = []
+    for run in s.get("wandb_done", []):
+        if run in training_now:  # stale W&B duplicate of a live run
+            continue
+        e = latest.get(run)
+        if e is None:
+            pipeline.append({"run": run, "state": "not in ledger"})
+        elif e["status"] not in final and not e["verdict"]:
+            pipeline.append({"run": run,
+                             "state": e["triage"] or "awaiting (unassigned)"})
+    pipeline.sort(key=lambda p: p["run"])
     n_pipe = len(pipeline)
     h.append("<div class='grid' style='margin-top:14px'>")
     pipe_cls = "" if n_pipe <= 3 else " style='border-color:#9e6a03'"
@@ -339,14 +374,14 @@ def render() -> str:
                  f"<div class='l'>est. spend total</div></div>")
     h.append("</div>")
 
-    h.append("<h2>Analysis pipeline (finished, verdict not in yet)</h2>")
+    h.append("<h2>Analysis pipeline (finished on W&B, verdict not in yet)"
+             "</h2>")
     if pipeline:
         h.append("<table><tr><th>run</th><th>state</th></tr>")
-        for e in pipeline:
-            t = e["triage"]
-            cls = "warn" if t.startswith("awaiting") else "ok"
-            h.append(f"<tr class='mono'><td>{esc(e.get('run'))}</td>"
-                     f"<td class='{cls}'>{esc(t)}</td></tr>")
+        for p in pipeline:
+            cls = "ok" if p["state"].startswith("in-cycle") else "warn"
+            h.append(f"<tr class='mono'><td>{esc(p['run'])}</td>"
+                     f"<td class='{cls}'>{esc(p['state'])}</td></tr>")
         h.append("</table>")
     else:
         h.append("<div class='dim'>empty — every finished run has a "
