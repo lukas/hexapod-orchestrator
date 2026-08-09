@@ -97,8 +97,10 @@ the archive review's triggers fire.
    (i) STABILITY: CLOSED as a reward lever — terminal fall charge
    refuted (dr05-fall300, falls too rare for gradient) and tilt
    pricing NO-EFFECT on the champion line (longdist-tilt05 vs
-   partner, all deltas inside noise). Stability rides on DR
-   training (longdist-dr10 in flight).
+   partner, all deltas inside noise). Full-DR champion retrain
+   REFUTED too (longdist-dr10 FAIL c53: no reliability gain,
+   nominal erosion) — rides on targeted axes (terrain/payload/
+   latency/torque).
    (ii) DISTANCE: LANDED (longdist 30s narrow-band → champion,
    cycle 44). (iii) RELIABILITY: stall front CLOSED c52 — DR
    (longdist-dr05), cmd-resample (stallfix; helps only when resample
