@@ -30,13 +30,19 @@ if [ "${1:-}" = "--sync" ]; then
   # "dirty" and the -dirty marker refused every drain launch while 9
   # GPUs idled (2026-08-09). They are operational state, not trainer
   # code — the marker exists to pin the CODE the pod runs.
+  # ... and EXCLUDES markdown docs: cycles append to RL_LOG.md / RL_PLAN.md
+  # between commits, and an uncommitted doc edit was re-blocking every
+  # drain launch an hour after the state-file fix (2026-08-09). Docs are
+  # not trainer code either.
   P=hexapod_walker/prototype_sts3215
   EXC1=":(exclude)$P/rl_move/orchestrator/experiments.json"
   EXC2=":(exclude)$P/rl_move/orchestrator/backlog.json"
   EXC3=":(exclude)$P/rl_move/orchestrator/backlog_failed.json"
   EXC4=":(exclude)$P/rl_move/orchestrator/*.lock"
-  if ! git diff --quiet HEAD -- "$P" "$EXC1" "$EXC2" "$EXC3" "$EXC4" || \
-     [ -n "$(git status --porcelain -- "$P" "$EXC1" "$EXC2" "$EXC3" "$EXC4" | grep '^??' || true)" ]; then
+  EXC5=":(exclude)$P/**/*.md"
+  EXC6=":(exclude)$P/*.md"
+  if ! git diff --quiet HEAD -- "$P" "$EXC1" "$EXC2" "$EXC3" "$EXC4" "$EXC5" "$EXC6" || \
+     [ -n "$(git status --porcelain -- "$P" "$EXC1" "$EXC2" "$EXC3" "$EXC4" "$EXC5" "$EXC6" | grep '^??' || true)" ]; then
     SHA="${SHA}-dirty"
   fi
   kubectl --kubeconfig="$KC" exec "$POD" -- \
