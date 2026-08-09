@@ -482,12 +482,16 @@ def _launch_locked(g: dict, a: argparse.Namespace, extra: list[str]) -> int:
             human += f" Parent: {a.parent}."
         if a.gate:
             human += f" Gate: {a.gate}"
-        extra = [*extra, "--notes", shlex.quote(human.strip())]
+        extra = [*extra, "--notes", human.strip()]
         entry["extra_args"] = extra
     module = TRAIN_MODULE_GPU if is_gpu else TRAIN_MODULE
+    # shlex.quote every passthrough token: notes/cfg values with shell
+    # metacharacters (parens, semicolons) used to splice raw into the
+    # remote bash -c and kill the launch (2026-08-09: cw-walk-parkstart
+    # and cw-stance-bellyrest each burned a FAILED attempt on this).
     train = (f"python -m {module} "
              f"--run-name {a.run} --steps {a.steps} "
-             + " ".join(extra))
+             + " ".join(shlex.quote(t) for t in extra))
     envp = "WANDB_MODE=disabled " if a.smoke else ""
     # `< /dev/null` is load-bearing: without it the nohup'd trainer inherits
     # the kubectl-exec stream and `kubectl exec` hangs until the trainer
