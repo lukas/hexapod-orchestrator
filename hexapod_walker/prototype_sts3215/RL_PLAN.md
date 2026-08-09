@@ -55,8 +55,11 @@ levers refuted — stop iterating penalty coefficients.**
   effort priced at ~4% of income — objective defect). fwd≥0.40 is
   unpassable at perfect tracking below ~0.030 m/s → the clause
   selected overspeed. Rear-hemisphere scope + gate redesign are
-  with the OPERATOR; effort/CoT pricing arm in flight (review's
-  own escalation rung).
+  with the OPERATOR. **Effort/CoT pricing REFUTED (cycle 29): the
+  policy paid an 18%-of-income charge for 20M steps, current/drag/
+  slip all flat — two proofs now (with kernel-gating, cycle 24)
+  that pricing alone cannot reorganize this gait. Phase prior
+  (review rung 4) in flight.**
 - **Raise: DEMOTED TO CANARY (08-08).** Stuck 2–5/6 everywhere;
   raisemix refuted; failures = near-miss under-lift on ~4 legs. No
   more compute; tripwire only. (Cycle 13: load-even pricing lifted
@@ -150,8 +153,9 @@ routing up front — no ad-hoc exemptions.
 - **Walk:** success = commanded forward motion with visible
   alternating contacts on ALL SIX legs — judged by gait metrics AND
   video. Refuted: flag penalty (both routings), speed pressure, LP
-  curriculum, weak phase-contact reward in both basins (zero-net
-  agreement cannot outbid the park's cost savings); **no
+  curriculum, phase reward AS BASIN ESCAPE (cycle 12: zero-net
+  agreement cannot outbid the park's cost savings — distinct from
+  the cycle-29 phase arm on a genuine gait); **no
   penalty-coefficient iterations, period** (review §0). Rungs:
   (0) operator step-event baseline (queue item 0); (1) **temporal
   actor — REFUTED at DR 0 (cycle 22: hist8 from-scratch passed the
@@ -203,9 +207,8 @@ hold → lower → rise → walk. Every session logs sim↔real divergence
 
 ## Queue (in flight → next)
 
-In flight (cycle 27): `cw-walk-effort` (see item 1); stance line:
-`cw-stance-lowerdense` lineage (dense lower end-posture window;
-cycles 26+). **WALK CHAMPION:
+In flight (cycle 29): `cw-walk-phaseprior` (see item 1); stance
+line BLOCKED on operator ruling (cycle 28). **WALK CHAMPION:
 `ppo_goal_cw_walk_parkstart_mjx.zip` md5 01d9ab60 (cycle 25;
 named regression vs h15b: 5 s slow start; consolidation CLOSED —
 cycle 27).**
@@ -214,24 +217,18 @@ if-false); DR-ladder training arms VACUOUS (23; skating owns the
 DR1.0 slip clause); temporal actor at DR 0 (22); identical-config
 segments (19c, 27). Park lineage RESOLVED (27, see State).
 Walk defects now: skating/paddling (slip/m ~1.3–1.5, the DR 1.0
-blocker; effort arm in flight), overspeed 1.43 (same object as the
-gate clause — operator), rear-hemisphere hole (operator scope),
-5 s slow start (annealed lineage, champion regression vs h15b).
+blocker; pricing refuted 2x, phase prior in flight), overspeed 1.43
+(same object as the gate clause — operator), rear-hemisphere hole
+(operator scope), 5 s slow start (champion regression vs h15b).
 
 0-a. **step0 lineage (compressed; details RL_LOG cycles 14–18).**
-   step0 = first genuine six-leg gait (champion superseded by lowent
-   cycle 18). c1/c2 identical-config continuations: plateau, std
-   runaway, c2 det falls — CLOSED. Warm starts in this lineage use
-   ent 0.001 (lowent A/B evidence). Remaining defects in escalation
-   order: (i) consolidation DONE (lowent); (ii) skating price vs
-   step-event income; (iii) overspeed/tracking — r_prog caps at
-   1.25x but nothing charges above-command speed and step credit
-   scales with stride; det ignores commands on every checkpoint.
-   (ii)/(iii) are pricing work, due after the 0-b rungs.
-   **Canary note (operator, 08-09): step0-lineage continuations run
-   `--no-canary`** (c1's auto-stop was a false positive protecting a
-   skill the lineage never had). Canaries stay ON for every
-   multi-skill run; the exemption is lineage-specific.
+   step0 = first genuine six-leg gait; c1/c2 identical-config
+   continuations CLOSED. Warm starts use ent 0.001. Defect (ii)
+   skating: PRICING REFUTED 2x (cycles 24, 29). Defect (iii)
+   overspeed: nothing charges above-command speed; with the
+   operator (gate clause). **Canary note (operator, 08-09):
+   step0-lineage continuations run `--no-canary`** (c1 false
+   positive); canaries stay ON for multi-skill runs.
 
 0-b. **OPERATOR-DIRECTED (binding, 08-09 ~01:05Z): step0-lineage next
    rungs after the current segments (c2, lowent) verdict.** Both are
@@ -296,13 +293,16 @@ gate clause — operator), rear-hemisphere hole (operator scope),
    one-variable comparisons. Speed targets, DR, and multi-task merge
    come only AFTER this gate passes.
 
-1. Walk (rewritten by cycle-27 investigation): the harvest arm died
-   pre-launch (no own-parks exist); park lineage CLOSED. In flight:
-   `cw-walk-effort` — walk-routed effort/CoT term k_walk_effort=1.2
-   (18% of income) vs paddling/skating, the DR1.0 blocker. If-false
-   both ways (slip unmoved OR gait collapse) ⇒ stance-anchoring is
-   not effort-reachable ⇒ phase prior is the next review rung.
-   Rear-hemisphere exposure arm BLOCKED on operator scope ruling.
+1. Walk: park lineage CLOSED (27); effort/CoT REFUTED (29, branch
+   (i): charge paid, nothing moved). In flight: `cw-walk-phaseprior`
+   — observable 0.4 Hz tripod clock (+2 obs, MJX transplant) +
+   k_phase_contact=1.0 agreement income, off the champion. This is
+   NOT cycle-12's refuted basin-escape phase arm: the parent has a
+   genuine gait; the test is whether a timing REFERENCE makes
+   anchored stance gradient-reachable where pricing provably isn't.
+   If-false: agreement up + slip unmoved ⇒ timing orthogonal to
+   anchoring; agreement flat ⇒ prior can't engage a warm gait;
+   gait degrades ⇒ kill. Rear-hemisphere arm BLOCKED on operator.
    Stance: lowerdense fired BOTH if-false branches (cycle 28);
    opposing gradient named (current-relief + margin income ≫ the
    posture charge). BLOCKED on the operator ruling (RL_LOG cycle
