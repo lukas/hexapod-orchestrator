@@ -301,6 +301,12 @@ identical-config segments CLOSED lineage-wide.
 2. Mirror-symmetry augmentation (audit MED, due) after (1).
    Contact-from-proprioception aux head after. Dense
    step-decomposition and model-size sweep stay last.
+   Architecture: operator reviewed and settled 08-09 — stay on
+   MLP + frame-stack; next architecture rung (post-0-c) is a
+   DreamWaQ-style concurrent estimator + asymmetric critic; NO
+   transformer/CPG unless the triggers in
+   `archive/ARCHITECTURE_REVIEW_2026-08-09.md` fire. Do not
+   propose model-architecture arms outside that ladder.
 3. Stance-line note: the stance flag leg and the walk tripod park are
    the SAME defect (unpriced airborne legs); fixes should be designed
    once and routed per mode, not invented twice.
