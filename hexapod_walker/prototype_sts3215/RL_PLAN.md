@@ -87,7 +87,7 @@ the archive review's triggers fire.
 
 ## Queue
 
-1. **In flight:** `cw-walk-longdist` (OPERATOR arm, 30 s narrow
+1. **In flight:** `cw-walk-longdist-r2` (OPERATOR arm, 30 s narrow
    band); rulings-(5)/(6) arms `cw-walk-fwdband` (forward-only
    scope) and `cw-walk-loadslip` (episode-accumulated loaded-slip/m
    income gate, cadence-proof — the definitive reward-side test:

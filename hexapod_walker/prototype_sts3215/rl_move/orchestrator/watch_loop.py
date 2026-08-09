@@ -351,9 +351,14 @@ def prestage_finished(run: str) -> None:
             tail = ((r.stdout or "") + (r.stderr or "")).strip().splitlines()
             log(f"prestage {run}: pullckpt rc={r.returncode} "
                 f"{tail[-1] if tail else ''}")
-            r = sh(f'eval "$(bash {ops} evalcmd {run})"', timeout=120)
-            log(f"prestage {run}: gate eval started rc={r.returncode} "
-                f"(log /tmp/eval_{run}.log)")
+            if r.returncode != 0:
+                # No checkpoint (e.g. run died at init, 0 steps): a gate
+                # eval can only FileNotFoundError (c37, cw-walk-longdist).
+                log(f"prestage {run}: pullckpt failed; skipping gate eval")
+            else:
+                r = sh(f'eval "$(bash {ops} evalcmd {run})"', timeout=120)
+                log(f"prestage {run}: gate eval started rc={r.returncode} "
+                    f"(log /tmp/eval_{run}.log)")
             r = sh(f"bash {ops} wandbdump {run}")
             log(f"prestage {run}: wandbdump rc={r.returncode}")
         except Exception as exc:

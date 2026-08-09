@@ -108,12 +108,16 @@ def pod_trainers(pod: str) -> list[str]:
     Matches main trainers of BOTH stacks (`train_ppo_sim` on CPU pods,
     `train_ppo_mjx` on GPU pods); the forkserver/spawn workers have -c
     or empty cmdlines and are excluded, as is this scan's own bash
-    wrapper.
+    wrapper. Anchored on the literal `-m rl_move.sim.train_ppo_`
+    module invocation (2026-08-09 c37: the loose `*train_ppo_*` glob
+    matched cycle-agent processes whose cmdline embeds the standing
+    prompt — 371 phantom trainers on the controller node would have
+    refused every smoke launch there).
     """
     script = (
         "for p in /proc/[0-9]*; do c=$(tr '\\0' ' ' < $p/cmdline "
-        "2>/dev/null); case \"$c\" in python*train_ppo_*|"
-        "*/python*train_ppo_*) case \"$c\" in *' -c '*) ;; *) "
+        "2>/dev/null); case \"$c\" in python*' -m rl_move.sim.train_ppo_'*|"
+        "*/python*' -m rl_move.sim.train_ppo_'*) case \"$c\" in *' -c '*) ;; *) "
         "echo \"$c\";; esac;; esac; done | sort -u"
     )
     names = []
