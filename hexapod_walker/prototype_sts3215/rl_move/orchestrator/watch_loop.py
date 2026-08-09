@@ -356,9 +356,22 @@ def prestage_finished(run: str) -> None:
                 # eval can only FileNotFoundError (c37, cw-walk-longdist).
                 log(f"prestage {run}: pullckpt failed; skipping gate eval")
             else:
-                r = sh(f'eval "$(bash {ops} evalcmd {run})"', timeout=120)
-                log(f"prestage {run}: gate eval started rc={r.returncode} "
-                    f"(log /tmp/eval_{run}.log)")
+                # Concurrency gate (08-09 incident): a finish burst once
+                # piled 21 concurrent gate evals on the controller and
+                # starved the co-located trainers on g142d86 (5x slow).
+                # Beyond 6, let the triage cycle start its own eval.
+                n = sh("python3 -c \"import glob,os;print(sum("
+                       "1 for d in glob.glob('/proc/[0-9]*') "
+                       "if os.path.exists(d+'/cmdline') "
+                       "and b'eval_'+b'checkpoint' in "
+                       "open(d+'/cmdline','rb').read()))\"").stdout.strip()
+                if n.isdigit() and int(n) >= 6:
+                    log(f"prestage {run}: {n} evals already running — "
+                        "skipping gate eval (cycle runs it via evalcmd)")
+                else:
+                    r = sh(f'eval "$(bash {ops} evalcmd {run})"', timeout=120)
+                    log(f"prestage {run}: gate eval started rc={r.returncode} "
+                        f"(log /tmp/eval_{run}.log)")
             r = sh(f"bash {ops} wandbdump {run}")
             log(f"prestage {run}: wandbdump rc={r.returncode}")
         except Exception as exc:
