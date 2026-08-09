@@ -328,6 +328,29 @@ def try_auto_continue(run: str) -> str | None:
         return None
 
 
+def mark_triage(run: str, value: str, only_if_unset: bool = False) -> None:
+    """Stamp the analysis-pipeline state onto the run's ledger entry.
+
+    Operator question (08-09): "shouldn't the agent have a real sense of
+    what finished but isn't analyzed yet?" — this field IS that sense:
+    `awaiting …` (finish seen, no cycle yet) -> `in-cycle <label> …`
+    -> `done` (set by launch_run.py update when the verdict lands).
+    Goes through `launch_run.py update` for the ledger lock. Best-effort:
+    triage bookkeeping must never take down the watcher loop.
+    """
+    try:
+        if only_if_unset:
+            for e in json.loads(LEDGER.read_text()):
+                if e.get("run") == run and e.get("triage"):
+                    return
+        subprocess.run(
+            [sys.executable, str(HERE / "launch_run.py"), "update",
+             "--run", run, "--set", f"triage={value}"],
+            capture_output=True, text=True, timeout=120, cwd=REPO)
+    except Exception as exc:
+        log(f"mark_triage({run}) failed: {exc!r}")
+
+
 def prestage_finished(run: str) -> None:
     """Mechanically prep a finished run BEFORE its verdict cycle spawns.
 
@@ -556,6 +579,11 @@ def main() -> None:
             for c in active:
                 in_flight |= c["runs"]
             newly = finished - processed - ledger_verdicted() - in_flight
+            for r in newly:
+                mark_triage(
+                    r, f"awaiting since "
+                       f"{datetime.datetime.now().isoformat(timespec='seconds')}",
+                    only_if_unset=True)
             try:
                 findings = FINDINGS.read_text().strip() if FINDINGS.exists() else ""
             except OSError:
@@ -633,9 +661,14 @@ def main() -> None:
                     if cont:
                         auto_started[r] = cont
                     prestage_finished(r)
-                active.append(spawn_cycle(batch, running,
-                                          findings if i == 0 else "",
-                                          in_flight, auto_started))
+                handle = spawn_cycle(batch, running,
+                                     findings if i == 0 else "",
+                                     in_flight, auto_started)
+                active.append(handle)
+                for r in sorted(batch):
+                    mark_triage(
+                        r, f"in-cycle {handle['label'][:60]} since "
+                           f"{datetime.datetime.now().isoformat(timespec='seconds')}")
                 in_flight |= batch
             deferred = queue[3 * min(len(batches), slots):]
             if deferred:

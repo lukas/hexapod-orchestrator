@@ -334,6 +334,21 @@ def render() -> str:
                  f"<div class='l'>est. spend total</div></div>")
     h.append("</div>")
 
+    pipeline = [e for e in f.get("ledger", [])
+                if e.get("triage") and e["triage"] != "done"]
+    h.append("<h2>Analysis pipeline (finished, verdict not in yet)</h2>")
+    if pipeline:
+        h.append("<table><tr><th>run</th><th>state</th></tr>")
+        for e in pipeline:
+            t = e["triage"]
+            cls = "warn" if t.startswith("awaiting") else "ok"
+            h.append(f"<tr class='mono'><td>{esc(e.get('run'))}</td>"
+                     f"<td class='{cls}'>{esc(t)}</td></tr>")
+        h.append("</table>")
+    else:
+        h.append("<div class='dim'>empty — every finished run has a "
+                 "verdict</div>")
+
     h.append("<h2>What it's thinking about (in-flight decision cycles)</h2>")
     if f.get("cycles"):
         h.append("<table><tr><th>pid</th><th>age</th><th>triaging</th></tr>")

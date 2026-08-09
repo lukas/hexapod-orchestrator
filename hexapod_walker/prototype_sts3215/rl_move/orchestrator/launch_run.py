@@ -1025,6 +1025,9 @@ def cmd_update(a: argparse.Namespace) -> int:
                 entry[key] = json.loads(val)
             except (json.JSONDecodeError, ValueError):
                 entry[key] = val
+        if entry.get("verdict"):
+            # a verdict closes the analysis pipeline for this run
+            entry["triage"] = "done"
         save_ledger(led)
     render_run_md(entry)
     keys = [kv.partition("=")[0] for kv in a.set or []]
