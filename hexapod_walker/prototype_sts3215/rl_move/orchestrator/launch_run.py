@@ -789,7 +789,12 @@ def _free_gpu_pods(g: dict) -> list[str]:
     free = []
     for pod in g["compute"]["gpu_pods"]:
         try:
-            if not pod_trainers(pod):
+            # A pod without the .bootstrapped marker is schedulable but
+            # not training-ready (deps mid-install); it is NOT a slot
+            # yet — bootstrap_train_pod.sh writes the marker last.
+            ready = kexec(pod, "test -f /workspace/prototype_sts3215/"
+                               ".bootstrapped && echo OK || true").strip()
+            if ready == "OK" and not pod_trainers(pod):
                 free.append(pod)
         except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
             continue  # Pending/unreachable pod: not a free slot right now

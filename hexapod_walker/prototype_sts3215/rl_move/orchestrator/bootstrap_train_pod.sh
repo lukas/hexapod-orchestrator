@@ -33,9 +33,13 @@ for POD in "$@"; do
   bash "$HERE/snapshot.sh" --sync "$POD"
   bash "$HERE/ops.sh" pushckpt "$POD" rl_move/sim/policies/ppo_goal_cw_walk_anchorgate.zip || true
   # Smoke: import chain + GPU visible.
+  # The .bootstrapped marker gates the backlog drain: launch_run.py
+  # treats an idle pod WITHOUT it as not-a-slot, so a freshly scheduled
+  # pod can't receive launches while pip is still installing.
   kubectl --kubeconfig "$KC" exec "$POD" -- bash -c '
     cd /workspace/prototype_sts3215 && \
     python -c "import mujoco, warp, jax, stable_baselines3, wandb; \
-import mujoco.mjx; print(\"imports OK\", jax.devices())"' \
+import mujoco.mjx; print(\"imports OK\", jax.devices())" && \
+    touch /workspace/prototype_sts3215/.bootstrapped' \
     && echo "$POD READY" || echo "$POD smoke FAILED"
 done
