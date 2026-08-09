@@ -591,21 +591,42 @@ def main() -> None:
                 failed_cycles = 0
                 continue
 
-            cycle_times.append(now)
             if findings:
                 # Delivered once; the full text also lives in orchestrator.log.
                 FINDINGS.write_text("")
-            # Keep pods busy first, deliberate second: fire mechanical
-            # continuations for improving lineage runs before the cycle
-            # even starts (directive 0-a).
-            auto_started = {}
-            for r in sorted(newly):
-                cont = try_auto_continue(r)
-                if cont:
-                    auto_started[r] = cont
-                prestage_finished(r)
-            active.append(spawn_cycle(newly, running, findings, in_flight,
-                                      auto_started))
+            # Fan a finish burst out across ALL free cycle slots (operator,
+            # 08-09): after downtime or simultaneous finishes, one cycle per
+            # ~3 runs instead of a single agent serially triaging a 10-run
+            # batch while other slots idle. Leftover runs stay unprocessed
+            # and unclaimed, so the next poll spawns further cycles for
+            # them. Auto-continue/prestage fire only for runs actually
+            # assigned to a cycle this iteration (idempotence not assumed).
+            queue = sorted(newly)
+            batches = ([set(queue[i:i + 3])
+                        for i in range(0, len(queue), 3)]
+                       or [set()])  # findings / idle kick: one cycle
+            slots = MAX_CONCURRENT_CYCLES - len(active)
+            for i, batch in enumerate(batches[:slots]):
+                if len(cycle_times) >= MAX_CYCLES_PER_DAY:
+                    log("daily cycle cap reached mid-fan-out; deferring rest")
+                    break
+                cycle_times.append(now)
+                # Keep pods busy first, deliberate second: fire mechanical
+                # continuations for improving lineage runs before the cycle
+                # even starts (directive 0-a).
+                auto_started = {}
+                for r in sorted(batch):
+                    cont = try_auto_continue(r)
+                    if cont:
+                        auto_started[r] = cont
+                    prestage_finished(r)
+                active.append(spawn_cycle(batch, running,
+                                          findings if i == 0 else "",
+                                          in_flight, auto_started))
+                in_flight |= batch
+            deferred = queue[3 * min(len(batches), slots):]
+            if deferred:
+                log(f"fan-out deferred (next poll): {', '.join(deferred)}")
             time.sleep(POLL_S)
         except KeyboardInterrupt:
             raise
