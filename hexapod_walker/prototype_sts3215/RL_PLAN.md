@@ -37,8 +37,11 @@ levers refuted — stop iterating penalty coefficients.**
   (cycle 24): kgate's progress-gated kernel cut park income
   ~1250→274/ep and the park persisted at the same 1/6 rate, same
   seed index, 4th consecutive segment.** It is a state-visitation
-  defect (park states rare at reset, entered under momentum);
-  reset-side fix (parked starts) in flight. Same defect class as
+  defect — and the reset-side fix WORKS (cycle 25, parkstart-mjx):
+  park starts converted the 4-segment det churn, taught park-exit
+  (0→10/12), fixed retention slip, weakened the sto park to a 1/6
+  partial stall; gate missed by that one ep on 1/5 update parity;
+  c1 continuation is the discriminator. Same defect class as
   the stance flag leg — fix designed once, routed per mode.
 - **Raise: DEMOTED TO CANARY (08-08).** Stuck 2–5/6 everywhere;
   raisemix refuted; failures = near-miss under-lift on ~4 legs. No
@@ -186,31 +189,28 @@ hold → lower → rise → walk. Every session logs sim↔real divergence
 
 ## Queue (in flight → next)
 
-In flight (cycle 24): `cw-walk-parkstart` (25% tripod-park starts
-off kgate ckpt md5 b703f7b0 — preferred walk warm-start, lowest
-std 1.342, carries 0-c.2 income routing; gate adds a park-exit
-eval at frac=1.0) and `cw-stance-bellyrest` (35% of lower episodes
-start planted at the belly, off endpost-c1 ckpt). **Cycle 24: both
-if-false branches fired; pricing is closed on BOTH lines** (kgate:
-park income cut ~1000/ep, park unchanged; endpost-c1: charge
-plateaued by leg0↔leg4 redistribution). **Cycle 23:**
+In flight (cycle 25): `cw-walk-parkstart-mjx-c1` (consolidate-in-
+place of parkstart-mjx at update parity, 20M GPU steps ≈ 305
+updates; no new variables) and `cw-stance-bellyrest` (35% of lower
+episodes start planted at the belly, off endpost-c1 ckpt). **WALK
+CHAMPION: `ppo_goal_cw_walk_parkstart_mjx.zip` md5 01d9ab60
+(cycle 25; named regression vs h15b: 5 s slow start).** **Cycle
+24: both if-false branches fired; pricing is closed on BOTH
+lines** (kgate: park income cut ~1000/ep, park unchanged;
+endpost-c1: charge plateaued by leg0↔leg4 redistribution).
+**Cycle 23:**
 `cw-walk-h15b-dr03` PASSED the DR0.3 gate (first walk PASS at DR>0)
 but baseline probes proved the rung VACUOUS — see State; DR-ladder
 training arms CLOSED, skating owns the DR1.0 slip clause.
 **Cycle 22:** `cw-walk-step0-hist8` REFUTED the temporal-actor rung
-at DR 0 (gate PASS, cadence unchanged; lineage closed). **Cycle
-20:** `cw-walk-lowent-dr03` INVALID (stale pod code); infra:
-launcher REFUSES launch unless the pod's `.code_sha` marker
-(`snapshot.sh --sync`) equals local HEAD.
-**Cycle 19/21: h15b then h15b-c1 both FAILED the 15 s gate on the
-same two eps** (sto park, det duty-skew churn); champion stays
-`ppo_goal_cw_walk_lowent_h15b.zip` md5 d0a12a94. Cycle 21 proved
-the park exploration-independent (persists below std 1.5, 3
-segments); cycle 24 proved it pricing-independent (kgate). Walk
-defects now: park basin (reset-side arm in flight), skating
-(retention metric is slip/m — raw slip is crawl-gameable), det
-tracking partial (overspeed uncharged). Identical-config
-segments CLOSED (19c: deltas inside noise).
+at DR 0 (gate PASS, cadence unchanged; lineage closed).
+**Cycles 19/21: h15b, h15b-c1 FAILED the 15 s gate on the same two
+eps** (sto park, det churn — both moved cycle 25); park is
+exploration-independent (21) and pricing-independent (24). Walk
+defects now: residual partial park (c1 arm in flight), skating
+(slip/m ~1.2–1.5, the DR 1.0 blocker; raw slip is crawl-gameable),
+5 s slow start (annealed lineage, champion regression vs h15b).
+Identical-config segments CLOSED (19c: deltas inside noise).
 
 0-a. **step0 lineage (compressed; details RL_LOG cycles 14–18).**
    step0 = first genuine six-leg gait (champion superseded by lowent
