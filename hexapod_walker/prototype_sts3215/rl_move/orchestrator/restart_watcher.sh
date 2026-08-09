@@ -21,8 +21,21 @@ log() { echo "[$(date -u +%FT%TZ)] $*"; }
 touch "$ORCH/PAUSE"
 log "PAUSE set; waiting for in-flight cycle to end"
 
+# PAUSE stops cycle SPAWNS only — mechanical throughput must continue.
+# The 19:00 incident (08-09): this wait ran 25+ min behind 4 long
+# cycles while finished runs freed 5 slots and a queued spec sat in
+# the backlog; the operator found a third of the fleet idle. Drain
+# every loop iteration (cheap no-op when backlog is empty).
+i=0
 while ps aux | grep "claude -p --bare" | grep -v grep >/dev/null; do
   sleep 60
+  i=$((i + 1))
+  if [ $((i % 2)) -eq 0 ]; then
+    (set -a; source "$ORCH/../sim/wandb.env" 2>/dev/null;
+     source /root/orchestrator.env 2>/dev/null; set +a
+     cd "$ORCH/../.." && python3 rl_move/orchestrator/launch_run.py drain \
+       >> /tmp/pause_drain.log 2>&1) || true
+  fi
 done
 log "cycle ended"
 
