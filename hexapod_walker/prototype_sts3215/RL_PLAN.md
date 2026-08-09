@@ -95,9 +95,11 @@ the archive review's triggers fire.
    = sim contact/current pricing, operator calibration class),
    pending only the loadslip-s1 seed concordance.
 2. **0-c objective arms, in order, one variable each:**
-   (i) STABILITY: price |roll|+|pitch| beyond allowance + terminal
-   fall charge; fold overspeed pricing in if it's the root cause.
-   Gate: 12/12 det+sto zero terminations, gait_valid.
+   (i) STABILITY: CLOSED as a reward lever — terminal fall charge
+   refuted (dr05-fall300, falls too rare for gradient) and tilt
+   pricing NO-EFFECT on the champion line (longdist-tilt05 vs
+   partner, all deltas inside noise). Stability rides on DR
+   training (longdist-dr10 in flight).
    (ii) DISTANCE: LANDED (longdist 30s narrow-band → champion,
    cycle 44). (iii) RELIABILITY: 12/12 per DR rung + low variance —
    open front: draw-specific sto stalls (both seeds, DR1.0 3/6).
