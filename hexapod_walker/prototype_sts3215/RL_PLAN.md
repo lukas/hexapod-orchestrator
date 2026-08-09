@@ -87,15 +87,15 @@ the archive review's triggers fire.
 
 ## Queue
 
-1. **In flight (c35):** `cw-walk-stepdisp12` verdict (own cycle);
-   `cw-walk-longdist` (OPERATOR arm, 30 s narrow band; retried c35
-   after DEAD missing-ckpt init); rulings-(5)/(6) arms
-   `cw-walk-fwdband` (forward-only scope, walk_heading_max_rad=0)
-   and `cw-walk-loadslip` (episode-accumulated loaded-slip/m income
-   gate, cadence-proof — the definitive reward-side test: paying a
-   ~70–90% stake while still sliding CLOSES the reward side; slip
-   becomes purely sim contact pricing). Next: `cw-steer-fdiag`
-   (π/4 scope A/B vs fwdband; deferred c35, 4-launch cap).
+1. **In flight:** `cw-walk-longdist` (OPERATOR arm, 30 s narrow
+   band); rulings-(5)/(6) arms `cw-walk-fwdband` (forward-only
+   scope) and `cw-walk-loadslip` (episode-accumulated loaded-slip/m
+   income gate, cadence-proof — the definitive reward-side test:
+   still sliding while paying a ~70–90% stake CLOSES the reward
+   side); `cw-steer-fdiag` (c36, π/4 scope A/B vs fwdband; champ
+   baseline breaks on a diag sto draw). `stepdisp12` verdict LANDED
+   (c36): FAIL/refuted — cadence inflated past control with step
+   credit denied; walk income side is CLOSED.
 2. **0-c objective arms, in order, one variable each:**
    (i) STABILITY: price |roll|+|pitch| beyond allowance + terminal
    fall charge; fold overspeed pricing in if it's the root cause.
