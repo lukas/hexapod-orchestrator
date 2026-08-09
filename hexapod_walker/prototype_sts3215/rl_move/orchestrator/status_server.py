@@ -140,6 +140,18 @@ def backlog_state() -> dict:
     return {"queued": load("backlog.json"), "failed": load("backlog_failed.json")}
 
 
+# claude-fable-5 list rates, $/MTok (Anthropic pricing page, checked
+# 2026-08-09): input 10, output 50, cache read 1, cache write 12.50
+# (5-min TTL) / 20 (1-h TTL). Global inference (no US-only 1.1x).
+RATES = {"in": 10.0, "out": 50.0, "cr": 1.0, "cw5": 12.5, "cw1h": 20.0}
+
+
+def est_cost(s: dict) -> float:
+    return (s["in"] * RATES["in"] + s["out"] * RATES["out"]
+            + s["cr"] * RATES["cr"] + s.get("cw5", 0) * RATES["cw5"]
+            + s.get("cw1h", 0) * RATES["cw1h"]) / 1e6
+
+
 def token_totals() -> dict:
     """Sum usage across all Claude transcripts, cached per finished file."""
     days: dict[str, dict] = {}
@@ -166,25 +178,33 @@ def token_totals() -> dict:
                         if not u:
                             continue
                         day = (d.get("timestamp") or "")[:10] or "unknown"
-                        s = sums.setdefault(day, {"in": 0, "out": 0,
-                                                  "cw": 0, "cr": 0})
+                        s = sums.setdefault(day, {"in": 0, "out": 0, "cw": 0,
+                                                  "cr": 0, "cw5": 0, "cw1h": 0})
                         s["in"] += u.get("input_tokens", 0)
                         s["out"] += u.get("output_tokens", 0)
-                        s["cw"] += u.get("cache_creation_input_tokens", 0)
+                        cw = u.get("cache_creation_input_tokens", 0)
+                        s["cw"] += cw
                         s["cr"] += u.get("cache_read_input_tokens", 0)
+                        det = u.get("cache_creation") or {}
+                        h1 = det.get("ephemeral_1h_input_tokens", 0)
+                        # no TTL breakdown -> price it all as 5-min writes
+                        s["cw1h"] += h1
+                        s["cw5"] += det.get("ephemeral_5m_input_tokens",
+                                            cw - h1)
             except OSError:
                 continue
             _token_cache[path] = (st.st_mtime, st.st_size, sums)
         for day, s in sums.items():
-            t = days.setdefault(day, {"in": 0, "out": 0, "cw": 0, "cr": 0})
+            t = days.setdefault(day, dict.fromkeys(
+                ("in", "out", "cw", "cr", "cw5", "cw1h"), 0))
             for k in t:
-                t[k] += s[k]
-    total = {"in": 0, "out": 0, "cw": 0, "cr": 0}
+                t[k] += s.get(k, 0)
+    total = dict.fromkeys(("in", "out", "cw", "cr", "cw5", "cw1h"), 0)
     for s in days.values():
         for k in total:
             total[k] += s[k]
     today = days.get(datetime.date.today().isoformat(),
-                     {"in": 0, "out": 0, "cw": 0, "cr": 0})
+                     dict.fromkeys(("in", "out", "cw", "cr", "cw5", "cw1h"), 0))
     return {"total": total, "today": today, "n_days": len(days)}
 
 
@@ -307,8 +327,11 @@ def render() -> str:
                  f"<div class='l'>{l}</div></div>")
     if tok:
         h.append(f"<div class='card'><div class='n'>"
-                 f"{fmt_tok(tok['today']['out'])}</div>"
-                 f"<div class='l'>output tokens today</div></div>")
+                 f"${est_cost(tok['today']):,.0f}</div>"
+                 f"<div class='l'>est. spend today</div></div>")
+        h.append(f"<div class='card'><div class='n'>"
+                 f"${est_cost(tok['total']):,.0f}</div>"
+                 f"<div class='l'>est. spend total</div></div>")
     h.append("</div>")
 
     h.append("<h2>What it's thinking about (in-flight decision cycles)</h2>")
@@ -365,16 +388,21 @@ def render() -> str:
 
     if tok:
         t, td = tok["total"], tok["today"]
-        h.append("<h2>Claude token usage (all decision cycles)</h2>"
-                 "<table><tr><th></th><th>output</th><th>input</th>"
-                 "<th>cache write</th><th>cache read</th></tr>"
+        h.append("<h2>Claude token usage + est. spend (all decision cycles)"
+                 "</h2><table><tr><th></th><th>output</th><th>input</th>"
+                 "<th>cache write</th><th>cache read</th>"
+                 "<th>est. cost</th></tr>"
                  f"<tr><td>today</td><td>{fmt_tok(td['out'])}</td>"
                  f"<td>{fmt_tok(td['in'])}</td><td>{fmt_tok(td['cw'])}</td>"
-                 f"<td>{fmt_tok(td['cr'])}</td></tr>"
+                 f"<td>{fmt_tok(td['cr'])}</td>"
+                 f"<td>${est_cost(td):,.2f}</td></tr>"
                  f"<tr><td>total ({tok['n_days']} days)</td>"
                  f"<td>{fmt_tok(t['out'])}</td><td>{fmt_tok(t['in'])}</td>"
-                 f"<td>{fmt_tok(t['cw'])}</td><td>{fmt_tok(t['cr'])}</td></tr>"
-                 "</table>")
+                 f"<td>{fmt_tok(t['cw'])}</td><td>{fmt_tok(t['cr'])}</td>"
+                 f"<td>${est_cost(t):,.2f}</td></tr></table>"
+                 "<div class='dim'>list rates for claude-fable-5: $10/M in, "
+                 "$50/M out, $1/M cache read, $12.50/M / $20/M cache write "
+                 "(5-min / 1-h TTL), checked 2026-08-09</div>")
 
     h.append("<h2>Runs (latest ledger entry per run)</h2>"
              "<table><tr><th>run</th><th>status</th><th>pod</th>"
