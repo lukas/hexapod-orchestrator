@@ -185,44 +185,38 @@ hold → lower → rise → walk. Every session logs sim↔real divergence
 ## Queue (in flight → next)
 
 In flight: `cw-walk-step0-c2` (operator-launched ~00:55Z, item 0-a,
-`--no-canary` — see below). `cw-walk-step0` finished 4M rew 586;
-c1 improved (survived 6/10→10/10, rew 591) before a FALSE-POSITIVE
-canary auto-stop at 1.26M — c1 verdict cycle in flight.
-`cw-stance-endpost-r1` finished; its verdict cycle is in flight
-(first attempt lost to a missing parent ckpt on the new s5 pod).
-posture2 FAILED cycle 14 (std runaway; exploration refuted). hist8
-INCONCLUSIVE; history rejoins on the step0 baseline.
+`--no-canary`, identical-config lineage — operator's call; cycle 15
+recorded plateau evidence against it). `cw-walk-step0-lowent` (4M,
+s6, one variable vs c1: ent 0.01→0.001 consolidation on the same
+parent; the c2/lowent pair is a clean A/B on the entropy
+hypothesis). `cw-stance-endpost-r1` finished; its verdict cycle is
+in flight. posture2 FAILED cycle 14 (std runaway); hist8
+INCONCLUSIVE; history rejoins on a consolidated step0 baseline
+(obs change ⇒ from-scratch arm).
 
-0-a. **OPERATOR-DIRECTED (binding, 08-09 ~00:30Z): step0 is
-   CONTINUE-WHILE-IMPROVING — relaunch FIRST, analyze SECOND.**
-   Operator watched cw-walk-step0 live: rewards rising, video looks
-   reasonable. Directive: do NOT spend a full deliberation cycle
-   deciding whether to continue an obviously-improving run. The cycle
-   that picks up cw-walk-step0 must, as its FIRST action (before
-   harness evals, before video review, before writing anything):
-   relaunch the continuation `cw-walk-step0-c1` — identical config,
-   `--init-from` the final `ppo_goal_cw_walk_step0.zip`, new
-   `--out-name ppo_goal_cw_walk_step0_c1`, +4M steps, same pod if
-   free. THEN run the normal verdict on the finished segment in
-   parallel while the continuation trains. If the verdict finds real
-   pathology (park, drag, exploit), kill the continuation and say so;
-   bounded waste is ~20 min of one pod, which is cheaper than 20 min
-   of guaranteed idle. Repeat per segment (c2, c3, …) as long as the
-   trend improves: continue while `rollout/ep_rew_mean` and
-   step/gait metrics still rise segment-over-segment; stop the
-   lineage on plateau (last quarter no better than the prior
-   quarter) or gate pass. Tweaks are allowed but as SEPARATE
-   one-variable arms next to the continuation, never folded into it.
-   **Canary note (08-09 ~00:55Z): step0-lineage continuations run
-   `--no-canary`.** c1 was auto-stopped at 1.26M by a false positive:
-   warm starts arm canaries from a parent-baseline probe, and the
-   walk-only parent accidentally "passed" rise_flat at baseline, so
-   the canary protected a skill this lineage never trained and killed
-   the run when it (meaninglessly) failed 3 probes. There is nothing
-   legitimate to protect in a single-skill from-scratch lineage — the
-   walk gate harness is the real check. Canaries stay ON for every
-   multi-skill / warm-started-from-multi-skill run; this exemption is
-   lineage-specific, not a precedent.
+0-a. **step0 lineage status (cycle 15 verdicts + operator canary
+   note).** step0 = first genuine six-leg gait of the campaign
+   (gait_valid 12/12, 0.25–0.53 m forward, det AND sto, zero falls)
+   — walk-line champion ppo_goal_cw_walk_step0.zip md5 ea1685a4 —
+   but its gate FAILED on the drag clause (stance feet skate at
+   ~half body speed, slip 0.7–1.0 m/ep) and speed commands are
+   ignored (always ~0.06 m/s). c1 (canary-truncated at 1.26M by the
+   rise_flat FALSE POSITIVE) showed every parent-delta inside eval
+   noise while train/std ran away 1.0→2.30→3.21: cycle 15 read the
+   directive's plateau stop-rule as met; the operator continued the
+   identical-config arm anyway as c2 (their prerogative — it and
+   lowent now form the A/B). Remaining defects in escalation order:
+   (i) consolidation (lowent, in flight); (ii) skating price vs
+   step-event income (pricing, only after lowent's diagnosis branch
+   is read); (iii) overspeed — r_prog caps at 1.25x but nothing
+   charges above-command speed and step credit scales with stride.
+   **Canary note (operator, 08-09 ~00:55Z): step0-lineage
+   continuations run `--no-canary`.** c1's auto-stop was a false
+   positive: warm starts arm canaries from a parent-baseline probe,
+   the walk-only parent accidentally "passed" rise_flat at baseline,
+   and the canary then protected a skill this lineage never trained.
+   Canaries stay ON for every multi-skill / warm-started-from-
+   multi-skill run; this exemption is lineage-specific.
 
 0. **OPERATOR-DIRECTED (binding, 08-08 ~23:00Z): the embarrassingly
    narrow walk (suggested name `cw-walk-step0`).** Dedicate one
@@ -246,10 +240,11 @@ INCONCLUSIVE; history rejoins on the step0 baseline.
    one-variable comparisons. Speed targets, DR, and multi-task merge
    come only AFTER this gate passes.
 
-1. Walk rung after step0's verdict: if step0 parks/shuffles, add
-   history-8 on the step0 reward as the one-variable capability arm;
-   rung 2 stays TIME-AVERAGED per-leg load pricing. Stance: if
-   endpost fails, belly-rest reference states (reset-side).
+1. Walk rungs after lowent's verdict: branch (a/c) ⇒ attack skating/
+   overspeed per 0-a escalation; branch (b: gait was noise-dither) ⇒
+   back to walk escalation order. history-8 arm only on a
+   consolidated baseline. Stance: if endpost fails, belly-rest
+   reference states (reset-side).
 2. Mirror-symmetry augmentation (audit MED, due) after (1).
    Contact-from-proprioception aux head after. Dense
    step-decomposition and model-size sweep stay last.
