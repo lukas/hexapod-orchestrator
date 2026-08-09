@@ -184,11 +184,34 @@ hold → lower → rise → walk. Every session logs sim↔real divergence
 
 ## Queue (in flight → next)
 
-In flight: `cw-walk-step0` (4M, item 0) and `cw-stance-endpost` (4M,
-terminal-posture pricing, one variable vs cw-stance-posture).
-posture2 verdicted FAIL cycle 14 (std runaway; exploration refuted).
-`cw-walk-hist8` capability INCONCLUSIVE (auto-stop 1.24M); history
-rejoins as a one-variable arm on the step0 baseline.
+In flight: `cw-walk-step0` finished 4M (rew 586 and climbing) —
+operator says promising: continuation is relaunch-FIRST per item 0-a.
+`cw-stance-endpost` in flight (4M, terminal-posture pricing, one
+variable vs cw-stance-posture). posture2 verdicted FAIL cycle 14 (std
+runaway; exploration refuted). `cw-walk-hist8` capability
+INCONCLUSIVE (auto-stop 1.24M); history rejoins as a one-variable arm
+on the step0 baseline.
+
+0-a. **OPERATOR-DIRECTED (binding, 08-09 ~00:30Z): step0 is
+   CONTINUE-WHILE-IMPROVING — relaunch FIRST, analyze SECOND.**
+   Operator watched cw-walk-step0 live: rewards rising, video looks
+   reasonable. Directive: do NOT spend a full deliberation cycle
+   deciding whether to continue an obviously-improving run. The cycle
+   that picks up cw-walk-step0 must, as its FIRST action (before
+   harness evals, before video review, before writing anything):
+   relaunch the continuation `cw-walk-step0-c1` — identical config,
+   `--init-from` the final `ppo_goal_cw_walk_step0.zip`, new
+   `--out-name ppo_goal_cw_walk_step0_c1`, +4M steps, same pod if
+   free. THEN run the normal verdict on the finished segment in
+   parallel while the continuation trains. If the verdict finds real
+   pathology (park, drag, exploit), kill the continuation and say so;
+   bounded waste is ~20 min of one pod, which is cheaper than 20 min
+   of guaranteed idle. Repeat per segment (c2, c3, …) as long as the
+   trend improves: continue while `rollout/ep_rew_mean` and
+   step/gait metrics still rise segment-over-segment; stop the
+   lineage on plateau (last quarter no better than the prior
+   quarter) or gate pass. Tweaks are allowed but as SEPARATE
+   one-variable arms next to the continuation, never folded into it.
 
 0. **OPERATOR-DIRECTED (binding, 08-08 ~23:00Z): the embarrassingly
    narrow walk (suggested name `cw-walk-step0`).** Dedicate one
