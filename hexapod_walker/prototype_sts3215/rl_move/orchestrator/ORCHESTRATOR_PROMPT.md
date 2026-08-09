@@ -58,6 +58,9 @@ new line or digging into a failure, not on every cycle.
      jargon, no metric dump — the graphs are right there on the page.
    - RL_LOG.md gets 1 line per CYCLE (not per run): date, runs
      verdicted, direction chosen. Detail lives in rl_docs/runs/.
+   - A PASS also updates `rl_docs/SKILLS.md` (one row: skill,
+     checkpoint, evidence, envelope/limits) in the same cycle — the
+     operator reads that file as "what can the robot do today".
    - A verdict belongs ONLY to a run you evaluated. When a verdict
      stops a CLASS of arms, name the evaluated run as the evidence
      and write affected unevaluated runs as "no verdict yet, class
