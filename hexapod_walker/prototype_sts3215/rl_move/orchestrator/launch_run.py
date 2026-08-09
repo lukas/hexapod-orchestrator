@@ -457,6 +457,24 @@ def _launch_locked(g: dict, a: argparse.Namespace, extra: list[str]) -> int:
                              f"--sync {a.pod} (and snapshot/commit before "
                              "that if the tree is dirty).")
 
+    # --- init-from checkpoint preflight (2026-08-09) -------------------------
+    # snapshot.sh --sync deliberately EXCLUDES rl_move/sim/policies, so a
+    # warm-start checkpoint only exists on pods that already trained the
+    # lineage. cw-walk-longdist crashed at startup on a fresh pod because
+    # nothing checked this. Refuse early with the fix spelled out.
+    if "--init-from" in extra:
+        ckpt = extra[extra.index("--init-from") + 1]
+        pod_ckpt = f"/workspace/prototype_sts3215/{ckpt}"
+        try:
+            found = kexec(a.pod, f"test -f '{pod_ckpt}' && echo OK || true").strip()
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
+            return refuse(entry, f"{a.pod} unreachable checking init-from: {e}")
+        checks["init_from_on_pod"] = found == "OK"
+        if found != "OK":
+            return refuse(entry, f"init-from checkpoint missing on {a.pod}: "
+                                 f"{pod_ckpt}. Push it first: "
+                                 f"ops.sh pushckpt {a.pod} {ckpt}")
+
     # --- build command ------------------------------------------------------
     log = f"/tmp/train_{a.run}.log"
     if is_gpu:
