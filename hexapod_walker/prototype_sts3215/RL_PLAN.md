@@ -1,12 +1,21 @@
 # RL Plan — raw-joint policies to hardware candidates
 
-Rev 2026-08-09c (condensed). Full previous plan with all evidence
+**In plain English:** we're training a walking controller for a real
+six-legged robot, in simulation, with an autonomous experiment loop.
+The sim robot already walks with all six legs; its feet SLIDE along
+the ground while stepping, and that sliding (plus two pending
+operator pricing decisions) is what stands between us and putting a
+policy on the physical robot. Mission and current status in plain
+terms: `rl_docs/GOAL.md`. How to run things: `rl_docs/COMMANDS.md`.
+
+Rev 2026-08-09d (condensed). Full previous plan with all evidence
 inline: `archive/RL_PLAN_FULL_2026-08-09.md`. Campaign history:
 `RL_LOG.md` (condensed) → `archive/RL_LOG_FULL_2026-08-09.md`.
 Binding reviews: `archive/EXTERNAL_REVIEW_2026-08-08.md` (priority
 sequence), `archive/BEST_PRACTICES_AUDIT_2026-08-08.md` (PPO
 settings), `archive/ARCHITECTURE_REVIEW_2026-08-09.md` (model
-ladder). **EDIT RULE: keep this file under ~120 lines — net-zero
+ladder), `archive/OPERATOR_RULINGS_2026-08-09.md` (design rulings).
+**EDIT RULE: keep this file under ~120 lines — net-zero
 edits; move superseded detail to archive, don't accumulate it.**
 
 Big goal: fluid real-world motion on the physical hexapod — walking
@@ -60,14 +69,14 @@ the archive review's triggers fire.
   and timing never moved it. **No income lever outbids in-sim-free
   sliding — the slip root is contact/current pricing = an OPERATOR
   ruling, same class as the stance ruling.**
-- Open defects: skating/paddling (root with OPERATOR, above),
-  **overspeed** (gate clause selects it — OPERATOR ruling pending),
-  **rear-hemisphere hole** (OPERATOR scope ruling pending).
+- Open defects: skating/paddling (slip METRIC now ruled — see
+  rulings block; contact/current pricing awaits hardware
+  calibration); overspeed + rear-hemisphere RULED (rulings block).
 - DR ladder: CLOSED as vacuous (untrained parent passes ≤0.6);
   re-open only if a gait change breaks a DR level the parent passed.
-- Stance: heights solved at DR 1.0; lower posture BLOCKED on
-  operator pricing ruling (hover is income-positive — RL_LOG cycle
-  28). No stance shaping arms until the ruling.
+- Stance: heights solved at DR 1.0. Lower line UNBLOCKED for gate +
+  support_margin rework per rulings; current-economy arms stay
+  blocked until the operator's hardware current calibration.
 - Raise: demoted to canary tripwire. No compute.
 
 ## Queue
@@ -92,9 +101,20 @@ the archive review's triggers fire.
 4. Contact-from-proprioception aux head; dense step-decomposition
    and model-size sweep last.
 
-Operator-blocked (no agent action): overspeed gate clause,
-rear-hemisphere scope, stance pricing ruling (60 mm allowance +
-current model + support_margin shape).
+OPERATOR RULINGS 2026-08-09 (BINDING — read
+`archive/OPERATOR_RULINGS_2026-08-09.md` before stance/gate work):
+(1) 60 mm allowance RETIRED → reference-relative end-state error,
+interim cap 25–30 mm, under-reference NOT free; (2) support_margin
+= stability backstop only — six-foot end state must out-earn any
+hover; (3) stance current economics BLOCKED until the operator's
+hardware calibration (2.6 A ≈ stall-scale; hardware = OPERATOR-ONLY);
+(4) rear hemisphere DEFERRED — gates draw forward/fwd-diag only;
+(5) 0.40 m gate RETIRED → progress_ratio vs commanded displacement,
+pass 0.75–1.25; prefer narrow forward band + direct distance gate;
+(6) loaded slip accumulates episode-long, NEVER reset by touchdown
+(loaded foot-XY travel per meter = primary skating metric);
+(7) promotion = multi-seed panels + named corners; fixed panel =
+regression canary only.
 
 ## After Done: party tricks (operator vision, 08-09)
 
