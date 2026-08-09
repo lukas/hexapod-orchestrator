@@ -11,7 +11,9 @@ KC="${KUBECONFIG:-$HOME/.kube/coreweave.yaml}"
 
 PKGS="numpy==2.4.6 mujoco==3.11.0 mujoco-mjx==3.11.0 mujoco-warp==3.11.0 \
 warp-lang==1.16.0 jax[cuda12]==0.10.2 stable-baselines3==2.9.0 \
-wandb==0.28.1 imageio imageio-ffmpeg pyyaml"
+wandb==0.28.1 tensorboard imageio imageio-ffmpeg pyyaml"
+# tensorboard: wandb.init() monkeypatches it and hard-fails if missing
+# (killed the first credentialed launches on train-4..11, 2026-08-09).
 
 for POD in "$@"; do
   echo "=== $POD"
