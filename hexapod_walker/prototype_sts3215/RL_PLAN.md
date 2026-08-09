@@ -184,13 +184,13 @@ hold → lower → rise → walk. Every session logs sim↔real divergence
 
 ## Queue (in flight → next)
 
-In flight: `cw-walk-step0` finished 4M (rew 586 and climbing) —
-operator says promising: continuation is relaunch-FIRST per item 0-a.
-`cw-stance-endpost` in flight (4M, terminal-posture pricing, one
-variable vs cw-stance-posture). posture2 verdicted FAIL cycle 14 (std
-runaway; exploration refuted). `cw-walk-hist8` capability
-INCONCLUSIVE (auto-stop 1.24M); history rejoins as a one-variable arm
-on the step0 baseline.
+In flight: `cw-stance-endpost-r1` (4M, terminal-posture pricing, one
+variable vs cw-stance-posture; first attempt lost to a missing parent
+ckpt on the new s5 pod). `cw-walk-step0` finished 4M (rew 586 and
+climbing) — operator says promising: continuation is relaunch-FIRST
+per item 0-a, owned by the cycle that picks it up. posture2 FAILED
+cycle 14 (std runaway; exploration refuted). hist8 INCONCLUSIVE;
+history rejoins on the step0 baseline.
 
 0-a. **OPERATOR-DIRECTED (binding, 08-09 ~00:30Z): step0 is
    CONTINUE-WHILE-IMPROVING — relaunch FIRST, analyze SECOND.**
