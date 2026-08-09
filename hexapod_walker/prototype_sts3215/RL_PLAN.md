@@ -198,21 +198,19 @@ hold → lower → rise → walk. Every session logs sim↔real divergence
 
 ## Queue (in flight → next)
 
-In flight (cycle 27): walk own-park-harvest arm (see item 1);
-stance line: `cw-stance-lowerdense` lineage (dense lower
-end-posture window; cycles 26+). **WALK CHAMPION:
+In flight (cycle 27): `cw-walk-effort` (see item 1); stance line:
+`cw-stance-lowerdense` lineage (dense lower end-posture window;
+cycles 26+). **WALK CHAMPION:
 `ppo_goal_cw_walk_parkstart_mjx.zip` md5 01d9ab60 (cycle 25;
-named regression vs h15b: 5 s slow start; consolidation on this
-config CLOSED — cycle 27).** **Cycle
-24: both if-false branches fired; pricing is closed on BOTH
-lines** (kgate: park income cut ~1000/ep, park unchanged;
-endpost-c1: charge plateaued by leg0↔leg4 redistribution).
-**Closed rungs (details RL_LOG):** DR-ladder training arms VACUOUS
-(23; skating owns the DR1.0 slip clause); temporal actor at DR 0
-(22); identical-config segments (19c, 27). Park is exploration-
-independent (21), pricing-independent (24), dose-independent (27).
-Walk defects now: residual partial park (harvest arm), skating
-(slip/m ~1.2–1.6, the DR 1.0 blocker; raw slip is crawl-gameable),
+named regression vs h15b: 5 s slow start; consolidation CLOSED —
+cycle 27).**
+**Closed rungs (details RL_LOG):** kernel/park pricing (24, both
+if-false); DR-ladder training arms VACUOUS (23; skating owns the
+DR1.0 slip clause); temporal actor at DR 0 (22); identical-config
+segments (19c, 27). Park lineage RESOLVED (27, see State).
+Walk defects now: skating/paddling (slip/m ~1.3–1.5, the DR 1.0
+blocker; effort arm in flight), overspeed 1.43 (same object as the
+gate clause — operator), rear-hemisphere hole (operator scope),
 5 s slow start (annealed lineage, champion regression vs h15b).
 
 0-a. **step0 lineage (compressed; details RL_LOG cycles 14–18).**
