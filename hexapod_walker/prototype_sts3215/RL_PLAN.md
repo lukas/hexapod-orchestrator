@@ -65,16 +65,15 @@ the archive review's triggers fire.
 
 ## State + current defects (walk)
 
-- **CHAMPION: `ppo_goal_cw_walk_anchorgate.zip` md5 35234ddc**
-  (DR1.0 det slip 1.240; gate ≤1.0 unmet; not hardware-ready).
-- The gait is real (six legs cycling since step0) but transports by
-  **paddling** — proven the sim's optimum under current pricing
-  (fresh-init test, cycle 33). Income gating moved slip ONCE (anchor
-  gate, −20%) then hit its **price ceiling** (cycle 34: policy PAID
-  a binding tol=5 stake, −18% income, rather than anchor); charging
-  and timing never moved it. **No income lever outbids in-sim-free
-  sliding — the slip root is contact/current pricing = an OPERATOR
-  ruling, same class as the stance ruling.**
+- **CHAMPION: `ppo_goal_cw_walk_longdist_r2.zip` md5 bcddc65c**
+  (30s/narrow-band lineage; DR1.0 det slip 1.06, seed-confirmed by
+  longdist-s1 at 0.98; slip ≤1.0 gate still unmet; NOT
+  hardware-ready; known flaw: sto stalls on specific command draws,
+  DR1.0 sto 3/6 both seeds). Prior: anchorgate 35234ddc (1.240).
+- The gait is real (six legs cycling) but transports by **paddling**
+  — the sim's optimum under current pricing (cycle 33). Every income
+  lever is exhausted (anchor gate −20% then price ceiling, cycle 34);
+  **slip root = contact/current pricing = OPERATOR ruling class.**
 - Open defects: skating/paddling (slip METRIC now ruled — see
   rulings block; contact/current pricing awaits hardware
   calibration); overspeed + rear-hemisphere RULED (rulings block).
@@ -99,9 +98,9 @@ the archive review's triggers fire.
    (i) STABILITY: price |roll|+|pitch| beyond allowance + terminal
    fall charge; fold overspeed pricing in if it's the root cause.
    Gate: 12/12 det+sto zero terminations, gait_valid.
-   (ii) DISTANCE: income from ground actually covered; gate median
-   ≥0.6 m @ 15 s once stable.
-   (iii) RELIABILITY: 12/12 at each DR rung + low distance variance.
+   (ii) DISTANCE: LANDED (longdist 30s narrow-band → champion,
+   cycle 44). (iii) RELIABILITY: 12/12 per DR rung + low variance —
+   open front: draw-specific sto stalls (both seeds, DR1.0 3/6).
 3. Mirror-symmetry augmentation (needs its own implementation
    cycle: mirror index maps + trainer support + probe).
 4. Contact-from-proprioception aux head; dense step-decomposition
