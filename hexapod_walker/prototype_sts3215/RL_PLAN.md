@@ -238,6 +238,35 @@ FAILED c14; hist8 INCONCLUSIVE; history rejoins post-consolidation.
       requires the DR 1.0 rung. May run in parallel with (1) on a
       separate pod if capacity allows, both off the same parent.
 
+0-c. **OPERATOR-DIRECTED (binding, 08-09 ~02:10Z): the walk objective
+   is DISTANCE, STABILITY, RELIABILITY** — not speed-band tracking.
+   Re-aim the step0/lowent lineage at "covers real ground, stays
+   level, never falls," one variable per run as always:
+   1. **STABILITY first (it's the current failure — tilt_pitch
+      terminations and c2's det falls):** price body attitude during
+      walk — per-tick charge on |roll|+|pitch| beyond a small
+      allowance and/or on tilt RATE, and an explicit terminal charge
+      for a fall, so surviving upright outearns a fast stumble. Fix
+      the deepest link first per the root-cause rule: if overspeed
+      income (0-a defect iii) is what pushes it past its stability
+      envelope, price overspeed in the same arm rather than patching
+      tilt twice. Gate: 12/12 det+sto zero terminations, max tilt
+      meaningfully below the termination threshold, gait_valid.
+   2. **DISTANCE second:** shift income from the speed-band kernel
+      toward per-episode ground actually covered (r_prog exists;
+      consider gating step-event credit on net forward displacement
+      so stride-in-place can't collect). Gate on median distance at
+      15 s (h15b's horizon), det AND sto, e.g. ≥0.6 m once stable —
+      raise as evidence allows.
+   3. **RELIABILITY = the 0-b.2 DR ladder** plus consistency: the
+      gate is 12/12 (not 5/6) at each DR rung, and distance variance
+      across episodes matters — a policy that walks 1 m or falls at
+      50/50 is worse than one that walks 0.6 m every time.
+   Sequencing: 1 → 2 → 3, each as a one-variable arm off the current
+   champion; continue-while-improving and `--no-canary` apply. The
+   0-a pricing defects (skating, overspeed) fold INTO these arms
+   where they're the root cause instead of waiting "until after 0-b".
+
 0. **OPERATOR-DIRECTED (binding, 08-08 ~23:00Z): the embarrassingly
    narrow walk (suggested name `cw-walk-step0`).** Dedicate one
    experiment slot to a walk-ONLY policy FROM SCRATCH at DR 0:
