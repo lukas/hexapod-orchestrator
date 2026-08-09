@@ -40,12 +40,15 @@ levers refuted — stop iterating penalty coefficients.**
   (cycle 24): kgate's progress-gated kernel cut park income
   ~1250→274/ep and the park persisted at the same 1/6 rate, same
   seed index, 4th consecutive segment.** It is a state-visitation
-  defect — and the reset-side fix WORKS (cycle 25, parkstart-mjx):
-  park starts converted the 4-segment det churn, taught park-exit
-  (0→10/12), fixed retention slip, weakened the sto park to a 1/6
-  partial stall; gate missed by that one ep on 1/5 update parity;
-  c1 continuation is the discriminator. Same defect class as
-  the stance flag leg — fix designed once, routed per mode.
+  defect — and the reset-side fix WORKS but SATURATES (cycles
+  25/27): synthetic park starts converted the 4-segment det churn,
+  taught park-exit (0→11/12), fixed retention slip, weakened the
+  sto park to a 1/6 partial stall — and full update parity (c1,
+  ~305 updates) changed NOTHING further: same 11/12, same seed.
+  Dose refuted; the surviving pattern (synthetic exits work, own
+  park stays) is the distribution-mismatch signature → harvest the
+  policy's OWN park states as resets (in flight). Same defect class
+  as the stance flag leg — fix designed once, routed per mode.
 - **Raise: DEMOTED TO CANARY (08-08).** Stuck 2–5/6 everywhere;
   raisemix refuted; failures = near-miss under-lift on ~4 legs. No
   more compute; tripwire only. (Cycle 13: load-even pricing lifted
@@ -192,28 +195,22 @@ hold → lower → rise → walk. Every session logs sim↔real divergence
 
 ## Queue (in flight → next)
 
-In flight (cycle 25): `cw-walk-parkstart-mjx-c1` (consolidate-in-
-place of parkstart-mjx at update parity, 20M GPU steps ≈ 305
-updates; no new variables) and `cw-stance-lowerdense` (dense lower
-end-posture window, off bellyrest ckpt; cycle 26). **WALK
-CHAMPION: `ppo_goal_cw_walk_parkstart_mjx.zip` md5 01d9ab60
-(cycle 25; named regression vs h15b: 5 s slow start).** **Cycle
+In flight (cycle 27): walk own-park-harvest arm (see item 1);
+stance line: `cw-stance-lowerdense` lineage (dense lower
+end-posture window; cycles 26+). **WALK CHAMPION:
+`ppo_goal_cw_walk_parkstart_mjx.zip` md5 01d9ab60 (cycle 25;
+named regression vs h15b: 5 s slow start; consolidation on this
+config CLOSED — cycle 27).** **Cycle
 24: both if-false branches fired; pricing is closed on BOTH
 lines** (kgate: park income cut ~1000/ep, park unchanged;
 endpost-c1: charge plateaued by leg0↔leg4 redistribution).
-**Cycle 23:**
-`cw-walk-h15b-dr03` PASSED the DR0.3 gate (first walk PASS at DR>0)
-but baseline probes proved the rung VACUOUS — see State; DR-ladder
-training arms CLOSED, skating owns the DR1.0 slip clause.
-**Cycle 22:** `cw-walk-step0-hist8` REFUTED the temporal-actor rung
-at DR 0 (gate PASS, cadence unchanged; lineage closed).
-**Cycles 19/21: h15b, h15b-c1 FAILED the 15 s gate on the same two
-eps** (sto park, det churn — both moved cycle 25); park is
-exploration-independent (21) and pricing-independent (24). Walk
-defects now: residual partial park (c1 arm in flight), skating
-(slip/m ~1.2–1.5, the DR 1.0 blocker; raw slip is crawl-gameable),
+**Closed rungs (details RL_LOG):** DR-ladder training arms VACUOUS
+(23; skating owns the DR1.0 slip clause); temporal actor at DR 0
+(22); identical-config segments (19c, 27). Park is exploration-
+independent (21), pricing-independent (24), dose-independent (27).
+Walk defects now: residual partial park (harvest arm), skating
+(slip/m ~1.2–1.6, the DR 1.0 blocker; raw slip is crawl-gameable),
 5 s slow start (annealed lineage, champion regression vs h15b).
-Identical-config segments CLOSED (19c: deltas inside noise).
 
 0-a. **step0 lineage (compressed; details RL_LOG cycles 14–18).**
    step0 = first genuine six-leg gait (champion superseded by lowent
@@ -293,10 +290,13 @@ Identical-config segments CLOSED (19c: deltas inside noise).
    one-variable comparisons. Speed targets, DR, and multi-task merge
    come only AFTER this gate passes.
 
-1. Walk after parkstart: if-true ⇒ skating root-cause (the DR1.0
-   blocker) then overspeed pricing (0-a iii); if-false (a)
-   exit-works-park-stays ⇒ harvest starts from the policy's own
-   park rollouts; (b) no-exit ⇒ rung-2 load evenness. Stance after
+1. Walk: branch (a) FIRED (cycle 27) ⇒ own-park harvest arm. Pass
+   ⇒ skating root-cause (the DR1.0 blocker) then overspeed pricing
+   (0-a iii). Park persists though harvested-state exits are
+   learned ⇒ noise-sequence artifact, reset diversity CLOSED ⇒
+   rung-2 time-averaged load evenness. Park-exit gates must also
+   check final-2s speed (27: a re-park crossed the fwd bar).
+   Stance after
    lowerdense: (a) spears PAY the dense charge ⇒ opposing-gradient
    diagnosis (tilt/current), no more shaping; (b) all legs hover
    40–60 mm ⇒ allowance is the binding defect, operator ruling
