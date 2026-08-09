@@ -384,6 +384,31 @@ def _launch_locked(g: dict, a: argparse.Namespace, extra: list[str]) -> int:
                                  f">= cap {comp['max_concurrent_runs']}")
         checks["running_experiments_before"] = n_running
 
+    # --- code-version gate (2026-08-09) -------------------------------------
+    # Pods have no git; the only record of what code a pod runs is the
+    # .code_sha marker snapshot.sh --sync writes. cw-walk-lowent-dr03
+    # trained 4M steps on long5m with PRE-AUDIT code (its cfg-set
+    # step-event reward package silently ignored, no target_kl) because
+    # nothing verified the sync. Missing marker or mismatch vs local
+    # HEAD = refuse: run snapshot.sh <run> then snapshot.sh --sync <pod>.
+    try:
+        local_sha = sh(["git", "-C", str(HERE), "rev-parse", "HEAD"]).strip()
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
+        return refuse(entry, f"cannot resolve local git HEAD: {e}")
+    try:
+        pod_sha = kexec(a.pod, "cat /workspace/prototype_sts3215/.code_sha "
+                               "2>/dev/null || true").strip()
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
+        return refuse(entry, f"{a.pod} unreachable reading .code_sha: {e}")
+    checks["code_sha_local"] = local_sha
+    checks["code_sha_pod"] = pod_sha or None
+    if pod_sha != local_sha:
+        return refuse(entry, f"{a.pod} code marker "
+                             f"{pod_sha or 'MISSING'} != local HEAD "
+                             f"{local_sha}. Sync first: snapshot.sh "
+                             f"--sync {a.pod} (and snapshot/commit before "
+                             "that if the tree is dirty).")
+
     # --- build command ------------------------------------------------------
     log = f"/tmp/train_{a.run}.log"
     if "--subproc" not in extra:

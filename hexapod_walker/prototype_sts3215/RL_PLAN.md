@@ -184,28 +184,28 @@ hold → lower → rise → walk. Every session logs sim↔real divergence
 
 ## Queue (in flight → next)
 
-In flight: `cw-walk-lowent-h15b-c1` (cycle 19 continuation, walk pod)
-+ `cw-walk-lowent-dr03` (0-b rung 2) + `cw-walk-step0-hist8`
-(temporal-actor rung, from scratch, s6). Stance: `cw-stance-endpost-c1`
-— r1 FAILED its gate (lower posture 0/12) but moved the flag leg for
-the FIRST time (229–264 → 133–207 mm); c1 tests descent-vs-plateau
-(slope rule in log; plateau ⇒ belly-rest reference states).
-**Cycle 19: h15b (0-b rung 1) FAILED its gate** — 15 s clauses match
-parent within noise (rung redundant for the gate), but det slip fell
-~20% (non-overlap, both horizons), det 5 s success 0/12→4/6, std
-anneal RESUMED (2.08→1.74; parent floored — horizon weakened
-noise-as-brake, hypothesis in log). **New walk champion
-`ppo_goal_cw_walk_lowent_h15b.zip` md5 d0a12a94.** Gate blocker is
-ONE failure class: park basin — ~1/6 sto eps freeze in a hard tripod
-park from t=0 (on camera, _15s_allvid); det cousin = duty-skew churn.
-h15b-c1 (near-miss continuation) tests exploration-gated vs
-structural basin; structural ⇒ pricing (ii)/(iii), no 3rd segment.
-Walk defects: park basin, skating (reduced), det tracking partial
-(overspeed uncharged, step credit scales with stride). posture2
-FAILED c14. lowent-c1 (12M, cycle 19c): gate PASS, all deltas vs
-parent inside noise, park still 1/6 sto — identical-config segments
-CLOSED lineage-wide; hist8 rejoined FROM SCRATCH on the step0 recipe
-(cadence-regularity hypothesis, s6).
+In flight: `cw-walk-h15b-dr03` (0-b rung 0.3 REDO off champion,
+long5m) + `cw-walk-step0-hist8` (temporal actor, from scratch, s6).
+Finished, verdicts owned by their cycles: `cw-walk-lowent-h15b-c1`
+(exploration-vs-structural park), `cw-stance-endpost-c1` (slope rule;
+plateau ⇒ belly-rest reference states). **Cycle 20:** `cw-walk-
+lowent-dr03` was INVALID — long5m ran pre-audit code, the step-event
+cfg-sets were silently ignored for 4M steps (RL_LOG cycle 20).
+Eval-only result: the lowent gait still passed the DR0.3 gate (gv
+12/12, 0 falls) — DR0.3 looks survivable; clean rung redone on h15b.
+Infra: launcher now REFUSES launch unless the pod's `.code_sha`
+marker (written by `snapshot.sh --sync`) equals local HEAD.
+**Cycle 19: h15b (0-b rung 1) FAILED its gate** within noise of
+parent (rung redundant for the gate) but det slip −20%, det 5 s
+success 0/12→4/6, std anneal resumed (2.08→1.74). **New walk
+champion `ppo_goal_cw_walk_lowent_h15b.zip` md5 d0a12a94.** Gate
+blocker is ONE failure class: park basin — ~1/6 sto eps freeze in a
+hard tripod park from t=0 (det cousin: duty-skew churn); h15b-c1
+tested exploration-gated vs structural; structural ⇒ pricing
+(ii)/(iii). Walk defects: park basin, skating (reduced), det
+tracking partial (overspeed uncharged; step credit scales with
+stride). lowent-c1 (cycle 19c): PASS, deltas inside noise —
+identical-config segments CLOSED lineage-wide.
 
 0-a. **step0 lineage (compressed; details RL_LOG cycles 14–18).**
    step0 = first genuine six-leg gait (champion superseded by lowent

@@ -15,7 +15,22 @@ if [ "${1:-}" = "--sync" ]; then
   kubectl --kubeconfig="$KC" cp /tmp/proto_sync.tgz "$POD":/tmp/proto_sync.tgz
   kubectl --kubeconfig="$KC" exec "$POD" -- \
       tar -C /workspace -xzf /tmp/proto_sync.tgz
-  echo "synced -> $POD"
+  # Code-version marker (2026-08-09): pods have no git, so the launcher
+  # cannot ask them what code they run. Stale code on long5m silently
+  # dropped cw-walk-lowent-dr03's --cfg-set reward package (the old
+  # walk_task.py never read those keys) and trained 4M steps on the
+  # wrong reward. Record what was synced; launch_run.py refuses to
+  # launch when this marker is missing or != local HEAD. A dirty tree
+  # gets a -dirty suffix, which the launcher also refuses — snapshot
+  # (commit) BEFORE syncing, as the cycle protocol already requires.
+  SHA="$(git rev-parse HEAD)"
+  if ! git diff --quiet HEAD -- hexapod_walker/prototype_sts3215 || \
+     [ -n "$(git status --porcelain hexapod_walker/prototype_sts3215 | grep '^??' || true)" ]; then
+    SHA="${SHA}-dirty"
+  fi
+  kubectl --kubeconfig="$KC" exec "$POD" -- \
+      bash -c "echo '$SHA' > /workspace/prototype_sts3215/.code_sha"
+  echo "synced -> $POD (code_sha $SHA)"
   exit 0
 fi
 
