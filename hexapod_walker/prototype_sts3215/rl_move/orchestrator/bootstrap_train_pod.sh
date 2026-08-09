@@ -26,14 +26,25 @@ for POD in "$@"; do
   kubectl --kubeconfig "$KC" exec "$POD" -- bash -c '
     set -e
     apt-get update -qq && apt-get install -y -qq libosmesa6 libegl1 libgl1 ffmpeg rsync procps > /dev/null
-    pip install -q --no-cache-dir torch==2.13.0+cpu --index-url https://download.pytorch.org/whl/cpu
-    pip install -q --no-cache-dir '"$PKGS"'
+    # uv when available (same pins, parallel downloads, fast resolver):
+    # bootstrap blocks launches via the .bootstrapped gate, so install
+    # speed is GPU time. Fall back to pip if uv cannot be installed.
+    pip install -q --no-cache-dir uv 2>/dev/null || true
+    if command -v uv >/dev/null 2>&1; then
+      INST="uv pip install -q --system --no-cache"
+    else
+      INST="pip install -q --no-cache-dir"
+    fi
+    $INST torch==2.13.0+cpu --index-url https://download.pytorch.org/whl/cpu
+    $INST '"$PKGS"'
     mkdir -p /workspace/prototype_sts3215
     echo "packages OK"
   ' || { echo "$POD bootstrap FAILED"; continue; }
   # Code + champion checkpoint; both are idempotent.
   bash "$HERE/snapshot.sh" --sync "$POD"
-  bash "$HERE/ops.sh" pushckpt "$POD" rl_move/sim/policies/ppo_goal_cw_walk_anchorgate.zip || true
+  # Current walk champion (cycle 44 promotion). Update when the champion
+  # shifts, or fresh pods can't warm-start the lineage.
+  bash "$HERE/ops.sh" pushckpt "$POD" rl_move/sim/policies/ppo_goal_cw_walk_longdist_r2.zip || true
   # W&B credentials: rl_move/sim/wandb.env is a gitignored secret, so code
   # sync never carries it. Without it the trainer runs BLIND ("no API key —
   # logging skipped") and the run never appears in W&B (bit us 2026-08-09:
