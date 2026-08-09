@@ -68,21 +68,20 @@ the archive review's triggers fire.
 - **CHAMPION: `ppo_goal_cw_walk_longdist_r2.zip` md5 bcddc65c**
   (30s/narrow-band lineage; DR1.0 det slip 1.06, seed-confirmed by
   longdist-s1 at 0.98; slip ≤1.0 gate still unmet; NOT
-  hardware-ready; known flaw: sto stalls on specific command draws,
-  DR1.0 sto 3/6 both seeds). Prior: anchorgate 35234ddc (1.240).
+  hardware-ready; joystick gate PASS @DR0.2 AND 0.5, 0 falls incl.
+  flips; rare fixed-draw sto stalls = canary only since c52).
+  Prior: anchorgate 35234ddc (1.240).
 - The gait is real (six legs cycling) but transports by **paddling**
   — the sim's optimum under current pricing (cycle 33). Every income
   lever is exhausted (anchor gate −20% then price ceiling, cycle 34);
   **slip root = contact/current pricing = OPERATOR ruling class.**
-- Open defects: skating/paddling (slip METRIC now ruled — see
-  rulings block; contact/current pricing awaits hardware
-  calibration); overspeed + rear-hemisphere RULED (rulings block).
-- DR ladder: CLOSED as vacuous (untrained parent passes ≤0.6);
-  re-open only if a gait change breaks a DR level the parent passed.
+- Open defects: skating/paddling (contact/current pricing awaits
+  hardware calibration); overspeed + rear-hemisphere RULED.
+- DR ladder: CLOSED as vacuous; re-open only if a gait change
+  breaks a DR level the parent passed.
 - Stance: heights solved at DR 1.0. Lower line UNBLOCKED for gate +
-  support_margin rework per rulings; current-economy arms stay
-  blocked until the operator's hardware current calibration.
-- Raise: demoted to canary tripwire. No compute.
+  support_margin rework per rulings; current-economy arms blocked
+  until operator hardware calibration. Raise: canary only.
 
 ## Queue
 
@@ -101,8 +100,10 @@ the archive review's triggers fire.
    partner, all deltas inside noise). Stability rides on DR
    training (longdist-dr10 in flight).
    (ii) DISTANCE: LANDED (longdist 30s narrow-band → champion,
-   cycle 44). (iii) RELIABILITY: 12/12 per DR rung + low variance —
-   open front: draw-specific sto stalls (both seeds, DR1.0 3/6).
+   cycle 44). (iii) RELIABILITY: stall front CLOSED c52 — DR
+   (longdist-dr05), cmd-resample (stallfix; helps only when resample
+   is on at eval), park-bank (0/60 harvest eps → <2% rare tail,
+   canary-only) all refuted/unfundable; rides on DR/terrain arms.
 3. Mirror-symmetry augmentation (needs its own implementation
    cycle: mirror index maps + trainer support + probe).
 4. Contact-from-proprioception aux head; dense step-decomposition
