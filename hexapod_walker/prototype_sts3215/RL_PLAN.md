@@ -184,24 +184,24 @@ hold → lower → rise → walk. Every session logs sim↔real divergence
 
 ## Queue (in flight → next)
 
-In flight: `cw-walk-lowent-h15` + `cw-walk-lowent-dr03` (cycle 18,
-0-b rungs 1+2 off the lowent champion). Stance: `cw-stance-endpost-c1`
+In flight: `cw-walk-lowent-h15b-c1` (cycle 19 continuation, walk pod)
++ `cw-walk-lowent-dr03` (0-b rung 2). Stance: `cw-stance-endpost-c1`
 — r1 FAILED its gate (lower posture 0/12) but moved the flag leg for
 the FIRST time (229–264 → 133–207 mm); c1 tests descent-vs-plateau
-(slope rule in log; plateau ⇒ belly-rest reference states). **A/B verdict (cycle 18): entropy runaway
-was the plateau driver.** c2 (ent 0.01): std 3.24→8.73, rew flat,
-det tilt_pitch falls appeared — identical-config arm CLOSED.
-lowent (ent 0.001): rew 583→688, sto 10/12 vs 1/6 baseline, det
-slip 0.75 vs 0.93 — **new walk-line champion
-`ppo_goal_cw_walk_step0_lowent.zip` md5 923ee55c**; std floors at
-~2.07 (not ≤1.2) — possibly functional (noise = the missing speed
-brake; sto tracks better than det on every lineage checkpoint).
-15 s eval: gait SUSTAINS (det 6/6 ≥0.40 m, no final-third decay).
-Remaining walk defects: skating (reduced, not gone), NO det speed
-tracking (pricing: overspeed uncharged, step credit scales with
-stride). posture2 FAILED cycle 14 (std runaway); hist8
-INCONCLUSIVE; history rejoins on a consolidated step0 baseline
-(obs change ⇒ from-scratch arm).
+(slope rule in log; plateau ⇒ belly-rest reference states).
+**Cycle 19: h15b (0-b rung 1) FAILED its gate** — 15 s clauses match
+parent within noise (rung redundant for the gate), but det slip fell
+~20% (non-overlap, both horizons), det 5 s success 0/12→4/6, std
+anneal RESUMED (2.08→1.74; parent floored — horizon weakened
+noise-as-brake, hypothesis in log). **New walk champion
+`ppo_goal_cw_walk_lowent_h15b.zip` md5 d0a12a94.** Gate blocker is
+ONE failure class: park basin — ~1/6 sto eps freeze in a hard tripod
+park from t=0 (on camera, _15s_allvid); det cousin = duty-skew churn.
+h15b-c1 (near-miss continuation) tests exploration-gated vs
+structural basin; structural ⇒ pricing (ii)/(iii), no 3rd segment.
+Walk defects: park basin, skating (reduced), det tracking partial
+(overspeed uncharged, step credit scales with stride). posture2
+FAILED c14; hist8 INCONCLUSIVE; history rejoins post-consolidation.
 
 0-a. **step0 lineage (compressed; details RL_LOG cycles 14–18).**
    step0 = first genuine six-leg gait (champion superseded by lowent
