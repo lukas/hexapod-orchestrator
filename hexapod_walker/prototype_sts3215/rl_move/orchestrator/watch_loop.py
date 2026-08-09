@@ -29,7 +29,7 @@ HERE = pathlib.Path(__file__).resolve().parent
 REPO = subprocess.check_output(
     ["git", "rev-parse", "--show-toplevel"], cwd=HERE, text=True
 ).strip()
-PROMPT = (HERE / "ORCHESTRATOR_PROMPT.md").read_text()
+PROMPT_PATH = HERE / "ORCHESTRATOR_PROMPT.md"
 PAUSE = HERE / "PAUSE"
 LEDGER = HERE / "experiments.json"
 LOG = pathlib.Path("/workspace/orchestrator.log")
@@ -430,8 +430,10 @@ def spawn_cycle(newly_finished: set[str], still_running: set[str],
             "RL_LOG.md (a NEEDS OPERATOR section or planned-but-unlaunched "
             "experiments); skip eval steps for runs already logged.\n"
         )
+    # Fresh read every spawn: prompt edits (e.g. the shutdown protocol)
+    # take effect without a watcher restart.
     cycle_prompt = (
-        PROMPT
+        PROMPT_PATH.read_text()
         + "\n\n## This cycle\n"
         + trigger
         + (

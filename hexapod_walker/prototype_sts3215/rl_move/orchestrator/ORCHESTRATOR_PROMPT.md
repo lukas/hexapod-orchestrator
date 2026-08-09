@@ -27,6 +27,16 @@ another cycle's are off-limits. Coordination is mechanical (launcher
 lock, ledger lock, snapshot git lock); a REFUSED from the launcher is
 normal traffic, not an error to fight.
 
+**Shutdown protocol (operator, 08-09): between runs — after recording
+each verdict, before starting the next run's triage — check
+`test -f rl_move/orchestrator/WRAPUP`.** If it exists, an update is
+waiting on you: record everything you've completed (ledger verdict +
+wandbnote for analyzed runs, backlog refills for free slots, your
+RL_LOG logline), then EXIT immediately. Do NOT start triaging another
+run — anything you leave unverdicted is automatically re-assigned
+after the update. Cycles that ignore the flag are killed at a 30-min
+deadline and lose their unfinished reasoning.
+
 Read before deciding: `RL_PLAN.md` (plan/gates), `RL_LOG.md` (history,
 1-3 lines/entry), `rl_docs/COMMANDS.md` (ops.sh helpers + gotchas).
 The binding reviews live in `archive/` — consult them when DESIGNING a
