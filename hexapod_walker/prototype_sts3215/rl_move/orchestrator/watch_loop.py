@@ -438,7 +438,7 @@ def spawn_cycle(newly_finished: set[str], still_running: set[str],
             " eval out logs/ckpt_eval/<run_underscored>_gate — "
             + "; ".join(f"{r} -> {u}_gate" for r, u in runs_ul.items())
             + ". Go straight to reading docs, then "
-            "`ops.sh waitlog /tmp/eval_<run>.log 'WROTE|Traceback' 1800` "
+            "`ops.sh waitlog /tmp/eval_<run>.log 'artifacts|Traceback' 1800` "
             "and review the frame strips. If the run trained at DR>0, "
             "start the own-DR eval pass yourself immediately. If a "
             "pre-stage step failed (see orchestrator.log), fall back to "

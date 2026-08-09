@@ -185,7 +185,7 @@ print(f"  --task {task} {modes} --per-mode 6 --dr-scale 0.0 --seed 0 --stochasti
 if ep: print(f"  --episode-seconds {ep} \\")
 if cfg: print(f"  {cfg} \\")
 print(f"  --video-every 1 --out {out} > /tmp/eval_{run}.log 2>&1 &")
-print(f"# then: ops.sh waitlog /tmp/eval_{run}.log 'WROTE|Traceback' 1800")
+print(f"# then: ops.sh waitlog /tmp/eval_{run}.log 'artifacts|Traceback' 1800")
 EOF
   ;;
 
