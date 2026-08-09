@@ -25,26 +25,23 @@ levers refuted — stop iterating penalty coefficients.**
   fallback = belly-rest reference states. Flag any eval where
   rise/lower height drops below 5/6; never warm-start stand work
   from an eroded checkpoint.
-- **Walk: no valid gait exists in any lineage.** dr04b lineage is
-  0-for-9 on gait validity (widen ×2, 3× progress, flag ×2, speed, LP,
-  phase, asym, 8M) with lower 0/6 and universal end-posture failure —
-  **RETIRED as warm-start source for gait work** (cycle 12). Phase
-  reward refuted in BOTH basins (warm: shuffle; stance-init @ audited
-  std 1.0: tripod park). **The TRIPOD PARK is the shared attractor**
-  (lp tower, aac-s1c det, phase-stance2): planting 3 legs and parking
-  3 avoids all stepping costs and nothing prices it — measured cycle
-  12: a flagged leg draws 0.24 A vs 0.28–0.44 A per supporting leg,
-  and the linear current charge is distribution-blind. Any future
-  walk reward must price the park (time-averaged per-leg load), or
-  change capability (temporal actor), not coefficients.
+- **Walk: step0/lowent line is the only valid gait** (six legs
+  cycling at DR 0; blockers: 1/6 sto park, skating, det tracking).
+  dr04b lineage 0-for-9 on gait validity — **RETIRED as warm-start
+  source** (cycle 12). Phase reward refuted in BOTH basins. **The
+  TRIPOD PARK is the shared attractor** (lp tower, aac-s1c det,
+  phase-stance2, lowent sto[4]): parking avoids stepping costs; the
+  linear current charge is distribution-blind (flagged leg 0.24 A vs
+  0.28–0.44 A supporting, cycle 12) and the velocity kernel paid
+  parked robots until kgate (cycle 21). Price the park / route
+  income, or change capability (temporal actor) — not coefficients.
 - **Raise: DEMOTED TO CANARY (08-08).** Stuck 2–5/6 everywhere;
   raisemix refuted; failures = near-miss under-lift on ~4 legs. No
   more compute; tripwire only. (Cycle 13: load-even pricing lifted
   raise heights to 11/12 incidentally — still posture 0/12.)
-- Seed twins before cw-walk-flag/-s1 were bit-identical clones
-  (set_random_seed fix 08-08; earlier twin conclusions discarded).
-  Twin eval spread of identical weights (vel_err 0.026 vs 0.043)
-  calibrates few-episode eval noise.
+- Seed twins pre cw-walk-flag/-s1 were bit-identical clones (seeding
+  fix 08-08; prior twin conclusions discarded). Twin eval spread of
+  identical weights (vel_err 0.026 vs 0.043) calibrates eval noise.
 - MuJoCo 3.11 shifted current readings (quiet-hold peak 2.46→2.60 A,
   right at the 2.5 A breaker). Re-validate torque→current calibration
   before trusting any current gate for hardware.
@@ -185,27 +182,31 @@ hold → lower → rise → walk. Every session logs sim↔real divergence
 ## Queue (in flight → next)
 
 In flight: `cw-walk-h15b-dr03` (0-b rung 0.3 REDO off champion,
-long5m) + `cw-walk-step0-hist8` (temporal actor, from scratch, s6).
-Finished, verdicts owned by their cycles: `cw-walk-lowent-h15b-c1`
-(exploration-vs-structural park), `cw-stance-endpost-c1` (slope rule;
-plateau ⇒ belly-rest reference states). **Cycle 20:** `cw-walk-
-lowent-dr03` was INVALID — long5m ran pre-audit code, the step-event
-cfg-sets were silently ignored for 4M steps (RL_LOG cycle 20).
-Eval-only result: the lowent gait still passed the DR0.3 gate (gv
-12/12, 0 falls) — DR0.3 looks survivable; clean rung redone on h15b.
-Infra: launcher now REFUSES launch unless the pod's `.code_sha`
-marker (written by `snapshot.sh --sync`) equals local HEAD.
-**Cycle 19: h15b (0-b rung 1) FAILED its gate** within noise of
-parent (rung redundant for the gate) but det slip −20%, det 5 s
-success 0/12→4/6, std anneal resumed (2.08→1.74). **New walk
-champion `ppo_goal_cw_walk_lowent_h15b.zip` md5 d0a12a94.** Gate
-blocker is ONE failure class: park basin — ~1/6 sto eps freeze in a
-hard tripod park from t=0 (det cousin: duty-skew churn); h15b-c1
-tested exploration-gated vs structural; structural ⇒ pricing
-(ii)/(iii). Walk defects: park basin, skating (reduced), det
-tracking partial (overspeed uncharged; step credit scales with
-stride). lowent-c1 (cycle 19c): PASS, deltas inside noise —
-identical-config segments CLOSED lineage-wide.
+long5m) + `cw-walk-step0-hist8` (temporal actor, from scratch, s6)
++ `cw-walk-kgate` (park pricing via progress-gated kernel income,
+walk pod, cycle 21). Finished, verdict owned by its cycle:
+`cw-stance-endpost-c1` (slope rule; plateau ⇒ belly-rest reference
+states). **Cycle 20:** `cw-walk-lowent-dr03` was INVALID — long5m
+ran pre-audit code, cfg-sets silently ignored 4M steps; eval-only:
+lowent gait still passed the DR0.3 gate (gv 12/12, 0 falls) — DR0.3
+looks survivable; rung redone on h15b. Infra: launcher REFUSES
+launch unless the pod's `.code_sha` marker (`snapshot.sh --sync`)
+equals local HEAD.
+**Cycle 19/21: h15b then h15b-c1 both FAILED the 15 s gate on the
+same two eps** (sto park, det duty-skew churn). Champion stays
+`ppo_goal_cw_walk_lowent_h15b.zip` md5 d0a12a94; c1 (md5 ed71b6f4,
+std 1.485) is the preferred warm-start parent. **Cycle 21: park is
+STRUCTURAL, not exploration-gated** — persisted at 1/6 sto with std
+below the pre-registered 1.5 threshold, same seed indices, 3
+segments running. Root cause measured: the r_walk kernel pays a
+PARKED robot 0.97–1.85/tick at 0.02–0.06 m/s commands (absolute-err
+pricing); k_park_duty (0.6/tick) discounts but can't flip the sign.
+Fix landed: `reward.walk_kernel_prog_gate` (income × achieved
+progress, default off) = 0-c.2's distance-income shift as one
+variable. Walk defects: park basin (priced now, kgate tests it),
+skating (retention metric now slip/m — raw slip is crawl-gameable,
+cycle 21), det tracking partial (overspeed uncharged). lowent-c1
+(19c): deltas inside noise — identical-config segments CLOSED.
 
 0-a. **step0 lineage (compressed; details RL_LOG cycles 14–18).**
    step0 = first genuine six-leg gait (champion superseded by lowent
@@ -293,11 +294,10 @@ identical-config segments CLOSED lineage-wide.
    one-variable comparisons. Speed targets, DR, and multi-task merge
    come only AFTER this gate passes.
 
-1. Walk rungs after lowent's verdict: branch (a/c) ⇒ attack skating/
-   overspeed per 0-a escalation; branch (b: gait was noise-dither) ⇒
-   back to walk escalation order. history-8 arm only on a
-   consolidated baseline. Stance: if endpost-c1 plateaus (slope rule),
-   belly-rest reference states (reset-side) — no more pricing arms.
+1. Walk after kgate's verdict: if-true ⇒ overspeed pricing (0-a iii)
+   then DR ladder; if-false ⇒ reset-state diversity (parked starts)
+   or rung-2 load evenness — no coefficient retries. Stance: if
+   endpost-c1 plateaus (slope rule), belly-rest reference states.
 2. Mirror-symmetry augmentation (audit MED, due) after (1).
    Contact-from-proprioception aux head after. Dense
    step-decomposition and model-size sweep stay last.
