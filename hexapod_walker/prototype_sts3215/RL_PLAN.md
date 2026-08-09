@@ -184,39 +184,39 @@ hold → lower → rise → walk. Every session logs sim↔real divergence
 
 ## Queue (in flight → next)
 
-In flight: `cw-walk-step0-c2` (operator-launched ~00:55Z, item 0-a,
-`--no-canary`, identical-config lineage — operator's call; cycle 15
-recorded plateau evidence against it). `cw-walk-step0-lowent` (4M,
-s6, one variable vs c1: ent 0.01→0.001 consolidation on the same
-parent; the c2/lowent pair is a clean A/B on the entropy
-hypothesis). `cw-stance-endpost-r1` finished; its verdict cycle is
-in flight. posture2 FAILED cycle 14 (std runaway); hist8
+In flight: `cw-walk-lowent-h15` + `cw-walk-lowent-dr03` (cycle 18,
+0-b rungs 1+2 off the lowent champion). Stance: `cw-stance-endpost-c1`
+— r1 FAILED its gate (lower posture 0/12) but moved the flag leg for
+the FIRST time (229–264 → 133–207 mm); c1 tests descent-vs-plateau
+(slope rule in log; plateau ⇒ belly-rest reference states). **A/B verdict (cycle 18): entropy runaway
+was the plateau driver.** c2 (ent 0.01): std 3.24→8.73, rew flat,
+det tilt_pitch falls appeared — identical-config arm CLOSED.
+lowent (ent 0.001): rew 583→688, sto 10/12 vs 1/6 baseline, det
+slip 0.75 vs 0.93 — **new walk-line champion
+`ppo_goal_cw_walk_step0_lowent.zip` md5 923ee55c**; std floors at
+~2.07 (not ≤1.2) — possibly functional (noise = the missing speed
+brake; sto tracks better than det on every lineage checkpoint).
+15 s eval: gait SUSTAINS (det 6/6 ≥0.40 m, no final-third decay).
+Remaining walk defects: skating (reduced, not gone), NO det speed
+tracking (pricing: overspeed uncharged, step credit scales with
+stride). posture2 FAILED cycle 14 (std runaway); hist8
 INCONCLUSIVE; history rejoins on a consolidated step0 baseline
 (obs change ⇒ from-scratch arm).
 
-0-a. **step0 lineage status (cycle 15 verdicts + operator canary
-   note).** step0 = first genuine six-leg gait of the campaign
-   (gait_valid 12/12, 0.25–0.53 m forward, det AND sto, zero falls)
-   — walk-line champion ppo_goal_cw_walk_step0.zip md5 ea1685a4 —
-   but its gate FAILED on the drag clause (stance feet skate at
-   ~half body speed, slip 0.7–1.0 m/ep) and speed commands are
-   ignored (always ~0.06 m/s). c1 (canary-truncated at 1.26M by the
-   rise_flat FALSE POSITIVE) showed every parent-delta inside eval
-   noise while train/std ran away 1.0→2.30→3.21: cycle 15 read the
-   directive's plateau stop-rule as met; the operator continued the
-   identical-config arm anyway as c2 (their prerogative — it and
-   lowent now form the A/B). Remaining defects in escalation order:
-   (i) consolidation (lowent, in flight); (ii) skating price vs
-   step-event income (pricing, only after lowent's diagnosis branch
-   is read); (iii) overspeed — r_prog caps at 1.25x but nothing
-   charges above-command speed and step credit scales with stride.
-   **Canary note (operator, 08-09 ~00:55Z): step0-lineage
-   continuations run `--no-canary`.** c1's auto-stop was a false
-   positive: warm starts arm canaries from a parent-baseline probe,
-   the walk-only parent accidentally "passed" rise_flat at baseline,
-   and the canary then protected a skill this lineage never trained.
-   Canaries stay ON for every multi-skill / warm-started-from-
-   multi-skill run; this exemption is lineage-specific.
+0-a. **step0 lineage (compressed; details RL_LOG cycles 14–18).**
+   step0 = first genuine six-leg gait (champion superseded by lowent
+   cycle 18). c1/c2 identical-config continuations: plateau, std
+   runaway, c2 det falls — CLOSED. Warm starts in this lineage use
+   ent 0.001 (lowent A/B evidence). Remaining defects in escalation
+   order: (i) consolidation DONE (lowent); (ii) skating price vs
+   step-event income; (iii) overspeed/tracking — r_prog caps at
+   1.25x but nothing charges above-command speed and step credit
+   scales with stride; det ignores commands on every checkpoint.
+   (ii)/(iii) are pricing work, due after the 0-b rungs.
+   **Canary note (operator, 08-09): step0-lineage continuations run
+   `--no-canary`** (c1's auto-stop was a false positive protecting a
+   skill the lineage never had). Canaries stay ON for every
+   multi-skill run; the exemption is lineage-specific.
 
 0-b. **OPERATOR-DIRECTED (binding, 08-09 ~01:05Z): step0-lineage next
    rungs after the current segments (c2, lowent) verdict.** Both are
@@ -263,8 +263,8 @@ INCONCLUSIVE; history rejoins on a consolidated step0 baseline
 1. Walk rungs after lowent's verdict: branch (a/c) ⇒ attack skating/
    overspeed per 0-a escalation; branch (b: gait was noise-dither) ⇒
    back to walk escalation order. history-8 arm only on a
-   consolidated baseline. Stance: if endpost fails, belly-rest
-   reference states (reset-side).
+   consolidated baseline. Stance: if endpost-c1 plateaus (slope rule),
+   belly-rest reference states (reset-side) — no more pricing arms.
 2. Mirror-symmetry augmentation (audit MED, due) after (1).
    Contact-from-proprioception aux head after. Dense
    step-decomposition and model-size sweep stay last.
