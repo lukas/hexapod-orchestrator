@@ -315,13 +315,18 @@ def render() -> str:
              f"auto-reloads every 30 s · fleet/token data every "
              f"{SLOW_S} s{(' · ' + esc(sub)) if sub else ''}</div>")
 
+    pipeline = [e for e in f.get("ledger", [])
+                if e.get("triage") and e["triage"] != "done"]
+    n_pipe = len(pipeline)
     h.append("<div class='grid' style='margin-top:14px'>")
+    pipe_cls = "" if n_pipe <= 3 else " style='border-color:#9e6a03'"
+    h.append(f"<div class='card'{pipe_cls}><div class='n'>{n_pipe}</div>"
+             f"<div class='l'>finished, NOT yet analyzed</div></div>")
     for n, l in [
         (len(busy), "pods training"), (len(idle), "pods idle"),
         (len(f.get("cycles", [])), "LLM cycles in flight"),
         (len(backlog["queued"]), "queued in backlog"),
-        (counts.get("RUNNING", 0), "ledger RUNNING"),
-        (counts.get("FINISHED", 0), "runs finished"),
+        (counts.get("FINISHED", 0), "runs analyzed (verdicted)"),
     ]:
         h.append(f"<div class='card'><div class='n'>{n}</div>"
                  f"<div class='l'>{l}</div></div>")
@@ -334,8 +339,6 @@ def render() -> str:
                  f"<div class='l'>est. spend total</div></div>")
     h.append("</div>")
 
-    pipeline = [e for e in f.get("ledger", [])
-                if e.get("triage") and e["triage"] != "done"]
     h.append("<h2>Analysis pipeline (finished, verdict not in yet)</h2>")
     if pipeline:
         h.append("<table><tr><th>run</th><th>state</th></tr>")
