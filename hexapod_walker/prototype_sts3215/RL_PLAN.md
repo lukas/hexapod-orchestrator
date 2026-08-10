@@ -172,8 +172,12 @@ the archive review's triggers fire.
    chosen fix is robustness through variation, not sequencing guards:
    (a) COMPOSE dr.placement_noise_deg=6.0 (the placementnoise6 PASS
    level) + dr.bad_start_prob=0.4 onto the cw-dep contract line —
-   DONE: `cw-dep-startvar1-r1` launched 08-10 05:3x, warm-started from
-   the verdicted vref1-r1 PASS. (b) NEW DR AXIS
+   `cw-dep-startvar1-r1` + seed twin `-s1` BOTH FAIL HARD (07:0x):
+   real sacrificed-leg episode, slip/m up to 22, reward DECLINING
+   through training — do NOT use as the hardware base; fall back to
+   `cw-dep-vref1-r1`. Two parallel one-axis-removed isolation arms
+   running (`-noZD1` zero-drift off, `-noBS1` bad-start off) to find
+   the culprit. (b) NEW DR AXIS
    [CODE]: logical-zero drift — an OBS-SIDE per-joint encoder offset
    (the sensors lie consistently by a few deg, e.g. set_zero done on
    a slumped pose). This is DISTINCT from placement noise (physical
