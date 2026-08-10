@@ -21,6 +21,7 @@ if [ "${1:-}" = "--sync" ]; then
   tar -C hexapod_walker -czf "$TGZ" \
       --exclude='prototype_sts3215/logs' \
       --exclude='prototype_sts3215/rl_move/sim/policies' \
+      --exclude='prototype_sts3215/rl_move/wandb' \
       --exclude='*.stl' --exclude='*.mp4' \
       prototype_sts3215
   kubectl --kubeconfig="$KC" cp "$TGZ" "$POD":"$TGZ"
@@ -56,6 +57,7 @@ if [ "${1:-}" = "--sync" ]; then
        ":(exclude)$P/rl_move/orchestrator/*.lock"
        ":(exclude)$P/**/*.md" ":(exclude)$P/*.md"
        ":(exclude)$P/logs" ":(exclude)$P/wandb"
+       ":(exclude)$P/rl_move/wandb"
        ":(exclude)$P/rl_move/sim/policies"
        ":(exclude)$P/**/*.tmp*" ":(exclude)$P/**/*.zip"
        ":(exclude)$P/**/*.mp4" ":(exclude)$P/**/*.png")
