@@ -185,8 +185,8 @@ Open problems, in priority order:
 ## Queue
 
 -1. **HARDWARE (operator bench — the true critical path).**
-    Attempt #2 with `cw-dep-vref1-r1`: FIRST correct the known
-    L5 / leg-zero / trim issue (a stale/slumped logical stance felled
+    Attempt #2 with `cw-dep-vref1-r1`: fresh set_zero at a known
+    visual pose first (a stale/slumped logical stance felled
     a sound scripted gait); deploy tilt trip must match training (25°
     angle + a rate term that trips only when rate is large AND
     carrying the body away from level — never bare gyro magnitude);
