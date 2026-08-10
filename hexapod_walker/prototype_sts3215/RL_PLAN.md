@@ -35,13 +35,11 @@ creeping, because sim ground contact prices sliding as free; fixing
 that needs one hardware measurement (walk distance, tape measure)
 and an operator pricing ruling. The joystick DRIVING stack in sim is
 strong and seed-confirmed (±90° steering, latency, friction,
-payload, deadband, slopes, 60 s endurance — 0 falls); turn-in-place
-(yaw command) and the four-leg trick are trained and under review.
-Still failing: stand-up/sit-down inside the same policy as walking
-(every reward mix refuted — root cause found, fix arms in flight),
-and the stance policy's stand-up collapses at belly-liftoff on
-hardware (loaded servos ~5x slower than the air-fitted sim model;
-fit in progress). Hardware attempt #2 checkpoint `cw-dep-vref1-r1`
+payload, deadband, slopes, 60 s endurance — 0 falls). Still failing:
+commanded turning (yaw channel ignored — needs income gating) and
+stand-up (sit-down now solved warm; stand-up cheats with legs
+aloft — needs posture-priced finish; loaded-servo fit LANDED).
+Hardware attempt #2 checkpoint `cw-dep-vref1-r1`
 (trained on the exact deployed obs contract) is validated, hardened
 against 8 DR axes overnight, pulled to the operator Mac — waiting on
 bench time. Launches are on operator hold this morning; analysis
@@ -151,11 +149,12 @@ Open problems, in priority order:
    warm-start lineage is height_ref-blind AND freezing was paid
    (+120/ep, arrival-gate sign bug). Fix landed (69e00c0):
    `reward.rise_finish_gate_signed=1` + `rise_income_prog_gate=1` —
-   ALL future rise/lower arms set both. In flight: cw-uni-rfix-warm1
-   vs -fresh1; warm fails + fresh passes ⇒ unified deliverable goes
-   distill/two-policy instead of fine-tune grafting (branches
-   pre-registered). Rise/lower checkpoints from before sim fix
-   273ebde (leg-floor collision) are invalid near the ground.
+   ALL future rise/lower arms set both. RESULT 08-10: fix works —
+   warm1 lower 6/6 posture-strict; fresh1 strictly worse (tripod +
+   over-current) ⇒ KEEP fine-tune grafting, distill refuted. Rise
+   fails both arms: height paid with legs aloft — next arm gates
+   rise finish/late income on all-feet-loaded (end_posture_ok).
+   Pre-273ebde rise/lower ckpts stay invalid near the ground.
 3. **Loaded actuator model.** FIT LANDED 08-10: opt-in
    `--cfg-set bus.servo_params=loaded` (default stays air,
    legacy-exact). What's modeled, every fitted number's provenance,
@@ -188,10 +187,11 @@ Open problems, in priority order:
     open problem 1. Audit sim wz sign vs hardware (+omega =
     clockwise, measured 08-09).
 0.  **UNIFIED JOYSTICK POLICY (top deliverable).** Stand/sit/turn/
-    walk in one checkpoint. In flight: the rise/lower pricing-fix
-    arms (open problem 2). Yaw-rate command channel landed [CODE
-    c086a22]; yawcmd1 (+seed) under review. Quad is a MAINLINE
-    joystick command (drive_policy key `4`), not a side trick.
+    walk in one checkpoint. Next arms: posture-gated rise finish
+    (problem 2) + yaw income gating — yawcmd1-s1 FAILED its yaw
+    gate (turn |wz_err| med 0.24 vs 0.10; yaw_err flat both seeds =
+    free heading-hold income; measure via rl_move/sim/eval_yaw.py).
+    Quad is a MAINLINE joystick command (drive_policy key `4`).
     Line gate: joystick-gate retention AND rise/lower ≥5/6 AND quiet
     hold AND clean video on the post-273ebde floor.
 0.5 **TEMPORAL-ARCH** (1–2 pods; see Architecture).
