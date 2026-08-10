@@ -255,9 +255,28 @@ evaluation:
   # paragraph appended to the run's W&B notes (ops.sh wandbnote).
   verdict_format_structured: dig_in_only
   require_video_provenance: dig_in_only
-  # Every finished run's W&B notes must END with the OUTCOME paragraph:
-  # what happened + what was learned, plain English for a human.
+  # Every finished run's W&B notes must START with the OUTCOME
+  # paragraph (operator, 08-10 — supersedes the 08-09 append-at-bottom
+  # rule; ops.sh wandbnote now prepends): what happened + what was
+  # learned, plain English for a human. FIRST SENTENCE = the result in
+  # plain words. Canonical example (operator-written, cw-uni-rfix-warm1):
+  # "Half a win that settles the big question. With the new reward
+  # pricing, the robot now SITS DOWN properly every time (6/6 clean,
+  # body level, all feet planted) -- the first time the walking-champion
+  # brain has learned this. But STANDING UP still fails every time, and
+  # the video shows why: [...] Next arm does exactly that. Big picture:
+  # keep teaching the walking champion new skills by fine-tuning."
+  # Write like that: result -> evidence -> why -> next -> big picture.
   require_wandb_outcome_note: true
+  # PLAIN-ENGLISH-FIRST (operator, 08-10, binding): every artifact a
+  # human opens cold — W&B notes, ledger hypothesis, RL_LOG entries —
+  # must open with one plain sentence stating what is being learned or
+  # what happened, BEFORE any lineage/run-name/cfg jargon. The trainers
+  # now auto-prepend "WHAT THIS RUN IS TRYING TO LEARN: ..." to W&B
+  # notes; hypotheses must do the same by hand. A page the operator
+  # cannot parse in 10 seconds is a guardrail violation ("if I can't
+  # understand it and an LLM can't understand it, it's not ok").
+  plain_english_first: true
   # Gait validity (external review 5b): a walking checkpoint is INVALID if
   # any leg is persistently sacrificed, regardless of velocity error.
   # Flag-leg detection is a permanent eval gate independent of reward terms.

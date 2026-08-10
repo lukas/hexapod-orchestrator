@@ -381,10 +381,13 @@ print(f"cached {len(hist)} history rows -> {d}/")
 EOF
   ;;
 
-wandbnote)  # wandbnote <run> "paragraph" — append the human OUTCOME
-  # paragraph to the BOTTOM of the run's W&B notes (operator, 08-09:
-  # notes open with the plain-English plan; they should CLOSE with what
-  # happened and what was learned, targeted at a human).
+wandbnote)  # wandbnote <run> "paragraph" — put the human OUTCOME
+  # paragraph at the TOP of the run's W&B notes (operator, 08-10: the
+  # first thing anyone sees on a run page must be what happened, in
+  # plain English — the 08-09 append-at-bottom rule buried it under
+  # the spec dump and the operator could not tell what a run was even
+  # trying to learn). Re-running replaces the previous OUTCOME block;
+  # everything below the marker line is preserved.
   run="$2"; text="$3"
   python3 - "$run" "$text" <<'EOF'
 import sys
@@ -396,9 +399,15 @@ runs = [r for r in api.runs("l2k2/hexapod-balance",
 if not runs:
     sys.exit(f"no W&B run named {name}")
 r = sorted(runs, key=lambda x: x.created_at)[-1]
-marker = "--- OUTCOME"
-base = (r.notes or "").split(marker)[0].rstrip()
-r.notes = f"{base}\n\n{marker} ---\n{text.strip()}\n"
+marker = "--- details below ---"
+old = r.notes or ""
+# strip a previous top OUTCOME block (and the legacy bottom one)
+body = old.split(marker, 1)[1] if marker in old else old
+body = body.split("--- OUTCOME ---")[0].rstrip()
+text = text.strip()
+if text.upper().startswith("OUTCOME:"):
+    text = text[len("OUTCOME:"):].strip()
+r.notes = f"OUTCOME: {text}\n\n{marker}\n{body.lstrip()}"
 r.update()
 print(f"notes updated: {r.url}")
 EOF

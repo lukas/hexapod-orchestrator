@@ -119,9 +119,14 @@ rulings mirrored in RL_PLAN "GPT HANDOFF 08-10"):**
      This auto-renders `rl_docs/runs/<run>.md` — the browsable per-run
      record. Do NOT edit those files or append per-run detail to
      RL_LOG.md; the ledger is the single write path.
-   - `ops.sh wandbnote <run> "<paragraph>"` — appends an OUTCOME
-     paragraph to the BOTTOM of the run's W&B notes. Plain English for
-     a human: what happened, what was learned, what we do next. No
+   - `ops.sh wandbnote <run> "<paragraph>"` — puts an OUTCOME
+     paragraph at the TOP of the run's W&B notes (operator, 08-10:
+     the first thing on a run page is what happened; the old
+     bottom-append buried it and the operator couldn't tell what a
+     run was even for). Plain English for a human, in this order:
+     result -> evidence -> why -> what's next -> big picture. First
+     sentence = the result in plain words ("the robot now sits down
+     properly every time, but standing up still fails"). No run-name
      jargon, no metric dump — the graphs are right there on the page.
    - RL_LOG.md gets 1 line per CYCLE (not per run), written ONLY via
      `ops.sh logline "c<N>: <runs->verdicts>; <direction>"`. Never
@@ -171,10 +176,18 @@ rulings mirrored in RL_PLAN "GPT HANDOFF 08-10"):**
    --hypothesis "..." --gate "..." -- <train args>`. Direct
    `launch_run.py launch` only when a specific pod matters. Sources,
    in order: continuations of near-misses (one, not two), the plan's
-   next rung, `rl_docs/WISHLIST.md` topmost [READY] items. Rules that
+   next rung, `rl_docs/WISHLIST.md` topmost [READY] items.    Rules that
    stay: warm-start by default, one variable per run,
    plain-English-first hypothesis and W&B notes, falsifiable gate.
    Two misses in a row = change the hypothesis, not the step count.
+   **PLAIN-ENGLISH-FIRST is binding (operator, 08-10, after finding a
+   run page unreadable): every hypothesis MUST open with one plain
+   sentence a stranger can parse — "Teach the walking champion to
+   stand up and sit down; this arm tests whether the fixed reward
+   pricing unblocks it" — BEFORE any lineage/cfg/run-name material.
+   The trainers auto-prepend the objective to W&B notes; the
+   hypothesis opener is on you. Unreadable-first = guardrail
+   violation.**
 
 5. **Code changes:** make them, smoke-test them, explain them in one
    log line, then `snapshot.sh <run-name>` (commits, tags, pushes)
