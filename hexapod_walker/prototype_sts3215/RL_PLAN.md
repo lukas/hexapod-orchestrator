@@ -145,6 +145,37 @@ the archive review's triggers fire.
    learned residual only if held-out multi-step prediction demands.
    Anti-slip reward shaping stays CLOSED absent new physical
    evidence.
+   **SESSION 08-09 NIGHT MEASUREMENTS (operator; RL_LOG session 3 —
+   these BIND the contract arms):** (a) POST-MORTEM CORRECTION: the
+   1.5°/tick clamp WAS in raw-joint training (config
+   safety.max_delta_q_deg=1.5 + SafetyLayer in sim step path) — the
+   "slew limiter is hardware-only" causal rank #1 is refuted as
+   stated; remaining contract gaps = walk velocity obs (hardware
+   feeds meas:=ref → train with NEW `goal.walk_obs_body_vel=2`),
+   tilt envelope, prev-action semantics, contact/current pricing.
+   (b) The scripted tripod gait WALKS (fwd/crab/turns) and a WORKING
+   gait rocks ±10-20° roll/pitch — 10° tilt termination forbids real
+   weight transfer; walk-mode arms train AND deploy with ~25°
+   relative-tilt trip. (c) Walking (0.33-0.45 A total) is CHEAPER
+   than standing hold (0.59 A) on real hardware — recalibrate sim
+   current pricing against `hardware_traces/hw_session2_20260810.csv`.
+   (d) Loaded actuator: cmd→motion 110-210 ms, t90 260-430 ms
+   (step_ladder trace) — feed the actuator-ID fit. (e) +omega =
+   CLOCKWISE on hardware; audit sim wz sign.    (f) Real feet DO slide
+   under load in a working gait (operator-confirmed) — contact model
+   must permit loaded slide; "floor does not skate" applies to
+   body-roll coupling, not micro-slip. (g) Walk ground-truth distance
+   NOT yet measured — next operator session, tape measure.
+   OVERNIGHT CONTRACT ARMS (launched 08-09 night, operator): 
+   `cw-dep-vref1` = walk champion warm-start with
+   walk_obs_body_vel=2 (meas:=ref, the exact deployed contract) +
+   25° tilt envelope — hypothesis: champion re-anchors to deployable
+   obs without walk erosion; `cw-dep-fresh1` = fresh init, same
+   contract, log_std 0.0 / ent 0.005 — hypothesis: with rocking
+   permitted (25°) and honest velocity obs, a weight-transfer gait
+   (not creep) emerges. Gate for BOTH: deployment-pipeline eval +
+   video; compare against the scripted-gait hardware envelope
+   (±10-20° rock, 0.3-0.5 A, feet allowed to slip).
 0. **UNIFIED JOYSTICK POLICY (operator, 08-09 evening — top
    deliverable): ONE checkpoint that stands up, walks/steers, stops,
    sits down from joystick commands.** No per-skill model zoo. Line
