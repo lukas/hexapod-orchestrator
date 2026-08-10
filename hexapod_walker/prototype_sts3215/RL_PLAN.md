@@ -165,7 +165,20 @@ Open problems, in priority order:
    not the deliverable — rise must end in the WALKABLE plant
    stance. Belly→plant reference + plant-height targets + pricing
    smoke (path +952 >> stilt +225 >> freeze −195) landed; arm
-   `cw-stand-b2p1` queued. Full plan: RL_GOALS.md "Standing up".
+   `cw-stand-b2p1` FAILED (08-10 ~16:5x, confirms if-false): rise
+   0/12 AND lower 0/12 posture-strict — height nailed (err <6 mm
+   both modes) but via a flag-leg/tripod cheat (rise: 2 legs
+   80–131 mm up; lower WORSE: 1 leg up to ~288 mm), video-confirmed.
+   Posture-gate + income-prog-gate + signed-finish-gate + dense
+   ref-track scaffold (individually pricing-smoke-validated) still
+   lose to the height-only cheat once trained under the full reward
+   stack — same pathology class as `cw-uni-rfix-fresh1` and
+   `cw-stance-riseproof1` (open DIG-IN). Direction: the posture-gate
+   needs a stronger GEOMETRIC criterion (support-polygon/foot-count,
+   not a height-based clearance allowance) before another
+   plant-height rise/lower attempt — do not just re-run b2p1's
+   recipe with more steps or a different k_rise_ref_track weight.
+   Full plan: RL_GOALS.md "Standing up".
 3. **Loaded actuator model.** FIT LANDED 08-10: opt-in
    `--cfg-set bus.servo_params=loaded` (default stays air,
    legacy-exact). What's modeled, every fitted number's provenance,
