@@ -447,6 +447,54 @@ killrun)  # killrun <run> — kill a run's training procs on its pod.
   echo "remember: launch_run.py update --run $run --set status=KILLED 'verdict=...'"
   ;;
 
+oplaunch)  # oplaunch <launch_run.py args...> — run a launcher command ON
+  # THE CONTROLLER, detached, creds sourced, result polled. The
+  # controller's git is the code-sha truth the pods sync from; a laptop
+  # clone is usually stale or dirty, so launching from one gets refused
+  # (bit the operator's assistant 08-10: a by-hand kubectl-cp + tmux +
+  # LAUNCH_HOLD-juggling dance). Works from the operator Mac OR the
+  # controller itself. Typical use — continue a finished run during an
+  # operator hold (--operator-override is OPERATOR-ONLY):
+  #   ops.sh oplaunch respec --from cw-arch-hist16-r7 \
+  #     --run cw-arch-hist16-r7-c1 --init-from-source --now \
+  #     --operator-override 'operator asked in chat, 08-10' \
+  #     --hypothesis '<plain English: what/why/if-true/if-false — this
+  #                    LEADS the W&B notes>' --gate '<gate>'
+  # Afterwards record it: ops.sh logline (on the controller).
+  shift
+  ts=$(date +%Y%m%d_%H%M%S); runner=/tmp/oplaunch_$ts.sh; log=/tmp/oplaunch_$ts.log
+  {
+    echo '#!/usr/bin/env bash'
+    echo 'cd /workspace/weird_objects/hexapod_walker/prototype_sts3215 || exit 1'
+    echo 'source /root/orchestrator.env 2>/dev/null'
+    echo 'set -a; source rl_move/sim/wandb.env 2>/dev/null; set +a'
+    # Run the freshest tooling: pull under the same lock snapshot.sh uses.
+    echo 'flock /workspace/git_snapshot.lock -c "git -C /workspace/weird_objects pull --rebase --autostash origin main" >/dev/null 2>&1'
+    printf 'exec python3 rl_move/orchestrator/launch_run.py'
+    printf ' %q' "$@"
+    echo
+  } > "$runner"
+  done_pat='VERIFIED RUNNING|REFUSED|VERIFICATION FAILED|Traceback|snapshot failed|self-repair failed|no free GPU pod|queued '
+  if [ -d /workspace/weird_objects ]; then   # already on the controller
+    nohup bash "$runner" > "$log" 2>&1 < /dev/null &
+    echo "oplaunch running (pid $!) -> $log"
+    bash "$0" waitlog "$log" "$done_pat" 1800 || exit 1
+    tail -15 "$log"
+  else
+    CTL=hexapod-sweep-friction
+    kubectl cp "$runner" "$CTL:$runner" || exit 1
+    kubectl exec "$CTL" -- bash -c "nohup bash '$runner' > '$log' 2>&1 < /dev/null &"
+    echo "oplaunch running on $CTL -> $log (launch verification takes minutes)"
+    el=0
+    until kubectl exec "$CTL" -- grep -qE "$done_pat" "$log" 2>/dev/null; do
+      sleep 20; el=$((el+20))
+      [ "$el" -ge 1800 ] && { echo "TIMEOUT after ${el}s; tail:"; kubectl exec "$CTL" -- tail -8 "$log"; exit 1; }
+    done
+    kubectl exec "$CTL" -- tail -15 "$log"
+    echo "record it: kubectl exec $CTL -- bash -c 'cd /workspace/weird_objects/hexapod_walker/prototype_sts3215 && ./rl_move/orchestrator/ops.sh logline \"...\"'"
+  fi
+  ;;
+
 waitlog)  # waitlog <file> <regex> [timeout_s] — poll instead of sleep-and-pray
   f="$2"; pat="$3"; t="${4:-900}"; el=0
   until grep -qE "$pat" "$f" 2>/dev/null; do
@@ -463,6 +511,6 @@ waitlog)  # waitlog <file> <regex> [timeout_s] — poll instead of sleep-and-pra
   echo "  entry <run> | wandb <run> | pullckpt <run> | pushckpt <pod> <ckpt> |"
   echo "  evalcmd <run> | drain | killrun <run> | waitlog <file> <regex> [t] |"
   echo "  logline \"line\" | frames <mp4> [n] | expdir <run> | wandbdump <run> |"
-  echo "  wandbnote <run> \"paragraph\""
+  echo "  wandbnote <run> \"paragraph\" | oplaunch <launch_run.py args...>"
   ;;
 esac

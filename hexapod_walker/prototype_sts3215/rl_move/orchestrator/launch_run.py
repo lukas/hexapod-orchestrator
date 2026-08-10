@@ -301,10 +301,21 @@ def _launch_locked(g: dict, a: argparse.Namespace,
         "checks": {}, "stack": "gpu-mjx" if is_gpu else "cpu",
     }
     if LAUNCH_HOLD.exists():
-        return refuse(entry, "operator LAUNCH_HOLD in effect — triage/"
-                             "verdict only, no new launches; do NOT retry "
-                             "or requeue, the hold clears when the operator "
-                             "removes rl_move/orchestrator/LAUNCH_HOLD")
+        # Operator-ordered single launch during a hold. Before this flag
+        # (08-10) the operator's assistant had to mv the hold file away
+        # and restore it — a race against the watcher and a throwaway
+        # script every time. The bypass is recorded in the ledger entry;
+        # every AUTOMATIC path (drain, auto-continue, backlog retries)
+        # never passes it, so the hold still parks the fleet. Agents:
+        # this flag is operator-only (guardrails OPERATOR HOLD note).
+        override = getattr(a, "operator_override", "")
+        if override:
+            entry["operator_override"] = override
+        else:
+            return refuse(entry, "operator LAUNCH_HOLD in effect — triage/"
+                                 "verdict only, no new launches; do NOT retry "
+                                 "or requeue, the hold clears when the operator "
+                                 "removes rl_move/orchestrator/LAUNCH_HOLD")
     checks = entry["checks"]
 
     # --- static checks -----------------------------------------------------
@@ -844,24 +855,39 @@ def cmd_backlog(a: argparse.Namespace, extra: list[str]) -> int:
     return 0
 
 
-def cmd_respec(a: argparse.Namespace) -> int:
-    """Queue a follow-up run by CLONING a ledger entry's trainer args with
-    targeted overrides — the mechanical form of the most-repeated cycle
-    task (seed panels, ladder rungs, DR variants). Agents re-typed the
-    ~800-char arg vector for every follow-up and typo'd it more than
-    once (operator, 08-09 evening: 'if the models keep doing the same
-    thing, give them more scripts').
+def cmd_respec(g: dict, a: argparse.Namespace) -> int:
+    """Queue (or directly launch) a follow-up run by CLONING a ledger
+    entry's trainer args with targeted overrides — the mechanical form of
+    the most-repeated cycle task (seed panels, ladder rungs, DR variants,
+    continuations). Agents re-typed the ~800-char arg vector for every
+    follow-up and typo'd it more than once (operator, 08-09 evening: 'if
+    the models keep doing the same thing, give them more scripts').
 
         launch_run.py respec --from cw-walk-joyjit-dr05-c1 \
             --run cw-walk-joyjit-dr05-s3 --seed 3 \
             --hypothesis '…' --gate '…' \
-            [--steps N] [--arg='--episode-seconds=120'] [--cfg k=v]
+            [--steps N] [--arg='--episode-seconds=120'] [--cfg k=v] \
+            [--init-from-source] [--now [--pod POD]] \
+            [--operator-override 'why']
 
     --arg overrides/adds a trainer flag (use the = form, the value
     starts with --); --cfg overrides/adds a --cfg-set KEY=V pair.
     --out-name is derived from --run; --notes is replaced by the
     hypothesis (pass --arg='--notes=…' to override).
+    --init-from-source warm-starts from the source run's checkpoint
+    (its --out-name; encodes the dash->underscore rule of gotcha 6).
+    Default is queue-to-backlog (drain launches it). --now skips the
+    backlog: snapshot -> pick pod (source run's pod if free, else any
+    free slot, or --pod) -> self-repair -> launch + verify, in one
+    command — previously hand-assembled from snapshot.sh + pushckpt +
+    a hand-typed launch (operator continuation, 08-10).
+    --operator-override (requires --now) is the OPERATOR-ONLY audited
+    LAUNCH_HOLD bypass; agents must never pass it.
     """
+    if a.operator_override and not a.now:
+        print("--operator-override requires --now (a queued item would be "
+              "launched later by drain, which never bypasses the hold)")
+        return 1
     src = [e for e in load_ledger() if isinstance(e, dict)
            and e.get("run") == a.source and e.get("extra_args")]
     if not src:
@@ -893,16 +919,77 @@ def cmd_respec(a: argparse.Namespace) -> int:
                 break
         else:
             args.extend(["--cfg-set", spec])
+    if a.init_from_source:
+        xa = entry["extra_args"]
+        src_out = (xa[xa.index("--out-name") + 1] if "--out-name" in xa
+                   else "ppo_goal_" + a.source.replace("-", "_"))
+        set_flag("--init-from", f"rl_move/sim/policies/{src_out}.zip")
     set_flag("--out-name", "ppo_goal_" + a.run.replace("-", "_"))
     if "--notes" not in (a.arg or []) and not any(
             s.startswith("--notes=") for s in a.arg or []):
         set_flag("--notes", f"respec of {a.source}: {a.hypothesis}")
-    ns = argparse.Namespace(
-        action="add", run=a.run, steps=a.steps or entry.get("steps"),
-        parent=a.parent or a.source, hypothesis=a.hypothesis, gate=a.gate)
     print(f"respec {a.source} -> {a.run} "
-          f"(changed: seed={a.seed}, args={a.arg or []}, cfg={a.cfg or []})")
-    return cmd_backlog(ns, args)
+          f"(changed: seed={a.seed}, args={a.arg or []}, cfg={a.cfg or []}"
+          f"{', init-from source ckpt' if a.init_from_source else ''})")
+    steps = a.steps or entry.get("steps")
+    if not a.now:
+        ns = argparse.Namespace(
+            action="add", run=a.run, steps=steps,
+            parent=a.parent or a.source, hypothesis=a.hypothesis,
+            gate=a.gate)
+        return cmd_backlog(ns, args)
+
+    # --now: direct launch, skipping the backlog. snapshot -> sync ->
+    # launch, in that order, same command (gotcha 5, mechanized).
+    snap = subprocess.run(["bash", str(HERE / "snapshot.sh"), a.run],
+                          capture_output=True, text=True, timeout=600)
+    if snap.returncode != 0:
+        print(f"snapshot failed (commit/tag/push):\n"
+              f"{snap.stdout}{snap.stderr}")
+        return 1
+    pod = a.pod
+    if not pod:
+        free = _free_gpu_pods(g)
+        # Prefer the source run's pod: its checkpoint is already there,
+        # so an --init-from-source launch needs zero copies.
+        src_pod = entry.get("pod", "")
+        pod = src_pod if src_pod in free else (free[0] if free else "")
+    if not pod:
+        print("no free GPU pod and no --pod given; nothing launched")
+        return 1
+    err = _self_repair_pod(pod, args)
+    if err:
+        print(f"self-repair failed: {err}")
+        return 1
+    ns = argparse.Namespace(
+        pod=pod, run=a.run, steps=steps, parent=a.parent or a.source,
+        hypothesis=a.hypothesis, gate=a.gate, smoke=False,
+        allow_slow=False, dry_run=False,
+        operator_override=a.operator_override)
+    return cmd_launch(g, ns, args)
+
+
+def _self_repair_pod(pod: str, extra_args: list[str]) -> str | None:
+    """Make <pod> launchable: sync code, push a missing --init-from
+    checkpoint (best-effort; the launcher's preflight still gates), copy
+    the gitignored W&B secret. Shared by drain and respec --now — this
+    exact three-step dance used to be hand-assembled per launch.
+    Returns an error string on hard failure, else None."""
+    sync = subprocess.run(["bash", str(HERE / "snapshot.sh"), "--sync", pod],
+                          capture_output=True, text=True, timeout=600)
+    if sync.returncode != 0:
+        return f"sync {pod}: {sync.stderr or sync.stdout}"
+    if "--init-from" in extra_args:
+        ckpt = extra_args[extra_args.index("--init-from") + 1]
+        subprocess.run(["bash", str(HERE / "ops.sh"), "pushckpt", pod, ckpt],
+                       capture_output=True, text=True, timeout=600)
+    wenv = HERE.parent / "sim" / "wandb.env"
+    if wenv.is_file():
+        subprocess.run(["kubectl", "--kubeconfig", KUBECONFIG, "cp",
+                        str(wenv),
+                        f"{pod}:{WORKDIR}/rl_move/sim/wandb.env"],
+                       capture_output=True, text=True, timeout=120)
+    return None
 
 
 def _free_gpu_pods(g: dict) -> list[str]:
@@ -1002,27 +1089,11 @@ def cmd_drain(g: dict, a: argparse.Namespace) -> int:
                 return
         except Exception:
             pass  # W&B flake: fall through, cmd_launch's gate still holds
-        # Self-repair 1: pod code marker -> current HEAD.
-        sync = subprocess.run(["bash", str(HERE / "snapshot.sh"),
-                               "--sync", pod],
-                              capture_output=True, text=True, timeout=600)
-        if sync.returncode != 0:
-            requeue(it, f"sync {pod}: {sync.stderr or sync.stdout}")
+        # Self-repairs: code sync, warm-start checkpoint, W&B secret.
+        err = _self_repair_pod(pod, it.get("extra_args") or [])
+        if err:
+            requeue(it, err)
             return
-        # Self-repair 2: warm-start checkpoint present on the pod.
-        xa = it.get("extra_args") or []
-        if "--init-from" in xa:
-            ckpt = xa[xa.index("--init-from") + 1]
-            subprocess.run(["bash", str(HERE / "ops.sh"), "pushckpt",
-                            pod, ckpt],
-                           capture_output=True, text=True, timeout=600)
-        # Self-repair 3: W&B secret (gitignored, never in code sync).
-        wenv = HERE.parent / "sim" / "wandb.env"
-        if wenv.is_file():
-            subprocess.run(["kubectl", "--kubeconfig", KUBECONFIG, "cp",
-                            str(wenv),
-                            f"{pod}:{WORKDIR}/rl_move/sim/wandb.env"],
-                           capture_output=True, text=True, timeout=120)
         cmd = [sys.executable, str(HERE / "launch_run.py"), "launch",
                "--pod", pod, "--run", run, "--steps", str(it["steps"]),
                "--parent", it.get("parent", ""),
@@ -1252,6 +1323,18 @@ def main() -> int:
                     help="override/add a trainer flag (repeatable)")
     rp.add_argument("--cfg", action="append", default=None, metavar="K=V",
                     help="override/add a --cfg-set pair (repeatable)")
+    rp.add_argument("--init-from-source", action="store_true",
+                    help="warm-start from the source run's checkpoint")
+    rp.add_argument("--now", action="store_true",
+                    help="launch directly (snapshot+sync+repair+verify) "
+                         "instead of queueing to the backlog")
+    rp.add_argument("--pod", default="",
+                    help="with --now: target pod (default: source run's "
+                         "pod if free, else first free slot)")
+    rp.add_argument("--operator-override", default="",
+                    help="OPERATOR-ONLY, with --now: reason string that "
+                         "bypasses LAUNCH_HOLD for this one launch "
+                         "(recorded in the ledger); agents never pass this")
     lp = sub.add_parser("launch")
     lp.add_argument("--pod", required=True)
     lp.add_argument("--run", required=True)
@@ -1264,6 +1347,10 @@ def main() -> int:
     lp.add_argument("--allow-slow", action="store_true",
                     help="override the free-cores check (record why!)")
     lp.add_argument("--dry-run", action="store_true")
+    lp.add_argument("--operator-override", default="",
+                    help="OPERATOR-ONLY: reason string that bypasses "
+                         "LAUNCH_HOLD for this one launch (recorded in "
+                         "the ledger); agents never pass this")
     argv = sys.argv[1:]
     extra: list[str] = []
     if "--" in argv:
@@ -1280,7 +1367,7 @@ def main() -> int:
     if a.cmd == "backlog":
         return cmd_backlog(a, extra)
     if a.cmd == "respec":
-        return cmd_respec(a)
+        return cmd_respec(g, a)
     if a.cmd == "runsmd":
         return cmd_runsmd()
     if a.cmd == "drain":
