@@ -1,12 +1,23 @@
 # RL Plan — raw-joint policies to hardware candidates
 
-**In plain English:** we're training a walking controller for a real
-six-legged robot, in simulation, with an autonomous experiment loop.
-The sim robot already walks with all six legs; its feet SLIDE along
-the ground while stepping, and that sliding (plus two pending
-operator pricing decisions) is what stands between us and putting a
-policy on the physical robot. Mission and current status in plain
-terms: `rl_docs/GOAL.md`. How to run things: `rl_docs/COMMANDS.md`.
+## GOAL (operator, binding — rewritten 08-10, supersedes all prior)
+
+**Drive the real hexapod around with a joystick.** One deployed
+policy (or a small blended set) on the physical robot that can
+STAND UP, SIT DOWN, TURN, and WALK where the joystick points —
+reliably, session after session. Once that works, the party tricks:
+lift the front legs and stand on four, then walk on four.
+
+What "good" means: covers real ground, stays level, never falls,
+never cooks a motor — reliability over speed. **Foot slip is NOT
+failure by itself**: the scripted gait that actually walks the robot
+slips visibly (measured 08-09, "maybe helping"). Slip metrics exist
+to make sim predictive of the real floor (contact pricing
+calibration), not as a ban. Speed-band tracking and zero-slip gates
+are means, never the objective.
+
+Plain-terms mission + status: `rl_docs/GOAL.md`. How to run things:
+`rl_docs/COMMANDS.md`.
 
 Rev 2026-08-09d (condensed). Full previous plan with all evidence
 inline: `archive/RL_PLAN_FULL_2026-08-09.md`. Campaign history:
@@ -21,10 +32,25 @@ under ~400 lines. Prefer breaking self-contained material into
 superseded detail to archive, don't accumulate it. Hardware evidence
 and the experiment backlog live in `rl_docs/HARDWARE.md`.**
 
-Big goal: fluid real-world motion on the physical hexapod — walking
-above all. Objective (operator, binding): **DISTANCE, STABILITY,
-RELIABILITY** — covers real ground, stays level, never falls. Not
-speed-band tracking.
+## Where we are (plain English — operator + agent, 08-10 morning)
+
+The real robot walks today under a scripted gait (forward, crab,
+turns, from a clean zero) — that is the bar learned policies must
+beat. In sim the learned gait is real (six legs cycling) but low and
+creeping, because sim ground contact prices sliding as free; fixing
+that needs one hardware measurement (walk distance, tape measure)
+and an operator pricing ruling. The joystick DRIVING stack in sim is
+strong and seed-confirmed (±90° steering, latency, friction,
+payload, deadband, slopes, 60 s endurance — 0 falls); turn-in-place
+(yaw command) and the four-leg trick are trained and under review.
+Still failing: stand-up/sit-down inside the same policy as walking
+(every reward mix refuted — root cause under dig-in), and the stance
+policy's stand-up collapses at belly-liftoff on hardware (loaded
+servos ~5x slower than the air-fitted sim model; fit in progress).
+Hardware attempt #2 checkpoint `cw-dep-vref1-r1` (trained on the
+exact deployed obs contract) is validated, hardened against 8 DR
+axes overnight, pulled to the operator Mac — waiting on bench time.
+Launches are on operator hold this morning; analysis continues.
 
 ## Standing rules (binding)
 
