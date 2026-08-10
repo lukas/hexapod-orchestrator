@@ -166,6 +166,25 @@ the archive review's triggers fire.
    must permit loaded slide; "floor does not skate" applies to
    body-roll coupling, not micro-slip. (g) Walk ground-truth distance
    NOT yet measured — next operator session, tape measure.
+   START-VARIATION ROBUSTNESS (operator directive 08-10 00:38 —
+   binding): tonight's scripted-gait falls were caused by stale
+   stance + drifted logical zero, NOT by the gait. The operator's
+   chosen fix is robustness through variation, not sequencing guards:
+   (a) COMPOSE dr.placement_noise_deg=6.0 (the placementnoise6 PASS
+   level) + dr.bad_start_prob=0.4 onto the cw-dep contract line as
+   soon as vref1-r1/fresh1 have verdicts — every future hardware
+   candidate trains with imperfect starts by default. (b) NEW DR AXIS
+   [CODE]: logical-zero drift — an OBS-SIDE per-joint encoder offset
+   (the sensors lie consistently by a few deg, e.g. set_zero done on
+   a slumped pose). This is DISTINCT from placement noise (physical
+   pose slop with truthful sensors); tonight's falls were the
+   lying-sensor kind. Start ±3°, anneal up. (c) EVAL: gates for
+   hardware-candidate checkpoints must include a varied-start panel
+   (placement noise + bad starts + zero drift at eval time), not
+   only pristine-plant starts — a checkpoint that only walks from a
+   perfect plant is NOT HARDWARE-READY. (d) Walk episodes should
+   sometimes start from park-bank/slumped poses (walk_park_bank
+   exists) so "stand into stance then go" is in-distribution.
    OVERNIGHT CONTRACT ARMS (launched 08-09 night, operator): 
    `cw-dep-vref1` = walk champion warm-start with
    walk_obs_body_vel=2 (meas:=ref, the exact deployed contract) +
