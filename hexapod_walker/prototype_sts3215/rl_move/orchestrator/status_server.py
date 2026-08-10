@@ -308,7 +308,11 @@ def wandb_done_runs() -> list[dict]:
     alone misses runs that finish while the watcher is paused, which is
     exactly when the operator is staring at this page)."""
     import wandb
-    api = wandb.Api()
+
+    # timeout: the default client blocks/retries indefinitely on a dead
+    # link — a hang here must become an error the page can display, not
+    # an eternally-empty snapshot (operator saw exactly that, 08-10 pm).
+    api = wandb.Api(timeout=30)
     return [{"run": r.name, "created": str(r.created_at)}
             for r in api.runs(
                 "l2k2/hexapod-balance",
@@ -349,15 +353,66 @@ def fast_worker() -> None:
         time.sleep(FAST_S)
 
 
-def slow_worker() -> None:
+# Each slow component runs on ITS OWN thread and publishes into
+# SNAP["slow"] independently. The old single-pass slow_worker set the
+# snapshot only after census AND tokens AND wandb all succeeded — one
+# hung W&B call (2026-08-10 pm) meant NO costs, an empty fleet table,
+# and the error invisible in SNAP["slow_err"]. Now a dead component
+# stales/errors alone, keeps its last good data, and the page says so.
+SLOW_PARTS = (("census", census), ("tokens", token_totals),
+              ("wandb_done", wandb_done_runs))
+
+
+def part_worker(key: str, fn) -> None:
+    s = SNAP["slow"]
     while True:
         try:
-            SNAP["slow"] = {"at": time.time(), "census": census(),
-                            "tokens": token_totals(),
-                            "wandb_done": wandb_done_runs()}
+            val = fn()
+            s[key] = val
+            s[key + "_at"] = time.time()
+            s.pop(key + "_err", None)
         except Exception as e:
-            SNAP["slow_err"] = repr(e)
+            s[key + "_err"] = repr(e)[:300]
+            s[key + "_err_at"] = time.time()
+        s["at"] = time.time()
         time.sleep(SLOW_S)
+
+
+def data_health(f: dict, s: dict) -> list[str]:
+    """Operator-facing reasons any page section is empty or stale."""
+    now = time.time()
+    warns = []
+    if SNAP.get("fast_err"):
+        warns.append(f"status collector error: {SNAP['fast_err']}")
+    if f.get("at") and now - f["at"] > 3 * FAST_S:
+        warns.append(f"watcher/ledger data is {int((now - f['at']) / 60)} "
+                     "min stale — collector thread wedged?")
+    for key, label, impact in (
+        ("census", "fleet census (kubectl per pod)",
+         "pod training/idle counts and the Fleet table are blank — it "
+         "does NOT mean nothing is running"),
+        ("tokens", "Claude transcript scan",
+         "cost / token cards are hidden"),
+        ("wandb_done", "W&B finished-runs query",
+         "the analysis pipeline section may miss finished runs"),
+    ):
+        err, at = s.get(key + "_err"), s.get(key + "_at")
+        if err:
+            when = datetime.datetime.fromtimestamp(
+                s.get(key + "_err_at", now)).strftime("%H:%M")
+            last = (" (showing data from "
+                    + datetime.datetime.fromtimestamp(at).strftime("%H:%M")
+                    + ")") if at else ""
+            warns.append(f"{label} FAILING since {when}: {err} — "
+                         f"{impact}{last}")
+        elif at is None:
+            warns.append(f"{label} still collecting its first pass "
+                         f"(server just restarted?) — {impact} until it "
+                         "lands")
+        elif now - at > 3 * SLOW_S:
+            warns.append(f"{label} last succeeded "
+                         f"{int((now - at) / 60)} min ago — {impact}")
+    return warns
 
 
 # ---------------------------------------------------------------- html
@@ -430,6 +485,12 @@ def render() -> str:
              f"auto-reloads every 30 s · fleet/token data every "
              f"{SLOW_S} s{(' · ' + esc(sub)) if sub else ''}</div>")
 
+    # Why-is-this-blank box: every silent failure mode gets a sentence.
+    for wmsg in data_health(f, s):
+        h.append(f"<div class='card' style='border-color:#da3633;"
+                 f"margin-top:10px'><span class='bad'>&#9888; "
+                 f"{esc(wmsg)}</span></div>")
+
     # finished on W&B but no verdict in the ledger = not yet analyzed.
     # W&B is the ground truth for "finished"; the triage field only adds
     # the awaiting/in-cycle detail (it's watcher-stamped and misses runs
@@ -459,8 +520,11 @@ def render() -> str:
     pipe_cls = "" if n_pipe <= 3 else " style='border-color:#9e6a03'"
     h.append(f"<div class='card'{pipe_cls}><div class='n'>{n_pipe}</div>"
              f"<div class='l'>finished, NOT yet analyzed</div></div>")
+    # census never landed -> "?" cards, not a false "0 pods training"
+    have_census = "census_at" in s
     for n, l in [
-        (len(busy), "pods training"), (len(idle), "pods idle"),
+        (len(busy) if have_census else "?", "pods training"),
+        (len(idle) if have_census else "?", "pods idle"),
         (len(f.get("cycles", [])), "LLM cycles in flight"),
         (len(backlog["queued"]), "queued in backlog"),
         (counts.get("FINISHED", 0), "runs analyzed (verdicted)"),
@@ -519,7 +583,11 @@ def render() -> str:
                  f"<td class='dim'>{tail}</td></tr>")
     h.append("</table>")
 
-    h.append("<h2>Fleet</h2><table>")
+    h.append("<h2>Fleet</h2>")
+    if not cen:
+        h.append("<div class='warn'>no census data — see the warning box "
+                 "at the top; this does NOT mean the pods are idle</div>")
+    h.append("<table>")
     for c in cen:
         if c.get("runs"):
             h.append(f"<tr class='mono'><td>{c['pod']}</td>"
@@ -664,7 +732,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
 def main() -> int:
     threading.Thread(target=fast_worker, daemon=True).start()
-    threading.Thread(target=slow_worker, daemon=True).start()
+    for key, fn in SLOW_PARTS:
+        threading.Thread(target=part_worker, args=(key, fn),
+                         daemon=True).start()
     srv = http.server.ThreadingHTTPServer(("0.0.0.0", PORT), Handler)
     print(f"status page on :{PORT}")
     srv.serve_forever()
