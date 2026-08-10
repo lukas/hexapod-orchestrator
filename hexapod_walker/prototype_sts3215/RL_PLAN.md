@@ -10,88 +10,54 @@ lift the front legs and stand on four, then walk on four.
 
 What "good" means: covers real ground, stays level, never falls,
 never cooks a motor — reliability over speed. **Foot slip is NOT
-failure by itself**: the scripted gait that actually walks the robot
-slips visibly (measured 08-09, "maybe helping"). Slip metrics exist
-to make sim predictive of the real floor (contact pricing
-calibration), not as a ban. Speed-band tracking and zero-slip gates
-are means, never the objective.
+failure by itself** (the scripted gait that walks the robot slips
+visibly); slip metrics keep sim honest about the real floor, never a
+ban. Speed bands and zero-slip gates are means, never the objective.
 
-Pointers: plain-terms mission/status `RL_GOALS.md` · how to run
-things `rl_docs/COMMANDS.md` · **physics sim + actuator model + DR
-philosophy `rl_docs/SIM.md`** · campaign history `RL_LOG.md` ·
-per-run facts `rl_docs/runs/` · full text of every ruling summarized
-here lives in `archive/` (this file states only what currently
-binds). **EDIT RULE (operator, 08-10): keep this file under ~250
-lines and in plain language. New material goes to `rl_docs/` with a
-pointer here; superseded detail moves to `archive/` — never
-accumulates here.**
+Startup reading order (operator + GPT, 08-10): `RL_GOALS.md`
+(mission) → **`CURRENT_TRUTHS.md`** (accepted facts — outranks any
+history file) → this file (blockers/queue/architecture/gates) →
+**`RESEARCH_RULES.md`** (binding agent behavior: prime directive,
+phases, preflights, kill rules) → `rl_docs/SIM.md`. As needed:
+`rl_docs/COMMANDS.md` (how to run things) · `rl_docs/RISE.md`
+(stand-up plan) · `rl_docs/SKILLS.md` · `rl_docs/runs/` (per-run
+facts). History (`RL_LOG.md`, `archive/`) only for historical
+questions — never to infer current state. **EDIT RULE (operator,
+08-10): keep this file under ~250 lines and in plain language. New
+material goes to `rl_docs/` with a pointer here; superseded detail
+moves to `archive/` — never accumulates here.**
 
-## Where we are (plain English — operator + agent, 08-10 morning)
+## Prime directive (operator, 08-10 — full text: RESEARCH_RULES.md)
 
-The real robot walks today under a scripted gait (forward, crab,
-turns, from a clean zero) — that is the bar learned policies must
-beat. In sim the learned gait is real (six legs cycling) but low and
-creeping, because sim ground contact prices sliding as free; fixing
-that needs one hardware measurement (walk distance, tape measure)
-and an operator pricing ruling. The joystick DRIVING stack in sim is
-strong and seed-confirmed (±90° steering, latency, friction,
-payload, deadband, slopes, 60 s endurance — 0 falls). Still failing:
-commanded turning (yaw channel ignored — needs income gating) and
-stand-up (sit-down now solved warm; stand-up cheats with legs
-aloft — needs posture-priced finish; loaded-servo fit LANDED).
-Hardware attempt #2 checkpoint `cw-dep-vref1-r1`
-(trained on the exact deployed obs contract) is validated, hardened
-against 8 DR axes overnight, pulled to the operator Mac — waiting on
-bench time. Launches are on operator hold this morning; analysis
-continues.
+**Minimize the number of unresolved blockers between the current
+robot and the next useful hardware joystick test — that count is the
+campaign KPI, not GPU occupancy.** Idle pods are acceptable when the
+critical path is hardware, specification work, or code fixes. Every
+spec answers the launch question first: if this run succeeds or
+fails, does it change what we do before the next hardware test?
 
-## Standing rules (binding)
+## Where we are (08-10 — live facts in CURRENT_TRUTHS.md)
 
-Designing runs:
+The real robot walks under a scripted gait — the bar learned policies
+must beat. Sim driving stack: strong, seed-confirmed, joystick-gate
+clean. Still failing: commanded turning (structural left-drift; price
+tuning closed) and stand-up (every arm loses to the height-only
+cheat — see rl_docs/RISE.md). Hardware attempt #2 checkpoint
+`cw-dep-vref1-r1` is validated, hardened, pulled to the operator
+Mac — waiting on bench time.
 
-- One variable per run, off the relevant line's champion.
-  Pre-register the gate and BOTH outcomes (if-true / if-false)
-  before launch. Two misses in a row = change the hypothesis, not
-  the step count.
-- New mechanisms get a probe smoke (150k–1M) before a full arm;
-  reward changes get a scale audit.
-- Warm starts: ent 0.001, inherited std, `--asym-critic`;
-  `--no-canary` on single-skill lineages, canaries ON for
-  multi-skill. From scratch: std 1.0, ent 0.005–0.01,
-  target_kl 0.02. A climbing std is a health alarm.
+## Standing rules → `RESEARCH_RULES.md` (binding; moved 08-10)
 
-Judging runs:
-
-- Video is the promotion standard. Name pathologies bluntly (flag
-  leg, dragging, skating, jitter, march-in-place). A checkpoint that
-  scores well but looks wrong means the METRIC is the bug. ≥12
-  episodes (det+sto), at DR 0 AND the run's own DR, 15 s horizon.
-- Driving-line runs must pass the JOYSTICK GATE (`eval_drive`:
-  0 falls across the direction panel + flip stress).
-- Hardware candidates additionally pass Gate 0 (below). Promotion
-  criterion (operator): "closest to deployed on the real robot that
-  I can joystick reliably" — judged on physical metrics (distance,
-  zero falls, attitude, loaded slip/m, per-servo current), never on
-  one reward scalar.
-
-Reward routing:
-
-- GLOBAL terms = safety/limits/smoothness only; everything else is
-  mode-specific. Income must make doing-nothing (parking, freezing,
-  hovering) worth less than the skill BY CONSTRUCTION — audit it,
-  don't assume it (the walk park attractor and the rise/lower
-  freeze plateau were both this bug).
-
-Process:
-
-- Launches only via `launch_run.py` (capacity, code-SHA gate,
-  ledger). Ledger edits only via `launch_run.py update`. One RL_LOG
-  line per cycle via `ops.sh logline`.
-- When launching is allowed, keep GPU slots busy: a design question
-  with a plausible answer never idles a pod — adopt it, log
-  "## ASSUMPTION (operator to review)", launch. (08-10 morning:
-  operator LAUNCH_HOLD is in effect — analysis only; idle pods are
-  expected and correct until it clears.)
+How to design, launch, stop, and judge experiments lives in
+**`RESEARCH_RULES.md`**: the phase system (SPECIFICATION / DISCOVERY
+0.5–2M / HARDENING 10–40M / COMPOSITION / TRANSFER, launcher-
+enforced), MDP_PREFLIGHT (`test_task_semantics.py` orderings per
+mode), matched-parent controls, behavioral-impossibility kills,
+DIG-IN triggers, reward routing, warm-start recipes, and the launch
+question ("does this change what we do before the next hardware
+test?"). Promotion criterion (operator): "closest to deployed on the
+real robot that I can joystick reliably" — physical metrics, never
+one reward scalar. Hardware candidates pass Gate 0 (below).
 
 CLOSED moves — do not re-propose (evidence in `rl_docs/runs/`):
 
@@ -104,6 +70,9 @@ CLOSED moves — do not re-propose (evidence in `rl_docs/runs/`):
 - Raising the slew clamp and retrying a champion.
 - posetrack step-extensions (needs a dense curriculum or stays
   parked — not on the joystick critical path).
+- Treating another pairwise DR-compose PASS as progress: the compose
+  campaign proved broad robustness; broad robustness is not simulator
+  accuracy, and it is not on the blocker list (operator, 08-10).
 
 ## Architecture
 
@@ -111,19 +80,31 @@ Settled core: 18 joint-position targets through the SafetyLayer;
 actor sees deployable obs only; asymmetric critic; 8-frame history
 MLP.
 
-Active exception (operator directive): the TEMPORAL-ARCH line keeps
-1–2 pods. hist16 passed its first gate 08-10 (walks from scratch,
-joystick gate clean). Next rungs: head-to-head vs the 8-frame
-baseline on the deployment contract, then 24 frames, capacity
-control, recurrent [CODE].
+Temporal ladder PAUSED at hist16 (operator, 08-10): hist16 passed its
+first gate (walks from scratch, joystick gate clean) and becomes the
+default for the flagship below. No 24-frame / recurrent / transformer
+rungs until the flagship answers the real question — "can a
+history-aware policy with a correctly specified multitask MDP learn
+the joystick skill set?" — not "what is the best temporal arch?".
 
-Not defaults: velocity estimator / DreamWaQ (ruled NOT needed for
-hardware attempt #2 — vref1-r1 showed zero erosion under meas:=ref;
-revisit only on a demonstrated hidden-state failure).
-Transformers/CPG only if the archive review's triggers fire.
-Specialist heads / skill conditioning ARE acceptable if that is what
-reliable joystick control takes — deployability beats architectural
-purity (GPT ruling, 08-10).
+**FLAGSHIP (queued behind the rise + turn MDP preflights passing):
+clean-sheet unified policy.** hist16 + EXPLICIT mode/command one-hot
+[CODE — the obs has no mode signal today] + 256×256 (or 256×256×128)
+MLP, from scratch, on HOLD/RISE/LOWER/WALK/TURN (not quad). Staged
+curriculum, not a fixed mixture: (A) hold + plant + near-plant
+rise/lower, (B) expand rise→belly / lower→sit, (C) forward
+locomotion, (D) turns, (E) transition-heavy joystick episodes.
+Pre-registered outcomes: works → the unified model IS the
+deliverable; skills fight → MoE justified (shared hist16 encoder +
+~4 small experts); rise cheats again → the MDP is still wrong,
+architecture exonerated. This experiment — not the graft lineage —
+decides specialists vs one network.
+
+Not defaults: velocity estimator / DreamWaQ (NOT needed for attempt
+#2; revisit only on a demonstrated hidden-state failure);
+transformers/CPG only on the archive review's triggers. Specialist
+heads / skill conditioning ARE acceptable if that is what reliable
+joystick control takes — deployability beats purity (GPT, 08-10).
 
 ## Champions (append-only) + open problems
 
@@ -138,57 +119,37 @@ purity (GPT ruling, 08-10).
 
 Open problems, in priority order:
 
-1. **Sim contact/current pricing makes creep optimal.** Operator
-   calibration; needs the tape-measure walk distance. Fit scripted-
-   gait replays on trajectories/timing/tilt/current; contact must
-   permit loaded slide; static vs dynamic friction if plain Coulomb
-   can't match. Walking measured CHEAPER than standing (0.33–0.45 A
-   vs 0.59 A) — sim effort pricing is inverted; k_current=0 on
-   hardware arms until calibrated.
-2. **Rise/lower inside the walking policy.** Root cause found 08-10:
-   warm-start lineage is height_ref-blind AND freezing was paid
-   (+120/ep, arrival-gate sign bug). Fix landed (69e00c0):
-   `reward.rise_finish_gate_signed=1` + `rise_income_prog_gate=1` —
-   ALL future rise/lower arms set both. RESULT 08-10: fix works —
-   warm1 lower 6/6 posture-strict; fresh1 strictly worse (tripod +
-   over-current) ⇒ KEEP fine-tune grafting, distill refuted. Rise
-   fails both arms: height paid with legs aloft. The posture-gate
-   arm (postgate1) FAILED and ERODED lower: the gate priced lower's
-   feet at the 20 mm stand allowance while an honest belly-down
-   lower leaves pads 20–45 mm up, so honest≈cheat income and an
-   outrigger cheat won — FIXED 08-10 (pf now uses the 60 mm lower
-   allowance; b2p1 trained PRE-fix, check its lower at triage).
-   Posture-gate-alone is a weak rise lever (shallow last-leg
-   gradient); the dense ref-track scaffold (b2p1) is the live hope.
-   Pre-273ebde rise/lower ckpts stay invalid near the ground.
-   STAND-UP FIRST (operator, 08-10 ~11:00 ET): the crouch-stand is
-   not the deliverable — rise must end in the WALKABLE plant
-   stance. Belly→plant reference + plant-height targets + pricing
-   smoke (path +952 >> stilt +225 >> freeze −195) landed; arm
-   `cw-stand-b2p1` FAILED (08-10 ~16:5x, confirms if-false): rise
-   0/12 AND lower 0/12 posture-strict — height nailed (err <6 mm
-   both modes) but via a flag-leg/tripod cheat (rise: 2 legs
-   80–131 mm up; lower WORSE: 1 leg up to ~288 mm), video-confirmed.
-   Posture-gate + income-prog-gate + signed-finish-gate + dense
-   ref-track scaffold (individually pricing-smoke-validated) still
-   lose to the height-only cheat once trained under the full reward
-   stack — same pathology class as `cw-uni-rfix-fresh1` and
-   `cw-stance-riseproof1` (open DIG-IN). Direction: the posture-gate
-   needs a stronger GEOMETRIC criterion (support-polygon/foot-count,
-   not a height-based clearance allowance) before another
-   plant-height rise/lower attempt — do not just re-run b2p1's
-   recipe with more steps or a different k_rise_ref_track weight.
-   Full plan: RL_GOALS.md "Standing up".
+1. **Sim contact/current pricing.** Contact HALF-CLOSED (08-10):
+   `calibrate_slip.py` replays the exact hardware gait; sim travel
+   ratio 0.35–0.41 vs real 0.50–0.51, speed-invariant, walk current
+   in-band — sliding is NOT free in sim (slightly conservative), μ
+   saturates ≥1.5, XML friction stands (`env.foot_friction_slide`
+   hook landed for future floors; SIM.md gap 1). WALK semantics bank
+   landed and PASSING: the tape-proven gait out-earns stall 1.9x and
+   park 3.5x under the champion stack. REMAINING: effort pricing at
+   hold (sim 0.11 A vs real 0.59 A, not scalar-fixable) — fit a
+   load-dependent holding-current model on the existing per-servo
+   traces; k_current=0 on hardware arms until then.
+2. **Rise/lower inside the walking policy.** Full plan + evidence
+   trail: **rl_docs/RISE.md**. Lower is solved warm (rfix-warm1 6/6
+   posture-strict; keep fine-tune grafting, distill refuted); rise is
+   unsolved — every arm incl. `cw-stand-b2p1` lost to the height-only
+   flag-leg/tripod cheat under the full stack. The GEOMETRIC stand
+   spec is LANDED (08-10): PLANT_SPEC/`valid_plant()` in sim_env.py
+   (one criterion for reward gate `rise_plant_polygon_gate`, harness
+   report + `--valid-plant-gate`, and the rise bank — replay valid,
+   stilt/freeze/partial all fail). Next rise arm trains WITH the
+   polygon gate; do not re-run b2p1 with more steps or different
+   weights. The rise bank in `test_task_semantics.py` is the binding
+   preflight; new mechanisms go through DISCOVERY first. Big
+   consolidation waits for the loaded-actuator model.
 3. **Loaded actuator model.** FIT LANDED 08-10: opt-in
-   `--cfg-set bus.servo_params=loaded` (default stays air,
-   legacy-exact). What's modeled, every fitted number's provenance,
-   and the confidence table: **`rl_docs/SIM.md`**. Ruling (operator,
-   08-10): uncertain params — servo reaction times above all — are
-   COVERED BY DR RANGES, not modeled as exact nominals (loaded
-   latency randomizes 26–162 ms; mechanism in SIM.md). Hip/yaw are
-   an ASSUMPTION until a per-axis loaded ladder (HARDWARE.md item
-   4). NEXT: re-run the liftoff reproduction on loaded params; first
-   training arm = a dep-line respec with the flag vs its air twin.
+   `--cfg-set bus.servo_params=loaded` (default stays air). Detail +
+   provenance + confidence table: **`rl_docs/SIM.md`**. Uncertain
+   params (servo reaction times above all) are COVERED BY DR RANGES,
+   not exact nominals; hip/yaw are an ASSUMPTION until a per-axis
+   loaded ladder. NEXT: re-run the liftoff reproduction on loaded
+   params; first arm = a dep-line respec, loaded vs its air twin.
 4. **Quad-mix erosion.** Dose-response so far: 50% erodes walk, 30%
    recovers on the walk champion, 30% on the driving champion
    FAILED, 15% in review. If erosion persists at useful mixes:
@@ -203,36 +164,39 @@ Open problems, in priority order:
 ## Queue
 
 -1. **HARDWARE (operator bench — the true critical path).**
-    Attempt #2 with `cw-dep-vref1-r1`: deploy tilt trip must match
-    training (25° angle + a rate term that trips only when rate is
-    large AND carrying the body away from level — never bare gyro
-    magnitude); fresh set_zero → plant start; k_current=0. During a
-    scripted-gait session: measure walk distance (tape) → unlocks
-    open problem 1. Audit sim wz sign vs hardware (+omega =
-    clockwise, measured 08-09).
+    Attempt #2 with `cw-dep-vref1-r1`: FIRST correct the known
+    L5 / leg-zero / trim issue (a stale/slumped logical stance felled
+    a sound scripted gait); deploy tilt trip must match training (25°
+    angle + a rate term that trips only when rate is large AND
+    carrying the body away from level — never bare gyro magnitude);
+    fresh set_zero → plant start; k_current=0. During a scripted-gait
+    session: measure walk distance (tape) → unlocks open problem 1.
+    Audit sim wz sign vs hardware (+omega = clockwise, measured
+    08-09).
 0.  **UNIFIED JOYSTICK POLICY (top deliverable).** Stand/sit/turn/
-    walk in one checkpoint. Next arms: posture-gated rise finish
-    (problem 2) + turning — yawcmd1-s1/rr1 FAILED the yaw gate on
-    free heading-hold income (turn |wz_err| med 0.24 vs 0.10); the
-    income-gate fix (cw-walk-yawgate1, gate income on achieved wz)
-    ALSO FAILED, ~unchanged (0.236/0.104); raising the price further
-    (cw-walk-yawgate2, k_walk_yaw 1.0->2.5) ALSO FAILED, unchanged
-    (0.233/0.091) — a fixed left-yaw drift from walk training tracks
-    commands near it fine and fights commands against it, in EVERY
-    scenario incl. turn-in-place: structural gait bias, not kernel
-    economics — price tuning is closed. NEXT: WISHLIST item 3's
-    turn-in-place curriculum (decouple linear-speed from yaw-rate
-    sampling in `_sample_walk`) — small CODE change, queued not
-    rushed. Measure via rl_move/sim/eval_yaw.py. Quad is a MAINLINE
-    joystick command (drive_policy key `4`).
+    walk in one checkpoint. Turning: yawcmd/yawgate1/yawgate2 all
+    FAILED — a fixed left-yaw drift from walk training fights
+    counter-commands in every scenario incl. turn-in-place;
+    structural gait bias, price tuning CLOSED. NEXT: turn-in-place
+    curriculum (decouple linear-speed from yaw-rate sampling in
+    `_sample_walk`, WISHLIST item 3) — [CODE], and its TURN bank in
+    test_task_semantics.py must pass BEFORE the arm launches.
+    Measure via rl_move/sim/eval_yaw.py. Rise: problem 2. Quad is a
+    MAINLINE joystick command (drive_policy key `4`).
     Line gate: joystick-gate retention AND rise/lower ≥5/6 AND quiet
     hold AND clean video on the post-273ebde floor.
 0.5 **TEMPORAL-ARCH** (1–2 pods; see Architecture).
 1.  Live truth for what's training/queued: `ops.sh census` +
     `launch_run.py backlog list` — never this file.
-2.  [CODE] backlog: mirror-symmetry augmentation; contact-from-
-    proprioception aux head; zero-drift DR mechanism rework (open
-    problem 5).
+2.  [CODE] backlog: geometric valid-plant terminal state for rise
+    (support-polygon/foot-count success criterion that rejects
+    flag-leg/tripod — define AND test it in the rise bank, problem
+    2); explicit mode/command one-hot in the obs (flagship
+    prerequisite); LOWER + TURN + WALK trajectory banks for
+    test_task_semantics.py (launch blockers for those modes);
+    machine-readable metric semantics registry (RESEARCH_RULES);
+    mirror-symmetry augmentation; contact-from-proprioception aux
+    head; zero-drift DR mechanism rework (open problem 5).
 
 ## Gate 0 — deployment equivalence (every hardware candidate)
 
