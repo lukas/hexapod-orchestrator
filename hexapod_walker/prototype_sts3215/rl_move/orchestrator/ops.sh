@@ -189,6 +189,14 @@ pushckpt)  # pushckpt <pod> <ckpt.zip> — copy a checkpoint TO a pod; md5 both
     kubectl exec "$pod" -- md5sum "$POD_PROTO/rl_move/sim/policies/$name"
   ;;
 
+podeval)  # podeval <run> [suffix] — run gate + own-DR evals ON the run's
+  # own pod (idle CPUs, checkpoint already there), stream logs to
+  # /tmp/eval_<run>*.log, copy artifacts back to logs/ckpt_eval/.
+  # Blocking; wait for the SYNCED line. Idempotent per artifact dir.
+  shift
+  exec python3 "$HERE/pod_eval.py" "$@"
+  ;;
+
 evalcmd)  # evalcmd <run> — print the exact-path harness eval command
   run="$2"
   python3 - "$run" <<'EOF'
@@ -546,7 +554,8 @@ waitlog)  # waitlog <file> <regex> [timeout_s] — poll instead of sleep-and-pra
   echo "subcommands: review <run> (START HERE for triage) | report <run|json> |"
   echo "  status | census | triage [hours] | procs <pod> | trainlog <run> [n] |"
   echo "  entry <run> | wandb <run> | pullckpt <run> | pushckpt <pod> <ckpt> |"
-  echo "  evalcmd <run> | drain | killrun <run> | waitlog <file> <regex> [t] |"
+  echo "  podeval <run> [sfx] | evalcmd <run> | drain | killrun <run> |"
+  echo "  waitlog <file> <regex> [t] |"
   echo "  logline \"line\" | frames <mp4> [n] | expdir <run> | wandbdump <run> |"
   echo "  wandbnote <run> \"paragraph\" | oplaunch <launch_run.py args...>"
   ;;

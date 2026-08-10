@@ -32,10 +32,13 @@ in a decision that can change the next experiment.
 **The process is LIGHTWEIGHT by operator order (2026-08-09). Most runs
 need a 10-minute triage, not an hour of forensics. Dig in only when
 triage finds something real.** Machinery you must NOT rebuild or wait
-on: the watcher pre-stages checkpoint pulls + gate evals + W&B dumps
-for every finished run, runs post-launch checkups (~5 min after each
-launch), and continuously drains `backlog.json` into free GPU slots
-via the self-repairing launcher. Capacity questions: run
+on: the watcher pre-stages checkpoint pulls + W&B dumps for every
+finished run and runs the standard evals (DR-0 gate + own-DR) ON THE
+RUN'S OWN POD (08-10: eval compute lives on the train pods' idle CPUs,
+never the controller — run your own extra evals there too, via
+`kubectl exec` or `ops.sh podeval`), runs post-launch checkups (~5 min
+after each launch), and continuously drains `backlog.json` into free
+GPU slots via the self-repairing launcher. Capacity questions: run
 `python3 rl_move/orchestrator/capacity.py` — never re-derive slots.
 
 Cycles run CONCURRENTLY. Runs your "## This cycle" section marks as

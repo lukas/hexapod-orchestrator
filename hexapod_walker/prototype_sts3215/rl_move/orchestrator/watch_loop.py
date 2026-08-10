@@ -381,6 +381,8 @@ def prestage_finished(run: str) -> None:
 
     def worker() -> None:
         try:
+            r = sh(f"bash {ops} wandbdump {run}")
+            log(f"prestage {run}: wandbdump rc={r.returncode}")
             r = sh(f"bash {ops} pullckpt {run}", timeout=300)
             tail = ((r.stdout or "") + (r.stderr or "")).strip().splitlines()
             log(f"prestage {run}: pullckpt rc={r.returncode} "
@@ -388,26 +390,22 @@ def prestage_finished(run: str) -> None:
             if r.returncode != 0:
                 # No checkpoint (e.g. run died at init, 0 steps): a gate
                 # eval can only FileNotFoundError (c37, cw-walk-longdist).
-                log(f"prestage {run}: pullckpt failed; skipping gate eval")
+                log(f"prestage {run}: pullckpt failed; skipping evals")
             else:
-                # Concurrency gate (08-09 incident): a finish burst once
-                # piled 21 concurrent gate evals on the controller and
-                # starved the co-located trainers on g142d86 (5x slow).
-                # Beyond 6, let the triage cycle start its own eval.
-                n = sh("python3 -c \"import glob,os;print(sum("
-                       "1 for d in glob.glob('/proc/[0-9]*') "
-                       "if os.path.exists(d+'/cmdline') "
-                       "and b'eval_'+b'checkpoint' in "
-                       "open(d+'/cmdline','rb').read()))\"").stdout.strip()
-                if n.isdigit() and int(n) >= 6:
-                    log(f"prestage {run}: {n} evals already running — "
-                        "skipping gate eval (cycle runs it via evalcmd)")
-                else:
-                    r = sh(f'eval "$(bash {ops} evalcmd {run})"', timeout=120)
-                    log(f"prestage {run}: gate eval started rc={r.returncode} "
-                        f"(log /tmp/eval_{run}.log)")
-            r = sh(f"bash {ops} wandbdump {run}")
-            log(f"prestage {run}: wandbdump rc={r.returncode}")
+                # Evals run ON THE RUN'S OWN POD (operator 08-10): the
+                # controller once piled 21 concurrent gate evals and
+                # starved the co-located trainers (08-09 incident); the
+                # train pods have ~100 idle CPUs and already hold the
+                # checkpoint. pod_eval runs the DR-0 gate AND own-DR
+                # passes in parallel there, streams logs to
+                # /tmp/eval_<run>*.log locally, and copies artifacts
+                # back to logs/ckpt_eval/. Blocking is fine — this is
+                # a daemon thread and the cycle waits on the log.
+                r = sh(f"python3 {HERE / 'pod_eval.py'} {run}",
+                       timeout=3300)
+                out = ((r.stdout or "") + (r.stderr or "")).strip()
+                log(f"prestage {run}: pod evals rc={r.returncode} "
+                    f"{out[-400:]}")
         except Exception as exc:
             log(f"prestage {run} failed: {exc!r} (cycle will do it manually)")
 
@@ -483,17 +481,23 @@ def spawn_cycle(newly_finished: set[str], still_running: set[str],
         cycle_prompt += (
             "\n## Pre-staged by the watcher (do NOT redo these)\n"
             "For each newly finished run the watcher already pulled the "
-            "checkpoint to rl_move/sim/policies/, STARTED the DR-0 gate "
-            "eval in the background, and is caching W&B data to "
-            "logs/experiments/<run>/. Per run: eval log /tmp/eval_<run>.log,"
-            " eval out logs/ckpt_eval/<run_underscored>_gate — "
+            "checkpoint to rl_move/sim/policies/, cached W&B data to "
+            "logs/experiments/<run>/, and STARTED the standard evals ON "
+            "THE RUN'S OWN POD (both the DR-0 gate pass and, when the "
+            "run trained at DR>0, the own-DR pass — in parallel; do NOT "
+            "start either yourself). Logs stream to /tmp/eval_<run>.log "
+            "(gate) and /tmp/eval_<run>_owncfg.log (own-DR); artifacts "
+            "are copied back to logs/ckpt_eval/<run_underscored>_gate / "
+            "_owncfg when each pass ends — "
             + "; ".join(f"{r} -> {u}_gate" for r, u in runs_ul.items())
-            + ". Go straight to reading docs, then "
-            "`ops.sh waitlog /tmp/eval_<run>.log 'artifacts|Traceback' 1800` "
-            "and review the frame strips. If the run trained at DR>0, "
-            "start the own-DR eval pass yourself immediately. If a "
-            "pre-stage step failed (see orchestrator.log), fall back to "
-            "doing it manually.\n"
+            + ". Go straight to reading docs, then wait for the COPY-BACK "
+            "marker (not eval_checkpoint's own 'artifacts' line, which "
+            "prints on the pod before the copy): "
+            "`ops.sh waitlog /tmp/eval_<run>.log 'SYNCED|Traceback' 2700` "
+            "and review the frame strips. Run any EXTRA evals (baselines, "
+            "stress axes, joystick) on the run's pod via kubectl exec, "
+            "not on the controller. If a pre-stage step failed (see "
+            "orchestrator.log), fall back to doing it manually.\n"
         )
     if findings:
         cycle_prompt += (
