@@ -85,7 +85,23 @@ md5-identical):
    champion earns ~full pay on its own reference, a frozen robot
    ~13%. A scaffold — run at full weight to seed the skill, anneal
    to 0 across arms so the final policy is not trajectory-locked.
-3. **Control probe in flight** (`cw-stance-riseproof1`, launched
+3. **Walkable-height reference + targets** (operator ruling, 08-10
+   ~11:00 ET: the champion's ~70 mm crouch-stand is "a terrible
+   stand, we couldn't walk from that" — the deliverable is the
+   ~142 mm plant stance the walk line lives in). `extract_rise_ref
+   --blend-to-plant` appends the sim viewer's validated 1.5 s
+   blend + a plant hold, so the reference ends WALKABLE:
+   `rl_move/sim/refs/rise_ref_belly2plant.npz`, +111 mm over
+   belly, all pads down, 7.4° RMS from plant. Commanding it needs
+   `goal.rise_height_mm=[105,114]` (cfg-set now parses JSON lists)
+   AND `actions.max_height_mm=115` (default 80 clamps below plant
+   height — rises this tall were previously impossible to even
+   command). Pricing smoke (`tmp_smoke_rise_ref.py`, full stack
+   on): replaying the demonstrated path +952 vs stilt-exploit +225
+   vs freeze −195 — trying-well >> trying-badly >> not-trying,
+   with not-trying net NEGATIVE. First arm: `cw-stand-b2p1`
+   (queued, backlog).
+4. **Control probe in flight** (`cw-stance-riseproof1`, launched
    08-10 ~15:00Z, operator): the stance-line joint_goal recipe,
    from scratch, same mix as rfix-fresh1, on today's sim. If it
    learns posture-strict rise where the walk-env arm gamed it, the

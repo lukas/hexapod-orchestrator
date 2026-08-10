@@ -155,6 +155,11 @@ Open problems, in priority order:
    fails both arms: height paid with legs aloft — next arm gates
    rise finish/late income on all-feet-loaded (end_posture_ok).
    Pre-273ebde rise/lower ckpts stay invalid near the ground.
+   STAND-UP FIRST (operator, 08-10 ~11:00 ET): the crouch-stand is
+   not the deliverable — rise must end in the WALKABLE plant
+   stance. Belly→plant reference + plant-height targets + pricing
+   smoke (path +952 >> stilt +225 >> freeze −195) landed; arm
+   `cw-stand-b2p1` queued. Full plan: RL_GOALS.md "Standing up".
 3. **Loaded actuator model.** FIT LANDED 08-10: opt-in
    `--cfg-set bus.servo_params=loaded` (default stays air,
    legacy-exact). What's modeled, every fitted number's provenance,
