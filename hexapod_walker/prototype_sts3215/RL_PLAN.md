@@ -273,6 +273,33 @@ the archive review's triggers fire.
    floor). Rise/lower checkpoints predating 273ebde are suspect near
    the ground; walk-only lineages verified unaffected (zero
    shin-floor contacts in champion gait).**
+   **RISE/LOWER ROOT-CAUSE + REWARD FIX (operator session 08-10 am —
+   why the whole mix ladder walk=.7/.4/.2/.0 was 0-for-4 on
+   rise/lower):** (a) every rung warm-started the SAME walk-only
+   champion; init was never varied, and that lineage is measurably
+   BLIND to height_ref — the only obs channel distinguishing
+   rise/lower from zero-velocity walk (dA/d(height_ref) at the
+   unused-channel noise floor, 0.22x proprio avg, vs 4.2x for the
+   from-scratch stance champion; no mode one-hot exists). (b) The
+   pricing had a PAID FREEZE PLATEAU: freezing at start height in a
+   lower episode banked ~+120/ep — kernel income plus a finish-gate
+   sign bug (legacy `ref >= target` arrival gate is always-open for
+   negative targets) — while every imperfect attempt scored BELOW
+   freezing. Fix landed 69e00c0, cfg-gated, defaults legacy-exact
+   (smoke: default reward stream md5-identical; freeze +120 -> -16
+   with flags on): `reward.rise_finish_gate_signed=1` (sign-aware
+   arrival gate) + `reward.rise_income_prog_gate=1` (rise/lower
+   kernel+finish income x fraction-of-target covered once the ramp
+   departs; hold window ungated; penalties never scaled — same
+   worth-less-by-construction rule as the walk income terms). ALL
+   future rise/lower arms set BOTH flags. In flight (08-10 ~14:00Z):
+   `cw-uni-rfix-warm1` (train-0, mix0-r1 respec, pricing-only arm)
+   and `cw-uni-rfix-fresh1` (train-1, the MISSING from-scratch
+   control: no init, log_std 0 / ent .005 / DR0.2, same env+mix+
+   pricing; also re-proves rise on the post-273ebde floor). Warm
+   fails + fresh passes => unified deliverable goes
+   distill/two-policy, not fine-tune grafting (full decision
+   branches pre-registered in both ledger hypotheses).
 0.5. **TEMPORAL-ARCH LINE: keep 1-2 GPU pods running it (operator,
    08-09 evening — by directive, not mechanical enforcement).** More
    past states for complicated movements (rise/sit, flips, turns).
