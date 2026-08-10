@@ -202,17 +202,16 @@ Open problems, in priority order:
     (problem 2) + turning — yawcmd1-s1/rr1 FAILED the yaw gate on
     free heading-hold income (turn |wz_err| med 0.24 vs 0.10); the
     income-gate fix (cw-walk-yawgate1, gate income on achieved wz)
-    ALSO FAILED, ~unchanged (0.236/0.104) — training telemetry shows
-    the gate multiplier genuinely suppressed the free income
-    (reward_walk_yaw 0.67->0.50) but yaw_err stayed flat, so the
-    loophole wasn't the whole story: k_walk_yaw peak income (1.0) is
-    economically dominated by the walk kernel (2.0) + prog (1.25),
-    so trading tracking-error for turning is a losing bet at current
-    weights. Next: raise k_walk_yaw (queued cw-walk-yawgate2, ->2.5,
-    gate stays on) before reaching for a dedicated turn-in-place
-    curriculum (WISHLIST item 3 fallback). Measure via
-    rl_move/sim/eval_yaw.py. Quad is a MAINLINE joystick command
-    (drive_policy key `4`).
+    ALSO FAILED, ~unchanged (0.236/0.104); raising the price further
+    (cw-walk-yawgate2, k_walk_yaw 1.0->2.5) ALSO FAILED, unchanged
+    (0.233/0.091) — a fixed left-yaw drift from walk training tracks
+    commands near it fine and fights commands against it, in EVERY
+    scenario incl. turn-in-place: structural gait bias, not kernel
+    economics — price tuning is closed. NEXT: WISHLIST item 3's
+    turn-in-place curriculum (decouple linear-speed from yaw-rate
+    sampling in `_sample_walk`) — small CODE change, queued not
+    rushed. Measure via rl_move/sim/eval_yaw.py. Quad is a MAINLINE
+    joystick command (drive_policy key `4`).
     Line gate: joystick-gate retention AND rise/lower ≥5/6 AND quiet
     hold AND clean video on the post-273ebde floor.
 0.5 **TEMPORAL-ARCH** (1–2 pods; see Architecture).
