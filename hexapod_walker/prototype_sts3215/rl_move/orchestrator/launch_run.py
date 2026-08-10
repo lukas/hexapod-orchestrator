@@ -541,6 +541,18 @@ def _launch_locked(g: dict, a: argparse.Namespace,
                                  f"{a.pod}:{wenv}")
 
     # --- build command ------------------------------------------------------
+    # Default --out-name the same way `respec` already does (gotcha 6:
+    # dash->underscore, "ppo_goal_" prefix) if the caller forgot it. Without
+    # this, train_ppo_mjx falls back to its OWN default
+    # f"ppo_mjx_{task}_{run_name}" (e.g. task=joint_goal -> a checkpoint
+    # named ppo_mjx_joint_goal_<run>.zip, not ppo_goal_<run>.zip), which
+    # `ops.sh pullckpt`/eval tooling never look for. Hit twice now (08-10):
+    # cw-walk-wander60-dr05-s1 (silent, caught by a later cycle) and
+    # cw-stance-riseproof1 (this cycle: pullckpt rc=1, no such file — pulled
+    # manually under its real trainer-default name once diagnosed).
+    if "--out-name" not in extra:
+        extra = [*extra, "--out-name", "ppo_goal_" + a.run.replace("-", "_")]
+        entry["extra_args"] = extra
     log = f"/tmp/train_{a.run}.log"
     if is_gpu:
         # train_ppo_mjx owns its parallelism (sharded host workers), and

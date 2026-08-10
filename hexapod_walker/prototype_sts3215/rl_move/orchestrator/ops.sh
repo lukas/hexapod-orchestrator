@@ -138,8 +138,36 @@ pullckpt)  # pullckpt <run> — fetch the run's checkpoint from its pod; md5
   [ -z "$pod" ] && { echo "no ledger entry for $run"; exit 1; }
   name="ppo_goal_$(echo "$run" | tr - _).zip"
   dest="$PROTO/rl_move/sim/policies/$name"
-  kubectl cp "$pod:$POD_PROTO/rl_move/sim/policies/$name" "$dest" && \
+  # NOTE: `kubectl cp` exits 0 even when the remote file is missing (the
+  # remote tar fails internally and just warns to stderr) — check the
+  # DEST FILE, never cp's own exit code (bit us silently before this fix).
+  kubectl cp "$pod:$POD_PROTO/rl_move/sim/policies/$name" "$dest" 2>/dev/null
+  if [ -s "$dest" ]; then
     md5sum "$dest"
+  else
+    rm -f "$dest"
+    # Fallback (08-10, cw-stance-riseproof1): launch_run.py now always
+    # injects --out-name, but older/hand-crafted launches without it fell
+    # back to train_ppo_mjx's OWN default ppo_mjx_<task>_<run>.zip. Try the
+    # joint_goal/joint_walk/goal variants before giving up.
+    found=0
+    for task in joint_goal joint_walk goal; do
+      alt="ppo_mjx_${task}_${run}.zip"
+      altdest="$PROTO/rl_move/sim/policies/$alt"
+      kubectl cp "$pod:$POD_PROTO/rl_move/sim/policies/$alt" "$altdest" 2>/dev/null
+      if [ -s "$altdest" ]; then
+        echo "(fell back to trainer-default name: $alt)"
+        md5sum "$altdest"
+        found=1
+        break
+      fi
+      rm -f "$altdest"
+    done
+    if [ "$found" != 1 ]; then
+      echo "no checkpoint found under $name or any ppo_mjx_<task>_${run}.zip fallback on $pod"
+      exit 1
+    fi
+  fi
   ;;
 
 pushckpt)  # pushckpt <pod> <ckpt.zip> — copy a checkpoint TO a pod; md5 both
