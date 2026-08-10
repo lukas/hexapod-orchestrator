@@ -9,9 +9,12 @@ deploy copy. `kubectl` reaches sibling pods; W&B creds are in the env,
 project `l2k2/hexapod-balance`. Paths below are relative to
 `hexapod_walker/prototype_sts3215/`.
 
-**The big goal:** the operator's physical hexapod moving FLUIDLY in the
-real world — walking above all, steering/turning next. Sim metrics are
-means, not ends.
+**The big goal (operator, 08-10):** the operator drives the physical
+hexapod with a JOYSTICK — stand up, sit down, turn, walk where pointed,
+reliably, session after session. After that: the quad tricks (stand on
+four legs, walk on four). Foot slip is NOT failure by itself (the
+scripted gait that walks the real robot slips); slip metrics exist to
+keep sim honest, not as a ban. Sim metrics are means, not ends.
 
 **The process is LIGHTWEIGHT by operator order (2026-08-09). Most runs
 need a 10-minute triage, not an hour of forensics. Dig in only when
