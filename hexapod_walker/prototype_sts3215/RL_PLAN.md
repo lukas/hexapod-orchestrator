@@ -154,15 +154,17 @@ Open problems, in priority order:
 2. **Rise/lower inside the walking policy.** Full plan + evidence
    trail: **rl_docs/RISE.md**. Lower is solved warm (rfix-warm1 6/6
    posture-strict; keep fine-tune grafting, distill refuted); rise is
-   unsolved — every arm incl. `cw-stand-b2p1` lost to the height-only
-   flag-leg/tripod cheat under the full stack. The GEOMETRIC stand
-   spec is LANDED (08-10): PLANT_SPEC/`valid_plant()` in sim_env.py
-   (one criterion for reward gate `rise_plant_polygon_gate`, harness
-   report + `--valid-plant-gate`, and the rise bank — replay valid,
-   stilt/freeze/partial all fail). Next rise arm trains WITH the
-   polygon gate; do not re-run b2p1 with more steps or different
-   weights. The rise bank in `test_task_semantics.py` is the binding
-   preflight; new mechanisms go through DISCOVERY first. Big
+   unsolved — every arm incl. `cw-stand-b2p1` AND `cw-stand-plantgate1`
+   (08-10, the geometric polygon gate priced live for the first time)
+   lost to the SAME height-only flag-leg cheat, 0/12 valid_plant —
+   KNOWN exploit, one-line stop, no dig-in. A stricter CHEAT DETECTOR
+   alone does not make honesty out-earn the cheat; the income
+   structure elsewhere still overpays the fake stand. Next rise arm
+   must change WHERE the income comes from (e.g. only pay
+   height/progress income when `valid_plant`/posture partial-credit
+   is improving, not just gate the existing terms), not just detect
+   the cheat harder. The rise bank in `test_task_semantics.py` is the
+   binding preflight; new mechanisms go through DISCOVERY first. Big
    consolidation waits for the loaded-actuator model.
 3. **Loaded actuator model.** FIT LANDED 08-10: opt-in
    `--cfg-set bus.servo_params=loaded` (default stays air). Detail +
@@ -196,15 +198,19 @@ Open problems, in priority order:
     08-09).
 0.  **UNIFIED JOYSTICK POLICY (top deliverable).** Stand/sit/turn/
     walk in one checkpoint. Turning: yawcmd/yawgate1/yawgate2 all
-    FAILED (fixed left-yaw drift; price tuning CLOSED). The new
-    mechanism set is LANDED + its TURN bank PASSES (08-10): signed
-    rotation income `reward.k_yaw_prog`, heading-hold drift charge
-    `reward.k_yaw_still`, turn-in-place curriculum
-    `goal.walk_turn_in_place_frac` — design, bank numbers, sign
-    audit, and the recommended DISCOVERY arm: **rl_docs/TURN.md**.
-    Measure via rl_move/sim/eval_yaw.py + matched-parent control.
-    Rise: problem 2. Quad is a MAINLINE joystick command
-    (drive_policy key `4`).
+    FAILED (fixed left-yaw drift; price tuning CLOSED). The
+    signed-income/drift-charge/turn-curriculum mechanism set passed
+    its TURN bank but ALSO FAILED to move a real policy
+    (`cw-walk-turnfix1`, 08-10: matched-parent control statistically
+    identical to the failed parent) — reward-shape tuning on this
+    task is now doubly closed. Root-cause reading: the drift is
+    baked into the asymmetric WALK GAIT itself, not the turn
+    reward's shape/price. NEXT (the only untried lever): mirror-
+    symmetry augmentation [CODE — trainer surgery]. Design, bank
+    numbers, sign audit, failure detail: **rl_docs/TURN.md**. Measure
+    via rl_move/sim/eval_yaw.py + matched-parent control. Rise:
+    problem 2. Quad is a MAINLINE joystick command (drive_policy key
+    `4`).
     Line gate: joystick-gate retention AND rise/lower ≥5/6 AND quiet
     hold AND clean video on the post-273ebde floor.
 0.5 **TEMPORAL-ARCH** (1–2 pods; see Architecture).
