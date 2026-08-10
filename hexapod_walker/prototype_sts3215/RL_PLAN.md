@@ -16,7 +16,7 @@ to make sim predictive of the real floor (contact pricing
 calibration), not as a ban. Speed-band tracking and zero-slip gates
 are means, never the objective.
 
-Pointers: plain-terms mission/status `rl_docs/GOAL.md` · how to run
+Pointers: plain-terms mission/status `RL_GOALS.md` · how to run
 things `rl_docs/COMMANDS.md` · **physics sim + actuator model + DR
 philosophy `rl_docs/SIM.md`** · campaign history `RL_LOG.md` ·
 per-run facts `rl_docs/runs/` · full text of every ruling summarized
