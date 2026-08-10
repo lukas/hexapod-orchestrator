@@ -101,6 +101,12 @@ the archive review's triggers fire.
    floor). Rise/lower checkpoints predating 273ebde are suspect near
    the ground; walk-only lineages verified unaffected (zero
    shin-floor contacts in champion gait).**
+0.5. **TEMPORAL-ARCH LINE: keep 1-2 GPU pods running it (operator,
+   08-09 evening — by directive, not mechanical enforcement).** More
+   past states for complicated movements (rise/sit, flips, turns).
+   history_frames ladder 8->16->24, then capacity control, then
+   recurrent [CODE]. Spec + gates: WISHLIST item -0.5. When you
+   refill and no arch run is training anywhere, queue the next rung.
 1. **In flight:** never listed here — a static doc can only be
    stale. Live truth: `ops.sh census` (what's training),
    `launch_run.py backlog list` (what's queued),
