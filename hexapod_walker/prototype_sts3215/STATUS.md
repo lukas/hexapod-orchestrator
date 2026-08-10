@@ -72,10 +72,16 @@ need a structural fix, not another price change (see below).
   inside the support polygon, level, walkable footprint) landed
   08-10 — but pricing it live into training (`cw-stand-plantgate1`)
   did NOT stop the cheat: same one-leg-up flag-leg stand, 0/12 valid
-  plant, identical to the pre-detector baseline. A stricter cheat
-  DETECTOR alone isn't enough; the reward's income elsewhere still
-  overpays the fake stand. Next attempt has to change WHERE the
-  height/progress income comes from, not just gate it harder.
+  plant, identical to the pre-detector baseline. We then tried
+  rebuilding the income from scratch around a "stand score" instead
+  of just gating the old terms (`cw-stand-score1`, 08-10 night) —
+  even started clean from the honest stance champion, it converged
+  right back to the same one-leg-up trick, 0/12 valid plant across
+  easy and hard starting poses. Three differently-designed reward
+  fixes have now lost to the identical cheat; tuning what the reward
+  pays is a dead end for this problem, not an unlucky run. Next
+  lever has to be outside reward shaping (bringing back trajectory
+  guidance, or tying the height command to real foot contact).
   `rl_docs/RISE.md`.
 - **Turning on command.** Walk policies carry a structural left-yaw
   drift and ignore the yaw command channel; raising the price of
@@ -136,11 +142,12 @@ need a structural fix, not another price change (see below).
 
 1. Hardware attempt #2 with the staged `cw-dep-vref1-r1` checkpoint
    (joystick walk on the bench, fresh `set_zero` first).
-2. Both reward-tuning routes for standing and turning are now
-   closed by trained evidence, not just prediction — next moves are
-   code changes (rework where rise income comes from; mirror-
-   symmetry augmentation for turning), each a SPECIFICATION step
-   before anything trains again.
+2. Reward tuning for turning, AND now all reward-income shaping for
+   standing (three mechanisms tried), are closed by trained evidence,
+   not just prediction — next moves are code changes (reference
+   tracking or foot-contact-coupled height for rise; mirror-symmetry
+   augmentation for turning), each a SPECIFICATION step before
+   anything trains again.
 3. Sim effort-pricing fix (holding-current model) so effort-shaped
    arms become trustworthy.
 Queue and blockers: `RL_PLAN.md`.

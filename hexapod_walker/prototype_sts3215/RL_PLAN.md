@@ -75,6 +75,11 @@ CLOSED moves — do not re-propose (evidence in `rl_docs/runs/`):
 
 - Anti-slip / income reward shaping against skating (10+ arms;
   root cause is contact pricing, an operator calibration).
+- Rise reward-income shaping (detect-and-discount / gate / re-route
+  the income source — 3 distinct mechanisms, 08-10): all beaten by
+  the identical flag-leg cheat, the last even from an honest warm
+  start. Next lever is reference tracking or a structural height-
+  contact coupling, not another income variant (rl_docs/RISE.md).
 - Identical-config continuations (0-for-5; auto-continue handles
   segment stitching).
 - Generic full-DR (1.0) retrains; single-axis calibration/sensor DR
@@ -154,18 +159,19 @@ Open problems, in priority order:
 2. **Rise/lower inside the walking policy.** Full plan + evidence
    trail: **rl_docs/RISE.md**. Lower is solved warm (rfix-warm1 6/6
    posture-strict; keep fine-tune grafting, distill refuted); rise is
-   unsolved — every arm incl. `cw-stand-b2p1` AND `cw-stand-plantgate1`
-   (08-10, the geometric polygon gate priced live for the first time)
-   lost to the SAME height-only flag-leg cheat, 0/12 valid_plant —
-   KNOWN exploit, one-line stop, no dig-in. A stricter CHEAT DETECTOR
-   alone does not make honesty out-earn the cheat; the income
-   structure elsewhere still overpays the fake stand. Next rise arm
-   must change WHERE the income comes from (e.g. only pay
-   height/progress income when `valid_plant`/posture partial-credit
-   is improving, not just gate the existing terms), not just detect
-   the cheat harder. The rise bank in `test_task_semantics.py` is the
-   binding preflight; new mechanisms go through DISCOVERY first. Big
-   consolidation waits for the loaded-actuator model.
+   unsolved — THREE distinct reward-income mechanisms
+   (`cw-stand-b2p1` detect-and-discount, `cw-stand-plantgate1`
+   multiplicative PLANT_SPEC gate, `cw-stand-score1` income-source
+   re-routing — 08-10, the last warm-started from the HONEST stance
+   champion) all lost to the SAME flag-leg cheat, 0/12 valid_plant
+   every time — KNOWN exploit, one-line stop, no dig-in. Ruling:
+   reward-income shaping alone is now CLOSED for rise (three-strikes).
+   Next lever is outside pure income shape: reopen reference/
+   trajectory tracking during the ramp, or couple the height
+   reference itself to measured foot contact. The rise bank in
+   `test_task_semantics.py` is the binding preflight; new mechanisms
+   go through DISCOVERY first. Big consolidation waits for the
+   loaded-actuator model.
 3. **Loaded actuator model.** FIT LANDED 08-10: opt-in
    `--cfg-set bus.servo_params=loaded` (default stays air). Detail +
    provenance + confidence table: **`rl_docs/SIM.md`**. Uncertain
@@ -230,10 +236,16 @@ Open problems, in priority order:
        `cw-omni-mirror1` (hist16-dep1 recipe + omni stack + mirror
        coef 1.0) launched 08-10 eve; hardening 40M follows if the
        mechanism-health gate passes.
-    2. geometric valid-plant terminal state for rise
-       (support-polygon/foot-count success criterion that rejects
-       flag-leg/tripod — define AND test it in the rise bank, problem
-       2); explicit mode/command one-hot in the obs (flagship
+    2. **Rise beyond income shaping — NEW TOP CODE PRIORITY (08-10
+       night, after `cw-stand-score1` made it a three-strikes close,
+       problem 2).** Reward-income routing is closed; design + land
+       ONE of: (a) re-enable `k_rise_ref_track` (landed, currently
+       annealed to 0) as a real term instead of a scaffold, or (b)
+       couple the height reference to measured foot contact so a
+       lifted leg can't count toward progress at all. Bank it in
+       `test_task_semantics.py` (flag-leg must still lose) BEFORE any
+       DISCOVERY launch.
+    3. explicit mode/command one-hot in the obs (flagship
        prerequisite); LOWER + TURN + WALK trajectory banks for
        test_task_semantics.py (launch blockers for those modes);
        machine-readable metric semantics registry (RESEARCH_RULES);
