@@ -936,6 +936,36 @@ def cmd_drain(g: dict, a: argparse.Namespace) -> int:
     def requeue(it: dict, err: str) -> None:
         it["attempts"] = it.get("attempts", 0) + 1
         it["last_error"] = err[-400:]
+        # Bug found live (cycle 2026-08-10 ~02:0x, groundtilt8-s1r2 and
+        # groundtilt5-payload-r4 vanished with no science AND no park):
+        # if training itself started before crashing (e.g. the gotcha
+        # 13/13b launch-collision EOFError), a W&B run already exists
+        # under this name. Requeueing the SAME name means the next
+        # attempt's cmd_launch append-only-name check refuses it, and
+        # launch_one's own dedup guard then treats that refusal as
+        # "already exists in W&B" and silently DROPS the item — no
+        # requeue, no park, no trace. Rename before requeueing so a
+        # real retry (not a name refusal) happens.
+        try:
+            if wandb_name_exists(it["run"]):
+                base = it["run"]
+                n = 1
+                while wandb_name_exists(f"{base}-rr{n}"):
+                    n += 1
+                new_name = f"{base}-rr{n}"
+                print(f"requeue: {base} already has a W&B run (started "
+                      f"then crashed) — renaming retry to {new_name}")
+                it["run"] = new_name
+                # Keep --out-name (checkpoint filename) in sync so a
+                # SUCCESSFUL renamed retry's checkpoint is findable
+                # under the name that actually trained.
+                xa = it.get("extra_args")
+                if xa and "--out-name" in xa:
+                    xa[xa.index("--out-name") + 1] = (
+                        "ppo_goal_" + new_name.replace("-", "_"))
+        except Exception as exc:
+            print(f"requeue: wandb_name_exists check failed ({exc}); "
+                  "requeueing under the same name anyway")
         with file_lock(BACKLOG_LOCK):
             if it["attempts"] >= 3:
                 dead = (json.loads(BACKLOG_FAILED.read_text())
