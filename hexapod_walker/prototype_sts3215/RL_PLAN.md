@@ -152,8 +152,14 @@ Open problems, in priority order:
    ALL future rise/lower arms set both. RESULT 08-10: fix works —
    warm1 lower 6/6 posture-strict; fresh1 strictly worse (tripod +
    over-current) ⇒ KEEP fine-tune grafting, distill refuted. Rise
-   fails both arms: height paid with legs aloft — next arm gates
-   rise finish/late income on all-feet-loaded (end_posture_ok).
+   fails both arms: height paid with legs aloft. The posture-gate
+   arm (postgate1) FAILED and ERODED lower: the gate priced lower's
+   feet at the 20 mm stand allowance while an honest belly-down
+   lower leaves pads 20–45 mm up, so honest≈cheat income and an
+   outrigger cheat won — FIXED 08-10 (pf now uses the 60 mm lower
+   allowance; b2p1 trained PRE-fix, check its lower at triage).
+   Posture-gate-alone is a weak rise lever (shallow last-leg
+   gradient); the dense ref-track scaffold (b2p1) is the live hope.
    Pre-273ebde rise/lower ckpts stay invalid near the ground.
    STAND-UP FIRST (operator, 08-10 ~11:00 ET): the crouch-stand is
    not the deliverable — rise must end in the WALKABLE plant
