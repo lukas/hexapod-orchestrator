@@ -591,8 +591,45 @@ def render() -> str:
     return "".join(h)
 
 
+# Optional access token (STATUS_TOKEN env): needed once the page is on a
+# public LoadBalancer IP (operator 08-10) — it shows spend and infra.
+# First visit with ?key=<token> sets a cookie and redirects clean;
+# afterwards the cookie carries auth. Unset token = open (local
+# port-forward use unchanged).
+TOKEN = os.environ.get("STATUS_TOKEN", "")
+
+
 class Handler(http.server.BaseHTTPRequestHandler):
+    def _authed(self) -> bool:
+        if not TOKEN:
+            return True
+        from urllib.parse import parse_qs, urlparse
+        q = parse_qs(urlparse(self.path).query)
+        if q.get("key", [""])[0] == TOKEN:
+            return True
+        cookies = self.headers.get("Cookie", "")
+        return any(c.strip() == f"status_token={TOKEN}"
+                   for c in cookies.split(";"))
+
     def do_GET(self):  # noqa: N802
+        if not self._authed():
+            body = b"403: append ?key=<token> to the URL"
+            self.send_response(403)
+            self.send_header("Content-Type", "text/plain")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+        from urllib.parse import parse_qs, urlparse
+        u = urlparse(self.path)
+        if TOKEN and parse_qs(u.query).get("key", [""])[0] == TOKEN:
+            # set the cookie, drop the key from the URL
+            self.send_response(302)
+            self.send_header("Set-Cookie",
+                             f"status_token={TOKEN}; Path=/; Max-Age=31536000")
+            self.send_header("Location", u.path or "/")
+            self.end_headers()
+            return
         if self.path.startswith("/json"):
             body = json.dumps(SNAP, default=str).encode()
             ctype = "application/json"
