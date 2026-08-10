@@ -1,4 +1,5 @@
 # Local runtime state — snapshot.sh runs `git add -A`; committing these
 # would ship a paused/locked state to every clone that pulls.
 PAUSE
+LAUNCH_HOLD
 *.lock

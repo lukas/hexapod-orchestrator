@@ -43,7 +43,7 @@ CHECKUP_STATE = pathlib.Path("/workspace/checkup_state.json")
 FINDINGS = pathlib.Path("/workspace/checkup_findings.md")
 
 POLL_S = 300
-MAX_CYCLES_PER_DAY = 48         # keep in sync with guardrails.yaml (operator raise, 08-09)
+MAX_CYCLES_PER_DAY = 96         # keep in sync with guardrails.yaml (operator doubled, 08-10 morning)
 BACKOFF_AFTER_FAILED_CYCLES = 2  # consecutive agent failures -> long sleep
 # Cycles are event-driven and CONCURRENT (08-08 evening): when a run
 # finishes while another cycle is still working, its verdict/relaunch no

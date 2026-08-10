@@ -43,6 +43,10 @@ LEDGER_LOCK = HERE / "experiments.json.lock"
 # check -> process start window must not interleave or two cycles can
 # double-book a pod/node that looked free to both.
 LAUNCH_LOCK = HERE / "launch.lock"
+# Operator launch hold: while this file exists every launch path
+# (launch, drain, auto-continue — they all come through here) refuses.
+# Triage/verdict/eval work is unaffected. Remove the file to resume.
+LAUNCH_HOLD = HERE / "LAUNCH_HOLD"
 # Mechanical experiment queue (operator, 2026-08-09: "a free slot plus a
 # non-empty backlog is a bug"). Items are full launch specs; `drain`
 # pushes them onto free GPU pods, self-repairing code-sync and missing
@@ -296,6 +300,11 @@ def _launch_locked(g: dict, a: argparse.Namespace,
         "extra_args": extra, "created": now(), "status": "INTENT",
         "checks": {}, "stack": "gpu-mjx" if is_gpu else "cpu",
     }
+    if LAUNCH_HOLD.exists():
+        return refuse(entry, "operator LAUNCH_HOLD in effect — triage/"
+                             "verdict only, no new launches; do NOT retry "
+                             "or requeue, the hold clears when the operator "
+                             "removes rl_move/orchestrator/LAUNCH_HOLD")
     checks = entry["checks"]
 
     # --- static checks -----------------------------------------------------
@@ -922,6 +931,10 @@ def cmd_drain(g: dict, a: argparse.Namespace) -> int:
     processes; verifications overlap since the launch lock only covers
     check->start. A free slot plus a non-empty backlog is a bug.
     """
+    if LAUNCH_HOLD.exists():
+        print("drain: operator LAUNCH_HOLD in effect; backlog left queued, "
+              "nothing launched")
+        return 0
     import concurrent.futures
 
     def take_next() -> dict | None:
