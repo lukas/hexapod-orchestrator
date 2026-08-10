@@ -26,8 +26,10 @@ a ban.
 
 ## Where we are (edit rule: capability only — details live elsewhere)
 
-Live rulings + hardware facts: **`CURRENT_TRUTHS.md`** (agents read
-that before any history). As of 2026-08-10:
+The full "how is it going / what can it do / what have we learned"
+digest: **`STATUS.md`**. Live rulings + hardware facts:
+**`CURRENT_TRUTHS.md`** (agents read that before any history).
+As of 2026-08-10:
 
 - The REAL robot walks under a scripted gait; that is the bar.
 - In sim, the learned gait is real (six legs cycling) but creeps;

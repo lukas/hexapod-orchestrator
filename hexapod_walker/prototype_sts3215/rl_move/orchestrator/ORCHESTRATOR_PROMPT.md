@@ -133,6 +133,11 @@ prime directive and RL_PLAN "CLOSED moves".)
    - A PASS also updates `rl_docs/SKILLS.md` (one row: skill,
      checkpoint, evidence, envelope/limits) in the same cycle — the
      operator reads that file as "what can the robot do today".
+   - If a verdict CHANGES THE STORY (new capability class, an
+     unsolved skill becomes solved, a big lesson opens/closes),
+     also refresh the affected lines of `STATUS.md` (the operator's
+     plain-English "how is it going" digest) and re-stamp its date.
+     Routine composes/seed twins don't qualify.
    - A verdict belongs ONLY to a run you evaluated. When a verdict
      stops a CLASS of arms, name the evaluated run as the evidence
      and write affected unevaluated runs as "no verdict yet, class
