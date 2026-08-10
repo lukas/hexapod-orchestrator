@@ -216,15 +216,27 @@ Open problems, in priority order:
 0.5 **TEMPORAL-ARCH** (1–2 pods; see Architecture).
 1.  Live truth for what's training/queued: `ops.sh census` +
     `launch_run.py backlog list` — never this file.
-2.  [CODE] backlog: geometric valid-plant terminal state for rise
-    (support-polygon/foot-count success criterion that rejects
-    flag-leg/tripod — define AND test it in the rise bank, problem
-    2); explicit mode/command one-hot in the obs (flagship
-    prerequisite); LOWER + TURN + WALK trajectory banks for
-    test_task_semantics.py (launch blockers for those modes);
-    machine-readable metric semantics registry (RESEARCH_RULES);
-    mirror-symmetry augmentation; contact-from-proprioception aux
-    head; zero-drift DR mechanism rework (open problem 5).
+2.  [CODE] backlog, in priority order:
+    1. **Mirror-symmetry augmentation — TOP CODE PRIORITY (operator,
+       08-10 evening).** Reflect obs+actions about the sagittal
+       plane in the trainer (18-joint left/right index maps + history
+       stack + command signs). It is the ONLY untried lever on the
+       turning blocker (reward tuning doubly closed, TURN.md) and the
+       prerequisite for the omnidirectional from-scratch discovery
+       run (`cw-omni-mirror1`: hist16 + full-circle command sampling
+       + signed yaw stack + dep contract). Next implementation cycle
+       takes this before any other code item; validate with a
+       symmetry unit test (mirrored obs -> mirrored action) + smoke,
+       then queue the discovery arm.
+    2. geometric valid-plant terminal state for rise
+       (support-polygon/foot-count success criterion that rejects
+       flag-leg/tripod — define AND test it in the rise bank, problem
+       2); explicit mode/command one-hot in the obs (flagship
+       prerequisite); LOWER + TURN + WALK trajectory banks for
+       test_task_semantics.py (launch blockers for those modes);
+       machine-readable metric semantics registry (RESEARCH_RULES);
+       contact-from-proprioception aux head; zero-drift DR mechanism
+       rework (open problem 5).
 
 ## Gate 0 — deployment equivalence (every hardware candidate)
 
