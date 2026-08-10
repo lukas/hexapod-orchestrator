@@ -16,6 +16,19 @@ four legs, walk on four). Foot slip is NOT failure by itself (the
 scripted gait that walks the real robot slips); slip metrics exist to
 keep sim honest, not as a ban. Sim metrics are means, not ends.
 
+**PRIME DIRECTIVE (operator, 08-10 — supersedes GPU-occupancy
+rules):** minimize the number of unresolved blockers between the
+current robot and reliable joystick control; that count is the KPI.
+Idle pods are acceptable; peripheral experiments are not. Before
+training, prove the reward and evaluator prefer the intended behavior
+over all known cheats (MDP_PREFLIGHT: `rl_move/tests/
+test_task_semantics.py`). Short runs discover mechanisms
+(--phase discovery, ≤2M steps); long runs only harden behavior
+already seen (--phase hardening + --evidence — the launcher enforces
+both). Prefer hardware-derived questions over generic sim
+robustness. Kill obviously bad runs early. Every analysis must end
+in a decision that can change the next experiment.
+
 **The process is LIGHTWEIGHT by operator order (2026-08-09). Most runs
 need a 10-minute triage, not an hour of forensics. Dig in only when
 triage finds something real.** Machinery you must NOT rebuild or wait
@@ -40,59 +53,23 @@ run — anything you leave unverdicted is automatically re-assigned
 after the update. Cycles that ignore the flag are killed at a 30-min
 deadline and lose their unfinished reasoning.
 
-Read before deciding: `RL_PLAN.md` (plan/gates), `RL_LOG.md` (history,
-1-3 lines/entry), `rl_docs/COMMANDS.md` (ops.sh helpers + gotchas).
-The binding reviews live in `archive/` — consult them when DESIGNING a
-new line or digging into a failure, not on every cycle.
+Read before deciding: **`CURRENT_TRUTHS.md` FIRST** (accepted facts —
+it outranks anything you infer from history; a six-hour-old
+hypothesis in the log never outweighs a line there), then `RL_PLAN.md`
+(blockers/queue/architecture/Gate 0), **`RESEARCH_RULES.md`** (how
+you may design/launch/stop/judge — phases, MDP_PREFLIGHT, kill
+rules), and `rl_docs/COMMANDS.md` (ops.sh helpers + gotchas).
+`RL_LOG.md` is a navigational index (1 line/cycle); the binding
+reviews live in `archive/` — consult history when DESIGNING a new
+line or answering a historical question, not on every cycle, and
+never to infer current state.
 
-**HARDWARE WINDOW (operator, 08-10 ~01:00 ET, binding until morning):
-the operator runs hardware attempt #2 in ~8 hours. Every cycle until
-then serves the P0 list from `archive/GPT_HANDOFF_2026-08-10.md` (full
-rulings mirrored in RL_PLAN "GPT HANDOFF 08-10"):**
-
-1. **Verdict `cw-dep-vref1-r1` and `cw-dep-fresh1` FIRST** — before
-   any new walk reward arm. vref1-r1 no-erosion ⇒ contract-exact obs
-   is SUFFICIENT for attempt #2 (do not gate hardware on the
-   estimator/temporal line). fresh1 is judged QUALITATIVELY: if 25°
-   permission + honest velocity obs produces visible weight-transfer
-   /rocking gait instead of creep, that matters MORE than legacy
-   scalar regressions — compare its videos against the scripted-gait
-   envelope (±10-20° rock, feet may slip), not against creep-era
-   medians.
-2. **`cw-dep-startvar1` is pre-queued in the backlog** (operator).
-   Launch order matters: it warm-starts from vref1-r1's output
-   checkpoint — hold it until vref1-r1 is verdicted and the ckpt
-   exists; if vref1-r1 FAILED, re-parent to the walk champion. It
-   uses a NEW mechanism `dr.zero_drift_cmd_frame=1` (logical-zero
-   FRAME drift: encoder reads AND position commands share the same
-   drifted frame — env-level smoke passed on the Mac 08-10 01:0x; run
-   the standard pod-side probe smoke before the 18M arm trains, per
-   the best-practices audit rule).
-3. **Hardware-target arms get MINIMAL effort shaping** until current
-   economics are calibrated: hardware measured walking (0.33-0.45 A)
-   CHEAPER than standing (0.59 A) — opposite of sim assumptions. Set
-   `reward.k_current=0` on dep-line arms; keep `k_action_delta`
-   (smoothness ≠ economics). Do NOT retune pricing from aggregate
-   bus-current ratios.
-4. **No new generic DR pair-composes tonight** unless they protect a
-   named hardware candidate (12/12 single-axis passes prove
-   robustness around the sim's parameterization, not that the sim is
-   right). Freed capacity goes to the dep line and the temporal-arch
-   rung (hist16 at 3072 envs, unblocked by the shm fix).
-5. **Prev-action semantics: AUDITED, PASS (08-10)** — training echoes
-   the validated raw proposal (`sim_env` step-finish), the runner
-   echoes the same (`rl_policy.py` tick loop), shared `build_obs`.
-   Gate 0 item closed; don't re-audit.
-6. **Loaded actuator gap is quantified** (RL_LOG 08-10): 2° loaded
-   steps take ~250-325 ms to settle on hardware vs tens of ms in sim
-   (air-fitted knee latency 8.6 ms); measured loaded peak velocity
-   48-67°/s exceeds the sim's 30.8°/s ceiling (that "ceiling" was the
-   air-probe's commanded write speed, not servo capability). CODE
-   task when a slot frees: minimal load-dependent latency/response
-   term in `servo_model.py`, fit against
-   `hardware_traces/step_ladder_20260810.csv` (robot-side `bus_ts`
-   only — Mac-side t_cmd is HTTP-contaminated), then re-run the
-   stance-liftoff reproduction (P0-B) with the corrected model.
+(The 08-10 ~01:00 ET "hardware window" P0 list is EXPIRED — its
+items are verdicted or folded into RL_PLAN.md and CURRENT_TRUTHS.md.
+Still binding from it: `reward.k_current=0` on hardware-target arms
+until current pricing is calibrated; prev-action semantics are
+audited PASS, don't re-audit; no generic DR pair-composes — see the
+prime directive and RL_PLAN "CLOSED moves".)
 
 ## The cycle
 
@@ -108,10 +85,26 @@ rulings mirrored in RL_PLAN "GPT HANDOFF 08-10"):**
    - the reward curve + gate scalars vs the parent's,
    - terminations/canary flags.
    Then call it, honestly — would a skeptical roboticist agree from the
-   same three artifacts? Name pathologies bluntly (flag legs, dragging,
+   same three artifacts? Classify with `RUN_INTERPRETATION_RULES.md`
+   (8 ordered checks + verdict table; stop at the first failing
+   check — it names the verdict without forensics, and reward alone
+   is never evidence). Name pathologies bluntly (flag legs, dragging,
    skating, jitter, lurching); a walk without all six feet cycling
    ground-contact/swing is NOT WALKING and not hardware-ready,
    whatever the velocity error says. Unwatched success = unverified.
+   **A KNOWN exploit in the video (flag-leg, tripod, stilt, freeze,
+   park) is already a complete verdict: "STOP — reward/eval
+   specification bug." Record it in one line and move on — no
+   forensic investigation, no continuation, no re-run with more
+   steps.** For any run whose eval injected a physics/sensor axis:
+   no verdict without the matched-parent control
+   (`eval_checkpoint.py --baseline <parent.zip>` — same injection,
+   same seed); a child-vs-clean-parent comparison is invalid.
+   **Kill still-training runs on behavioral impossibility** — e.g.
+   stand-up: correct success still 0 after the discovery window +
+   known cheat dominating video + cheat return rivaling the desired
+   path; turning: yaw output command-invariant despite adequate
+   reward separation. Do not wait for the return curve to plateau.
 
 2. **Record it (minutes, not essays).** For a CLEAR pass or fail:
    - `launch_run.py update --run <name> --set status=... verdict="1-2
@@ -148,6 +141,11 @@ rulings mirrored in RL_PLAN "GPT HANDOFF 08-10"):**
    anomalous vs parent beyond eval noise; a protected skill (rise/
    lower >= 5/6) eroded; canary auto-stop fired; the result decides a
    fork in the plan; or you're about to change reward/env code.
+   A KNOWN exploit is NOT a trigger (see step 1 — it is a one-line
+   STOP verdict); dig-ins are for genuinely discriminative cases:
+   sim/real disagreement, unexpected regression on a correctly
+   specified task, or two causal hypotheses implying different next
+   actions.
    **Model tiering (operator cost order, 08-09): triage cycles run on
    a cheaper model. If YOU are a triage cycle and a trigger fires, do
    NOT dig in yourself: leave that run UNVERDICTED, finish your other
@@ -161,25 +159,34 @@ rulings mirrored in RL_PLAN "GPT HANDOFF 08-10"):**
    patch. Claims need a named baseline + delta outside the noise band;
    deltas inside noise are "no evidence".
 
-4. **Refill the pipeline.** Keep every slot busy (`capacity.py`; idle
-   slot needs a ledger-recorded HARD reason). **If more than 2 slots
-   are free, queue MULTIPLE experiments this cycle — one per free
-   slot, drawn from DIFFERENT lines** (operator, 08-09: a cycle that
-   leaves 5 slots idle because it only thought of one idea has
-   failed). **For any follow-up that clones an existing config (seed
-   panel, next ladder rung, DR/axis variant) use
+4. **Refill against the BLOCKER LIST, not occupancy** (prime
+   directive, 08-10 — reverses the 08-09 "idle pods are the failure"
+   order). Ask first: which unresolved blocker between the robot and
+   the next hardware joystick test does this run reduce? A run that
+   serves one gets queued; an idle pod is acceptable; a peripheral
+   pair-compose queued "because capacity existed" is a violation.
+   **Every spec declares `--phase`** (launcher-enforced): discovery
+   ≤2M steps for new mechanisms — binary question, early video;
+   hardening/composition/transfer need `--evidence` naming where the
+   correct behavior was already seen. **Reward/task-mechanism specs
+   additionally require the mode's `test_task_semantics.py` bank to
+   PASS first** (a skipped bank = build the bank first — that is
+   SPECIFICATION work and it never trains). **For any follow-up that
+   clones an existing config (seed panel, next ladder rung, DR/axis
+   variant) use
    `launch_run.py respec --from <run> --run <new> [--seed N]
    [--arg='--flag=v'] [--cfg k=v] --hypothesis "…" --gate "…"` — never
    re-type the arg vector by hand.** Genuinely new configs: queue specs
    into the backlog and let the drain place them —
    `launch_run.py backlog add --run <cw-name> --steps N --parent ...
-   --hypothesis "..." --gate "..." -- <train args>`. Direct
-   `launch_run.py launch` only when a specific pod matters. Sources,
-   in order: continuations of near-misses (one, not two), the plan's
-   next rung, `rl_docs/WISHLIST.md` topmost [READY] items.    Rules that
-   stay: warm-start by default, one variable per run,
-   plain-English-first hypothesis and W&B notes, falsifiable gate.
-   Two misses in a row = change the hypothesis, not the step count.
+   --phase ... [--evidence "..."] --hypothesis "..." --gate "..."
+   -- <train args>`. Direct `launch_run.py launch` only when a
+   specific pod matters. Sources, in order: continuations of
+   near-misses (one, not two), the plan's next rung,
+   `rl_docs/WISHLIST.md` topmost [READY] items. Rules that stay:
+   warm-start by default, one variable per run, plain-English-first
+   hypothesis and W&B notes, falsifiable gate. Two misses in a row =
+   change the hypothesis, not the step count.
    **PLAIN-ENGLISH-FIRST is binding (operator, 08-10, after finding a
    run page unreadable): every hypothesis MUST open with one plain
    sentence a stranger can parse — "Teach the walking champion to
@@ -209,6 +216,8 @@ rulings mirrored in RL_PLAN "GPT HANDOFF 08-10"):**
 - Fluidity counts: a jerky gate-passer is not hardware-ready.
 - Boring informative experiments beat clever multi-change ones; a
   cleanly refuted hypothesis is a win.
-- Escalate per guardrails on SAFETY or confounded designs — but
-  analysis paralysis with idle pods is the failure mode, not the safe
-  default. Assume-and-go (record the assumption) beats waiting.
+- Escalate per guardrails on SAFETY or confounded designs. For design
+  questions ON THE CRITICAL PATH with a plausible answer,
+  assume-and-go (record "## ASSUMPTION (operator to review)") beats
+  waiting — but an idle pod is fine (prime directive); never invent a
+  peripheral run to fill it.
