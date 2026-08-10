@@ -155,11 +155,17 @@ Open problems, in priority order:
    distill/two-policy instead of fine-tune grafting (branches
    pre-registered). Rise/lower checkpoints from before sim fix
    273ebde (leg-floor collision) are invalid near the ground.
-3. **Loaded actuator model.** Hardware is ~5x slower than the
-   air-fitted model (t90 260–430 ms loaded; first-motion
-   110–210 ms) — prime suspect for the stance liftoff +roll
-   collapse. Fit against `step_ladder_20260810.csv` robot-side
-   timestamps only, then re-run the liftoff reproduction.
+3. **Loaded actuator model.** FIT LANDED 08-10 (RL_LOG "loaded
+   actuator ID"): `fit_loaded_actuator.py` → `sim_model_loaded.json`,
+   opt-in `--cfg-set bus.servo_params=loaded` (default stays air,
+   legacy-exact). Knee fit from `step_ladder_20260810.csv`: the air
+   deadband 0.494° was the sim tracking floor (loaded 0.06°); latency
+   85 ms, vel ceiling 48.5°/s, kp 916. Held-out ±5° steps 20–40×
+   better than air; rl_stand deployed replay RMSE 2.5° vs 2.9–3.2°.
+   Hip/yaw carry knee deltas — ASSUMPTION until a per-axis loaded
+   ladder (HARDWARE.md item 4). NEXT: re-run the liftoff reproduction
+   on loaded params; first training arm = a dep-line respec with the
+   flag vs its air twin.
 4. **Quad-mix erosion.** Dose-response so far: 50% erodes walk, 30%
    recovers on the walk champion, 30% on the driving champion
    FAILED, 15% in review. If erosion persists at useful mixes:
