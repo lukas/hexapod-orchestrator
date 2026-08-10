@@ -580,12 +580,39 @@ def reap_cycles(active: list[dict], processed: set[str]) -> tuple[list[dict], in
     return still, n_ok, n_failed
 
 
+def spawned_cycles_last_24h() -> list[float]:
+    """Cycle spawn times in the rolling window, recovered from the
+    cycle-log filenames (cycle_YYYYMMDDTHHMMSS_label.log).
+
+    MAX_CYCLES_PER_DAY was enforced from an in-memory list that reset
+    to [] on every watcher restart, silently refilling the daily
+    budget: 105 cycles actually spawned in the 24 h before 08-10
+    ~16:20 ET against a cap of 96 (caught by the status page's
+    file-based count). Seeding from the files makes the cap hold
+    across restarts. The status page counts the same way — keep them
+    matched."""
+    now = time.time()
+    out: list[float] = []
+    for p in CYCLE_OUT_DIR.glob("cycle_*.log"):
+        m = re.match(r"cycle_(\d{8}T\d{6})_", p.name)
+        if not m:
+            continue  # auto_continue_*.log etc. are not decision cycles
+        try:
+            t = time.mktime(time.strptime(m.group(1), "%Y%m%dT%H%M%S"))
+        except ValueError:
+            continue
+        if now - t < 86400:
+            out.append(t)
+    return sorted(out)
+
+
 def main() -> None:
-    cycle_times: list[float] = []
+    cycle_times: list[float] = spawned_cycles_last_24h()
     failed_cycles = 0
     idle_polls = 0
     active: list[dict] = []
-    log("watcher started")
+    log(f"watcher started — {len(cycle_times)}/{MAX_CYCLES_PER_DAY} "
+        "cycles already spawned in the rolling 24h window")
     threading.Thread(target=checkup_worker, daemon=True).start()
     threading.Thread(target=backlog_worker, daemon=True).start()
     while True:

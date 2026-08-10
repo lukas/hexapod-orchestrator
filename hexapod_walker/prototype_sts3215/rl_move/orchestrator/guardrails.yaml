@@ -174,18 +174,17 @@ phases:
   discovery_max_steps: 2000000
 
 experiments:
-  # Continue-while-improving lineages (operator directive 0-a, 08-09):
-  # when a run whose name starts with one of these prefixes finishes with
-  # reward still climbing (last quarter beats the prior quarter), the
-  # WATCHER relaunches the next segment mechanically — identical config,
-  # init-from the finished checkpoint, -cN name — through the normal
-  # launcher (capacity checks, ledger, verification all apply). The
-  # trailing verdict cycle reviews the finished segment and must KILL the
-  # continuation if frames show pathology or the trend is flat. This
-  # exists because a pod idling 15-25 min through a deliberation cycle
-  # after every ~20-min segment wasted a third of the fleet's time.
-  auto_continue_lineages:
-    - cw-walk-step0
+  # Continue-while-improving lineages: DISABLED (simplification review,
+  # 2026-08-10, operator-adopted). A rising training return alone must
+  # never mechanically buy more steps — reward-quarter-based
+  # auto-continuation is exactly the shortcut amplifier the review
+  # flags. Continuation is a cycle decision: intended behavior already
+  # exists, task metric / held-out eval still moving, no known exploit
+  # dominating, protected skills holding (review §5). The watcher
+  # machinery (try_auto_continue in watch_loop.py) stays but is inert
+  # while this list is empty; re-add a prefix only with an explicit
+  # operator directive.
+  auto_continue_lineages: []
   # Structured ledger (external review 8b): software-owned facts per run in
   # rl_move/orchestrator/experiments.json — hypothesis+predictions, parent,
   # git SHA, seed, gate, status (INTENT/RUNNING/FINISHED/FAILED), W&B ID,
@@ -362,11 +361,15 @@ operator_unblock_policy:
   # running; [CODE] items get a dedicated implementation cycle when
   # 2+ pods would otherwise idle.
   wishlist: rl_docs/WISHLIST.md
-  # A GPU pod left idle through a full cycle without a ledger-recorded
-  # HARD reason (capacity caps, verification failure, launcher REFUSED)
-  # is a guardrail violation. "Waiting on the operator" alone is no
-  # longer a valid idle reason — apply (1) or (2).
-  idle_gpu_needs_hard_reason: true
+  # IDLE COMPUTE IS ACCEPTABLE (simplification review, 2026-08-10,
+  # operator-adopted — supersedes the 08-09 "idle pod = violation"
+  # rule). Never invent an experiment because a pod is free: when the
+  # next useful work is specification, hardware evidence, or code, let
+  # GPUs idle. The parallel lines and wishlist above stay AVAILABLE for
+  # idle pods, but pulling from them is a judgment call, not a duty,
+  # and never justifies peripheral DR/robustness composes — that broad
+  # question is already answered.
+  idle_gpu_needs_hard_reason: false
 
 escalation:
   # If any of these happen, do NOT launch new runs; write the situation to

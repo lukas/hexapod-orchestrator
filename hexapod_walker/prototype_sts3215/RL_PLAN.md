@@ -37,6 +37,17 @@ critical path is hardware, specification work, or code fixes. Every
 spec answers the launch question first: if this run succeeds or
 fails, does it change what we do before the next hardware test?
 
+## Critical path (simplification review §11, 08-10)
+
+**CURRENT GOAL:** joystick-controlled real robot. **BLOCKERS:**
+honest rise to a walkable plant; commanded turning;
+deployment-equivalent loaded/contact dynamics. **DEFERRED:** quad
+mode, generic DR composes, posetrack, architecture curiosity work
+not tied to a demonstrated failure. **RULE:** idle GPUs are fine.
+**TEST:** the next experiment should take less than one minute to
+explain and should change what we do before the next useful
+hardware test.
+
 ## Where we are (08-10 — live facts in CURRENT_TRUTHS.md)
 
 The real robot walks under a scripted gait — the bar learned policies

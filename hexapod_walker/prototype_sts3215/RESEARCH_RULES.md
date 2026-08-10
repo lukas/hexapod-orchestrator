@@ -79,8 +79,16 @@ caveats.
 
 ## Designing runs
 
-- One variable per run, off the relevant line's champion.
-  Pre-register the gate and BOTH outcomes (if-true / if-false)
+- Two experiment types (simplification review §6, 08-10). A
+  **DIAGNOSTIC** run establishes causality or tests one mechanism:
+  one variable per run, off the relevant line's champion, short
+  discovery budget when the behavior is new, matched-parent control
+  mandatory for injected axes. An **INTEGRATION** run (e.g. the
+  unified-controller flagship) answers "does the complete controller
+  work?" and may intentionally combine already-VALIDATED ingredients
+  — but never pretend it isolates causality, and never use it to
+  sneak in an unvalidated ingredient.
+- Pre-register the gate and BOTH outcomes (if-true / if-false)
   before launch.
 - **Two misses in the same BEHAVIORAL CLASS = change the hypothesis
   or the task specification — never the coefficient or the step
@@ -119,6 +127,10 @@ caveats.
   the cheat's return rivals the desired path; kill a turning arm when
   yaw output stays command-invariant despite adequate reward
   separation.
+- **A gate discovered to measure the wrong thing invalidates every
+  conclusion that depended on it** until those runs are re-evaluated
+  under a corrected gate (simplification review §12). Verdicts do
+  not survive their evaluator.
 - DIG-IN is reserved for genuinely discriminative cases: sim/real
   disagreement, unexpected regression on a correctly specified task,
   or two competing causal hypotheses implying different next actions.
@@ -151,6 +163,9 @@ caveats.
 - Hardware-derived evidence outranks generic sim robustness. A
   closed hypothesis reopens because of new PHYSICAL evidence (tape,
   current traces, loaded ladders), never because compute is idle.
+- Never infer importance from how many lines a topic occupies in
+  RL_LOG or the archive; CURRENT_TRUTHS and the current blocker list
+  outrank historical token volume (simplification review §12).
 - Every analysis ends in a decision that changes the next
   experiment, the task specification, the simulator, the deployment
   gate, or the hypothesis. Otherwise stop analyzing.
