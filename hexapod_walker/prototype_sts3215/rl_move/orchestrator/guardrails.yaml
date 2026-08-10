@@ -139,7 +139,7 @@ compute:
   # refuses while rl_move/orchestrator/LAUNCH_HOLD exists; do not fight
   # REFUSED launches, and note skipped refills as
   # "HARD reason: operator launch hold". Idle pods are EXPECTED today.
-  max_new_launches_per_cycle: 0  # operator hold 08-10; was 4, restore when LAUNCH_HOLD is cleared
+  max_new_launches_per_cycle: 4  # restored 08-10 ~15:0x UTC: LAUNCH_HOLD file cleared (operator lifted the morning hold); was 0 during the hold
   # CPU-stack steps (smokes on sweep pods). GPU steps are ~18x cheaper
   # in wall clock and have their own cycle cap below — do NOT count GPU
   # launches against this number (operator, 2026-08-09, resolving the
