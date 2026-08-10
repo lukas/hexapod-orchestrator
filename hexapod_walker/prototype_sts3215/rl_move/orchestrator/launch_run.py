@@ -845,6 +845,24 @@ def cmd_checkup(g: dict, a: argparse.Namespace) -> int:
             if pod in g["compute"].get("gpu_pods", []):
                 floor = 5000.0
                 facts["placement"] = "solo on GPU-MJX pod"
+                # Scale the floor for configs that are legitimately
+                # slower (08-10: the flat 5k floor false-alarmed
+                # cw-arch-hist16-dep1-s1r1, a healthy run). Two known
+                # causes: fewer envs (the /dev/shm-mandated 3072
+                # shrink for deep-history runs, COMMANDS gotcha 13c)
+                # and deep obs-history stacks. Measured healthy
+                # steady-state on a full node (4 trainers): plain@4096
+                # ~7.7-8.3k fps, hist16@3072 ~3.9-4.6k, hist24@3072
+                # ~2.0k. Genuine starvation (4-5x, the 08-08 CPU
+                # incident class) still lands well below these floors.
+                blob = " ".join(str(x) for x in entry.get(
+                    "extra_args", [])) + " " + entry.get("command", "")
+                m = re.search(r"--n-envs\s+(\d+)", blob)
+                if m:
+                    floor *= min(1.0, int(m.group(1)) / 4096.0)
+                m = re.search(r"history_frames=(\d+)", blob)
+                if m and int(m.group(1)) > 8:
+                    floor *= 8.0 / int(m.group(1))
             else:
                 floor = 500.0 if (solo and limit >= 48) else 60.0
                 facts["placement"] = (
