@@ -171,9 +171,9 @@ the archive review's triggers fire.
    stance + drifted logical zero, NOT by the gait. The operator's
    chosen fix is robustness through variation, not sequencing guards:
    (a) COMPOSE dr.placement_noise_deg=6.0 (the placementnoise6 PASS
-   level) + dr.bad_start_prob=0.4 onto the cw-dep contract line as
-   soon as vref1-r1/fresh1 have verdicts — every future hardware
-   candidate trains with imperfect starts by default. (b) NEW DR AXIS
+   level) + dr.bad_start_prob=0.4 onto the cw-dep contract line —
+   DONE: `cw-dep-startvar1-r1` launched 08-10 05:3x, warm-started from
+   the verdicted vref1-r1 PASS. (b) NEW DR AXIS
    [CODE]: logical-zero drift — an OBS-SIDE per-joint encoder offset
    (the sensors lie consistently by a few deg, e.g. set_zero done on
    a slumped pose). This is DISTINCT from placement noise (physical
@@ -201,10 +201,13 @@ the archive review's triggers fire.
    weight-transfer gait, take the qualitative change seriously even
    if legacy scalars worsen (the campaign may have been optimizing
    "walk, but never execute the body motion real walking needs").
-   (2) If vref1-r1 shows no erosion, velocity estimator / temporal
-   actor is NOT a prerequisite for hardware attempt #2 —
-   contract-exact obs is enough; estimator/history stays a line for
-   demonstrated hidden-state problems. (3) Tilt safety: keep wide
+   (2) RESOLVED 08-10: `cw-dep-vref1-r1` PASSED with no erosion
+   (own-cfg det/sto slip+vel_err match or beat the parent evaluated
+   on the identical config; see its ledger verdict) — velocity
+   estimator / temporal actor is NOT a prerequisite for hardware
+   attempt #2; contract-exact obs is enough. Estimator/history stays
+   a line for demonstrated hidden-state problems, not a default gate.
+   (3) Tilt safety: keep wide
    (~25°) angle ceiling AND add a rate term that trips only when
    |roll/pitch rate| is large AND carrying the body away from level —
    never a bare gyro-magnitude trip (legit gaits transfer weight
