@@ -74,6 +74,15 @@ CLOSED moves — do not re-propose (evidence in `rl_docs/runs/`):
 - Treating another pairwise DR-compose PASS as progress: the compose
   campaign proved broad robustness; broad robustness is not simulator
   accuracy, and it is not on the blocker list (operator, 08-10).
+- Further single/pair/ANY-N-way DR composes on `cw-dep-vref1-r1`
+  (the "protect-the-candidate" sweep): CLOSED 08-10 night, 20-for-20
+  no-effect — every sensor/actuator/assembly axis tested solo or
+  paired composes free with the IDENTICAL benign fixed-eval-seed
+  fingerprint (det/4 catastrophic crater at DR0; det/5+sto/0-1 mild
+  degradation at own-cfg DR0.35); an all-axes-stacked "megastack" is
+  the predictable terminal case of the same closed class, not new
+  evidence — do not requeue it under any name (`cw-dep-vref1-r1-
+  megastack1` and renamed retries repeatedly pruned 08-10 ~20:35).
 
 ## Architecture
 
