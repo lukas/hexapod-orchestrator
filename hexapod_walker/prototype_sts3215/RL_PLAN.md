@@ -185,6 +185,54 @@ the archive review's triggers fire.
    perfect plant is NOT HARDWARE-READY. (d) Walk episodes should
    sometimes start from park-bank/slumped poses (walk_park_bank
    exists) so "stand into stance then go" is in-distribution.
+   GPT HANDOFF 08-10 (binding — `archive/GPT_HANDOFF_2026-08-10.md`;
+   operator window: ~8h of fleet time before morning hardware
+   trials): P0 order = deployment-contract validation → deterministic
+   stance-liftoff reproduction → loaded actuator ID → scripted-gait
+   real-to-sim calibration → corrected-policy SUPPORTED hardware
+   attempt #2. Broad anti-slip reward search and generic full-DR
+   retraining stay CLOSED as primary moves; new pair-composes only
+   when they protect a named hardware candidate or deployment corner
+   — 12/12 DR passes prove robustness around the sim's
+   parameterization, NOT that the nominal sim is physically right.
+   Rulings: (1) verdict cw-dep-vref1-r1/fresh1 BEFORE inventing new
+   walk reward arms; treat fresh1 as unusually important — if 25°
+   permission + honest velocity obs yields a visibly higher-amplitude
+   weight-transfer gait, take the qualitative change seriously even
+   if legacy scalars worsen (the campaign may have been optimizing
+   "walk, but never execute the body motion real walking needs").
+   (2) If vref1-r1 shows no erosion, velocity estimator / temporal
+   actor is NOT a prerequisite for hardware attempt #2 —
+   contract-exact obs is enough; estimator/history stays a line for
+   demonstrated hidden-state problems. (3) Tilt safety: keep wide
+   (~25°) angle ceiling AND add a rate term that trips only when
+   |roll/pitch rate| is large AND carrying the body away from level —
+   never a bare gyro-magnitude trip (legit gaits transfer weight
+   fast). (4) Effort economics: demote/remove walk effort+current
+   penalties on hardware-target arms until pricing is calibrated from
+   hardware traces (support vs swing vs lowering) — do NOT retune
+   from aggregate bus-current ratios. (5) Liftoff collapse = the
+   project's best system-ID fixture: replay a window around liftoff
+   from real q/qdot/IMU/prev-action under the exact contract and find
+   the FIRST diverging observable (prime suspect: air-fitted servo
+   model, loaded first-motion latency is 110-210 ms). (6) Scripted-
+   gait replay calibration starts NOW on q/qdot+IMU+current (match
+   trajectories/timing/tilt/current distribution); do NOT fit
+   friction from current+tilt alone — distance/slip lands when the
+   operator measures; contact model must permit loaded slide, fit
+   static vs dynamic friction if simple Coulomb can't match. (7)
+   quad-mix erosion = negative transfer, not a bad skill: map the
+   dose-response frontier, then walk-mode KL/distillation anchor to
+   the frozen champion if erosion persists; specialist heads/skill
+   conditioning acceptable — reliable hardware walking beats
+   architectural purity. (8) posetrack: STOP extending the same run;
+   small-to-large dense curriculum (near-target starts, short holds,
+   grouped errors) or park it — not P0 for the hardware ladder. (9)
+   Gate 0 adds: exact obs contract (meas:=ref), prev-action semantics
+   audit, tilt envelope consistency, varied-start/bad-start/
+   zero-drift panel, fresh-reference init panel, scripted-gait
+   plant-calibration check on sim-param changes, liftoff-reproduction
+   panel. No hardware promotion from DR success alone.
    OVERNIGHT CONTRACT ARMS (launched 08-09 night, operator): 
    `cw-dep-vref1` = walk champion warm-start with
    walk_obs_body_vel=2 (meas:=ref, the exact deployed contract) +
@@ -287,14 +335,22 @@ transfer. No new anti-slip reward coefficient arms (§8).
 
 ## Party tricks (operator vision, 08-09)
 
-**QUADRUPED** (pulled forward, operator 08-09; authorized parallel
-line whenever main-line arms can't fill the pods). Sequence per
-readiness review §4, feasibility-first — sweep = GO (c57, 39mm
-margin with −20mm shift + splay): quad-hold goal mode **[CODE
-LANDED c086a22, 08-09 late — goal mode `quad`, fronts 0+5 via the
-goal one-hot, obs width unchanged; spec WISHLIST item 15; probe
-clean]** (both fronts clear + unloaded, four planted, level, low
-current, 10–15 s hold, 0 term) → weight shift → quadruped stepping.
+**QUADRUPED — PROMOTED TO MAINLINE JOYSTICK COMMAND (operator
+08-10 00:4x: "four leg trick in the main line so I can hit that
+with the joystick in sim to real").** No longer a side trick: quad
+is a commanded behavior of the DRIVING lineage. Mechanism proven by
+cw-quad-hold1-r2 (hold works, survived 1.0; 50% mix eroded walk =
+the pre-registered if-false branch). Live arms: cw-quad-hold2 (30%
+mix on walk champion) and **cw-walk-joyquad30** (30% mix composed
+onto driving champion joylat25 with its full DR0.5+latency+flip
+spec — THE sim-to-real candidate; gate = joystick gate retained +
+quad hold metrics + walk slip in parent band). Operator drives it
+today with `drive_policy.py` key `4` (toggles lift_legs=(0,5) live).
+Original ladder — quad-hold goal mode **[CODE LANDED c086a22 —
+goal mode `quad`, fronts 0+5 via the goal one-hot, obs width
+unchanged; spec WISHLIST item 15; probe clean]** (both fronts
+clear + unloaded, four planted, level, low current, 10–15 s hold,
+0 term) → weight shift → quadruped stepping.
 Never ask the six-leg walker to spontaneously stop using two legs.
 **FALL RECOVERY** waits for 0-c: fallen poses as start distribution,
 gate "regain stance and hold 12/12 under DR"; needs
