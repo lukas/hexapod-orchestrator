@@ -193,10 +193,20 @@ Open problems, in priority order:
     clockwise, measured 08-09).
 0.  **UNIFIED JOYSTICK POLICY (top deliverable).** Stand/sit/turn/
     walk in one checkpoint. Next arms: posture-gated rise finish
-    (problem 2) + yaw income gating — yawcmd1-s1 FAILED its yaw
-    gate (turn |wz_err| med 0.24 vs 0.10; yaw_err flat both seeds =
-    free heading-hold income; measure via rl_move/sim/eval_yaw.py).
-    Quad is a MAINLINE joystick command (drive_policy key `4`).
+    (problem 2) + turning — yawcmd1-s1/rr1 FAILED the yaw gate on
+    free heading-hold income (turn |wz_err| med 0.24 vs 0.10); the
+    income-gate fix (cw-walk-yawgate1, gate income on achieved wz)
+    ALSO FAILED, ~unchanged (0.236/0.104) — training telemetry shows
+    the gate multiplier genuinely suppressed the free income
+    (reward_walk_yaw 0.67->0.50) but yaw_err stayed flat, so the
+    loophole wasn't the whole story: k_walk_yaw peak income (1.0) is
+    economically dominated by the walk kernel (2.0) + prog (1.25),
+    so trading tracking-error for turning is a losing bet at current
+    weights. Next: raise k_walk_yaw (queued cw-walk-yawgate2, ->2.5,
+    gate stays on) before reaching for a dedicated turn-in-place
+    curriculum (WISHLIST item 3 fallback). Measure via
+    rl_move/sim/eval_yaw.py. Quad is a MAINLINE joystick command
+    (drive_policy key `4`).
     Line gate: joystick-gate retention AND rise/lower ≥5/6 AND quiet
     hold AND clean video on the post-273ebde floor.
 0.5 **TEMPORAL-ARCH** (1–2 pods; see Architecture).
