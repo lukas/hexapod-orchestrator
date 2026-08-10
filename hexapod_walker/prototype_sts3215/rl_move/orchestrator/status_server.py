@@ -417,8 +417,12 @@ def render() -> str:
     counts = f.get("counts", {})
     backlog = f.get("backlog", {"queued": [], "failed": []})
 
+    icon = ("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' "
+            "viewBox='0 0 100 100'><text y='.9em' font-size='90'>"
+            "&#128375;&#65039;</text></svg>")
     h = [f"<html><head><meta charset='utf-8'><meta http-equiv='refresh' "
-         f"content='30'><title>hexapod RL agent</title><style>{CSS}</style>"
+         f"content='30'><title>hexapod RL agent</title>"
+         f"<link rel='icon' href=\"{icon}\"><style>{CSS}</style>"
          f"</head><body>"]
     h.append(f"<h1>Hexapod RL agent <span class='pill {pill}'>{label}</span>"
              f"</h1><div class='dim'>refreshed "
