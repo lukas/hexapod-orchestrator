@@ -105,7 +105,7 @@ def live_cycles() -> list[dict]:
                 break
         on = f" for {target}" if target else ""
         for pat, what in (
-            (r"waitlog|until \[|sleep .*report\.json|tail -f", 
+            (r"waitlog|until |/tmp/eval_|sleep .*report\.json|tail -f",
              "waiting on eval results"),
             (r"eval_checkpoint|drive_policy|episodes", "running an eval"),
             (r"ffmpeg|contact_sheet|frames|strip|\.png|\.mp4",
