@@ -34,10 +34,16 @@ wandb.env).
 from __future__ import annotations
 
 import json
+import os
 import pathlib
 import shlex
 import subprocess
 import sys
+
+# Same convention as launch_run.py / ops.sh: the controller's default
+# in-cluster serviceaccount cannot exec pods.
+os.environ.setdefault(
+    "KUBECONFIG", str(pathlib.Path.home() / ".kube" / "coreweave.yaml"))
 
 HERE = pathlib.Path(__file__).resolve().parent
 PROTO = HERE.parent.parent
