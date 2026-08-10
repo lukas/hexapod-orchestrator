@@ -7,14 +7,25 @@ cd "$(git rev-parse --show-toplevel)"
 if [ "${1:-}" = "--sync" ]; then
   POD="$2"
   KC="${KUBECONFIG:-$HOME/.kube/coreweave.yaml}"
-  tar -C hexapod_walker -czf /tmp/proto_sync.tgz \
+  # Unique per-invocation temp name (was a fixed /tmp/proto_sync.tgz on
+  # BOTH the local controller and every remote pod): concurrent cycles
+  # syncing at the same time raced on that one shared local path, one
+  # process's tar truncating/replacing the file while kubectl cp was
+  # still streaming it out from under it (manifests as a nonsensical
+  # "tar: Cannot open: Permission denied" + "Broken pipe" on the
+  # receiving end) — parked 3+ launches after 3 failed retries each
+  # under concurrent-cycle load, 2026-08-10. $$ + pod name makes both
+  # ends collision-free; cleaned up after extraction.
+  TGZ="/tmp/proto_sync_$$_${POD}.tgz"
+  trap 'rm -f "$TGZ"' EXIT
+  tar -C hexapod_walker -czf "$TGZ" \
       --exclude='prototype_sts3215/logs' \
       --exclude='prototype_sts3215/rl_move/sim/policies' \
       --exclude='*.stl' --exclude='*.mp4' \
       prototype_sts3215
-  kubectl --kubeconfig="$KC" cp /tmp/proto_sync.tgz "$POD":/tmp/proto_sync.tgz
+  kubectl --kubeconfig="$KC" cp "$TGZ" "$POD":"$TGZ"
   kubectl --kubeconfig="$KC" exec "$POD" -- \
-      tar -C /workspace -xzf /tmp/proto_sync.tgz
+      bash -c "tar -C /workspace -xzf '$TGZ' && rm -f '$TGZ'"
   # Code-version marker (2026-08-09): pods have no git, so the launcher
   # cannot ask them what code they run. Stale code on long5m silently
   # dropped cw-walk-lowent-dr03's --cfg-set reward package (the old
