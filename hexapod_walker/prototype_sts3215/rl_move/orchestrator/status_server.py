@@ -197,6 +197,34 @@ def ledger_rows(n: int = 40) -> tuple[list[dict], dict, dict]:
     return rows, counts, slim
 
 
+def cycle_budget() -> dict:
+    """How many decision cycles are left in the rolling-24h budget.
+
+    Mirrors watch_loop.py's enforcement (cycle_times, MAX_CYCLES_PER_DAY)
+    but reconstructs the window from cycle-log spawn stamps
+    (cycle_YYYYMMDDTHHMMSS_label.log), which survive watcher restarts —
+    the watcher's own in-memory list resets to 0 on restart, so this
+    count is the conservative truth.
+    """
+    comp = load_guardrails()["compute"]
+    cap = int(comp.get("max_decision_cycles_per_day", 0))
+    conc = int(comp.get("max_concurrent_cycles", 0))
+    cutoff = datetime.datetime.now() - datetime.timedelta(days=1)
+    used = 0
+    for p in CYCLE_DIR.glob("cycle_*.log"):
+        m = re.match(r"cycle_(\d{8}T\d{6})_", p.name)
+        if not m:
+            continue  # auto_continue_*.log etc. don't count
+        try:
+            if datetime.datetime.strptime(
+                    m.group(1), "%Y%m%dT%H%M%S") >= cutoff:
+                used += 1
+        except ValueError:
+            continue
+    return {"cap": cap, "used_24h": used,
+            "left": max(0, cap - used), "concurrent_cap": conc}
+
+
 def backlog_state() -> dict:
     def load(name):
         try:
@@ -344,6 +372,7 @@ def fast_worker() -> None:
                 "cycle_logs": recent_cycle_logs(),
                 "ledger": rows, "counts": counts,
                 "backlog": backlog_state(),
+                "cycle_budget": cycle_budget(),
                 "orch_tail": read_tail(ORCH_LOG, 14),
                 "rl_log_tail": read_tail(PROTO / "RL_LOG.md", 8),
                 "rl_plan": (PROTO / "RL_PLAN.md").read_text(errors="replace"),
@@ -522,15 +551,26 @@ def render() -> str:
              f"<div class='l'>finished, NOT yet analyzed</div></div>")
     # census never landed -> "?" cards, not a false "0 pods training"
     have_census = "census_at" in s
+    cb = f.get("cycle_budget", {})
+    conc = cb.get("concurrent_cap", 0)
     for n, l in [
         (len(busy) if have_census else "?", "pods training"),
         (len(idle) if have_census else "?", "pods idle"),
-        (len(f.get("cycles", [])), "LLM cycles in flight"),
+        (f"{len(f.get('cycles', []))}/{conc}" if conc
+         else len(f.get("cycles", [])), "LLM cycles in flight (cap)"),
         (len(backlog["queued"]), "queued in backlog"),
         (counts.get("FINISHED", 0), "runs analyzed (verdicted)"),
     ]:
         h.append(f"<div class='card'><div class='n'>{n}</div>"
                  f"<div class='l'>{l}</div></div>")
+    if cb.get("cap"):
+        # amber when the rolling-24h budget is nearly spent — the watcher
+        # idles an hour at a time once it hits the cap
+        low = " style='border-color:#9e6a03'" if cb["left"] < 10 else ""
+        h.append(f"<div class='card'{low}><div class='n'>{cb['left']}</div>"
+                 f"<div class='l'>decision cycles left "
+                 f"(rolling 24 h, {cb['used_24h']}/{cb['cap']} used)"
+                 f"</div></div>")
     if tok:
         h.append(f"<div class='card'><div class='n'>"
                  f"${est_cost(tok['today']):,.0f}</div>"
