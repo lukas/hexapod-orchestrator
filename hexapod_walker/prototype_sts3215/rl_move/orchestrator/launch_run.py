@@ -1090,7 +1090,8 @@ def cmd_drain(g: dict, a: argparse.Namespace) -> int:
         except Exception:
             pass  # W&B flake: fall through, cmd_launch's gate still holds
         # Self-repairs: code sync, warm-start checkpoint, W&B secret.
-        err = _self_repair_pod(pod, it.get("extra_args") or [])
+        xa = it.get("extra_args") or []
+        err = _self_repair_pod(pod, xa)
         if err:
             requeue(it, err)
             return
