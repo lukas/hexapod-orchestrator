@@ -82,7 +82,9 @@ prime directive and RL_PLAN "CLOSED moves".)
    snippets in one day; the helpers exist — `ops.sh report`, `entry`,
    `wandb`). Look at exactly three things:
    - the frame strip / video of the GATED mode (det),
-   - the reward curve + gate scalars vs the parent's,
+   - the headline eval scores (`SCORE/*` — per-mode total reward +
+     rise/raise/lower success, top of the W&B page; definitions in
+     rl_docs/EVALS.md) + gate scalars vs the parent's,
    - terminations/canary flags.
    Then call it, honestly — would a skeptical roboticist agree from the
    same three artifacts? Classify with `RUN_INTERPRETATION_RULES.md`

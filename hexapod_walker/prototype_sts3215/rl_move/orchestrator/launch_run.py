@@ -68,6 +68,12 @@ CORES_PER_RUN = 55
 MIN_FREE_FULL = 40   # full experiment below this = refused (--allow-slow overrides)
 MIN_FREE_SMOKE = 8
 SMOKE_MAX_STEPS = 1_000_000
+# Experiment phase system (operator, 08-10, binding): long training is
+# for HARDENING behavior already seen, never for discovering whether a
+# mechanism works. SPECIFICATION work (reward/eval design, preflights)
+# never trains, so it is not a launch phase.
+PHASES = ("discovery", "hardening", "composition", "transfer")
+DISCOVERY_MAX_STEPS_DEFAULT = 2_000_000
 
 
 def sh(cmd: list[str], timeout: int = 60) -> str:
@@ -349,6 +355,46 @@ def _launch_locked(g: dict, a: argparse.Namespace,
         if not a.hypothesis or not a.gate:
             return refuse(entry, "experiments require --hypothesis and "
                                  "--gate (guardrails)")
+        # Phase gate (operator, 08-10): DISCOVERY runs answer "does the
+        # mechanism produce qualitatively correct behavior?" on a tiny
+        # budget; HARDENING/COMPOSITION/TRANSFER budgets are earned by
+        # naming where the correct behavior was already seen. PPO is
+        # never the unit-test framework for the MDP.
+        phase = getattr(a, "phase", "") or _lineage_field(a.parent, "phase")
+        if not phase and a.hypothesis.startswith("AUTO-CONTINUE"):
+            # Pre-phase-system lineage being segment-stitched by the
+            # watcher: a continuation of a still-climbing run is by
+            # definition hardening behavior already seen.
+            phase = "hardening"
+            entry["evidence"] = (f"auto-continue of {a.parent} "
+                                 "(watcher; pre-phase lineage)")
+        if phase not in PHASES:
+            return refuse(entry, "experiments require --phase "
+                                 f"{{{'|'.join(PHASES)}}} (operator 08-10). "
+                                 "SPECIFICATION work never trains. If this "
+                                 "continues an existing lineage, pass "
+                                 "--parent and the phase is inherited.")
+        entry["phase"] = phase
+        if phase == "discovery":
+            cap = int(g.get("phases", {}).get("discovery_max_steps",
+                                              DISCOVERY_MAX_STEPS_DEFAULT))
+            if a.steps > cap:
+                return refuse(entry, f"discovery runs cap at {cap} steps "
+                                     f"(asked {a.steps}): the question is "
+                                     "'did qualitatively correct behavior "
+                                     "emerge?' — if it already did, relaunch "
+                                     "as --phase hardening with --evidence.")
+        else:
+            evidence = (entry.get("evidence")
+                        or getattr(a, "evidence", "")
+                        or _lineage_field(a.parent, "evidence"))
+            if not evidence:
+                return refuse(entry, f"{phase} runs require --evidence: "
+                                     "name the run/video where the intended "
+                                     "behavior was already seen, or the "
+                                     "test_task_semantics/preflight PASS "
+                                     "that licenses this budget.")
+            entry["evidence"] = evidence
     for flag in ("--run-name", "--steps"):
         if flag in extra:
             return refuse(entry, f"{flag} belongs to the launcher, not the "
@@ -819,6 +865,17 @@ def cmd_checkup(g: dict, a: argparse.Namespace) -> int:
     return 0 if verdict == "HEALTHY" else 2
 
 
+def _lineage_field(parent: str, field: str) -> str:
+    """Inherit phase/evidence from the parent's newest ledger entry, so
+    auto-continues and respecs of an already-phased lineage need no
+    re-declaration (the watcher passes --parent on every continuation)."""
+    if not parent:
+        return ""
+    vals = [e.get(field, "") for e in load_ledger()
+            if isinstance(e, dict) and e.get("run") == parent]
+    return next((v for v in reversed(vals) if v), "")
+
+
 def _read_backlog() -> list[dict]:
     if BACKLOG.exists():
         return json.loads(BACKLOG.read_text())
@@ -838,6 +895,13 @@ def cmd_backlog(a: argparse.Namespace, extra: list[str]) -> int:
         return 0
     if not (a.run and a.steps and a.hypothesis and a.gate):
         print("backlog add needs --run --steps --hypothesis --gate -- <args>")
+        return 1
+    # Fail fast at queue time: a phase-less, parent-less item would only
+    # refuse at drain time (3 retries, then parked — noise for nothing).
+    if not getattr(a, "phase", "") and not a.parent:
+        print("backlog add needs --phase (discovery|hardening|composition|"
+              "transfer) — or --parent, to inherit the lineage's phase at "
+              "launch (operator 08-10; see RESEARCH_RULES.md)")
         return 1
     with file_lock(BACKLOG_LOCK):
         items = _read_backlog()
@@ -861,6 +925,8 @@ def cmd_backlog(a: argparse.Namespace, extra: list[str]) -> int:
                   "(queued anyway; remove via backlog.json if so)")
         items.append({"run": a.run, "steps": a.steps, "parent": a.parent,
                       "hypothesis": a.hypothesis, "gate": a.gate,
+                      "phase": getattr(a, "phase", ""),
+                      "evidence": getattr(a, "evidence", ""),
                       "extra_args": extra, "attempts": 0, "added": now()})
         _write_backlog(items)
     print(f"queued {a.run} ({len(items)} item(s) in backlog)")
@@ -948,7 +1014,8 @@ def cmd_respec(g: dict, a: argparse.Namespace) -> int:
         ns = argparse.Namespace(
             action="add", run=a.run, steps=steps,
             parent=a.parent or a.source, hypothesis=a.hypothesis,
-            gate=a.gate)
+            gate=a.gate, phase=a.phase or entry.get("phase", ""),
+            evidence=a.evidence or entry.get("evidence", ""))
         return cmd_backlog(ns, args)
 
     # --now: direct launch, skipping the backlog. snapshot -> sync ->
@@ -977,6 +1044,8 @@ def cmd_respec(g: dict, a: argparse.Namespace) -> int:
         pod=pod, run=a.run, steps=steps, parent=a.parent or a.source,
         hypothesis=a.hypothesis, gate=a.gate, smoke=False,
         allow_slow=False, dry_run=False,
+        phase=a.phase or entry.get("phase", ""),
+        evidence=a.evidence or entry.get("evidence", ""),
         operator_override=a.operator_override)
     return cmd_launch(g, ns, args)
 
@@ -1111,6 +1180,8 @@ def cmd_drain(g: dict, a: argparse.Namespace) -> int:
                "--pod", pod, "--run", run, "--steps", str(it["steps"]),
                "--parent", it.get("parent", ""),
                "--hypothesis", it["hypothesis"], "--gate", it["gate"],
+               "--phase", it.get("phase", ""),
+               "--evidence", it.get("evidence", ""),
                "--", *xa]
         r = subprocess.run(cmd, capture_output=True, text=True,
                            timeout=1800)
@@ -1320,6 +1391,14 @@ def main() -> int:
     bp.add_argument("--hypothesis", default="")
     bp.add_argument("--gate", default="")
     bp.add_argument("--parent", default="")
+    bp.add_argument("--phase", default="", choices=(*PHASES, ""),
+                    help="experiment phase (operator 08-10, binding); "
+                         "inherited from --parent's ledger entry if empty")
+    bp.add_argument("--evidence", default="",
+                    help="hardening/composition/transfer: where the "
+                         "qualitatively correct behavior was already seen "
+                         "(run/video) or the preflight PASS that licenses "
+                         "this run")
     rp = sub.add_parser("respec", help="queue a follow-up by cloning a "
                                        "ledger entry's args with overrides")
     rp.add_argument("--from", dest="source", required=True,
@@ -1331,6 +1410,10 @@ def main() -> int:
     rp.add_argument("--parent", default="", help="default: the source run")
     rp.add_argument("--hypothesis", required=True)
     rp.add_argument("--gate", required=True)
+    rp.add_argument("--phase", default="", choices=(*PHASES, ""),
+                    help="experiment phase; default: the source run's")
+    rp.add_argument("--evidence", default="",
+                    help="see launch --evidence; default: the source run's")
     rp.add_argument("--arg", action="append", default=None,
                     metavar="--FLAG=VALUE",
                     help="override/add a trainer flag (repeatable)")
@@ -1355,6 +1438,16 @@ def main() -> int:
     lp.add_argument("--hypothesis", default="")
     lp.add_argument("--gate", default="")
     lp.add_argument("--parent", default="")
+    lp.add_argument("--phase", default="", choices=(*PHASES, ""),
+                    help="experiment phase (operator 08-10, binding): "
+                         "discovery caps steps; hardening/composition/"
+                         "transfer require --evidence; inherited from "
+                         "--parent's ledger entry if empty")
+    lp.add_argument("--evidence", default="",
+                    help="hardening/composition/transfer: where the "
+                         "qualitatively correct behavior was already seen "
+                         "(run/video) or the preflight PASS that licenses "
+                         "this run")
     lp.add_argument("--smoke", action="store_true",
                     help="short validation run: W&B disabled, non-cw name")
     lp.add_argument("--allow-slow", action="store_true",

@@ -19,9 +19,10 @@ Startup reading order (operator + GPT, 08-10): `RL_GOALS.md`
 history file) → this file (blockers/queue/architecture/gates) →
 **`RESEARCH_RULES.md`** (binding agent behavior: prime directive,
 phases, preflights, kill rules) → `rl_docs/SIM.md`. As needed:
-`rl_docs/COMMANDS.md` (how to run things) · `rl_docs/RISE.md`
-(stand-up plan) · `rl_docs/SKILLS.md` · `rl_docs/runs/` (per-run
-facts). History (`RL_LOG.md`, `archive/`) only for historical
+`rl_docs/COMMANDS.md` (how to run things) · `rl_docs/REWARD.md`
+(every reward term + per-run reward auto-doc) · `rl_docs/EVALS.md`
+(eval metric definitions) · `rl_docs/RISE.md` (stand-up plan) ·
+`rl_docs/SKILLS.md` · `rl_docs/runs/` (per-run facts). History (`RL_LOG.md`, `archive/`) only for historical
 questions — never to infer current state. **EDIT RULE (operator,
 08-10): keep this file under ~250 lines and in plain language. New
 material goes to `rl_docs/` with a pointer here; superseded detail
@@ -175,14 +176,15 @@ Open problems, in priority order:
     08-09).
 0.  **UNIFIED JOYSTICK POLICY (top deliverable).** Stand/sit/turn/
     walk in one checkpoint. Turning: yawcmd/yawgate1/yawgate2 all
-    FAILED — a fixed left-yaw drift from walk training fights
-    counter-commands in every scenario incl. turn-in-place;
-    structural gait bias, price tuning CLOSED. NEXT: turn-in-place
-    curriculum (decouple linear-speed from yaw-rate sampling in
-    `_sample_walk`, WISHLIST item 3) — [CODE], and its TURN bank in
-    test_task_semantics.py must pass BEFORE the arm launches.
-    Measure via rl_move/sim/eval_yaw.py. Rise: problem 2. Quad is a
-    MAINLINE joystick command (drive_policy key `4`).
+    FAILED (fixed left-yaw drift; price tuning CLOSED). The new
+    mechanism set is LANDED + its TURN bank PASSES (08-10): signed
+    rotation income `reward.k_yaw_prog`, heading-hold drift charge
+    `reward.k_yaw_still`, turn-in-place curriculum
+    `goal.walk_turn_in_place_frac` — design, bank numbers, sign
+    audit, and the recommended DISCOVERY arm: **rl_docs/TURN.md**.
+    Measure via rl_move/sim/eval_yaw.py + matched-parent control.
+    Rise: problem 2. Quad is a MAINLINE joystick command
+    (drive_policy key `4`).
     Line gate: joystick-gate retention AND rise/lower ≥5/6 AND quiet
     hold AND clean video on the post-273ebde floor.
 0.5 **TEMPORAL-ARCH** (1–2 pods; see Architecture).

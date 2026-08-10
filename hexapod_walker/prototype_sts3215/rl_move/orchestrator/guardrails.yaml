@@ -159,6 +159,20 @@ compute:
   # own file, /tmp/train_<run-name>.log.
   log_file_pattern: /tmp/train_<run-name>.log
 
+phases:
+  # Experiment phase system (operator, 08-10, binding — see
+  # RESEARCH_RULES.md). Every non-smoke launch declares --phase; the
+  # launcher enforces:
+  #   discovery    <= discovery_max_steps; the question is binary — did
+  #                qualitatively correct behavior emerge? Aggressive
+  #                early video; kill on a known exploit.
+  #   hardening / composition / transfer  require --evidence naming
+  #                where the correct behavior was already seen (run /
+  #                video / test_task_semantics PASS).
+  # SPECIFICATION (reward/eval design, preflights, trajectory banks)
+  # never trains and has no launch phase.
+  discovery_max_steps: 2000000
+
 experiments:
   # Continue-while-improving lineages (operator directive 0-a, 08-09):
   # when a run whose name starts with one of these prefixes finishes with
