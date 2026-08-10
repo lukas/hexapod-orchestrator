@@ -43,7 +43,11 @@ CHECKUP_STATE = pathlib.Path("/workspace/checkup_state.json")
 FINDINGS = pathlib.Path("/workspace/checkup_findings.md")
 
 POLL_S = 300
-MAX_CYCLES_PER_DAY = 96         # keep in sync with guardrails.yaml (operator doubled, 08-10 morning)
+# Fallback only — the live cap comes from guardrails.yaml
+# compute.max_decision_cycles_per_day (read every loop pass, so the
+# operator can tune it without a watcher restart). The old hardcoded
+# copy here kept drifting out of sync with guardrails.
+MAX_CYCLES_PER_DAY = 96
 BACKOFF_AFTER_FAILED_CYCLES = 2  # consecutive agent failures -> long sleep
 # Cycles are event-driven and CONCURRENT (08-08 evening): when a run
 # finishes while another cycle is still working, its verdict/relaunch no
@@ -580,6 +584,18 @@ def reap_cycles(active: list[dict], processed: set[str]) -> tuple[list[dict], in
     return still, n_ok, n_failed
 
 
+def daily_cycle_cap() -> int:
+    """Rolling-24h decision-cycle budget from guardrails
+    compute.max_decision_cycles_per_day — the same key the status
+    page's budget card reads, so the two always agree."""
+    try:
+        import yaml
+        g = yaml.safe_load((HERE / "guardrails.yaml").read_text())
+        return int(g["compute"]["max_decision_cycles_per_day"])
+    except Exception:
+        return MAX_CYCLES_PER_DAY
+
+
 def spawned_cycles_last_24h() -> list[float]:
     """Cycle spawn times in the rolling window, recovered from the
     cycle-log filenames (cycle_YYYYMMDDTHHMMSS_label.log).
@@ -611,7 +627,7 @@ def main() -> None:
     failed_cycles = 0
     idle_polls = 0
     active: list[dict] = []
-    log(f"watcher started — {len(cycle_times)}/{MAX_CYCLES_PER_DAY} "
+    log(f"watcher started — {len(cycle_times)}/{daily_cycle_cap()} "
         "cycles already spawned in the rolling 24h window")
     threading.Thread(target=checkup_worker, daemon=True).start()
     threading.Thread(target=backlog_worker, daemon=True).start()
@@ -691,9 +707,11 @@ def main() -> None:
                 time.sleep(POLL_S)
                 continue
             now = time.time()
+            cap = daily_cycle_cap()
             cycle_times = [t for t in cycle_times if now - t < 86400]
-            if len(cycle_times) >= MAX_CYCLES_PER_DAY:
-                log("daily cycle cap reached; idling 1h")
+            if len(cycle_times) >= cap:
+                log(f"daily cycle cap reached ({len(cycle_times)}/{cap}); "
+                    "idling 1h")
                 time.sleep(3600)
                 continue
             if failed_cycles >= BACKOFF_AFTER_FAILED_CYCLES:
@@ -718,7 +736,7 @@ def main() -> None:
                        or [set()])  # findings / idle kick: one cycle
             slots = MAX_CONCURRENT_CYCLES - len(active)
             for i, batch in enumerate(batches[:slots]):
-                if len(cycle_times) >= MAX_CYCLES_PER_DAY:
+                if len(cycle_times) >= cap:
                     log("daily cycle cap reached mid-fan-out; deferring rest")
                     break
                 cycle_times.append(now)
