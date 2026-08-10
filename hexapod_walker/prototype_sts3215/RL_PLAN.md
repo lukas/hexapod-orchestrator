@@ -15,8 +15,11 @@ Binding reviews: `archive/EXTERNAL_REVIEW_2026-08-08.md` (priority
 sequence), `archive/BEST_PRACTICES_AUDIT_2026-08-08.md` (PPO
 settings), `archive/ARCHITECTURE_REVIEW_2026-08-09.md` (model
 ladder), `archive/OPERATOR_RULINGS_2026-08-09.md` (design rulings).
-**EDIT RULE: keep this file under ~120 lines — net-zero
-edits; move superseded detail to archive, don't accumulate it.**
+**EDIT RULE (operator, 08-09 late: budget raised): keep this file
+under ~400 lines. Prefer breaking self-contained material into
+`rl_docs/` (one topic per doc, pointer here) over inlining; move
+superseded detail to archive, don't accumulate it. Hardware evidence
+and the experiment backlog live in `rl_docs/HARDWARE.md`.**
 
 Big goal: fluid real-world motion on the physical hexapod — walking
 above all. Objective (operator, binding): **DISTANCE, STABILITY,
@@ -75,8 +78,9 @@ the archive review's triggers fire.
   — the sim's optimum under current pricing (cycle 33). Every income
   lever is exhausted (anchor gate −20% then price ceiling, cycle 34);
   **slip root = contact/current pricing = OPERATOR ruling class.**
-- Open defects: skating/paddling (contact/current pricing awaits
-  hardware calibration); overspeed + rear-hemisphere RULED.
+- Open defects: skating/paddling (contact/current pricing — the
+  hardware calibration data now EXISTS, see Queue -1); overspeed +
+  rear-hemisphere RULED.
 - DR ladder: CLOSED as vacuous; re-open only if a gait change
   breaks a DR level the parent passed.
 - Stance: heights solved at DR 1.0. Lower line UNBLOCKED for gate +
@@ -85,6 +89,62 @@ the archive review's triggers fire.
 
 ## Queue
 
+-1. **HARDWARE SIM2REAL FINDINGS (operator session 08-09 night —
+   HIGHEST PRIORITY, ahead of everything below).** Champion
+   longdist_r2 ran twice on the real robot; 25 Hz episode traces +
+   fitted motor model are IN THE REPO at
+   `rl_move/hardware_traces/` (format: rl_move/API.md § "RL episode
+   logging"; robot originals in `linux_control/logs/`). Measured:
+   (a) **Deployment-pipeline mismatch dominates.** The on-robot
+   SafetyLayer clamps commands to 1.5°/tick; the champion requested
+   mean 13°/tick (p95 77°) — **97% of joint-ticks saturated**, mean
+   48° proposed-vs-commanded gap: the policy runs ~9× slow-motion
+   dynamics it never trained in. ACTION [CODE]: hardware lineages
+   train THROUGH the SafetyLayer rate clamp, with walk obs
+   vx/vy_meas := ref (board has no velocity estimate); and a
+   **mandatory "deployment-pipeline eval"** (clamp + meas:=ref at
+   gate time) for any hardware candidate — today's champion fails
+   it in sim, which would have predicted the hardware result.
+   (b) **Contact/current calibration data now exists** — per-servo
+   current every tick in the traces, `logs/motor_model.json` from
+   the dynamics probe, and the real floor (rough concrete + rubber
+   tips) does NOT let feet slide: attempt 1 turned paddle strokes
+   into body roll, −1°→+9° in 1.8 s → tilt_roll trip at 10°. This
+   feeds the P0 contact/current pricing calibration (readiness
+   review) — that ruling is now actionable.
+   (c) Smaller: terminate training at 10° relative roll (= the
+   hardware trip); add small random horizontal-force DR (power
+   tether tug, visible in the roll direction on video).
+   Attempt 2 carried no policy signal (phantom over-temp from a
+   corrupted bus byte tripped at 1.1 s; debounced on-robot 08-09).
+   Full evidence + the prioritized OPERATOR EXPERIMENT BACKLOG
+   (scripted-gait ground truth, hover-vs-planted current, μ
+   measurement, loaded step response, latency):
+   `rl_docs/HARDWARE.md`.
+   **BINDING external review of the walk attempt:
+   `archive/GPT_HARDWARE_HANDOFF_2026-08-09.md` (GPT, 08-09).**
+   HARDWARE TRANSFER RULING: first walk failed BEFORE gait transfer
+   was tested (97% ticks slew-saturated, 48° mean proposed→applied
+   gap, zero-command marching, high-grip contact). Broad six-leg
+   reward/DR search PAUSED as P0. No policy reaches hardware without
+   **Deployment Equivalence Gate 0**: exact controller rate, action
+   map, STATEFUL slew/saturation in training AND eval, measured
+   actuator dynamics/latency, actor-visible obs only, explicit
+   prev-action semantics (raw proposal vs post-safety applied),
+   10° relative-tilt termination, zero-command settle + ramp +
+   stop/restart panels, per-tick proposed/applied/measured logs.
+   Zero-command behavior is a SEPARATE experiment (export/obs audit
+   first: captured tick-0 obs through exported MLP vs training net,
+   require numerical agreement). Rate clamp: MEASURE loaded
+   closed-loop response, then train with the measured stateful
+   limiter + modest randomization — do NOT pick a clamp from
+   principle, and the backlog's "raised-clamp retry" is WITHDRAWN
+   (memo §12: never simply raise the clamp and retry the champion).
+   Actuator model build: simple identified first (delay + stateful
+   slew + deadband + 1st/2nd-order response + load/voltage limits);
+   learned residual only if held-out multi-step prediction demands.
+   Anti-slip reward shaping stays CLOSED absent new physical
+   evidence.
 0. **UNIFIED JOYSTICK POLICY (operator, 08-09 evening — top
    deliverable): ONE checkpoint that stands up, walks/steers, stops,
    sits down from joystick commands.** No per-skill model zoo. Line
