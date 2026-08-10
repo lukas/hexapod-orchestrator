@@ -55,14 +55,24 @@ def find_checkpoint(pod: str, run: str, task: str) -> str | None:
     names = ["ppo_goal_" + run.replace("-", "_") + ".zip"]
     names += [f"ppo_mjx_{t}_{run}.zip"
               for t in (task, "joint_walk", "joint_goal", "goal")]
-    seen = set()
+    names = list(dict.fromkeys(names))
     for n in names:
-        if n in seen:
-            continue
-        seen.add(n)
         p = f"{POD_PROTO}/rl_move/sim/policies/{n}"
         if kexec(pod, f"test -s {shlex.quote(p)}").returncode == 0:
             return p
+    # Pod lost the file (pods are recreated on infra fixes and /workspace
+    # checkpoints go with them) — push the controller's copy, which the
+    # watcher's pullckpt fetched before calling us. ~2 MB, seconds.
+    for n in names:
+        local = PROTO / "rl_move/sim/policies" / n
+        if local.is_file() and local.stat().st_size:
+            p = f"{POD_PROTO}/rl_move/sim/policies/{n}"
+            kexec(pod, f"mkdir -p {POD_PROTO}/rl_move/sim/policies")
+            subprocess.run(["kubectl", "cp", str(local), f"{pod}:{p}"],
+                           capture_output=True, text=True, timeout=300)
+            if kexec(pod, f"test -s {shlex.quote(p)}").returncode == 0:
+                print(f"(pushed controller copy of {n} to {pod})")
+                return p
     return None
 
 
