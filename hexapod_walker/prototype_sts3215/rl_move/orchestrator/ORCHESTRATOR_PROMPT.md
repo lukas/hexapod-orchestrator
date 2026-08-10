@@ -42,6 +42,55 @@ Read before deciding: `RL_PLAN.md` (plan/gates), `RL_LOG.md` (history,
 The binding reviews live in `archive/` — consult them when DESIGNING a
 new line or digging into a failure, not on every cycle.
 
+**HARDWARE WINDOW (operator, 08-10 ~01:00 ET, binding until morning):
+the operator runs hardware attempt #2 in ~8 hours. Every cycle until
+then serves the P0 list from `archive/GPT_HANDOFF_2026-08-10.md` (full
+rulings mirrored in RL_PLAN "GPT HANDOFF 08-10"):**
+
+1. **Verdict `cw-dep-vref1-r1` and `cw-dep-fresh1` FIRST** — before
+   any new walk reward arm. vref1-r1 no-erosion ⇒ contract-exact obs
+   is SUFFICIENT for attempt #2 (do not gate hardware on the
+   estimator/temporal line). fresh1 is judged QUALITATIVELY: if 25°
+   permission + honest velocity obs produces visible weight-transfer
+   /rocking gait instead of creep, that matters MORE than legacy
+   scalar regressions — compare its videos against the scripted-gait
+   envelope (±10-20° rock, feet may slip), not against creep-era
+   medians.
+2. **`cw-dep-startvar1` is pre-queued in the backlog** (operator).
+   Launch order matters: it warm-starts from vref1-r1's output
+   checkpoint — hold it until vref1-r1 is verdicted and the ckpt
+   exists; if vref1-r1 FAILED, re-parent to the walk champion. It
+   uses a NEW mechanism `dr.zero_drift_cmd_frame=1` (logical-zero
+   FRAME drift: encoder reads AND position commands share the same
+   drifted frame — env-level smoke passed on the Mac 08-10 01:0x; run
+   the standard pod-side probe smoke before the 18M arm trains, per
+   the best-practices audit rule).
+3. **Hardware-target arms get MINIMAL effort shaping** until current
+   economics are calibrated: hardware measured walking (0.33-0.45 A)
+   CHEAPER than standing (0.59 A) — opposite of sim assumptions. Set
+   `reward.k_current=0` on dep-line arms; keep `k_action_delta`
+   (smoothness ≠ economics). Do NOT retune pricing from aggregate
+   bus-current ratios.
+4. **No new generic DR pair-composes tonight** unless they protect a
+   named hardware candidate (12/12 single-axis passes prove
+   robustness around the sim's parameterization, not that the sim is
+   right). Freed capacity goes to the dep line and the temporal-arch
+   rung (hist16 at 3072 envs, unblocked by the shm fix).
+5. **Prev-action semantics: AUDITED, PASS (08-10)** — training echoes
+   the validated raw proposal (`sim_env` step-finish), the runner
+   echoes the same (`rl_policy.py` tick loop), shared `build_obs`.
+   Gate 0 item closed; don't re-audit.
+6. **Loaded actuator gap is quantified** (RL_LOG 08-10): 2° loaded
+   steps take ~250-325 ms to settle on hardware vs tens of ms in sim
+   (air-fitted knee latency 8.6 ms); measured loaded peak velocity
+   48-67°/s exceeds the sim's 30.8°/s ceiling (that "ceiling" was the
+   air-probe's commanded write speed, not servo capability). CODE
+   task when a slot frees: minimal load-dependent latency/response
+   term in `servo_model.py`, fit against
+   `hardware_traces/step_ladder_20260810.csv` (robot-side `bus_ts`
+   only — Mac-side t_cmd is HTTP-contaminated), then re-run the
+   stance-liftoff reproduction (P0-B) with the corrected model.
+
 ## The cycle
 
 1. **TRIAGE each finished run (~10 min). Start with
