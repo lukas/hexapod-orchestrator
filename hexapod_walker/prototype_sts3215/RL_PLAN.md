@@ -218,7 +218,9 @@ Open problems, in priority order:
     `launch_run.py backlog list` — never this file.
 2.  [CODE] backlog, in priority order:
     1. **Mirror-symmetry augmentation — TOP CODE PRIORITY (operator,
-       08-10 evening).** Reflect obs+actions about the sagittal
+       08-10 evening). CLAIMED: the operator's session is implementing
+       this + launching the discovery arm right now (08-10 ~18:35 ET) —
+       implementation cycles must NOT duplicate it; pick item 2.** Reflect obs+actions about the sagittal
        plane in the trainer (18-joint left/right index maps + history
        stack + command signs). It is the ONLY untried lever on the
        turning blocker (reward tuning doubly closed, TURN.md) and the
