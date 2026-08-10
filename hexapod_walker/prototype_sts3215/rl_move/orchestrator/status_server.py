@@ -80,8 +80,8 @@ def live_cycles() -> list[dict]:
             continue
         procs[int(d.split("/")[-1])] = (ppid, cmd, mtime)
 
-    def activity(cycle_pid: int) -> str:
-        """Newest child tool process of a cycle, as '$ cmd (age)'."""
+    def activity(cycle_pid: int) -> tuple[str, int] | None:
+        """Newest child tool process of a cycle: (command text, age s)."""
         kids = [(c, m) for p, (pp, c, m) in procs.items() if pp == cycle_pid]
         for cmd, mtime in sorted(kids, key=lambda k: -k[1]):
             text = cmd.replace(b"\0", b" ").decode(errors="replace")
@@ -90,10 +90,42 @@ def live_cycles() -> list[dict]:
             text = text.replace("'\"'\"'", "'")
             # claude's bash tool wraps the real command in eval '...'
             m = re.search(r"eval '(.*?)' < /dev/null", text, re.S)
-            cmdtxt = " ".join((m.group(1) if m else text).split())
-            age = int(now - mtime)
-            return f"$ {cmdtxt[:160]}  [{age // 60}m{age % 60:02d}s]"
-        return "thinking / writing (no tool process)"
+            return " ".join((m.group(1) if m else text).split()), \
+                int(now - mtime)
+        return None
+
+    def describe(cmd: str, runs: str) -> str:
+        """Plain-English guess at what a tool command is doing, and to
+        which of the cycle's assigned runs it applies."""
+        target = ""
+        for r in sorted((x.strip() for x in runs.split(",")),
+                        key=len, reverse=True):
+            if r and (r in cmd or r.replace("-", "_") in cmd):
+                target = r
+                break
+        on = f" for {target}" if target else ""
+        for pat, what in (
+            (r"waitlog|until \[|sleep .*report\.json|tail -f", 
+             "waiting on eval results"),
+            (r"eval_checkpoint|drive_policy|episodes", "running an eval"),
+            (r"ffmpeg|contact_sheet|frames|strip|\.png|\.mp4",
+             "reviewing eval video/frames"),
+            (r"ops\.sh review|report\.json|ops\.sh report",
+             "reading eval results"),
+            (r"launch_run\.py update", "recording a verdict"),
+            (r"wandbnote", "writing the W&B outcome note"),
+            (r"logline", "writing the RL_LOG cycle line"),
+            (r"SKILLS\.md", "updating the skills table"),
+            (r"ops\.sh wandb|wandb", "reading W&B training curves"),
+            (r"RL_PLAN|RL_LOG|COMMANDS|WISHLIST|guardrails|runs/",
+             "reading plan/docs"),
+            (r"git |snapshot\.sh", "committing/syncing git"),
+            (r"launch_run\.py|backlog|respec|capacity",
+             "checking launcher/capacity (launches are held)"),
+        ):
+            if re.search(pat, cmd):
+                return what + on
+        return "running a command" + on
 
     out = []
     for pid, (ppid, cmd, mtime) in procs.items():
@@ -105,8 +137,15 @@ def live_cycles() -> list[dict]:
         about = m.group(1) if m else (
             "checkup findings" if "checkup findings" in prompt
             else "idle kick" if "idle kick" in prompt else "?")
+        act = activity(pid)
+        if act:
+            cmdtxt, age = act
+            doing = describe(cmdtxt, about)
+            cmdline = f"$ {cmdtxt[:160]}  [{age // 60}m{age % 60:02d}s]"
+        else:
+            doing, cmdline = "thinking / writing its analysis", ""
         out.append({"pid": pid, "age_min": int((now - mtime) / 60),
-                    "about": about, "doing": activity(pid)})
+                    "about": about, "doing": doing, "cmd": cmdline})
     return sorted(out, key=lambda c: -c["age_min"])
 
 
@@ -447,13 +486,21 @@ def render() -> str:
                  "verdict</div>")
 
     h.append("<h2>What it's thinking about (in-flight decision cycles)</h2>")
+    h.append("<div class='dim'>Each row is one live AI analysis session "
+             "(a “cycle”). It is assigned a few finished training runs, "
+             "reviews each one's eval numbers and videos, and writes a "
+             "pass/fail verdict to the ledger. “Doing now” is its current "
+             "step; the grey line is the actual command running.</div>")
     if f.get("cycles"):
-        h.append("<table><tr><th>pid</th><th>age</th><th>triaging</th>"
-                 "<th>current activity</th></tr>")
+        h.append("<table><tr><th>pid</th><th>age</th>"
+                 "<th>runs it's analyzing</th><th>doing now</th></tr>")
         for c in f["cycles"]:
-            h.append(f"<tr class='mono'><td>{c['pid']}</td>"
-                     f"<td>{c['age_min']} min</td><td>{esc(c['about'])}</td>"
-                     f"<td>{esc(c.get('doing', ''))}</td></tr>")
+            cmd = (f"<br><span class='dim mono'>{esc(c['cmd'])}</span>"
+                   if c.get("cmd") else "")
+            h.append(f"<tr><td class='mono'>{c['pid']}</td>"
+                     f"<td>{c['age_min']} min</td>"
+                     f"<td class='mono'>{esc(c['about'])}</td>"
+                     f"<td><b>{esc(c.get('doing', ''))}</b>{cmd}</td></tr>")
         h.append("</table>")
     else:
         h.append("<div class='dim'>none — watcher is between cycles</div>")
