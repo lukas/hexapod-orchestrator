@@ -529,6 +529,12 @@ def render() -> str:
     training_now = {r for c in cen for r in (c.get("runs") or [])}
     cutoff = (datetime.datetime.now(datetime.timezone.utc)
               - datetime.timedelta(hours=24)).isoformat()
+    # Runs claimed by a live decision cycle: their evals are being run /
+    # reviewed RIGHT NOW (operator 08-10: "trained but evals pending" is
+    # its own lifecycle stage and must not read as finished).
+    cyc_runs = {r.strip() for c in f.get("cycles", [])
+                for r in (c.get("about") or "").split(",")
+                if r.strip() and r.strip() != "?"}
     pipeline = []
     for d in s.get("wandb_done", []):
         run = d["run"]
@@ -541,14 +547,18 @@ def render() -> str:
             if d.get("created", "") >= cutoff:
                 pipeline.append({"run": run, "state": "NOT IN LEDGER (bug?)"})
         elif e["status"] not in final and not e["verdict"]:
-            pipeline.append({"run": run,
-                             "state": e["triage"] or "awaiting (unassigned)"})
+            if run in cyc_runs:
+                state = "EVALUATING (claimed by a live cycle)"
+            else:
+                state = e["triage"] or "trained — awaiting an agent cycle"
+            pipeline.append({"run": run, "state": state})
     pipeline.sort(key=lambda p: p["run"])
+    pending = {p["run"]: p["state"] for p in pipeline}
     n_pipe = len(pipeline)
     h.append("<div class='grid' style='margin-top:14px'>")
     pipe_cls = "" if n_pipe <= 3 else " style='border-color:#9e6a03'"
     h.append(f"<div class='card'{pipe_cls}><div class='n'>{n_pipe}</div>"
-             f"<div class='l'>finished, NOT yet analyzed</div></div>")
+             f"<div class='l'>trained, evals/verdict pending</div></div>")
     # census never landed -> "?" cards, not a false "0 pods training"
     have_census = "census_at" in s
     cb = f.get("cycle_budget", {})
@@ -580,12 +590,17 @@ def render() -> str:
                  f"<div class='l'>est. spend total</div></div>")
     h.append("</div>")
 
-    h.append("<h2>Analysis pipeline (finished on W&B, verdict not in yet)"
-             "</h2>")
+    h.append("<h2>Analysis pipeline (training done, evals/verdict pending "
+             "— not finished yet)</h2>"
+             "<div class='dim'>A run is only “finished” once an agent "
+             "cycle has run the full eval harness (det + stochastic "
+             "passes, videos) and written a verdict. These runs are past "
+             "training but still in that stage.</div>")
     if pipeline:
         h.append("<table><tr><th>run</th><th>state</th></tr>")
         for p in pipeline:
-            cls = "ok" if p["state"].startswith("in-cycle") else "warn"
+            cls = ("ok" if p["state"].startswith(("in-cycle", "EVALUATING"))
+                   else "warn")
             h.append(f"<tr class='mono'><td>{esc(p['run'])}</td>"
                      f"<td class='{cls}'>{esc(p['state'])}</td></tr>")
         h.append("</table>")
@@ -686,6 +701,13 @@ def render() -> str:
         st = e.get("status", "?")
         cls = {"RUNNING": "ok", "FINISHED": "dim",
                "FAILED": "bad"}.get(st, "warn")
+        # Training done but unverdicted: the raw ledger status (often a
+        # stale RUNNING) misreads as either live or finished — show the
+        # eval-stage state instead.
+        if e.get("run") in pending:
+            st = ("EVALUATING" if e["run"] in cyc_runs
+                  else "TRAINED, EVAL PENDING")
+            cls = "warn"
         h.append(f"<tr class='mono'><td>{esc(e.get('run'))}</td>"
                  f"<td class='{cls}'>{esc(st)}</td>"
                  f"<td>{esc(e.get('pod', ''))}</td>"
