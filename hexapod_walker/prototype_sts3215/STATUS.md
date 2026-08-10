@@ -7,7 +7,7 @@ the evidence. Facts here must agree with `CURRENT_TRUTHS.md` (which
 wins on conflict); checkpoints and gate numbers live in
 `rl_docs/SKILLS.md`.
 
-**Last updated: 2026-08-10 evening.**
+**Last updated: 2026-08-10 night.**
 Update rule: refresh this file whenever a hardware session happens, a
 new capability lands (SKILLS row that changes the story), or a big
 lesson closes — and stamp the date. Keep it honest: the "not working"
@@ -21,9 +21,14 @@ policy stack and a validated hardware-deployment candidate staged on
 the Mac, waiting on bench time (and one servo-zero repair). The two
 big unsolved skills are standing up inside the walking policy (every
 attempt so far games the height reward) and obeying turn commands
-(policies drift left and ignore the yaw channel). Both now have new
-machinery landed (a geometric standing spec, new turn pricing) that
-passed the offline semantics checks but has not yet trained a policy.
+(policies drift left and ignore the yaw channel). Both got new
+machinery this cycle (a geometric standing-plant check, new turn
+pricing) that passed the offline semantics checks — and both were
+then actually trained and BOTH FAILED: the standing check didn't stop
+the same one-leg-up cheat, and the new turn reward changed nothing
+measurable versus the already-failed policy it was compared against.
+Tuning the reward numbers for either skill is now a dead end; both
+need a structural fix, not another price change (see below).
 
 ## What the robot can do — REAL hardware
 
@@ -65,13 +70,25 @@ passed the offline semantics checks but has not yet trained a policy.
   attempt finds a cheat: torso at height with legs waving, tripod
   stands, stilts. A geometric "valid plant" spec (feet down, CoM
   inside the support polygon, level, walkable footprint) landed
-  08-10 and separates honest stands from every known cheat in
-  offline tests — no policy has trained against it yet. `rl_docs/RISE.md`.
+  08-10 — but pricing it live into training (`cw-stand-plantgate1`)
+  did NOT stop the cheat: same one-leg-up flag-leg stand, 0/12 valid
+  plant, identical to the pre-detector baseline. A stricter cheat
+  DETECTOR alone isn't enough; the reward's income elsewhere still
+  overpays the fake stand. Next attempt has to change WHERE the
+  height/progress income comes from, not just gate it harder.
+  `rl_docs/RISE.md`.
 - **Turning on command.** Walk policies carry a structural left-yaw
   drift and ignore the yaw command channel; raising the price of
-  drift failed repeatedly (closed). New mechanism set (signed
-  rotation income, drift charge, turn-in-place curriculum) landed
-  08-10, passes the semantics bank, untrained. `rl_docs/TURN.md`.
+  drift failed repeatedly. A second, better-designed mechanism
+  (signed rotation income, a charge for drifting while going
+  straight, more turn-in-place practice) also landed 08-10 and
+  passed its offline checks — but trained head-to-head against the
+  old failed policy (`cw-walk-turnfix1`), it produced NO measurable
+  change: same drift, same numbers, statistically identical. Reward
+  tuning for turning is now closed twice over; the drift looks baked
+  into the walking gait itself. Next lever is a structural one
+  (mirror-symmetry training augmentation), not another reward
+  rewrite. `rl_docs/TURN.md`.
 - **Backward walking** — parks or falls; envelope is the front
   half-circle only.
 - **Sim effort realism**: sim under-prices standing still (0.11 A
@@ -119,8 +136,11 @@ passed the offline semantics checks but has not yet trained a policy.
 
 1. Hardware attempt #2 with the staged `cw-dep-vref1-r1` checkpoint
    (joystick walk on the bench, fresh `set_zero` first).
-2. First training arms against the new standing spec and turn
-   pricing (DISCOVERY-size, cheap, semantics banks already pass).
+2. Both reward-tuning routes for standing and turning are now
+   closed by trained evidence, not just prediction — next moves are
+   code changes (rework where rise income comes from; mirror-
+   symmetry augmentation for turning), each a SPECIFICATION step
+   before anything trains again.
 3. Sim effort-pricing fix (holding-current model) so effort-shaped
    arms become trustworthy.
 Queue and blockers: `RL_PLAN.md`.
