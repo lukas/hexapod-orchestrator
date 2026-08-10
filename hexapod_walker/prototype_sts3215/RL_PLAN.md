@@ -153,7 +153,14 @@ the archive review's triggers fire.
    retention AND rise/lower >= 5/6 AND quiet hold AND video shows no
    leg-through-floor. Erosion risk → canary/regression rules apply;
    if walk erodes, ladder the mix (0.9 first), don't abandon.
-   Details: WISHLIST item -1. **SIM FIX 273ebde (08-09 22:xx) is a
+   Details: WISHLIST item -1.
+   **STEERING RUNG UNBLOCKED (08-09 late): the yaw-rate command
+   channel [CODE] LANDED (c086a22 + 209d9e9, probe clean, obs 73
+   via tail-append → `--obs-pad-transplant 1` warm-starts from any
+   non-yaw champion). Spec/risks: WISHLIST item 3. First arm:
+   champion + walk_yaw_cmd=1 + k_walk_yaw, gate = yaw tracking on
+   commanded turns AND heading hold (drift priced) AND forward-walk
+   retention.** **SIM FIX 273ebde (08-09 22:xx) is a
    hard prerequisite for this line: before it, femur/tibia/knee-servo
    had no floor collision, so any rise/lower trained pre-fix could
    sweep shins through the ground (blend1 killed for this; the
@@ -233,8 +240,10 @@ transfer. No new anti-slip reward coefficient arms (§8).
 **QUADRUPED** (pulled forward, operator 08-09; authorized parallel
 line whenever main-line arms can't fill the pods). Sequence per
 readiness review §4, feasibility-first — sweep = GO (c57, 39mm
-margin with −20mm shift + splay): next rung is the quad-hold goal
-mode [CODE] (both fronts clear + unloaded, four planted, level, low
+margin with −20mm shift + splay): quad-hold goal mode **[CODE
+LANDED c086a22, 08-09 late — goal mode `quad`, fronts 0+5 via the
+goal one-hot, obs width unchanged; spec WISHLIST item 15; probe
+clean]** (both fronts clear + unloaded, four planted, level, low
 current, 10–15 s hold, 0 term) → weight shift → quadruped stepping.
 Never ask the six-leg walker to spontaneously stop using two legs.
 **FALL RECOVERY** waits for 0-c: fallen poses as start distribution,
