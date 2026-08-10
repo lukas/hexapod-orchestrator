@@ -17,7 +17,8 @@ calibration), not as a ban. Speed-band tracking and zero-slip gates
 are means, never the objective.
 
 Pointers: plain-terms mission/status `rl_docs/GOAL.md` · how to run
-things `rl_docs/COMMANDS.md` · campaign history `RL_LOG.md` ·
+things `rl_docs/COMMANDS.md` · **physics sim + actuator model + DR
+philosophy `rl_docs/SIM.md`** · campaign history `RL_LOG.md` ·
 per-run facts `rl_docs/runs/` · full text of every ruling summarized
 here lives in `archive/` (this file states only what currently
 binds). **EDIT RULE (operator, 08-10): keep this file under ~250
@@ -155,17 +156,16 @@ Open problems, in priority order:
    distill/two-policy instead of fine-tune grafting (branches
    pre-registered). Rise/lower checkpoints from before sim fix
    273ebde (leg-floor collision) are invalid near the ground.
-3. **Loaded actuator model.** FIT LANDED 08-10 (RL_LOG "loaded
-   actuator ID"): `fit_loaded_actuator.py` → `sim_model_loaded.json`,
-   opt-in `--cfg-set bus.servo_params=loaded` (default stays air,
-   legacy-exact). Knee fit from `step_ladder_20260810.csv`: the air
-   deadband 0.494° was the sim tracking floor (loaded 0.06°); latency
-   85 ms, vel ceiling 48.5°/s, kp 916. Held-out ±5° steps 20–40×
-   better than air; rl_stand deployed replay RMSE 2.5° vs 2.9–3.2°.
-   Hip/yaw carry knee deltas — ASSUMPTION until a per-axis loaded
-   ladder (HARDWARE.md item 4). NEXT: re-run the liftoff reproduction
-   on loaded params; first training arm = a dep-line respec with the
-   flag vs its air twin.
+3. **Loaded actuator model.** FIT LANDED 08-10: opt-in
+   `--cfg-set bus.servo_params=loaded` (default stays air,
+   legacy-exact). What's modeled, every fitted number's provenance,
+   and the confidence table: **`rl_docs/SIM.md`**. Ruling (operator,
+   08-10): uncertain params — servo reaction times above all — are
+   COVERED BY DR RANGES, not modeled as exact nominals (loaded
+   latency randomizes 26–162 ms; mechanism in SIM.md). Hip/yaw are
+   an ASSUMPTION until a per-axis loaded ladder (HARDWARE.md item
+   4). NEXT: re-run the liftoff reproduction on loaded params; first
+   training arm = a dep-line respec with the flag vs its air twin.
 4. **Quad-mix erosion.** Dose-response so far: 50% erodes walk, 30%
    recovers on the walk champion, 30% on the driving champion
    FAILED, 15% in review. If erosion persists at useful mixes:
