@@ -62,14 +62,41 @@ def read_tail(path: pathlib.Path, lines: int) -> list[str]:
 
 
 def live_cycles() -> list[dict]:
-    """Claude cycle subprocesses, with what each one is triaging."""
-    out = []
+    """Claude cycle subprocesses: what each triages + its live tool call."""
     now = time.time()
+    procs: dict[int, tuple[int, bytes, float]] = {}
     for d in glob.glob("/proc/[0-9]*"):
         try:
-            cmd = open(d + "/cmdline", "rb").read()
+            with open(d + "/cmdline", "rb") as fh:
+                cmd = fh.read()
+            with open(d + "/stat") as fh:
+                stat = fh.read()
+            mtime = os.stat(d).st_mtime
         except OSError:
             continue
+        try:  # stat: "pid (comm) state ppid ..." — comm may contain spaces
+            ppid = int(stat.rsplit(")", 1)[1].split()[1])
+        except (IndexError, ValueError):
+            continue
+        procs[int(d.split("/")[-1])] = (ppid, cmd, mtime)
+
+    def activity(cycle_pid: int) -> str:
+        """Newest child tool process of a cycle, as '$ cmd (age)'."""
+        kids = [(c, m) for p, (pp, c, m) in procs.items() if pp == cycle_pid]
+        for cmd, mtime in sorted(kids, key=lambda k: -k[1]):
+            text = cmd.replace(b"\0", b" ").decode(errors="replace")
+            if not text.strip():
+                continue  # reaped/zombie child
+            text = text.replace("'\"'\"'", "'")
+            # claude's bash tool wraps the real command in eval '...'
+            m = re.search(r"eval '(.*?)' < /dev/null", text, re.S)
+            cmdtxt = " ".join((m.group(1) if m else text).split())
+            age = int(now - mtime)
+            return f"$ {cmdtxt[:160]}  [{age // 60}m{age % 60:02d}s]"
+        return "thinking / writing (no tool process)"
+
+    out = []
+    for pid, (ppid, cmd, mtime) in procs.items():
         parts = cmd.split(b"\0")
         if not parts or not parts[0].endswith(b"claude"):
             continue
@@ -78,12 +105,8 @@ def live_cycles() -> list[dict]:
         about = m.group(1) if m else (
             "checkup findings" if "checkup findings" in prompt
             else "idle kick" if "idle kick" in prompt else "?")
-        try:
-            age = now - os.stat(d).st_mtime
-        except OSError:
-            age = 0
-        out.append({"pid": int(d.split("/")[-1]),
-                    "age_min": int(age / 60), "about": about})
+        out.append({"pid": pid, "age_min": int((now - mtime) / 60),
+                    "about": about, "doing": activity(pid)})
     return sorted(out, key=lambda c: -c["age_min"])
 
 
@@ -425,10 +448,12 @@ def render() -> str:
 
     h.append("<h2>What it's thinking about (in-flight decision cycles)</h2>")
     if f.get("cycles"):
-        h.append("<table><tr><th>pid</th><th>age</th><th>triaging</th></tr>")
+        h.append("<table><tr><th>pid</th><th>age</th><th>triaging</th>"
+                 "<th>current activity</th></tr>")
         for c in f["cycles"]:
             h.append(f"<tr class='mono'><td>{c['pid']}</td>"
-                     f"<td>{c['age_min']} min</td><td>{esc(c['about'])}</td></tr>")
+                     f"<td>{c['age_min']} min</td><td>{esc(c['about'])}</td>"
+                     f"<td>{esc(c.get('doing', ''))}</td></tr>")
         h.append("</table>")
     else:
         h.append("<div class='dim'>none — watcher is between cycles</div>")
