@@ -217,19 +217,19 @@ Open problems, in priority order:
 1.  Live truth for what's training/queued: `ops.sh census` +
     `launch_run.py backlog list` — never this file.
 2.  [CODE] backlog, in priority order:
-    1. **Mirror-symmetry augmentation — TOP CODE PRIORITY (operator,
-       08-10 evening). CLAIMED: the operator's session is implementing
-       this + launching the discovery arm right now (08-10 ~18:35 ET) —
-       implementation cycles must NOT duplicate it; pick item 2.** Reflect obs+actions about the sagittal
-       plane in the trainer (18-joint left/right index maps + history
-       stack + command signs). It is the ONLY untried lever on the
-       turning blocker (reward tuning doubly closed, TURN.md) and the
-       prerequisite for the omnidirectional from-scratch discovery
-       run (`cw-omni-mirror1`: hist16 + full-circle command sampling
-       + signed yaw stack + dep contract). Next implementation cycle
-       takes this before any other code item; validate with a
-       symmetry unit test (mirrored obs -> mirrored action) + smoke,
-       then queue the discovery arm.
+    1. **Mirror-symmetry augmentation — LANDED (operator session,
+       08-10 evening; do not re-implement).** `rl_move/sim/mirror.py`:
+       sagittal maps (legs 0↔5/1↔4/2↔3, yaw negates, hip/knee keep
+       sign — FK-verified) + `MirrorPPO` (soft aux loss
+       pi(mirror(obs))≈mirror(pi(obs)); SOFT because the 25.65 mm
+       hip-anchor offset makes the body a chiral pinwheel). Cfg-gated
+       via `--cfg-set train.mirror_loss_coef=…` in train_ppo_mjx;
+       `tests/test_mirror.py` 11/11 incl. live-env integration; OMNI
+       semantics bank (full-circle + turn, dep contract, k_current=0)
+       added to test_task_semantics.py and PASSING. Discovery probe
+       `cw-omni-mirror1` (hist16-dep1 recipe + omni stack + mirror
+       coef 1.0) launched 08-10 eve; hardening 40M follows if the
+       mechanism-health gate passes.
     2. geometric valid-plant terminal state for rise
        (support-polygon/foot-count success criterion that rejects
        flag-leg/tripod — define AND test it in the rise bank, problem
