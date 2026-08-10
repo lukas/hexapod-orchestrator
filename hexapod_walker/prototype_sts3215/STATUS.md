@@ -85,16 +85,20 @@ need a structural fix, not another price change (see below).
   `rl_docs/RISE.md`.
 - **Turning on command.** Walk policies carry a structural left-yaw
   drift and ignore the yaw command channel; raising the price of
-  drift failed repeatedly. A second, better-designed mechanism
-  (signed rotation income, a charge for drifting while going
-  straight, more turn-in-place practice) also landed 08-10 and
-  passed its offline checks — but trained head-to-head against the
-  old failed policy (`cw-walk-turnfix1`), it produced NO measurable
-  change: same drift, same numbers, statistically identical. Reward
-  tuning for turning is now closed twice over; the drift looks baked
-  into the walking gait itself. Next lever is a structural one
-  (mirror-symmetry training augmentation), not another reward
-  rewrite. `rl_docs/TURN.md`.
+  drift failed repeatedly, and a second, better-designed reward
+  mechanism also produced NO measurable change head-to-head
+  (`cw-walk-turnfix1`) — reward tuning for turning is closed twice
+  over; the drift looks baked into the walking gait itself. The next
+  lever, mirror-symmetry training (penalize the policy for treating
+  its left/right sides differently, `rl_docs/TURN.md`), landed
+  08-10 night: a quick mechanism check (`cw-omni-mirror1`) confirmed
+  the symmetry penalty actually takes hold during normal training
+  (asymmetry signal fell to under half its peak, reward climbed
+  fine), so a full 40M-step run (`cw-omni-mirror1-r1`) is now
+  training the real omnidirectional/turn behavior under that rule.
+  Still UNKNOWN whether it cures the drift — that verdict needs the
+  finished run's turn-tracking numbers and video against the walking
+  champion.
 - **Backward walking** — parks or falls; envelope is the front
   half-circle only.
 - **Sim effort realism**: sim under-prices standing still (0.11 A
@@ -142,12 +146,13 @@ need a structural fix, not another price change (see below).
 
 1. Hardware attempt #2 with the staged `cw-dep-vref1-r1` checkpoint
    (joystick walk on the bench, fresh `set_zero` first).
-2. Reward tuning for turning, AND now all reward-income shaping for
-   standing (three mechanisms tried), are closed by trained evidence,
-   not just prediction — next moves are code changes (reference
-   tracking or foot-contact-coupled height for rise; mirror-symmetry
-   augmentation for turning), each a SPECIFICATION step before
-   anything trains again.
+2. Reward tuning for both turning and standing (three rise
+   mechanisms tried) is closed by trained evidence, not just
+   prediction. Turning's structural next move (mirror-symmetry
+   augmentation) is landed and already training — a 40M-step run
+   (`cw-omni-mirror1-r1`) is underway, verdict pending. Rise's next
+   move (reference tracking or foot-contact-coupled height) is still
+   a SPECIFICATION step — no code landed yet.
 3. Sim effort-pricing fix (holding-current model) so effort-shaped
    arms become trustworthy.
 Queue and blockers: `RL_PLAN.md`.
