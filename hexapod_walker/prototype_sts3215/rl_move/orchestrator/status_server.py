@@ -596,7 +596,19 @@ def render() -> str:
 # First visit with ?key=<token> sets a cookie and redirects clean;
 # afterwards the cookie carries auth. Unset token = open (local
 # port-forward use unchanged).
-TOKEN = os.environ.get("STATUS_TOKEN", "")
+def _load_token() -> str:
+    t = os.environ.get("STATUS_TOKEN", "")
+    if t:
+        return t
+    # Fallback so a bare restart on the controller can't silently
+    # expose the page: the token file is written at deploy time.
+    try:
+        return pathlib.Path("/workspace/.status_token").read_text().strip()
+    except OSError:
+        return ""
+
+
+TOKEN = _load_token()
 
 
 class Handler(http.server.BaseHTTPRequestHandler):
