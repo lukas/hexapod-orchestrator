@@ -46,8 +46,8 @@ specialist port LANDED 08-11, the runner's stance slot runs
 `ppo_goal_cw_stand_holdbc1_hard1` with its trained goal profile
 shipped in the weights meta, contract-locked by
 `rl_move/tests/test_stand_runner.py`, sim-smoked end-to-end;
-stance_dr10 rollback = one picker call); deployment-equivalent
-loaded/contact dynamics (hold-current model fit). Rise/hold/lower
+stance_dr10 rollback = one picker call). The hold-current "gap" is
+RETRACTED (08-11 probe: pose/unit confound; SIM.md gap 2). Rise/hold/lower
 and full-circle translation are SOLVED IN SIM; commanded turning is
 DE-SCOPED (no camera = no front). **DEFERRED:** quad mode, generic
 DR composes, posetrack, architecture curiosity work
@@ -56,15 +56,13 @@ not tied to a demonstrated failure. **RULE:** idle GPUs are fine.
 explain and should change what we do before the next useful
 hardware test.
 
-## Where we are (08-10 — live facts in CURRENT_TRUTHS.md)
+## Where we are (08-11 — live facts in CURRENT_TRUTHS.md)
 
 The real robot walks under a scripted gait — the bar learned policies
-must beat. Sim driving stack: strong, seed-confirmed, joystick-gate
-clean. Still failing: commanded turning (structural left-drift; price
-tuning closed) and stand-up (every arm loses to the height-only
-cheat — see rl_docs/RISE.md). Hardware attempt #2 checkpoint
-`cw-dep-vref1-r1` is validated, hardened, pulled to the operator
-Mac — waiting on bench time.
+must beat. In sim the full joystick cycle now composes with zero
+falls (rise → drive any direction via rot60 → stop → sit); turning
+is de-scoped. Everything left on the critical path is bench work
+(attempt #2: walk + off-wedge headings + learned stand, all staged).
 
 ## Standing rules → `RESEARCH_RULES.md` (binding; moved 08-10)
 
@@ -167,10 +165,13 @@ Open problems, in priority order:
    saturates ≥1.5, XML friction stands (`env.foot_friction_slide`
    hook landed for future floors; SIM.md gap 1). WALK semantics bank
    landed and PASSING: the tape-proven gait out-earns stall 1.9x and
-   park 3.5x under the champion stack. REMAINING: effort pricing at
-   hold (sim 0.11 A vs real 0.59 A, not scalar-fixable) — fit a
-   load-dependent holding-current model on the existing per-servo
-   traces; k_current=0 on hardware arms until then.
+   park 3.5x under the champion stack. The hold-current inversion is
+   RETRACTED (08-11, `probe_hold_current.py`: units ×18 + pose
+   confound; sim's proxy overprices 3–25x everywhere, conservative,
+   and matches the real walk>hold ordering). DEFERRED, not a
+   blocker: a register-scale cmd-fight/deadzone current model —
+   prerequisite ONLY for future k_current>0 hardware-pricing arms;
+   k_current=0 ruling stands.
 2. **Rise/lower inside the walking policy.** Full plan + evidence
    trail: **rl_docs/RISE.md**. Lower is solved warm (rfix-warm1 6/6
    posture-strict; keep fine-tune grafting, distill refuted). Rise:
@@ -211,8 +212,7 @@ Open problems, in priority order:
    instant-servo numbers is honest physics (hits the frozen parent
    identically). Loaded params are a viable dep-line training
    default; air-vs-loaded for attempt #2 is a bench decision.
-   Remaining: liftoff reproduction on loaded params; hold-current
-   model fit (problem 1).
+   Remaining: liftoff reproduction on loaded params.
 4. **Quad-mix erosion.** Dose-response so far: 50% erodes walk, 30%
    recovers on the walk champion, 30% on the driving champion
    FAILED, 15% in review. If erosion persists at useful mixes:

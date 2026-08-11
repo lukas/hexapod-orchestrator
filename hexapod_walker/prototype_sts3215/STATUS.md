@@ -54,8 +54,13 @@ need a structural fix, not another price change (see below).
   clean zero, under the scripted tripod gait. Measured with a tape:
   it covers ~50% of commanded distance (real slip, and that's fine —
   visible slip is part of how it locomotes).
-- Walking is CHEAPER than standing still (0.33–0.45 A vs 0.59 A) —
-  a genuine surprise that reshaped our effort-pricing assumptions.
+- Servo current tracks how hard the servos FIGHT their command, not
+  the pose: walking draws 0.33–0.45 A, the scripted stand (servos
+  pulling toward an ideal pose they sag away from) 0.54–0.59 A, and
+  the walk-stance hold (command matched to where the joints actually
+  settle) almost nothing (~0.11 A). The old "standing costs more
+  than walking" surprise was really "fighting your own command costs
+  more than walking".
 - A learned policy has NOT yet driven the robot. Attempt #2's
   checkpoint (`cw-dep-vref1-r1`) is validated in sim under the exact
   deployment contract, protected against ~20 hardware-imperfection
@@ -287,9 +292,17 @@ need a structural fix, not another price change (see below).
   no-op for the forward commands already validated on hardware), and
   a test bank locks the onboard path against the sim original.
   Nothing left here but trying it on the real robot.
-- **Sim effort realism**: sim under-prices standing still (0.11 A
-  vs the real 0.59 A) — needs a holding-current model fit before
-  effort-shaped gaits can be trusted. Servo LAG realism, by
+- **Sim effort realism**: the scary version of this ("sim thinks
+  standing is nearly free, the real robot pays 5x more") turned out
+  to be a bookkeeping error, not a physics gap (08-11 probe): the
+  old comparison mixed per-servo and whole-robot units and compared
+  two different standing poses. Measured apples-to-apples, sim
+  CHARGES MORE effort than the real robot in every matched
+  condition — safely conservative for training. What sim still
+  can't do is predict the real ammeter reading (real servos hold
+  loads almost for free until they fight their command); that fit
+  is only needed if we ever train FOR low current, and is parked
+  until then. Servo LAG realism, by
   contrast, is now validated end-to-end (08-11): training with the
   measured under-load servo response (real servos take ~0.3 s to
   settle a 2° step, not milliseconds) keeps the walking skill intact
