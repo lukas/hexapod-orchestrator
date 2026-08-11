@@ -622,6 +622,51 @@ def render() -> str:
                  f"<div class='l'>est. spend total</div></div>")
     h.append("</div>")
 
+    # Last 10 launches (operator, 08-11): what the orchestrator fired
+    # off, when, and WHY — the hypothesis the launching cycle recorded.
+    # REFUSED entries never started a trainer, so they don't count as
+    # "fired off"; FAILED ones do (they started, then died/were killed).
+    h.append("<h2>Last 10 launches — what the orchestrator fired, and "
+             "why</h2>"
+             "<div class='dim'>Newest first, from the launch ledger "
+             "(experiments.json). “Why” is the hypothesis recorded at "
+             "launch time; [parent: …] marks a continuation of that "
+             "lineage. Times are UTC.</div>")
+    fired = [e for e in f.get("ledger", [])
+             if e.get("status") != "REFUSED"][:10]
+    if fired:
+        h.append("<table><tr><th>launched (UTC)</th><th>run</th>"
+                 "<th>track</th><th>phase</th><th>status</th>"
+                 "<th>why it was launched</th></tr>")
+        for e in fired:
+            when = e.get("created") or ""
+            try:
+                when = datetime.datetime.fromisoformat(when).strftime(
+                    "%b %d %H:%M")
+            except ValueError:
+                pass
+            why = (e.get("hypothesis") or "").strip()
+            if not why:
+                why = ("smoke validation run (no W&B, no hypothesis)"
+                       if e.get("smoke") else "(no hypothesis recorded)")
+            if e.get("parent"):
+                why += f" [parent: {e['parent']}]"
+            if len(why) > 320:
+                why = why[:320] + "…"
+            st = e.get("status", "?")
+            cls = {"RUNNING": "ok", "FINISHED": "dim",
+                   "FAILED": "bad"}.get(st, "warn")
+            h.append(f"<tr><td class='mono dim' style='white-space:nowrap'>"
+                     f"{esc(when)}</td>"
+                     f"<td class='mono'>{esc(e.get('run'))}</td>"
+                     f"<td class='dim'>{esc(track_of_entry(e))}</td>"
+                     f"<td class='dim'>{esc(e.get('phase', ''))}</td>"
+                     f"<td class='{cls}'>{esc(st)}</td>"
+                     f"<td>{esc(why)}</td></tr>")
+        h.append("</table>")
+    else:
+        h.append("<div class='dim'>no launches in the ledger yet</div>")
+
     # STATUS viewer: campaign digest by default, dropdown for the five
     # per-track STATUS.md files (operator, 08-11). All docs ship in the
     # page (they're small); JS just toggles visibility, and the choice
