@@ -78,8 +78,13 @@ CLOSED moves — do not re-propose (evidence in `rl_docs/runs/`):
 - Rise reward-income shaping (detect-and-discount / gate / re-route
   the income source — 3 distinct mechanisms, 08-10): all beaten by
   the identical flag-leg cheat, the last even from an honest warm
-  start. Next lever is reference tracking or a structural height-
-  contact coupling, not another income variant (rl_docs/RISE.md).
+  start. **08-11 correction: this "CLOSED" call plus the later
+  reference-tracking/RSI closures are CONFOUNDED, not refuted** — a
+  warp/MJX episode-pool state-loss bug (commit 65edba7) silently
+  broke score/ref income on the GPU path for all of those arms; fix
+  landed, clean re-run `cw-stand-rsi2` in flight. Do not re-close or
+  re-open the rise income question until rsi2 reports; see
+  CURRENT_TRUTHS.md + rl_docs/RISE.md for the full trail.
 - Identical-config continuations (0-for-5; auto-continue handles
   segment stitching).
 - Generic full-DR (1.0) retrains; single-axis calibration/sensor DR

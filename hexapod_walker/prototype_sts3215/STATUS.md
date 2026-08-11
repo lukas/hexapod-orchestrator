@@ -82,12 +82,16 @@ need a structural fix, not another price change (see below).
   built so the cheat can't collect payout for faking it
   (`cw-stand-scoreref1`, 08-11) — and it ALSO failed: same leg held
   16-19cm in the air the whole episode, 0/6 valid plant every mode.
-  Four differently-designed fixes have now lost to the identical
-  cheat; tuning what the reward pays, and showing it the right
-  motion, are both dead ends for this problem. The only lever left
-  is structural: tie the height command itself to real foot contact
-  (refuse to keep raising a leg the instant it loses the ground) —
-  that needs new code, not another reward-tuning run.
+  **08-11 correction: that "four fixes all lost" story turned out to
+  be measuring a bug, not the robot.** The simulator's episode-reuse
+  code was silently corrupting the score-tracking state those fixes
+  depended on, so none of them were actually being paid the reward
+  they were designed to get — we were watching noise, not a real
+  test. That bug is now fixed, and a clean re-run of the reference-
+  copying idea (`cw-stand-rsi2`) is in flight. Until it reports, the
+  honest status is "still unsolved, cause unknown" rather than "four
+  dead ends" — the structural (tie-height-to-foot-contact) idea
+  remains the fallback if the clean re-run also fails.
   `rl_docs/RISE.md`.
 - **Turning on command.** Walk policies carry a structural left-yaw
   drift and ignore the yaw command channel; raising the price of
