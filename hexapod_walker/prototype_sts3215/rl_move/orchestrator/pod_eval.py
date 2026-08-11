@@ -104,7 +104,26 @@ def main() -> int:
     ep = val("--episode-seconds", "15" if task == "joint_walk" else None)
     dr = float(val("--dr-scale", "0") or 0)
     cfgs = [args[i + 1] for i, a in enumerate(args) if a == "--cfg-set"]
-    modes = "--modes walk" if task == "joint_walk" else ""
+    # 08-11 (cw-uni-flag-a1-r1/h2 triage): a joint_walk task with an
+    # explicit --goal-mix (e.g. "hold=0.2,rise=0.4,lower=0.4") may never
+    # train walk at all — hardcoding "--modes walk" silently evals a mode
+    # the run never learned and reports nothing about its actual gate.
+    # Derive the eval mode list from --goal-mix's keys when present;
+    # only fall back to the walk-only default for plain walk tasks.
+    goal_mix = val("--goal-mix")
+    if goal_mix:
+        mix_modes = []
+        for kv in goal_mix.split(","):
+            if not kv.strip():
+                continue
+            k, _, v = kv.partition("=")
+            if float(v or 0) > 0:
+                mix_modes.append(k.strip())
+        modes = "--modes " + " ".join(mix_modes) if mix_modes else "--modes walk"
+    elif task == "joint_walk":
+        modes = "--modes walk"
+    else:
+        modes = ""
 
     ckpt = find_checkpoint(pod, run, task)
     if ckpt is None:

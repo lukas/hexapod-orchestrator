@@ -217,7 +217,20 @@ def val(flag, default=None):
 task = val("--task", "joint_walk")
 ep = val("--episode-seconds", "15" if task == "joint_walk" else None)
 cfg = " ".join(f"--cfg-set {args[i+1]}" for i, a in enumerate(args) if a == "--cfg-set")
-modes = "--modes walk" if task == "joint_walk" else ""
+goal_mix = val("--goal-mix")
+if goal_mix:
+    mix_modes = []
+    for kv in goal_mix.split(","):
+        if not kv.strip():
+            continue
+        k, _, v = kv.partition("=")
+        if float(v or 0) > 0:
+            mix_modes.append(k.strip())
+    modes = "--modes " + " ".join(mix_modes) if mix_modes else "--modes walk"
+elif task == "joint_walk":
+    modes = "--modes walk"
+else:
+    modes = ""
 name = "ppo_goal_" + run.replace("-", "_")
 out = f"logs/ckpt_eval/{run.replace('-', '_')}_gate"
 print(f"# run from the PROTO dir; ALWAYS as a module (-m), never the .py path")
