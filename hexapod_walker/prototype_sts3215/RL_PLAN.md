@@ -294,10 +294,12 @@ Open problems, in priority order:
     while in contact — the scrape itself) + swing-clearance term;
     bank must prove drag-gait < step-gait AND drag-gait > park.
     (P3, the goal state — operator: learn it WITHOUT the anchor)
-    from-scratch curriculum line: terrain-as-teacher first (bumpy
-    ground makes paddling physically non-traveling; zero-training
-    champion-on-terrain slip probe FIRST), then drag charge annealed
-    up, physics easing, RSI-for-walk. The 10+ closed anti-slip arms
+    from-scratch curriculum line: terrain-as-teacher CLOSED for good
+    08-11 (two-miss rule — 72mm collapsed to leg-sacrifice, 54mm
+    avoided the sacrifice but paddled 4-6x worse than the closed
+    band; bumpy ground never forces stepping, `rl_docs/GAIT.md`).
+    Next: drag charge annealed up (needs the charge-magnitude audit
+    first), physics easing, RSI-for-walk. The 10+ closed anti-slip arms
     were income shaping retrofitted onto formed paddlers — the
     closure does NOT cover P0's repricing (if the probe demands it),
     P2's banked structural charge, or P3's task curriculum

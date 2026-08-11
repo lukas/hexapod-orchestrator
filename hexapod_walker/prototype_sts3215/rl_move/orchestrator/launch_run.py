@@ -690,6 +690,19 @@ def _launch_locked(g: dict, a: argparse.Namespace,
             "log": log, "is_gpu": is_gpu}
 
 
+def _pod_pid_cputime(pod: str, pid: str) -> int | None:
+    """Cumulative CPU-centiseconds (utime+stime, /proc/<pid>/stat fields
+    14+15) for a process on a remote pod, or None if it's gone/unreadable.
+    Used as a "genuinely still computing" signal independent of any
+    single iteration's wall-clock budget (see _verify_started)."""
+    try:
+        out = kexec(pod, f"awk '{{print $14+$15}}' /proc/{pid}/stat "
+                          f"2>/dev/null || echo ''").strip()
+        return int(out) if out else None
+    except (subprocess.CalledProcessError, ValueError):
+        return None
+
+
 def _extra_int(extra_args: list, flag: str, default: int) -> int:
     """Read an integer value passed as `--flag value` in an extra_args list."""
     if flag in extra_args:
@@ -760,22 +773,52 @@ def _verify_started(g: dict, a: argparse.Namespace, ctx: dict) -> int:
         entry["wandb_id"] = wb["id"]
         s1 = wb.get("global_step") or 0
         # A single PPO iteration's wall time is floored by its rollout
-        # (n_envs * n_steps); a fixed 90s window false-killed cw-arch-gru-r4
-        # (2026-08-11, --n-steps 256 for a 10.24s BPTT window) whose FIRST
-        # iteration alone logged 84s just for env collection, before the
-        # heavier GRU backward pass even started. Scale the wait with
-        # --n-steps relative to the historic default (64) so long-BPTT
-        # recurrent runs get genuine time to show a second iteration,
-        # capped so a truly stalled run still fails in bounded time.
+        # (n_envs * n_steps). A fixed 90s window false-killed
+        # cw-arch-gru-r4 TWICE (2026-08-11, --n-steps 256 / 10.24s BPTT):
+        # a first attempt to fix this by scaling the wait with --n-steps
+        # (90s * n_steps/64, capped 600s) was STILL too short — direct
+        # /proc CPU-time sampling on the pod during the retry showed the
+        # process burning ~25 cores flat out (real PPO update work: the
+        # GRU policy trains on CPU per the trainer's own "Using cpu
+        # device" log line, so a big BPTT backward pass has no GPU signal
+        # at all) for 360s+ with iteration 2 still not done -- a live,
+        # correctly-working run, killed anyway. Replaced the fixed sleep
+        # with a poll loop: keep waiting past the nominal budget as long
+        # as the process's cumulative CPU time (utime+stime) is still
+        # climbing (proof of real work, not a hang); only fail once BOTH
+        # global_step has not advanced AND CPU time has gone flat for two
+        # consecutive samples, or an outer safety cap (20 min) elapses.
         n_steps = _extra_int(entry.get("extra_args", []), "--n-steps", 64)
-        step_wait = min(600, max(90, int(90 * n_steps / 64)))
-        time.sleep(step_wait)
-        s2 = (wandb_running_runs().get(a.run) or {}).get("global_step") or 0
+        base_wait = min(600, max(90, int(90 * n_steps / 64)))
+        poll = 30
+        outer_cap = 1200.0  # absolute safety net regardless of CPU signal
+        elapsed = 0.0
+        prev_cpu = _pod_pid_cputime(a.pod, pid)
+        flat_streak = 0
+        s2 = s1
+        while elapsed < outer_cap:
+            time.sleep(poll)
+            elapsed += poll
+            s2 = (wandb_running_runs().get(a.run) or {}).get("global_step") or 0
+            if s2 > s1:
+                break
+            cur_cpu = _pod_pid_cputime(a.pod, pid)
+            still_computing = (cur_cpu is not None and prev_cpu is not None
+                                and cur_cpu > prev_cpu + 50)  # >0.5 CPU-s
+            prev_cpu = cur_cpu
+            if elapsed >= base_wait:
+                if still_computing:
+                    flat_streak = 0  # genuinely busy; keep extending
+                else:
+                    flat_streak += 1
+                    if flat_streak >= 2:
+                        break  # two flat samples past budget = real stall
         if s2 <= s1:
             return fail(f"W&B global_step not advancing ({s1} -> {s2}) "
-                        f"after {step_wait}s wait (n_steps={n_steps})")
+                        f"after {elapsed:.0f}s (n_steps={n_steps}, "
+                        f"cpu-time flat for {flat_streak} polls)")
         checks["global_step_window"] = [s1, s2]
-        checks["fps_estimate"] = round((s2 - s1) / step_wait, 1)
+        checks["fps_estimate"] = round((s2 - s1) / max(elapsed, 1.0), 1)
         print(f"fps estimate: {checks['fps_estimate']}")
 
     entry["status"] = "RUNNING"
