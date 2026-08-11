@@ -40,6 +40,8 @@ PROTO = HERE.parent.parent
 sys.path.insert(0, str(HERE))
 from launch_run import KUBECONFIG, load_guardrails, pod_trainers  # noqa: E402
 
+import tracks as _tracks  # noqa: E402  (research-track registry)
+
 PORT = int(os.environ.get("STATUS_PORT", "8090"))
 ORCH_LOG = pathlib.Path("/workspace/orchestrator.log")
 CYCLE_DIR = pathlib.Path("/workspace/cycle_logs")
@@ -192,9 +194,36 @@ def ledger_rows(n: int = 40) -> tuple[list[dict], dict, dict]:
                   key=lambda e: e.get("created", ""), reverse=True)[:n]
     # slim latest-per-run map for the analysis-pipeline computation
     slim = {r: {"status": e.get("status", ""), "triage": e.get("triage", ""),
-                "verdict": bool(e.get("verdict"))}
+                "verdict": bool(e.get("verdict")),
+                "track": track_of_entry(e)}
             for r, e in latest.items()}
     return rows, counts, slim
+
+
+def status_docs() -> dict:
+    """Campaign STATUS.md + every per-track STATUS.md, for the
+    dropdown viewer (operator, 08-11)."""
+    docs = {"main": {"name": "Campaign digest (STATUS.md)", "text": ""}}
+    try:
+        docs["main"]["text"] = (PROTO / "STATUS.md").read_text(
+            errors="replace")
+    except OSError as e:
+        docs["main"]["text"] = f"(unreadable: {e})"
+    try:
+        for tid, v in _tracks.load().items():
+            p = PROTO / v["doc"]
+            try:
+                text = p.read_text(errors="replace")
+            except OSError:
+                text = f"({v['doc']} missing)"
+            docs[tid] = {"name": f"{tid} — {v['name']}", "text": text}
+    except Exception as e:
+        docs["tracks_err"] = {"name": "error", "text": repr(e)}
+    return docs
+
+
+def track_of_entry(e: dict) -> str:
+    return e.get("track") or _tracks.infer(e.get("run", ""))
 
 
 def cycle_budget() -> dict:
@@ -376,6 +405,7 @@ def fast_worker() -> None:
                 "orch_tail": read_tail(ORCH_LOG, 14),
                 "rl_log_tail": read_tail(PROTO / "RL_LOG.md", 8),
                 "rl_plan": (PROTO / "RL_PLAN.md").read_text(errors="replace"),
+                "status_docs": status_docs(),
             }
         except Exception as e:
             SNAP["fast_err"] = repr(e)
@@ -545,13 +575,15 @@ def render() -> str:
             # pre-ledger history (analyzed in archived RL_LOG) — only a
             # RECENT unledgered run is a real pipeline item (and a bug)
             if d.get("created", "") >= cutoff:
-                pipeline.append({"run": run, "state": "NOT IN LEDGER (bug?)"})
+                pipeline.append({"run": run, "state": "NOT IN LEDGER (bug?)",
+                                 "track": _tracks.infer(run)})
         elif e["status"] not in final and not e["verdict"]:
             if run in cyc_runs:
                 state = "EVALUATING (claimed by a live cycle)"
             else:
                 state = e["triage"] or "trained — awaiting an agent cycle"
-            pipeline.append({"run": run, "state": state})
+            pipeline.append({"run": run, "state": state,
+                             "track": e.get("track") or _tracks.infer(run)})
     pipeline.sort(key=lambda p: p["run"])
     pending = {p["run"]: p["state"] for p in pipeline}
     n_pipe = len(pipeline)
@@ -590,6 +622,37 @@ def render() -> str:
                  f"<div class='l'>est. spend total</div></div>")
     h.append("</div>")
 
+    # STATUS viewer: campaign digest by default, dropdown for the five
+    # per-track STATUS.md files (operator, 08-11). All docs ship in the
+    # page (they're small); JS just toggles visibility, and the choice
+    # survives the 30 s auto-refresh via localStorage.
+    docs = f.get("status_docs", {})
+    if docs:
+        h.append("<h2>STATUS — campaign &amp; research tracks</h2>")
+        h.append("<select id='statussel' onchange='showStatus(this.value)' "
+                 "style='background:#161b22;color:#c9d1d9;"
+                 "border:1px solid #21262d;border-radius:6px;"
+                 "padding:4px 8px;font-size:13px;margin-bottom:8px'>")
+        for key, d in docs.items():
+            h.append(f"<option value='{esc(key)}'>{esc(d['name'])}</option>")
+        h.append("</select>")
+        for key, d in docs.items():
+            hide = "" if key == "main" else " style='display:none'"
+            h.append(f"<div class='statusdoc' id='statusdoc-{esc(key)}'"
+                     f"{hide}><pre style='max-height:440px;overflow:auto'>"
+                     f"{esc(d['text'])}</pre></div>")
+        h.append(
+            "<script>function showStatus(v){"
+            "document.querySelectorAll('.statusdoc').forEach("
+            "e=>e.style.display='none');"
+            "var el=document.getElementById('statusdoc-'+v);"
+            "if(el){el.style.display='block';}"
+            "try{localStorage.setItem('statusdoc',v);}catch(e){}}"
+            "try{var sv=localStorage.getItem('statusdoc');"
+            "if(sv&&document.getElementById('statusdoc-'+sv)){"
+            "document.getElementById('statussel').value=sv;showStatus(sv);}}"
+            "catch(e){}</script>")
+
     h.append("<h2>Analysis pipeline (training done, evals/verdict pending "
              "— not finished yet)</h2>"
              "<div class='dim'>A run is only “finished” once an agent "
@@ -597,11 +660,12 @@ def render() -> str:
              "passes, videos) and written a verdict. These runs are past "
              "training but still in that stage.</div>")
     if pipeline:
-        h.append("<table><tr><th>run</th><th>state</th></tr>")
+        h.append("<table><tr><th>run</th><th>track</th><th>state</th></tr>")
         for p in pipeline:
             cls = ("ok" if p["state"].startswith(("in-cycle", "EVALUATING"))
                    else "warn")
             h.append(f"<tr class='mono'><td>{esc(p['run'])}</td>"
+                     f"<td class='dim'>{esc(p.get('track', ''))}</td>"
                      f"<td class='{cls}'>{esc(p['state'])}</td></tr>")
         h.append("</table>")
     else:
@@ -659,9 +723,11 @@ def render() -> str:
 
     h.append("<h2>Backlog queue</h2>")
     if backlog["queued"]:
-        h.append("<table><tr><th>run</th><th>steps</th><th>attempts</th></tr>")
+        h.append("<table><tr><th>run</th><th>track</th><th>steps</th>"
+                 "<th>attempts</th></tr>")
         for it in backlog["queued"]:
             h.append(f"<tr class='mono'><td>{esc(it.get('run'))}</td>"
+                     f"<td class='dim'>{esc(track_of_entry(it))}</td>"
                      f"<td>{it.get('steps')}</td>"
                      f"<td>{it.get('attempts', 0)}</td></tr>")
         h.append("</table>")
@@ -697,14 +763,9 @@ def render() -> str:
     # Research tracks (operator, 08-11): every run belongs to a track
     # (tracks.json); show it and a per-track tally so each line of
     # research reads separately.
-    try:
-        import tracks as _tr
-        track_of = lambda e: e.get("track") or _tr.infer(e.get("run", ""))  # noqa: E731
-    except Exception:
-        track_of = lambda e: e.get("track", "hw")  # noqa: E731
     tcounts: dict[str, int] = {}
     for e in f.get("ledger", []):
-        t = track_of(e)
+        t = track_of_entry(e)
         tcounts[t] = tcounts.get(t, 0) + 1
     h.append("<h2>Runs (latest ledger entry per run)</h2>")
     if tcounts:
@@ -726,7 +787,7 @@ def render() -> str:
                   else "TRAINED, EVAL PENDING")
             cls = "warn"
         h.append(f"<tr class='mono'><td>{esc(e.get('run'))}</td>"
-                 f"<td class='dim'>{esc(track_of(e))}</td>"
+                 f"<td class='dim'>{esc(track_of_entry(e))}</td>"
                  f"<td class='{cls}'>{esc(st)}</td>"
                  f"<td>{esc(e.get('pod', ''))}</td>"
                  f"<td class='dim'>{esc((e.get('created') or '')[5:16])}</td></tr>")
