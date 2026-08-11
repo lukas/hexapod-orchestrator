@@ -75,16 +75,18 @@ CLOSED moves — do not re-propose (evidence in `rl_docs/runs/`):
 
 - Anti-slip / income reward shaping against skating (10+ arms;
   root cause is contact pricing, an operator calibration).
-- Rise reward-income shaping (detect-and-discount / gate / re-route
-  the income source — 3 distinct mechanisms, 08-10): all beaten by
-  the identical flag-leg cheat, the last even from an honest warm
-  start. **08-11 correction: this "CLOSED" call plus the later
-  reference-tracking/RSI closures are CONFOUNDED, not refuted** — a
-  warp/MJX episode-pool state-loss bug (commit 65edba7) silently
-  broke score/ref income on the GPU path for all of those arms; fix
-  landed, clean re-run `cw-stand-rsi2` in flight. Do not re-close or
-  re-open the rise income question until rsi2 reports; see
-  CURRENT_TRUTHS.md + rl_docs/RISE.md for the full trail.
+- Rise reward-income shaping, reference-tracking-as-crutch, and RSI
+  (state-distribution fix) — all beaten by the identical tripod/
+  flag-leg cheat. A warp/MJX episode-pool state-loss bug (commit
+  65edba7) briefly confounded these closures (score/ref income
+  wasn't actually being paid on the GPU path for several arms); the
+  fix landed and the clean re-run (`cw-stand-rsi2`, 08-11) reports
+  the SAME cheat with mechanism health now verified clean
+  (`env/rise_rsi` held ~0.5 all 2M steps, zero corruption) — RE-
+  CLOSING all three on stronger evidence. Next lever is CODE only: a
+  structural coupling between the height goal and measured foot
+  contact (RL_PLAN queue item 2b / rl_docs/RISE.md). Do not propose
+  another reward-coefficient or RSI variant on this stack.
 - Identical-config continuations (0-for-5; auto-continue handles
   segment stitching).
 - Generic full-DR (1.0) retrains; single-axis calibration/sensor DR
@@ -235,9 +237,14 @@ Open problems, in priority order:
        collapses into a leg-sacrifice/tripod pattern in ~half of
        episodes (0/6 success both modes, video-confirmed) —
        known-exploit STOP, no dig-in. Mirror-symmetry itself is STILL
-       UNTESTED. Do NOT launch another mirror hardening arm; next
+       UNTESTED. **DR exonerated (08-11): `cw-omni-mirror2-dr02`
+       (identical spec at dr-scale 0.2 vs mirror2's 0.5) fails
+       IDENTICALLY — 3/6 det gait_valid, same leg-sacrifice pattern,
+       walking still out-earns sacrifice (646-889 vs 473-485).** Do
+       NOT launch another mirror hardening arm or DR twin; next
        move is a term-by-term WALK-kernel income re-probe (what still
-       pays for a partial leg sacrifice), not a new gate/mechanism.
+       pays for a partial leg sacrifice), not a new gate/mechanism or
+       DR level.
        Detail: `rl_docs/TURN.md`.
     2. **Rise beyond income shaping — NEW TOP CODE PRIORITY (08-10
        night, after `cw-stand-score1` made it a three-strikes close,

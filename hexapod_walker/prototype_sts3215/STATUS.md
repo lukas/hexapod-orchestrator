@@ -82,17 +82,21 @@ need a structural fix, not another price change (see below).
   built so the cheat can't collect payout for faking it
   (`cw-stand-scoreref1`, 08-11) — and it ALSO failed: same leg held
   16-19cm in the air the whole episode, 0/6 valid plant every mode.
-  **08-11 correction: that "four fixes all lost" story turned out to
-  be measuring a bug, not the robot.** The simulator's episode-reuse
-  code was silently corrupting the score-tracking state those fixes
-  depended on, so none of them were actually being paid the reward
-  they were designed to get — we were watching noise, not a real
-  test. That bug is now fixed, and a clean re-run of the reference-
-  copying idea (`cw-stand-rsi2`) is in flight. Until it reports, the
-  honest status is "still unsolved, cause unknown" rather than "four
-  dead ends" — the structural (tie-height-to-foot-contact) idea
-  remains the fallback if the clean re-run also fails.
-  `rl_docs/RISE.md`.
+  A bug was briefly suspected of causing that whole streak (the
+  simulator's episode-reuse code was silently corrupting the
+  score-tracking state those fixes depended on) — fixed, and the
+  clean re-run (`cw-stand-rsi2`, 08-11) reports: the fix worked (its
+  internal health checks are clean this time, no more corruption)
+  and it STILL learned the identical cheat — three legs planted,
+  three legs frozen 15-16cm in the air, 0/6 by our strict check.
+  So the bug was real but was never the reason stand-up fails.
+  **Every reward-design idea we had is now exhausted** (four
+  distinct mechanisms plus showing it the motion plus starting it
+  mid-motion, all beaten by the same trick). The only idea left is
+  structural: physically tie the height goal to which feet are
+  actually touching the ground, instead of paying for height and
+  hoping the feet follow — that needs new simulator code, not
+  another reward-number tweak. `rl_docs/RISE.md`.
 - **Turning on command.** Walk policies carry a structural left-yaw
   drift and ignore the yaw command channel; raising the price of
   drift failed repeatedly, and a second, better-designed reward
