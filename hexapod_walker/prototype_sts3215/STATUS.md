@@ -120,8 +120,10 @@ need a structural fix, not another price change (see below).
   42 checked videos. The catch: this same run got a little worse at
   a couple of things it wasn't specifically coached on, so it's real
   progress with a new, smaller problem to fix, not a finished skill.
-  Two follow-ups are already running: train the same idea longer,
-  and try a gentler dose of the coaching. `rl_docs/RISE.md`.
+  A quick check of a gentler dose of the same coaching made things
+  worse, not better (dose must stay at full strength); training the
+  same recipe for longer is running now to see if it consolidates.
+  `rl_docs/RISE.md`.
 - **Turning on command.** Walk policies carry a structural left-yaw
   drift and ignore the yaw command channel; raising the price of
   drift failed repeatedly, and a second, better-designed reward

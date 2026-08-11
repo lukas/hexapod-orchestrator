@@ -174,12 +174,15 @@ Open problems, in priority order:
    footprint-precision-only miss), zero flag-leg cheat in 42 video-
    checked episodes, clean one-variable causal attribution vs the
    identical-minus-anchor parent (still 0/12). Cost: weak-evidence
-   (n=2) hint of interference on raise/tipped/hold-track. Two
-   follow-ups running: `cw-stand-bc1-hard1` (10M, phase hardening)
-   and `cw-stand-bc1-coef03` (coef 0.3 dose-check, discovery).
-   Detail + numbers: **rl_docs/RISE.md**. Do not propose another
-   reward-coefficient/RSI variant; the open question is anchor
-   dose/duration, not reward shape.
+   (n=2) hint of interference on raise/tipped/hold-track. Dose-check
+   `cw-stand-bc1-coef03` (coef 0.3) **FAILED decisively** (08-11):
+   valid_plant 0/16 across every start kind, worse on every axis
+   than coef=1.0 — lowering the dose does not reduce interference,
+   it just weakens the fix. Keep `bc_anchor_coef>=1.0`; do not queue
+   another coefficient variant. `cw-stand-bc1-hard1` (10M, phase
+   hardening, running) is the live next step — consolidate at
+   coef=1.0 and see if the weak-evidence interference hints resolve
+   with budget. Detail + numbers: **rl_docs/RISE.md**.
 3. **Loaded actuator model.** FIT LANDED 08-10: opt-in
    `--cfg-set bus.servo_params=loaded` (default stays air). Detail +
    provenance + confidence table: **`rl_docs/SIM.md`**. Uncertain
