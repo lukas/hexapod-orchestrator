@@ -694,9 +694,26 @@ def render() -> str:
                  "08-31): $2/M in, $10/M out, $0.20/M cache read, $2.50/$4/M "
                  "cache write. Checked 2026-08-10.</div>")
 
-    h.append("<h2>Runs (latest ledger entry per run)</h2>"
-             "<table><tr><th>run</th><th>status</th><th>pod</th>"
-             "<th>created</th></tr>")
+    # Research tracks (operator, 08-11): every run belongs to a track
+    # (tracks.json); show it and a per-track tally so each line of
+    # research reads separately.
+    try:
+        import tracks as _tr
+        track_of = lambda e: e.get("track") or _tr.infer(e.get("run", ""))  # noqa: E731
+    except Exception:
+        track_of = lambda e: e.get("track", "hw")  # noqa: E731
+    tcounts: dict[str, int] = {}
+    for e in f.get("ledger", []):
+        t = track_of(e)
+        tcounts[t] = tcounts.get(t, 0) + 1
+    h.append("<h2>Runs (latest ledger entry per run)</h2>")
+    if tcounts:
+        h.append("<p class='dim'>by track: " + " · ".join(
+            f"{esc(t)} {n}" for t, n in sorted(tcounts.items(),
+                                               key=lambda kv: -kv[1]))
+                 + " — track goals in rl_docs/tracks/</p>")
+    h.append("<table><tr><th>run</th><th>track</th><th>status</th>"
+             "<th>pod</th><th>created</th></tr>")
     for e in f.get("ledger", []):
         st = e.get("status", "?")
         cls = {"RUNNING": "ok", "FINISHED": "dim",
@@ -709,6 +726,7 @@ def render() -> str:
                   else "TRAINED, EVAL PENDING")
             cls = "warn"
         h.append(f"<tr class='mono'><td>{esc(e.get('run'))}</td>"
+                 f"<td class='dim'>{esc(track_of(e))}</td>"
                  f"<td class='{cls}'>{esc(st)}</td>"
                  f"<td>{esc(e.get('pod', ''))}</td>"
                  f"<td class='dim'>{esc((e.get('created') or '')[5:16])}</td></tr>")

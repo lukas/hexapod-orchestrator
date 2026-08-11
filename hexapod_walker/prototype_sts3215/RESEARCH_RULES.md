@@ -31,6 +31,30 @@ hardware test? If the answer is no, do not launch it.** Idle GPUs
 are acceptable when the critical path is hardware, specification
 work, or code fixes. Do not launch experiments to fill slots.
 
+## Research tracks (operator, 08-11 — binding)
+
+The campaign runs as parallel tracks, defined in
+`rl_move/orchestrator/tracks.json` with per-track goals + status
+docs in `rl_docs/tracks/`. Every launch carries `--track` (or an
+inferable run-name prefix); the launcher tags the W&B run
+`track:<id>` and records the track in the ledger.
+
+- **hw** is the MAINLINE: the prime directive above (hardware
+  joystick KPI, by any means) is ITS directive, and it has priority
+  for pods. The other tracks (arch, nobc, quad, turn, …) are
+  parallel research lines that run on excess capacity with their own
+  goals — read the track's doc before designing for it.
+- **CONTAINMENT: triage of a run fires follow-up jobs ONLY in that
+  run's track.** The launch question is asked against the TRACK's
+  goal, not always the hardware test. A finding that matters to
+  another track is escalated, not launched: record one line in BOTH
+  tracks' docs under "Current state" plus `CROSS-TRACK INSIGHT:` in
+  your cycle logline, and let the other track's next cycle act on
+  it. Cross-track launches are operator-only.
+- A verdict that changes a track's story updates THAT track's doc
+  (`rl_docs/tracks/<TRACK>.md` "Current state"); STATUS.md stays the
+  whole-campaign digest.
+
 ## Phases and budgets (launcher-enforced: `launch_run.py --phase`)
 
 - **SPECIFICATION** — no PPO. Validate reward ordering, evaluator

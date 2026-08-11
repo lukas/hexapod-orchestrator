@@ -1,0 +1,27 @@
+{
+  "hw": {
+    "name": "Hardware joystick robot",
+    "doc": "rl_docs/tracks/HW.md",
+    "goal": "A walking, joystick-driven, standing/sitting/holding robot working ON HARDWARE by any means necessary. BC anchors, scripted blends, rot-60 wrappers, specialist checkpoints - all fair game. The KPI is unresolved blockers between the current robot and reliable joystick control, session after session."
+  },
+  "arch": {
+    "name": "Advanced architectures",
+    "doc": "rl_docs/tracks/ARCH.md",
+    "goal": "Get a more advanced model (GRU/recurrent/temporal) to walk, stand up, and sit down. Capability research: what architecture learns the full skill set, at what budget, with which failure modes."
+  },
+  "nobc": {
+    "name": "Learn without BC anchor",
+    "doc": "rl_docs/tracks/NOBC.md",
+    "goal": "Learn standing from scratch WITHOUT the help of a BC anchor - and more broadly, honest skill discovery (clean non-scraping gait included) by RL alone: structural rewards, curricula, terrain, RSI. No imitation losses of any kind."
+  },
+  "quad": {
+    "name": "Quadruped with two hands",
+    "doc": "rl_docs/tracks/QUAD.md",
+    "goal": "Learn walking on four legs with the two front legs lifted as hands/arms. Stand on four, walk on four, front pair free for tricks."
+  },
+  "turn": {
+    "name": "Commanded turning",
+    "doc": "rl_docs/tracks/TURN.md",
+    "goal": "Make commanded yaw actually work: fix the structural left-yaw drift baked into the walk gait (price tuning doubly closed; mirror-symmetry augmentation is the open lever). De-scoped from the hw deliverable (no camera = no front) but alive as its own research line."
+  }
+}

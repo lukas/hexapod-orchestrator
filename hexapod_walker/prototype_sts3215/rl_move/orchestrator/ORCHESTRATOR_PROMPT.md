@@ -16,8 +16,26 @@ four legs, walk on four). Foot slip is NOT failure by itself (the
 scripted gait that walks the real robot slips); slip metrics exist to
 keep sim honest, not as a ban. Sim metrics are means, not ends.
 
+**RESEARCH TRACKS (operator, 08-11 — read this before refilling):**
+the campaign is split into parallel tracks (`tracks.json`; per-track
+goal + status doc in `rl_docs/tracks/`): **hw** (joystick robot on
+hardware by any means — the MAINLINE, pod priority), **arch**
+(GRU/temporal models learning walk/stand/sit), **nobc** (learn
+stand + clean gait from scratch, NO BC anchor ever), **quad**
+(walk on four legs, front pair as hands), **turn** (commanded yaw /
+mirror-symmetry). Every launch/backlog/respec carries `--track`
+(respec inherits the source's). **CONTAINMENT: a triaged run's
+follow-ups go ONLY to its own track**, judged against THAT track's
+goal (read its doc first). A finding that matters elsewhere is
+ESCALATED, not launched: one line in both tracks' docs +
+`CROSS-TRACK INSIGHT:` in your logline; cross-track launches are
+operator-only. Verdicts that change a track's story update that
+track's doc "Current state".
+
 **PRIME DIRECTIVE (operator, 08-10 — supersedes GPU-occupancy
-rules):** minimize the number of unresolved blockers between the
+rules; scope: the hw track — other tracks substitute their own
+tracks.json goal for "joystick control" but keep every process
+rule):** minimize the number of unresolved blockers between the
 current robot and reliable joystick control; that count is the KPI.
 Idle pods are acceptable; peripheral experiments are not. Before
 training, prove the reward and evaluator prefer the intended behavior
@@ -127,7 +145,8 @@ prime directive and RL_PLAN "CLOSED moves".)
      properly every time, but standing up still fails"). No run-name
      jargon, no metric dump — the graphs are right there on the page.
    - RL_LOG.md gets 1 line per CYCLE (not per run), written ONLY via
-     `ops.sh logline "c<N>: <runs->verdicts>; <direction>"`. Never
+     `ops.sh logline "[<track>] c<N>: <runs->verdicts>; <direction>"`
+     — lead with the track tag(s) of the runs you triaged. Never
      `cat >>` RL_LOG.md — free-form appends tripled the file in half
      a day (operator trimmed it 08-09). Detail lives in rl_docs/runs/.
    - A PASS also updates `rl_docs/SKILLS.md` (one row: skill,
@@ -171,10 +190,15 @@ prime directive and RL_PLAN "CLOSED moves".)
 
 4. **Refill against the BLOCKER LIST, not occupancy** (prime
    directive, 08-10 — reverses the 08-09 "idle pods are the failure"
-   order). Ask first: which unresolved blocker between the robot and
-   the next hardware joystick test does this run reduce? A run that
-   serves one gets queued; an idle pod is acceptable; a peripheral
-   pair-compose queued "because capacity existed" is a violation.
+   order), **and inside the track you just triaged** (08-11
+   containment — see RESEARCH TRACKS above). Ask first: which
+   unresolved blocker between the current state and THIS TRACK's
+   tracks.json goal does this run reduce? A run that serves one gets
+   queued (with `--track`); an idle pod is acceptable; a peripheral
+   pair-compose queued "because capacity existed" is a violation, and
+   so is a refill in someone else's track. hw keeps pod priority: if
+   hw's backlog is non-empty and slots are scarce, non-hw refills
+   wait.
    **Every spec declares `--phase`** (launcher-enforced): discovery
    ≤2M steps for new mechanisms — binary question, early video;
    hardening/composition/transfer need `--evidence` naming where the

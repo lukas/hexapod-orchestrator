@@ -61,6 +61,10 @@ WORKDIR = "/workspace/prototype_sts3215"
 TRAIN_MODULE = "rl_move.sim.train_ppo_sim"      # CPU sweep pods (legacy)
 TRAIN_MODULE_GPU = "rl_move.sim.train_ppo_mjx"  # GPU-MJX pods (default)
 WANDB_PROJECT = "l2k2/hexapod-balance"
+# Research tracks (operator, 08-11): every launch belongs to one of
+# tracks.json's tracks; the run gets W&B tag `track:<id>` and the
+# ledger entry a "track" field. tracks.py is the single accessor.
+import tracks as _tracks
 
 # One 48-env run wants ~50-60 cores. Assumed footprint per already-running
 # trainer when computing free capacity, and minimum free cores required.
@@ -300,9 +304,11 @@ def _launch_locked(g: dict, a: argparse.Namespace,
     gpu_pods = comp.get("gpu_pods", [])
     gpu = comp.get("gpu", {})
     is_gpu = a.pod in gpu_pods
+    track = getattr(a, "track", "") or _tracks.infer(a.run)
     entry = {
         "run": a.run, "pod": a.pod, "steps": a.steps, "smoke": a.smoke,
         "hypothesis": a.hypothesis, "gate": a.gate, "parent": a.parent,
+        "track": track,
         "extra_args": extra, "created": now(), "status": "INTENT",
         "checks": {}, "stack": "gpu-mjx" if is_gpu else "cpu",
     }
@@ -634,6 +640,11 @@ def _launch_locked(g: dict, a: argparse.Namespace,
              f"--run-name {a.run} --steps {a.steps} "
              + " ".join(shlex.quote(t) for t in extra))
     envp = "WANDB_MODE=disabled " if a.smoke else ""
+    # Track tagging (operator, 08-11: tags, not separate projects —
+    # nothing moves). wandb.init picks WANDB_TAGS up natively; the W&B
+    # UI then filters per track on tag `track:<id>`.
+    if not a.smoke:
+        envp += f"WANDB_TAGS={shlex.quote(_tracks.tag(track))} "
     # `< /dev/null` is load-bearing: without it the nohup'd trainer inherits
     # the kubectl-exec stream and `kubectl exec` hangs until the trainer
     # exits (observed cycle 10: launch verified fine but kexec timed out at
@@ -971,6 +982,8 @@ def cmd_backlog(a: argparse.Namespace, extra: list[str]) -> int:
                       "hypothesis": a.hypothesis, "gate": a.gate,
                       "phase": getattr(a, "phase", ""),
                       "evidence": getattr(a, "evidence", ""),
+                      "track": (getattr(a, "track", "")
+                                or _tracks.infer(a.run)),
                       "extra_args": extra, "attempts": 0, "added": now()})
         _write_backlog(items)
     print(f"queued {a.run} ({len(items)} item(s) in backlog)")
@@ -1054,12 +1067,17 @@ def cmd_respec(g: dict, a: argparse.Namespace) -> int:
           f"(changed: seed={a.seed}, args={a.arg or []}, cfg={a.cfg or []}"
           f"{', init-from source ckpt' if a.init_from_source else ''})")
     steps = a.steps or entry.get("steps")
+    # Track containment (operator, 08-11): a respec inherits the source
+    # run's track unless explicitly overridden.
+    track = (getattr(a, "track", "") or entry.get("track", "")
+             or _tracks.infer(a.run))
     if not a.now:
         ns = argparse.Namespace(
             action="add", run=a.run, steps=steps,
             parent=a.parent or a.source, hypothesis=a.hypothesis,
             gate=a.gate, phase=a.phase or entry.get("phase", ""),
-            evidence=a.evidence or entry.get("evidence", ""))
+            evidence=a.evidence or entry.get("evidence", ""),
+            track=track)
         return cmd_backlog(ns, args)
 
     # --now: direct launch, skipping the backlog. snapshot -> sync ->
@@ -1090,6 +1108,7 @@ def cmd_respec(g: dict, a: argparse.Namespace) -> int:
         allow_slow=False, dry_run=False,
         phase=a.phase or entry.get("phase", ""),
         evidence=a.evidence or entry.get("evidence", ""),
+        track=track,
         operator_override=a.operator_override)
     return cmd_launch(g, ns, args)
 
@@ -1226,6 +1245,7 @@ def cmd_drain(g: dict, a: argparse.Namespace) -> int:
                "--hypothesis", it["hypothesis"], "--gate", it["gate"],
                "--phase", it.get("phase", ""),
                "--evidence", it.get("evidence", ""),
+               "--track", it.get("track", ""),
                "--", *xa]
         r = subprocess.run(cmd, capture_output=True, text=True,
                            timeout=1800)
@@ -1346,11 +1366,8 @@ def cmd_update(a: argparse.Namespace) -> int:
         try:
             import wandb
             api = wandb.Api()
-            runs = sorted(api.runs("l2k2/hexapod-balance",
-                                   filters={"display_name": a.run}),
-                          key=lambda r: r.created_at)
-            if runs:
-                r = runs[-1]
+            r = _tracks.find_wandb_run(api, a.run)
+            if r is not None:
                 marker = "--- OUTCOME"
                 base = (r.notes or "").split(marker)[0].rstrip()
                 r.notes = (f"{base}\n\n{marker} ---\n"
@@ -1398,7 +1415,7 @@ def _publish_analysis_artifact(api_run, run_name: str, entry: dict) -> None:
                 n_files += 1
     # The public API can't create-and-link artifacts on a finished run;
     # briefly resume the run so the artifact lands on ITS page/DAG.
-    w = wandb.init(entity="l2k2", project="hexapod-balance",
+    w = wandb.init(entity="l2k2", project=api_run.project,
                    id=api_run.id, resume="allow", reinit=True,
                    settings=wandb.Settings(silent=True))
     w.log_artifact(art)
@@ -1443,6 +1460,9 @@ def main() -> int:
                          "qualitatively correct behavior was already seen "
                          "(run/video) or the preflight PASS that licenses "
                          "this run")
+    bp.add_argument("--track", default="", choices=(*_tracks.ids(), ""),
+                    help="research track (tracks.json); default: inferred "
+                         "from the run-name prefix, else hw")
     rp = sub.add_parser("respec", help="queue a follow-up by cloning a "
                                        "ledger entry's args with overrides")
     rp.add_argument("--from", dest="source", required=True,
@@ -1475,6 +1495,10 @@ def main() -> int:
                     help="OPERATOR-ONLY, with --now: reason string that "
                          "bypasses LAUNCH_HOLD for this one launch "
                          "(recorded in the ledger); agents never pass this")
+    rp.add_argument("--track", default="", choices=(*_tracks.ids(), ""),
+                    help="research track; default: the SOURCE run's track "
+                         "(containment rule) — override only for an "
+                         "escalated cross-track insight")
     lp = sub.add_parser("launch")
     lp.add_argument("--pod", required=True)
     lp.add_argument("--run", required=True)
@@ -1501,6 +1525,10 @@ def main() -> int:
                     help="OPERATOR-ONLY: reason string that bypasses "
                          "LAUNCH_HOLD for this one launch (recorded in "
                          "the ledger); agents never pass this")
+    lp.add_argument("--track", default="", choices=(*_tracks.ids(), ""),
+                    help="research track (tracks.json): sets the W&B "
+                         "track:<id> tag and the status doc; default: "
+                         "inferred from the run-name prefix, else hw")
     argv = sys.argv[1:]
     extra: list[str] = []
     if "--" in argv:

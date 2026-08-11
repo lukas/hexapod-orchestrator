@@ -28,11 +28,27 @@ questions — never to infer current state. **EDIT RULE (operator,
 material goes to `rl_docs/` with a pointer here; superseded detail
 moves to `archive/` — never accumulates here.**
 
+## Research tracks (operator, 08-11 — full rules: RESEARCH_RULES.md)
+
+The campaign runs as PARALLEL TRACKS, each with its own goal, W&B tag
+(`track:<id>`), and status doc (`rl_docs/tracks/`). Registry:
+`rl_move/orchestrator/tracks.json`. **hw** = joystick robot on
+hardware by any means (MAINLINE, pod priority — this file's queue is
+mostly hw); **arch** = GRU/temporal models learning walk/stand/sit;
+**nobc** = stand + clean gait from scratch, no BC anchor ever;
+**quad** = walk on four legs, front pair as hands; **turn** =
+commanded yaw via mirror symmetry. Non-hw tracks run on excess
+capacity. **Containment: a triaged run's follow-ups stay in its
+track; cross-track findings are escalated in writing, and
+cross-track launches are operator-only.**
+
 ## Prime directive (operator, 08-10 — full text: RESEARCH_RULES.md)
 
 **Minimize the number of unresolved blockers between the current
 robot and the next useful hardware joystick test — that count is the
-campaign KPI, not GPU occupancy.** Idle pods are acceptable when the
+campaign KPI, not GPU occupancy.** (Scope 08-11: this is the hw
+track's directive; other tracks substitute their tracks.json goal.)
+Idle pods are acceptable when the
 critical path is hardware, specification work, or code fixes. Every
 spec answers the launch question first: if this run succeeds or
 fails, does it change what we do before the next hardware test?
@@ -48,8 +64,12 @@ shipped in the weights meta, contract-locked by
 `rl_move/tests/test_stand_runner.py`, sim-smoked end-to-end;
 stance_dr10 rollback = one picker call). The hold-current "gap" is
 RETRACTED (08-11 probe: pose/unit confound; SIM.md gap 2). Rise/hold/lower
-and full-circle translation are SOLVED IN SIM; commanded turning is
-DE-SCOPED (no camera = no front). **DEFERRED:** quad mode, generic
+and full-circle translation are SOLVED IN SIM. **Sanctioned compute
+experiment lines (operator 08-11 afternoon — not attempt-#2
+blockers, but wanted): turning (RE-OPENED, queue 0.2), four-leg
+walking (NEW, queue 0.3), tall/no-drag walking (queue -0.5). All
+three are diagnosis-first: audit whether the reward actually pays
+the desired behavior before launching arms.** **DEFERRED:** generic
 DR composes, posetrack, architecture curiosity work
 not tied to a demonstrated failure. **RULE:** idle GPUs are fine.
 **TEST:** the next experiment should take less than one minute to
@@ -244,14 +264,32 @@ Open problems, in priority order:
     session: measure walk distance (tape) → unlocks open problem 1.
     Audit sim wz sign vs hardware (+omega = clockwise, measured
     08-09).
--0.5 **GAIT CLEANUP — kill the paddle (operator 08-11, TOP TRAINING
-    PRIORITY; full design + rationale: `rl_docs/GAIT.md`).** The
-    walkers travel by dragging loaded feet (slip/m 1.1–1.5); on
-    hardware this scrapes and can catch. Three-tier plan:
-    (P1, LAUNCH NOW, zero code) `cw-walk-gaitbc1` — BC-anchor gait
-    cleanup: warm from `cw-dep-vref1-r1`, `train.bc_anchor_coef=1.0`
-    on walk ticks (existing TripodGait target), 2M discovery; gate =
-    slip/m <0.6 at matched travel with the joystick gate retained.
+-0.5 **GAIT CLEANUP — kill the paddle, walk TALLER (operator 08-11,
+    TOP TRAINING PRIORITY; full design + rationale: `rl_docs/GAIT.md`;
+    operator re-affirmed 08-11 afternoon: walking from a higher
+    stance and walking without dragging feet are the same problem).**
+    The walkers travel by dragging loaded feet (slip/m 1.1–1.5) at a
+    ~50–77mm crouch; on hardware this scrapes and can catch.
+    (P0, REWARD-ACCURACY DIAGNOSTIC — run BEFORE any new arm,
+    operator 08-11: "we should really think about if the reward is
+    accurate"): extend `probe_walk_income.py` to replay the
+    TAPE-PROVEN scripted gait AT PLANT HEIGHT through the exact
+    champion reward stack and compare its full return — income AND
+    penalties AND termination risk — against what the trained
+    crouch-paddle actually earns. Prime suspect (from dep-hgt1/hgt2:
+    height INCOME gating maxed out and the policy still chose the
+    crouch): the PENALTY side. The real working gait rocks ±10–20°
+    in roll/pitch; k_gyro/k_roll/k_pitch and tilt-term risk charge
+    exactly that rocking, so an honest tall stepping gait may be
+    net-mispriced vs the smooth low paddle. If the real gait earns
+    LESS → the reward is wrong: reprice (rocking within the 25°
+    envelope should cost ~0), bank it, THEN train. If it earns
+    MORE → it's a discovery problem, proceed P1→P3.
+    (P1, TRAINED 08-11, VERDICT PENDING) `cw-walk-gaitbc1` —
+    BC-anchor gait cleanup: warm from `cw-dep-vref1-r1`,
+    `train.bc_anchor_coef=1.0` on walk ticks (TripodGait target), 2M
+    discovery; gate = slip/m <0.6 at matched travel with the
+    joystick gate retained.
     (P2, CODE+bank) structural stance-slip CHARGE (foot-XY travel
     while in contact — the scrape itself) + swing-clearance term;
     bank must prove drag-gait < step-gait AND drag-gait > park.
@@ -261,25 +299,79 @@ Open problems, in priority order:
     champion-on-terrain slip probe FIRST), then drag charge annealed
     up, physics easing, RSI-for-walk. The 10+ closed anti-slip arms
     were income shaping retrofitted onto formed paddlers — the
-    closure does NOT cover P2's banked structural charge or P3's
-    task curriculum (operator ruling 08-11).
-0.  **UNIFIED JOYSTICK POLICY (top deliverable).** Stand/sit/turn/
-    walk in one checkpoint. Turning: yawcmd/yawgate1/yawgate2 all
-    FAILED (fixed left-yaw drift; price tuning CLOSED). The
-    signed-income/drift-charge/turn-curriculum mechanism set passed
-    its TURN bank but ALSO FAILED to move a real policy
-    (`cw-walk-turnfix1`, 08-10: matched-parent control statistically
-    identical to the failed parent) — reward-shape tuning on this
-    task is now doubly closed. Root-cause reading: the drift is
-    baked into the asymmetric WALK GAIT itself, not the turn
-    reward's shape/price. NEXT (the only untried lever): mirror-
-    symmetry augmentation [CODE — trainer surgery]. Design, bank
-    numbers, sign audit, failure detail: **rl_docs/TURN.md**. Measure
-    via rl_move/sim/eval_yaw.py + matched-parent control. Rise:
-    problem 2. Quad is a MAINLINE joystick command (drive_policy key
-    `4`).
+    closure does NOT cover P0's repricing (if the probe demands it),
+    P2's banked structural charge, or P3's task curriculum
+    (operator ruling 08-11).
+0.  **UNIFIED JOYSTICK POLICY (top deliverable).** Stand/sit/walk in
+    one checkpoint (turning: see 0.2). Live experiment:
+    `cw-uni-flag-a1-h2` (10M hardening) finished 08-11, verdict
+    pending — decides one-brain vs MoE. Rise: problem 2.
     Line gate: joystick-gate retention AND rise/lower ≥5/6 AND quiet
     hold AND clean video on the post-273ebde floor.
+0.2 **TURNING — RE-OPENED (operator 08-11 afternoon); steps 1–2 DONE
+    08-11, step 3 QUEUED. Full results: `rl_docs/TURN.md` (bottom
+    section).**
+    (1) REWARD AUDIT — DONE, defect FIXED + BANKED: two cfg-gated
+    fixes in walk_task.py (`reward.walk_yaw_hold_prog_gate` —
+    heading-hold yaw income gated on achieved linear progress;
+    `reward.yaw_still_avg_s` — drift charge on the wz EMA, not the
+    gait's zero-mean oscillation). Pre-fix the yaw stack paid a
+    frozen body +375/ep vs the honest gait's +224 net; post-fix
+    income is monotone in honesty (gait 935 > … > driftride 715 > …
+    > freeze 242) with a drift-rider calibrated to ACHIEVE the
+    measured 0.09 rad/s. New stillness-subsidy bank (4 tests, incl.
+    a legacy-stack reproduction and the full-summed-stack
+    drift-rider check the old bank missed) green; TURN_OVERRIDES
+    trains both fixes ON. The yawcmd1/yawgate2/turnfix1 ckpts no
+    longer exist on any pod — ckpt-level audit closed UNTESTABLE.
+    (2) REFLECTION WRAPPER — DONE, PASS: `mirror.MirrorPolicy` +
+    `probe_mirror_turn.py` on cw-dep-vref1-r1 — mirrored policy
+    drifts −0.040..−0.046 vs naked +0.037..+0.062 rad/s with
+    IDENTICAL travel at DR 0 and DR 0.35, zero falls; bang-bang
+    alternation holds heading to 2–4 deg over 12 s vs 34–50 deg
+    naked runaway. Arc-left/arc-right/straight by chirality
+    selection, zero training — but at the drift rate (~2 deg/s), so
+    commanded-rate tracking stays open. Deploy port + rot60
+    composition are follow-up [CODE]; hardware sign audit still
+    gates any bench turn.
+    (3) MIRROR-SYMMETRY TRAINING — licensed (fixes landed + banked)
+    and QUEUED: `cw-walk-mirturn1` (backlog; discovery 2M, warm from
+    vref1-r1, forward wedge + yaw set, full fixed pricing incl.
+    walk_kernel_yaw_gate which turnfix1 predates, mirror coef 1.0).
+    Judge: eval_yaw both signs + matched frozen-parent control. If
+    it fails healthy, the mirror line closes and MirrorPolicy
+    selection is the shipped turning story.
+    (4) BC-ANCHOR ON TURN TICKS: in reserve, unchanged.
+0.3 **FOUR-LEG WALKING — NEW line (operator 08-11 afternoon).** The
+    target image: the robot SHIFTS ITS WEIGHT BACK onto the four
+    rear legs and walks on them, front pair raised off the ground as
+    "hands". Never attempted; feasibility is GO (c57 sweep: 39mm
+    static margin with CoM shift + rear-leg splay), and the quad
+    HOLD mechanism is already solid (quad-hold2, dep-quad1-c2).
+    SPECIFICATION FIRST — the current reward punishes this behavior
+    by design, in two independent ways ("is the reward incentivising
+    the correct behavior" — here, provably not yet):
+    (a) the walk stack's anti-cheat machinery (park-duty charge,
+    step-event credits, flag-leg/sacrificed-leg detectors,
+    gait_valid) literally DEFINES a four-leg walk as the
+    leg-sacrifice cheat we spent weeks stamping out — every
+    accounting term must become lift-command-conditioned (commanded-
+    lifted fronts excluded from park/step/flag checks and paid via
+    quad_clear/quad_plant-style income instead);
+    (b) the rear-shifted posture fights k_pitch/k_roll and the
+    tilt-termination envelope, which are referenced to LEVEL — quad-
+    walk episodes need a commanded posture reference (the inverse of
+    the tipped-start level-reference trick) so tipping back on
+    purpose isn't charged or terminated.
+    Then the bank BEFORE any launch: honest four-leg stepping must
+    out-earn (i) ignoring the lift command and walking on six,
+    (ii) standing still on four, (iii) uncommanded leg sacrifice —
+    and the rear-shift posture must be net-non-negative under the
+    fixed pricing. Train as a SPECIALIST (warm from quad-hold2 or
+    the walk champion): four dose points prove quad/walk mixing
+    erodes walking, so no mixed-diet arms. If discovery stalls,
+    write a scripted rear-four diagonal-pair gait (TripodGait
+    variant on legs 1,2,3,4) as a BC-anchor reference.
 0.5 **TEMPORAL-ARCH** (1–2 pods; see Architecture).
 1.  Live truth for what's training/queued: `ops.sh census` +
     `launch_run.py backlog list` — never this file.
