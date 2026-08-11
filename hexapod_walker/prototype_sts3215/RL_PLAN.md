@@ -130,19 +130,22 @@ rungs until the flagship answers the real question — "can a
 history-aware policy with a correctly specified multitask MDP learn
 the joystick skill set?" — not "what is the best temporal arch?".
 
-**FLAGSHIP (UNBLOCKED 08-11: banks landed, turn de-scoped, mode
-one-hot `obs.mode_onehot=1` + `--net-arch` LANDED, test_mode_onehot
-.py; stage A queued as `cw-uni-flag-a1`): clean-sheet unified
-policy.** hist16 + EXPLICIT mode/command one-hot + 256×256 MLP, from
-scratch, on HOLD/RISE/LOWER/WALK/TURN (not quad). Staged
-curriculum, not a fixed mixture: (A) hold + plant + near-plant
-rise/lower, (B) expand rise→belly / lower→sit, (C) forward
-locomotion, (D) turns, (E) transition-heavy joystick episodes.
-Pre-registered outcomes: works → the unified model IS the
-deliverable; skills fight → MoE justified (shared hist16 encoder +
-~4 small experts); rise cheats again → the MDP is still wrong,
-architecture exonerated. This experiment — not the graft lineage —
-decides specialists vs one network.
+**FLAGSHIP (stage A TRAINED 08-11: `cw-uni-flag-a1-r1` 2M +
+`-h2` 10M hardening): clean-sheet unified policy.** hist16 +
+EXPLICIT mode/command one-hot + 256×256 MLP, from scratch, on
+HOLD/RISE/LOWER/WALK/TURN (not quad). Staged curriculum: (A) hold +
+near-plant rise/lower, (B) expand rise→belly / lower→sit, (C)
+forward locomotion, (D) turns, (E) transition-heavy episodes.
+Stage-A result: hold 6/6 + lower 12/12 at specialist grade FROM
+SCRATCH (first time), rise (all-crouch) plateaued 1/6 with flat
+factors across 10M, NO cheat (honest sprawl-stall/tip-over — the
+same crouch fragility the deployed specialist has, 0/6 RSI-off).
+None of the pre-registered outcomes fired cleanly; "skills fight →
+MoE" needs interference MEASURED, not inferred (no from-scratch
+rise-only cell ever ran). `cw-uni-flag-a1-risectl1` (2M, rise-only,
+one variable) decides the fork: beats flagship at matched
+rise-ticks → MoE; same plateau → MoE exonerated, fix rise teaching
+(state-aligned BC anchor spec / crouchrise recipe / seeding).
 
 Not defaults: velocity estimator / DreamWaQ (NOT needed for attempt
 #2; revisit only on a demonstrated hidden-state failure);
