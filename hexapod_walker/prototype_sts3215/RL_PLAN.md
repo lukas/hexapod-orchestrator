@@ -308,18 +308,17 @@ Open problems, in priority order:
        zero flag-leg/tripod cheat in 24 video-checked episodes.
        `ppo_goal_cw_stand_holdbc1_hard1` is the hardened HOLD+RISE
        checkpoint (SKILLS.md); lineage CLOSED for further hardening.
-       **Handoff composition test DONE + PASS (08-11,
-       `rl_move/sim/eval_handoff.py`):** specialist rises to its
-       settled hold, walk champion switched in on the exact final
-       state (plant-frame re-anchor, slew state carried) — 12/12
-       successful rises handed off with ZERO falls, drive metrics
-       inside the clean-plant baseline band, the scripted 1.5 s
-       blend adds nothing; holds on air AND loaded servo physics
-       (logs/ckpt_eval/handoff_holdbc1hard1_{air,loaded}.json).
-       Crouch-start rises still tip pre-handoff (0/6 RSI-off — the
-       known fragility, sharpened; flat+bridge 12/12). Next: the
-       REVERSE handoff (walk -> stop -> specialist lower/sit), same
-       script pattern. Full history: rl_docs/RISE.md.
+       **BOTH handoff composition tests DONE + PASS (08-11,
+       `eval_handoff.py` / `eval_handoff_reverse.py`): the full sim
+       joystick motion cycle composes with zero falls** — specialist
+       rise → walk champion on the exact final state (12/12, no
+       scripted blend, air AND loaded), and walk → stop → sit
+       (specialist lower on the walker's stopped state == its own
+       clean band 4/6 posture-strict, only miss a cosmetic 62–99mm
+       dangling foot; the scripted go_zero-sit glide is 6/6 both
+       physics and covers the deliverable). Crouch rises still tip
+       pre-handoff (known fragility; flat+bridge 12/12). Optional
+       unqueued polish: BC anchor on lower ticks. rl_docs/RISE.md.
     4. explicit mode/command one-hot in the obs (flagship
        prerequisite); LOWER + TURN + WALK trajectory banks for
        test_task_semantics.py (launch blockers for those modes);

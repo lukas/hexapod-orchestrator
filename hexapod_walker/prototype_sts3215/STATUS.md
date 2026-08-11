@@ -59,16 +59,20 @@ need a structural fix, not another price change (see below).
   Caveat: it's a paddling gait that slips ~1 m per meter traveled.
 - **Crouch walking** down to −70 mm body height; rough ground
   (bumps to 36 mm) doesn't perturb it.
-- **Stand up and drive** now works as a clean two-policy handoff
-  (sim-proven 08-11, `rl_move/sim/eval_handoff.py`): the new
-  stand-up specialist rises from the belly to its quiet stand, and
-  the walk champion takes over on that exact pose and just drives —
-  zero falls across every test, tracking/stability identical to
-  starting from its own ideal stance, and the old scripted 1.5 s
-  blend adds nothing (measured side by side, on both the standard
-  and the measured-loaded servo physics). The older three-piece
-  demo (key `7`, scripted blend) is superseded. What we still do
-  NOT have is one policy that does all of it.
+- **The whole motion cycle — stand up, drive, stop, sit down — now
+  composes in sim with zero falls** (08-11, `eval_handoff.py` +
+  `eval_handoff_reverse.py`). Standing up: the specialist rises from
+  the belly to its quiet stand and the walk champion takes over on
+  that exact pose and just drives — tracking/stability identical to
+  its ideal start, the old scripted 1.5 s blend adds nothing
+  (measured side by side, standard AND measured-loaded servo
+  physics; the key-`7` demo is superseded). Sitting down: after the
+  drive stops, the simple scripted glide to the resting pose (the
+  same move the real robot already uses) sits perfectly every time;
+  the specialist's learned sit also works from the walker's exact
+  stopped pose but sometimes leaves one foot dangling in the air —
+  cosmetic, so the scripted glide stays the deployed sit. What we
+  still do NOT have is one policy that does all of it.
 - **Four-leg stand** (party trick #1) holds solid — but training it
   mixed with walking erodes the walk, so it stays a deploy-time
   specialist.
@@ -174,9 +178,14 @@ need a structural fix, not another price change (see below).
   demo needed measurably adds nothing. The one remaining rough edge
   is unchanged: stand-ups that BEGIN from the half-crouched pose
   still tip over (the known old fragility; from belly-flat — the
-  realistic operator placement — it stood 6/6 in this test). Next
-  on this line: the reverse handoff (drive, stop, switch back to
-  the specialist, sit down). `rl_docs/RISE.md`.
+  realistic operator placement — it stood 6/6 in this test). The
+  reverse direction (drive, stop, sit down) is now ALSO tested and
+  passed (08-11): the specialist sits down fine from the walker's
+  exact stopped pose (its only flaw — an occasional foot left
+  dangling — is identical from its own ideal start, so the handoff
+  costs nothing), and the simple scripted sit glide is flawless
+  every time, so that stays the deployed sit. This line of work is
+  done for now. `rl_docs/RISE.md`.
 - **Turning on command.** Walk policies carry a structural left-yaw
   drift and ignore the yaw command channel; raising the price of
   drift failed repeatedly, and a second, better-designed reward
