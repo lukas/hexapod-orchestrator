@@ -59,10 +59,16 @@ need a structural fix, not another price change (see below).
   Caveat: it's a paddling gait that slips ~1 m per meter traveled.
 - **Crouch walking** down to −70 mm body height; rough ground
   (bumps to 36 mm) doesn't perturb it.
-- **Stand up and drive** works as a three-piece demo (sim-proven,
-  key `7` in `sim_viewer/sim_play.sh`): stance policy rises from the
-  belly → scripted 1.5 s blend → walk policy drives. What we do NOT
-  have is one policy that does all of it.
+- **Stand up and drive** now works as a clean two-policy handoff
+  (sim-proven 08-11, `rl_move/sim/eval_handoff.py`): the new
+  stand-up specialist rises from the belly to its quiet stand, and
+  the walk champion takes over on that exact pose and just drives —
+  zero falls across every test, tracking/stability identical to
+  starting from its own ideal stance, and the old scripted 1.5 s
+  blend adds nothing (measured side by side, on both the standard
+  and the measured-loaded servo physics). The older three-piece
+  demo (key `7`, scripted blend) is superseded. What we still do
+  NOT have is one policy that does all of it.
 - **Four-leg stand** (party trick #1) holds solid — but training it
   mixed with walking erodes the walk, so it stays a deploy-time
   specialist.
@@ -159,10 +165,18 @@ need a structural fix, not another price change (see below).
   episodes), and the rare crouch-start tip-over got slightly better,
   not worse (about half those attempts now succeed cleanly, up from
   a third). Standing and holding still are both done as their own
-  skill; next is testing whether this specialist can hand off
-  cleanly into the walking champion (stand up, then start walking)
-  — that needs a small new piece of code first, not yet built.
-  `rl_docs/RISE.md`.
+  skill, and the handoff test is now DONE and PASSED (08-11): a new
+  eval script stands the specialist up from the belly, switches
+  control to the walking champion on the specialist's exact final
+  pose, and the champion walks away without a stumble — every
+  successful stand handed off with zero falls, driving as steadily
+  as from its own ideal start, and the scripted blend step the old
+  demo needed measurably adds nothing. The one remaining rough edge
+  is unchanged: stand-ups that BEGIN from the half-crouched pose
+  still tip over (the known old fragility; from belly-flat — the
+  realistic operator placement — it stood 6/6 in this test). Next
+  on this line: the reverse handoff (drive, stop, switch back to
+  the specialist, sit down). `rl_docs/RISE.md`.
 - **Turning on command.** Walk policies carry a structural left-yaw
   drift and ignore the yaw command channel; raising the price of
   drift failed repeatedly, and a second, better-designed reward

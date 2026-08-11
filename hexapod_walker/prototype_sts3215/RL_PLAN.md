@@ -308,12 +308,18 @@ Open problems, in priority order:
        zero flag-leg/tripod cheat in 24 video-checked episodes.
        `ppo_goal_cw_stand_holdbc1_hard1` is the hardened HOLD+RISE
        checkpoint (SKILLS.md); lineage CLOSED for further hardening.
-       Next: the rise+hold -> walk-champion handoff composition
-       test -- needs a small new eval/handoff script first (CODE,
-       not yet built): run the specialist to a settled hold, switch
-       control to the walk champion, check it doesn't stumble on the
-       specialist's exact final pose. Full history (pricing bank,
-       both failed levers, code change): rl_docs/RISE.md.
+       **Handoff composition test DONE + PASS (08-11,
+       `rl_move/sim/eval_handoff.py`):** specialist rises to its
+       settled hold, walk champion switched in on the exact final
+       state (plant-frame re-anchor, slew state carried) — 12/12
+       successful rises handed off with ZERO falls, drive metrics
+       inside the clean-plant baseline band, the scripted 1.5 s
+       blend adds nothing; holds on air AND loaded servo physics
+       (logs/ckpt_eval/handoff_holdbc1hard1_{air,loaded}.json).
+       Crouch-start rises still tip pre-handoff (0/6 RSI-off — the
+       known fragility, sharpened; flat+bridge 12/12). Next: the
+       REVERSE handoff (walk -> stop -> specialist lower/sit), same
+       script pattern. Full history: rl_docs/RISE.md.
     4. explicit mode/command one-hot in the obs (flagship
        prerequisite); LOWER + TURN + WALK trajectory banks for
        test_task_semantics.py (launch blockers for those modes);
