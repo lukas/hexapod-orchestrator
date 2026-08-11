@@ -177,19 +177,20 @@ Open problems, in priority order:
    `cw-stand-bc1-coef03` (coef 0.3) **FAILED decisively** (08-11):
    valid_plant 0/16 across every start kind, worse on every axis
    than coef=1.0 — keep `bc_anchor_coef>=1.0`, no more coefficient
-   variants. `cw-stand-bc1-hard1` (10M, phase hardening) **PASSES on
-   rise** (valid_plant 5/6 det, 83%, up from 50% — the fix
-   consolidates with budget) **but surfaces a real, pre-existing
-   hold/track cost that WORSENS with more steps**: per-episode
-   duty_cycle/swing_count data (missed by video-only checks at first)
-   show hold/track legs cycling continuously rather than holding
-   still — 12-50mm foot elevation at 2M, 100-161mm at 10M. This
-   predates the anchor (an existing hold/track stillness-pricing
-   gap) and is amplified by more training, not fixed by it. Ruling:
-   do NOT keep hardening this lineage hoping it self-heals; next is
-   a SPECIFICATION pass on hold/track's stillness pricing (its own
-   HOLD-mode semantics bank entry) before any more steps. Detail +
-   numbers: **rl_docs/RISE.md**.
+   variants. `cw-stand-bc1-hard1` (10M, hardening) **PASSES on rise
+   and is the RISE SPECIALIST champion**
+   (`ppo_goal_cw_stand_bc1_hard1`): RSI-off probe 12/12 valid_plant
+   incl. flat 4/4 (bc1's footprint miss resolved by budget), gate
+   det 5/6, feet factor stable all 10M — no re-drift. Dig-in
+   matched-parent control (same probe on bc1@2M) refutes the
+   "hardening regression" scare: hold/track/raise/lower were ALREADY
+   0/12 at 2M (lower flag-leg 166→189mm; raise has p_raise=0 here —
+   untrainable). But hold/track splay WORSENS with steps (feet
+   51→162mm, 2.6A over-current) — a pre-existing stillness-pricing
+   gap amplified, not fixed, by training. Lineage CLOSED for
+   hardening; next: hold/track stillness SPECIFICATION (queue 2.3),
+   then learned-rise → walk/hold champion handoff composition.
+   Detail + numbers: **rl_docs/RISE.md**.
 3. **Loaded actuator model.** FIT LANDED 08-10: opt-in
    `--cfg-set bus.servo_params=loaded` (default stays air). Detail +
    provenance + confidence table: **`rl_docs/SIM.md`**. Uncertain

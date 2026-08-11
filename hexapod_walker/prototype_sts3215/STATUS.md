@@ -115,15 +115,17 @@ need a structural fix, not another price change (see below).
   from a half-curled start it stands correctly most tries, and from
   lying completely flat on its belly (the hardest, most realistic
   starting position) it reaches a real six-legged stand every single
-  time — though its feet land slightly off the ideal walking spot,
-  so it's not "walk-ready" yet. Zero fake one-leg-up stands seen in
-  42 checked videos. The catch: this same run got a little worse at
-  a couple of things it wasn't specifically coached on, so it's real
-  progress with a new, smaller problem to fix, not a finished skill.
-  A quick check of a gentler dose of the same coaching made things
-  worse, not better (dose must stay at full strength). Training the
-  same recipe for longer made the honest stand even more reliable
-  (83% vs 50% on the strict check) — but digging into the per-step
+  time. Zero fake one-leg-up stands seen in
+  42 checked videos. A quick check of a gentler dose of the same
+  coaching made things worse, not better (dose must stay at full
+  strength). Training the same recipe for longer made the honest
+  stand even more reliable (strict check: 12/12 across every
+  starting pose, and the flat-start "feet slightly off the walking
+  spot" gap fixed itself with the extra budget) — the long run is
+  now kept as the official STAND-UP SPECIALIST checkpoint. A
+  careful side-by-side re-test of the shorter run under identical
+  conditions confirmed the longer training broke nothing that
+  previously worked. But digging into the per-step
   data (not just watching video snapshots, which missed this) found
   that "holding still" was never actually still: the robot quietly
   shuffles its legs the whole time instead of standing motionless,
