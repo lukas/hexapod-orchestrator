@@ -165,20 +165,21 @@ Open problems, in priority order:
    traces; k_current=0 on hardware arms until then.
 2. **Rise/lower inside the walking policy.** Full plan + evidence
    trail: **rl_docs/RISE.md**. Lower is solved warm (rfix-warm1 6/6
-   posture-strict; keep fine-tune grafting, distill refuted); rise is
-   unsolved — THREE distinct reward-income mechanisms
-   (`cw-stand-b2p1` detect-and-discount, `cw-stand-plantgate1`
-   multiplicative PLANT_SPEC gate, `cw-stand-score1` income-source
-   re-routing — 08-10, the last warm-started from the HONEST stance
-   champion) all lost to the SAME flag-leg cheat, 0/12 valid_plant
-   every time — KNOWN exploit, one-line stop, no dig-in. Ruling:
-   reward-income shaping alone is now CLOSED for rise (three-strikes).
-   Next lever is outside pure income shape: reopen reference/
-   trajectory tracking during the ramp, or couple the height
-   reference itself to measured foot contact. The rise bank in
-   `test_task_semantics.py` is the binding preflight; new mechanisms
-   go through DISCOVERY first. Big consolidation waits for the
-   loaded-actuator model.
+   posture-strict; keep fine-tune grafting, distill refuted). Rise:
+   six straight reward-income/RSI mechanisms lost to the identical
+   flag-leg cheat (CLOSED, see CLOSED moves) — **08-11: the seventh
+   lever, a BC anchor OUTSIDE the reward (`cw-stand-bc1`), PASSES**
+   (partial): harness-verified honest six-foot plants (bridge 7/12,
+   crouch 6/8 valid_plant; flat cold-start 10/10 correct stand,
+   footprint-precision-only miss), zero flag-leg cheat in 42 video-
+   checked episodes, clean one-variable causal attribution vs the
+   identical-minus-anchor parent (still 0/12). Cost: weak-evidence
+   (n=2) hint of interference on raise/tipped/hold-track. Two
+   follow-ups running: `cw-stand-bc1-hard1` (10M, phase hardening)
+   and `cw-stand-bc1-coef03` (coef 0.3 dose-check, discovery).
+   Detail + numbers: **rl_docs/RISE.md**. Do not propose another
+   reward-coefficient/RSI variant; the open question is anchor
+   dose/duration, not reward shape.
 3. **Loaded actuator model.** FIT LANDED 08-10: opt-in
    `--cfg-set bus.servo_params=loaded` (default stays air). Detail +
    provenance + confidence table: **`rl_docs/SIM.md`**. Uncertain
@@ -253,26 +254,26 @@ Open problems, in priority order:
        pays for a partial leg sacrifice), not a new gate/mechanism or
        DR level.
        Detail: `rl_docs/TURN.md`.
-    2. **Rise beyond income shaping — TOP CODE PRIORITY, diagnosis
-       sharpened 08-11.** Six reward-side arms (score1/scoreref1/
-       plantgate1/rsi1/rsi2/rsi3) all collapse to the identical
-       feet-factor curve (0.87→~0.17 by the 25% mark) regardless of
-       which reward mechanism or penalty is present — behavior that
-       doesn't respond to reward changes is not reward-driven. Read:
-       **warm-start out-of-distribution drift** (the 108–114mm
-       command band is ~2.2x the stance champion's trained range; the
-       6° tracking kernel only pays a policy that's already nearly
-       perfect there, so early update noise drifts it into the
-       tripod and nothing anchors it back). Widening the kernel is
-       bank-blocked (sigma 10°: flag-leg farms 17% of replay, over
-       the 10% ceiling; 15° fails 3 bank tests). Lever (a) **BC
-       anchor in the TRAINER** LANDED 08-11 (spec pass green:
-       `rl_move/sim/bc_anchor.py`, 10/10 tests, bank unaffected,
-       MJX smoke engages — detail rl_docs/RISE.md); first arm
-       `cw-stand-bc1` (rsi3 stack + coef 1.0, ONE change, discovery
-       2M) decides it. Lever (b) structural height↔foot-contact
-       coupling stays next if the anchor fails. Do NOT queue another
-       reward-coefficient/RSI/income variant on this stack.
+    2. **Rise beyond income shaping — RESOLVED to a validated
+       mechanism 08-11, now a dose/duration question.** Six
+       reward-side arms collapsed to the identical feet-factor curve
+       regardless of mechanism (diagnosed as warm-start OOD drift,
+       not reward-driven). Lever (a), a **BC anchor in the TRAINER**
+       (`rl_move/sim/bc_anchor.py`), landed and its first arm
+       **`cw-stand-bc1` PASSES (partial, 08-11)**: harness-verified
+       honest six-foot plants (bridge 7/12, crouch 6/8 valid_plant;
+       flat cold-start 10/10 correct stand, footprint-only miss),
+       zero flag-leg cheat in 42 video-checked episodes, clean
+       one-variable attribution vs the identical-minus-anchor parent
+       (still 0/12). Weak-evidence (n=2) hint of raise/tipped/
+       hold-track interference. Two follow-ups running (08-11):
+       `cw-stand-bc1-hard1` (10M, phase hardening — does the plant
+       consolidate and interference fade with budget?) and
+       `cw-stand-bc1-coef03` (coef 0.3 — does a gentler dose keep the
+       fix with less interference?). Do NOT queue another
+       reward-coefficient/RSI/income variant; lever (b) (structural
+       height↔foot-contact coupling) is now DEPRIORITIZED unless both
+       follow-ups fail. Detail: rl_docs/RISE.md.
     3. explicit mode/command one-hot in the obs (flagship
        prerequisite); LOWER + TURN + WALK trajectory banks for
        test_task_semantics.py (launch blockers for those modes);

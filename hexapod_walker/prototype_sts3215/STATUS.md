@@ -18,15 +18,17 @@ list is the most valuable section.
 The real robot walks — under a scripted gait, not a learned one yet.
 In simulation we have a hardened, seed-confirmed joystick-driving
 policy stack and a validated hardware-deployment candidate staged on
-the Mac, waiting on bench time (and one servo-zero repair). The two
-big unsolved skills are standing up inside the walking policy (every
-attempt so far games the height reward) and obeying turn commands
-(policies drift left and ignore the yaw channel). Both got new
-machinery this cycle (a geometric standing-plant check, new turn
-pricing) that passed the offline semantics checks — and both were
-then actually trained and BOTH FAILED: the standing check didn't stop
-the same one-leg-up cheat, and the new turn reward changed nothing
-measurable versus the already-failed policy it was compared against.
+the Mac, waiting on bench time (and one servo-zero repair). Standing
+up honestly (not faking it) just had its first real breakthrough
+(08-11, `cw-stand-bc1` — see below) after six straight reward-tuning
+failures; obeying turn commands is still unsolved (policies drift
+left and ignore the yaw channel). Turning got new machinery this
+cycle (mirror-symmetry training, new turn pricing) that passed the
+offline semantics checks — and it was then actually trained and
+FAILED: the new turn reward changed nothing measurable versus the
+already-failed policy it was compared against. Standing, by
+contrast, needed a different kind of fix (coaching the actions
+directly instead of tuning the reward) and that fix worked.
 Tuning the reward numbers for either skill is now a dead end; both
 need a structural fix, not another price change (see below).
 
@@ -106,13 +108,20 @@ need a structural fix, not another price change (see below).
   trainer itself — at every step of a stand-up episode the policy's
   action is pulled toward what the recorded good stand-up did next,
   a supervision signal the cheat cannot farm because it isn't reward.
-  It passed its full offline check suite (the anchor provably steers
-  toward the path, the reward checks are untouched) and the first
-  2M-step trial (`cw-stand-bc1`) is running; the decisive early
-  signal is whether the feet-on-ground measure stops collapsing at
-  the ~25% mark where all six previous attempts died. If it fails
-  too, the fallback is physically tying the height goal to which
-  feet are actually touching the ground. `rl_docs/RISE.md`.
+  **It worked (08-11).** The first trial (`cw-stand-bc1`) is the
+  first arm in seven straight attempts where the robot genuinely
+  stands up on real video, checked with a strict feet-on-the-ground
+  geometry test (not just the height number the old cheats gamed):
+  from a half-curled start it stands correctly most tries, and from
+  lying completely flat on its belly (the hardest, most realistic
+  starting position) it reaches a real six-legged stand every single
+  time — though its feet land slightly off the ideal walking spot,
+  so it's not "walk-ready" yet. Zero fake one-leg-up stands seen in
+  42 checked videos. The catch: this same run got a little worse at
+  a couple of things it wasn't specifically coached on, so it's real
+  progress with a new, smaller problem to fix, not a finished skill.
+  Two follow-ups are already running: train the same idea longer,
+  and try a gentler dose of the coaching. `rl_docs/RISE.md`.
 - **Turning on command.** Walk policies carry a structural left-yaw
   drift and ignore the yaw command channel; raising the price of
   drift failed repeatedly, and a second, better-designed reward
@@ -209,15 +218,16 @@ need a structural fix, not another price change (see below).
 
 1. Hardware attempt #2 with the staged `cw-dep-vref1-r1` checkpoint
    (joystick walk on the bench, fresh `set_zero` first).
-2. Reward tuning for both turning and standing (three rise
-   mechanisms tried) is closed by trained evidence, not just
-   prediction. Turning's structural next move (mirror-symmetry
-   augmentation) is landed but its 40M-step hardening run
-   (`cw-omni-mirror1-r1`) failed to a walk-mode parking reward bug
-   before it could test the hypothesis (FAIL, 08-11) — fix the
-   parking loophole + bank a stall check, then re-run. Rise's next
-   move (reference tracking or foot-contact-coupled height) is still
-   a SPECIFICATION step — no code landed yet.
+2. Reward tuning for standing is closed by trained evidence (six
+   mechanisms tried, all cheated); the fix that worked instead
+   coaches the policy's actions directly (`cw-stand-bc1`, 08-11) —
+   two follow-ups running to see if it holds up over more training
+   and whether a gentler dose removes its small side-effects. Reward
+   tuning for turning is also closed; its structural next move
+   (mirror-symmetry augmentation) is landed but every hardening
+   attempt has collapsed into a different gait pathology before
+   testing the real hypothesis — turning is de-scoped from the
+   joystick deliverable for now (no camera, no "front" to need).
 3. Sim effort-pricing fix (holding-current model) so effort-shaped
    arms become trustworthy.
 Queue and blockers: `RL_PLAN.md`.
