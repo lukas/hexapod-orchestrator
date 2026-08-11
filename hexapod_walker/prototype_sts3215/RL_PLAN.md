@@ -56,15 +56,17 @@ fails, does it change what we do before the next hardware test?
 ## Critical path (simplification review §11, 08-10)
 
 **CURRENT GOAL:** joystick-controlled real robot. **BLOCKERS (as of
-08-11 late):** hardware attempt #2 (operator bench — now covers walk,
-rot60 off-wedge headings, AND the learned stand-up: the rise+hold
-specialist port LANDED 08-11, the runner's stance slot runs
-`ppo_goal_cw_stand_holdbc1_hard1` with its trained goal profile
-shipped in the weights meta, contract-locked by
-`rl_move/tests/test_stand_runner.py`, sim-smoked end-to-end;
-stance_dr10 rollback = one picker call). The hold-current "gap" is
-RETRACTED (08-11 probe: pose/unit confound; SIM.md gap 2). Rise/hold/lower
-and full-circle translation are SOLVED IN SIM. **Sanctioned compute
+08-11 late):** the intermittent RUNAWAY ROLL on real ground (RL walk
+attempts 08-10: vref1-r1 2/2 runaway, tip1 1 runaway / 3 clean —
+queue item -1 has the full state; the discriminating A/B + the sim
+contact/pinning question are the open work), plus the FIRST bench
+runs of the newly landed pieces: rot60 off-wedge headings and the
+learned stand-up (rise+hold specialist port LANDED 08-11, trained
+goal profile shipped in the weights meta, contract-locked by
+`rl_move/tests/test_stand_runner.py` — needs a deploy re-push
+first; stance_dr10 rollback = one picker call). The hold-current
+"gap" is RETRACTED (08-11 probe: pose/unit confound; SIM.md gap 2).
+Rise/hold/lower and full-circle translation are SOLVED IN SIM. **Sanctioned compute
 experiment lines (operator 08-11 afternoon — not attempt-#2
 blockers, but wanted): turning (RE-OPENED, queue 0.2), four-leg
 walking (NEW, queue 0.3), tall/no-drag walking (queue -0.5). All
@@ -78,11 +80,14 @@ hardware test.
 
 ## Where we are (08-11 — live facts in CURRENT_TRUTHS.md)
 
-The real robot walks under a scripted gait — the bar learned policies
-must beat. In sim the full joystick cycle now composes with zero
-falls (rise → drive any direction via rot60 → stop → sit); turning
-is de-scoped. Everything left on the critical path is bench work
-(attempt #2: walk + off-wedge headings + learned stand, all staged).
+The real robot walks under a scripted gait (tape-measured), and a
+learned policy has now driven it too: `dep-tip1` walked level 3 of 4
+bench runs 08-10 (vref1-r1 went 0/2 with runaway roll — see queue
+-1). In sim the full joystick cycle composes with zero falls (rise →
+drive any direction via rot60 → stop → sit); turning is de-scoped.
+The critical path is the runaway-roll question (bench A/B + possibly
+a sim contact fix) and first bench runs of rot60 + the learned
+stand-up.
 
 ## Standing rules → `RESEARCH_RULES.md` (binding; moved 08-10)
 
@@ -279,15 +284,25 @@ Open problems, in priority order:
 ## Queue
 
 -1. **HARDWARE (operator bench — the true critical path).**
-    Attempt #2 with `cw-dep-vref1-r1`: fresh set_zero at a known
-    visual pose first (a stale/slumped logical stance felled
-    a sound scripted gait); deploy tilt trip must match training (25°
-    angle + a rate term that trips only when rate is large AND
-    carrying the body away from level — never bare gyro magnitude);
-    fresh set_zero → plant start; k_current=0. During a scripted-gait
-    session: measure walk distance (tape) → unlocks open problem 1.
-    Audit sim wz sign vs hardware (+omega = clockwise, measured
-    08-09).
+    **Attempt #2 HAPPENED (08-10 eve/night — stop calling it
+    pending; full findings rl_docs/HARDWARE.md).** `cw-dep-vref1-r1`
+    ran twice: runaway roll both times (opposite signs →
+    environmental seed; pinned-loaded-leg positive feedback, no
+    trained recovery). Its tipped-start retrain `cw-dep-tip1` then
+    ran 4x: 1 runaway / **3 CLEAN level walks** — a learned policy
+    HAS driven this robot. Obs pipeline proven bit-exact (offline
+    replay err 0.0014); sag is the commanded trained posture;
+    scraping is the known low-clearance shuffle (→ GAIT queue -0.5).
+    Scripted-gait tape: ~50% of commanded (done). STILL OPEN on the
+    bench: (a) the vref1-r1 vs tip1 A/B on the same floor (the 08-10
+    attempt never actually switched policies — compare roll-ramp
+    RATE / runaways per N, not one run); (b) tape reading on an RL
+    walk; (c) FIRST hardware runs of the newly-landed rot60 port and
+    the stand specialist (re-push via deploy_adb.sh first — the
+    on-robot stand copy lacks the goal profile, do NOT press STAND
+    stale); (d) wz sign audit. If the runaway recurs on tip1 too,
+    the fix is a sim contact/pinning model (no-skate feet), not
+    more DR.
 -0.5 **GAIT CLEANUP — kill the paddle, walk TALLER (operator 08-11,
     TOP TRAINING PRIORITY; full design + rationale: `rl_docs/GAIT.md`;
     operator re-affirmed 08-11 afternoon: walking from a higher

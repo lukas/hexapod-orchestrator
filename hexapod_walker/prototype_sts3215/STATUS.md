@@ -30,11 +30,21 @@ working" list is the most valuable section.
 
 ## The one-paragraph answer
 
-The real robot walks — under a scripted gait, not a learned one yet.
-In simulation, the whole joystick motion cycle now works end to end
-with zero falls: a learned stand-up from the belly, a genuinely
-motionless hold, driving in ANY direction, stop, and sit — and all of
-it is staged on the robot, waiting only on bench time (attempt #2).
+The real robot walks — under the scripted gait (tape-measured), AND
+a learned policy has now driven it: on 08-10 night `dep-tip1` walked
+level on real ground in 3 of 4 runs. The deployment-contract
+champion `vref1-r1` itself went 0-for-2 with an intermittent runaway
+roll (a pinned loaded leg feeds a lean that the policy never
+recovers — a sim-to-real contact gap, since sim recovery can exploit
+feet that skate). That runaway is THE open hardware question: the
+discriminating vref1-vs-tip1 A/B on the same floor never actually
+ran (the policy switch didn't land on the robot). In simulation, the
+whole joystick motion cycle works end to end with zero falls: a
+learned stand-up from the belly, a genuinely motionless hold,
+driving in ANY direction, stop, and sit — the rot60 wrapper and the
+stand-up specialist are ported but have NOT had their first hardware
+runs yet (re-push required first: the on-robot stand copy lacks its
+goal profile).
 The two breakthroughs that got us here (both 08-11): first,
 **BC-anchoring** — instead of tuning reward prices yet again, we pull
 the policy's actions directly toward a recorded good motion during
@@ -78,14 +88,22 @@ double capacity) — running now.
   pose: walking 0.33–0.45 A, scripted stand 0.54–0.59 A, walk-stance
   hold ~0.11 A. ("Standing costs more than walking" was really
   "fighting your own command costs more than walking.")
-- A learned policy has NOT yet driven the robot. Everything below is
-  simulation until attempt #2 happens on the bench.
+- **Walk under a LEARNED policy — sometimes.** `dep-tip1` (tipped-
+  start retrain of the champion): 3 clean level walks / 1 runaway
+  roll on 08-10 night; obs pipeline verified bit-exact against sim.
+  The champion `vref1-r1` went 0/2 with runaway roll. The visible
+  "sag" is the trained walking posture (commanded, not servo slip)
+  and the scraping is the known low-clearance shuffle — the gait
+  cleanup line exists exactly because of this.
+- Not yet tried on hardware: the rot60 any-direction wrapper and the
+  learned stand-up specialist (both ported 08-11, need a deploy
+  re-push; do not press STAND on the stale on-robot copy).
 
 ## The best checkpoints, per skill
 
 | Skill | Best run / checkpoint | Where it stands |
 |---|---|---|
-| **Walking with the joystick (hardware candidate)** | `cw-dep-vref1-r1` → `ppo_goal_cw_dep_vref1_r1` (md5 f9a466cf) | THE attempt-#2 checkpoint: trained under the exact deployment contract (honest velocity obs, 25° tilt), protected against ~20 hardware-imperfection axes, staged on the robot. |
+| **Walking with the joystick (hardware candidate)** | `cw-dep-tip1` (active walk slot) over `cw-dep-vref1-r1` (md5 f9a466cf) | tip1 = vref1-r1 + tipped-start DR: 3/4 clean level walks on real ground 08-10 vs the parent's 0/2 runaway roll. Both contract-exact, both on the robot picker. Open: the same-floor A/B (roll-ramp rate, runaways per N runs) and an RL-walk tape reading. |
 | **…in any direction (full circle)** | same checkpoint + the `rot60` wrapper | Zero-training math fix; default-ON in the robot runner; backward went from frozen (3 cm of a commanded 30) to tracking as well as forward. Bench validation pending. |
 | **Best pure-sim driving envelope** | `cw-walk-joyheadfric` (and its payload variant) | ±90° steering + latency + floor-grip + payload, 3-seed confirmed, joystick gate zero falls. Superseded for hardware by vref1-r1 (deployment contract), but it's the widest proven driving recipe. |
 | **Standing up AND holding still** | `cw-stand-holdbc1-hard1` → `ppo_goal_cw_stand_holdbc1_hard1` | The deployed stance policy (robot's stand button), with its trained goal ramp shipped inside the weights. Hold 11/12 strict-valid, motionless on video; rise from flat belly reliable. |
@@ -352,11 +370,16 @@ honest-but-unfinished stand-ups — no cheating, no skill fighting).
 
 ## What happens next
 
-1. **Bench attempt #2** (operator — the entire critical path):
-   joystick walk with `cw-dep-vref1-r1`, off-wedge headings through
-   the rot60 wrapper, and the learned stand-up — fresh `set_zero`
-   first, and re-push the profile-carrying stand export before
-   pressing STAND.
+1. **Next bench session** (operator — the critical path; RL walks
+   already happened 08-10, see "REAL hardware" above): (a) the
+   vref1-r1 vs tip1 A/B on the same floor — compare roll-ramp RATE
+   and runaways over several runs, and make sure the policy switch
+   actually lands this time; (b) tape-measure an RL walk; (c) first
+   hardware runs of the rot60 off-wedge headings and the learned
+   stand-up — deploy re-push FIRST (the on-robot stand copy lacks
+   its goal profile), fresh `set_zero` always; (d) wz sign audit.
+   If tip1 also runs away on this floor, the fix moves to sim: a
+   contact/pinning model (no-skate feet), not more DR.
 2. **Yesterday's three pending results are all read out** — flagship
    fork CLOSED (MoE refuted by the rise-only control), `gaitbc1`
    FAILED (anchor froze the gait), `crouchrise2` FAILED-mixed (crouch
