@@ -26,7 +26,11 @@ failures, and the same trick just fixed standing STILL too (08-11,
 "holding" a stand); that learned stand-up is now LOADED ON THE ROBOT
 RUNNER's stand button (08-11 late — with the exact ramp it trained
 with, the old stance policy one rollback click away), so the next
-bench session can try stand → walk → sit end-to-end; walking in ANY commanded direction — the last
+bench session can try stand → walk → sit end-to-end; the last
+stand-up weak spot — tipping over when starting from a half-crouch —
+also fell (08-11: training with mostly-crouch practice starts fixed
+it completely, 16/16 vs 0/8 before; that variant is banked, not
+deployed, because it grips slightly too hard while holding still); walking in ANY commanded direction — the last
 unsolved piece of "walk where the joystick points", 0-for-4 across
 training attempts — fell the same day WITHOUT training: the robot is
 a perfect hexagon, so backward is just forward with the legs
