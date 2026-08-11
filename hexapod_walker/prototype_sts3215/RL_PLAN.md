@@ -249,22 +249,29 @@ Open problems, in priority order:
 1.  Live truth for what's training/queued: `ops.sh census` +
     `launch_run.py backlog list` — never this file.
 2.  [CODE] backlog, in priority order:
-    1. **Mirror-symmetry re-hardening — gate fix CONFIRMED but a NEW
-       gait pathology blocks the test (`cw-omni-mirror2` FAILED
-       08-11).** The r1 freeze exploit is gone (walking now out-earns
-       the sacrifice pattern, 526-922 vs 399-425) but the gait still
-       collapses into a leg-sacrifice/tripod pattern in ~half of
-       episodes (0/6 success both modes, video-confirmed) —
-       known-exploit STOP, no dig-in. Mirror-symmetry itself is STILL
-       UNTESTED. **DR exonerated (08-11): `cw-omni-mirror2-dr02`
-       (identical spec at dr-scale 0.2 vs mirror2's 0.5) fails
-       IDENTICALLY — 3/6 det gait_valid, same leg-sacrifice pattern,
-       walking still out-earns sacrifice (646-889 vs 473-485).** Do
-       NOT launch another mirror hardening arm or DR twin; next
-       move is a term-by-term WALK-kernel income re-probe (what still
-       pays for a partial leg sacrifice), not a new gate/mechanism or
-       DR level.
-       Detail: `rl_docs/TURN.md`.
+    1. **Omni translation — income re-probe DONE 08-11
+       (`probe_walk_income.py`): pricing EXONERATED on the
+       deliverable (trans1) stack.** Term-by-term decomposition of
+       all three degenerate fingerprints + the actual collapsed
+       checkpoints, 4 directions x DR 0/0.5: honest gait out-earns
+       every degenerate 2-4x uniformly, and the collapsed
+       trans1/mirror2 checkpoints earn BELOW A FREEZE under their own
+       reward — the attractors are optimization failures (no gradient
+       says which way a churning leg should move), not paid basins.
+       Reward surgery CLOSED on this stack. Latent defect found in
+       the DE-SCOPED turn stack only (ungated yaw kernel pays a
+       motionless body full income on linear ticks + k_yaw_still
+       taxes the honest gait's wz wobble ~-100/ep net) — fix before
+       any turn re-scope, not now. NEXT (landed 08-11): third
+       application of the proven BC anchor — walk ticks emit the
+       command-conditioned scripted TripodGait (the gait that
+       walks/crabs/turns the REAL robot) as a supervised action
+       target; stop ticks unsupervised. Discovery arm
+       `cw-omni-transbc1` (trans1 config + train.bc_anchor_coef=1.0,
+       one variable). Reserve if it fails: rot-60 equivariance
+       (trans1's pre-registered alternate). Mirror-symmetry remains
+       untested (coef 1.0 was on during the trans1 collapse and did
+       not prevent it). Detail: `rl_docs/TURN.md`.
     2. **Rise beyond income shaping — RESOLVED to a validated
        mechanism 08-11 (BC anchor, lever (a)); the follow-up
        revealed a SEPARATE, pre-existing hold/track pricing gap.**

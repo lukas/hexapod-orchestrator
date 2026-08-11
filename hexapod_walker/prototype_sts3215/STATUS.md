@@ -227,7 +227,24 @@ need a structural fix, not another price change (see below).
   body barely traveling), a third distinct collapse pattern. Turning
   itself has been DE-SCOPED from the joystick deliverable (no camera
   = no reason to need a "front"), so this line now serves only the
-  any-direction-walking goal.
+  any-direction-walking goal. **08-11 update: the "what still pays
+  for it" question is now ANSWERED — nothing does.** A term-by-term
+  income audit of the actual failed policies (`probe_walk_income`)
+  shows honest walking out-earns every one of the three bad habits
+  2-4x in every direction, at zero AND full physics randomization —
+  the collapsed policies actually earn LESS than doing nothing at
+  all. So the reward is fine; the trainer just never finds the
+  stepping pattern for new directions (no reward stream tells a
+  churning leg which WAY to move — the same lesson as standing up
+  and holding still). The fix that already worked twice for exactly
+  this (show the trainer a correct example motion to imitate,
+  alongside the reward) is now wired up for walking: the imitation
+  target is the same scripted gait that walks the real robot, and it
+  knows how to step in every direction. First test run:
+  `cw-omni-transbc1`. (One real reward bug WAS found, but only in
+  the de-scoped turning stack: during straight-line walking the
+  turn-tracking bonus pays a motionless body its full income; it
+  must be fixed if turning ever comes back in scope.)
 - **Backward walking** — parks or falls; envelope is the front
   half-circle only.
 - **Sim effort realism**: sim under-prices standing still (0.11 A
