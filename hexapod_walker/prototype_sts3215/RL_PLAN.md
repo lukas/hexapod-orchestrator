@@ -299,11 +299,14 @@ Open problems, in priority order:
     LESS → the reward is wrong: reprice (rocking within the 25°
     envelope should cost ~0), bank it, THEN train. If it earns
     MORE → it's a discovery problem, proceed P1→P3.
-    (P1, TRAINED 08-11, VERDICT PENDING) `cw-walk-gaitbc1` —
-    BC-anchor gait cleanup: warm from `cw-dep-vref1-r1`,
-    `train.bc_anchor_coef=1.0` on walk ticks (TripodGait target), 2M
-    discovery; gate = slip/m <0.6 at matched travel with the
-    joystick gate retained.
+    (P1, CLOSED 08-11) `cw-walk-gaitbc1` FAILED — BC-anchor gait
+    cleanup froze into a static motionless tripod pose (video-
+    confirmed, identical every episode, fwd ~0.00m vs parent's
+    0.28-0.34m) instead of stepping: the anchor loss converged to
+    ~0 by NOT MOVING (unlike rise/hold, walk's reference target is
+    itself in motion, so freeze-toward-it looks satisfied). Per its
+    own pre-registered gate, not a coefficient-variant situation —
+    next is P2 or P3 lever 4. Detail: `rl_docs/GAIT.md`.
     (P2, CODE+bank) structural stance-slip CHARGE (foot-XY travel
     while in contact — the scrape itself) + swing-clearance term;
     bank must prove drag-gait < step-gait AND drag-gait > park.
