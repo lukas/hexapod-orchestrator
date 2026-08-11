@@ -121,8 +121,16 @@ need a structural fix, not another price change (see below).
   a couple of things it wasn't specifically coached on, so it's real
   progress with a new, smaller problem to fix, not a finished skill.
   A quick check of a gentler dose of the same coaching made things
-  worse, not better (dose must stay at full strength); training the
-  same recipe for longer is running now to see if it consolidates.
+  worse, not better (dose must stay at full strength). Training the
+  same recipe for longer made the honest stand even more reliable
+  (83% vs 50% on the strict check) — but digging into the per-step
+  data (not just watching video snapshots, which missed this) found
+  that "holding still" was never actually still: the robot quietly
+  shuffles its legs the whole time instead of standing motionless,
+  and training longer made that shuffling MORE pronounced, not less.
+  This looks like a separate, pre-existing gap in how we reward
+  staying stationary, not a side-effect of the new coaching itself —
+  it needs its own proper fix before training this recipe further.
   `rl_docs/RISE.md`.
 - **Turning on command.** Walk policies carry a structural left-yaw
   drift and ignore the yaw command channel; raising the price of

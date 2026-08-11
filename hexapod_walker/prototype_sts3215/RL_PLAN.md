@@ -173,16 +173,23 @@ Open problems, in priority order:
    crouch 6/8 valid_plant; flat cold-start 10/10 correct stand,
    footprint-precision-only miss), zero flag-leg cheat in 42 video-
    checked episodes, clean one-variable causal attribution vs the
-   identical-minus-anchor parent (still 0/12). Cost: weak-evidence
-   (n=2) hint of interference on raise/tipped/hold-track. Dose-check
+   identical-minus-anchor parent (still 0/12). Dose-check
    `cw-stand-bc1-coef03` (coef 0.3) **FAILED decisively** (08-11):
    valid_plant 0/16 across every start kind, worse on every axis
-   than coef=1.0 — lowering the dose does not reduce interference,
-   it just weakens the fix. Keep `bc_anchor_coef>=1.0`; do not queue
-   another coefficient variant. `cw-stand-bc1-hard1` (10M, phase
-   hardening, running) is the live next step — consolidate at
-   coef=1.0 and see if the weak-evidence interference hints resolve
-   with budget. Detail + numbers: **rl_docs/RISE.md**.
+   than coef=1.0 — keep `bc_anchor_coef>=1.0`, no more coefficient
+   variants. `cw-stand-bc1-hard1` (10M, phase hardening) **PASSES on
+   rise** (valid_plant 5/6 det, 83%, up from 50% — the fix
+   consolidates with budget) **but surfaces a real, pre-existing
+   hold/track cost that WORSENS with more steps**: per-episode
+   duty_cycle/swing_count data (missed by video-only checks at first)
+   show hold/track legs cycling continuously rather than holding
+   still — 12-50mm foot elevation at 2M, 100-161mm at 10M. This
+   predates the anchor (an existing hold/track stillness-pricing
+   gap) and is amplified by more training, not fixed by it. Ruling:
+   do NOT keep hardening this lineage hoping it self-heals; next is
+   a SPECIFICATION pass on hold/track's stillness pricing (its own
+   HOLD-mode semantics bank entry) before any more steps. Detail +
+   numbers: **rl_docs/RISE.md**.
 3. **Loaded actuator model.** FIT LANDED 08-10: opt-in
    `--cfg-set bus.servo_params=loaded` (default stays air). Detail +
    provenance + confidence table: **`rl_docs/SIM.md`**. Uncertain
@@ -258,26 +265,38 @@ Open problems, in priority order:
        DR level.
        Detail: `rl_docs/TURN.md`.
     2. **Rise beyond income shaping — RESOLVED to a validated
-       mechanism 08-11, now a dose/duration question.** Six
-       reward-side arms collapsed to the identical feet-factor curve
-       regardless of mechanism (diagnosed as warm-start OOD drift,
-       not reward-driven). Lever (a), a **BC anchor in the TRAINER**
-       (`rl_move/sim/bc_anchor.py`), landed and its first arm
-       **`cw-stand-bc1` PASSES (partial, 08-11)**: harness-verified
-       honest six-foot plants (bridge 7/12, crouch 6/8 valid_plant;
-       flat cold-start 10/10 correct stand, footprint-only miss),
-       zero flag-leg cheat in 42 video-checked episodes, clean
-       one-variable attribution vs the identical-minus-anchor parent
-       (still 0/12). Weak-evidence (n=2) hint of raise/tipped/
-       hold-track interference. Two follow-ups running (08-11):
-       `cw-stand-bc1-hard1` (10M, phase hardening — does the plant
-       consolidate and interference fade with budget?) and
-       `cw-stand-bc1-coef03` (coef 0.3 — does a gentler dose keep the
-       fix with less interference?). Do NOT queue another
-       reward-coefficient/RSI/income variant; lever (b) (structural
-       height↔foot-contact coupling) is now DEPRIORITIZED unless both
-       follow-ups fail. Detail: rl_docs/RISE.md.
-    3. explicit mode/command one-hot in the obs (flagship
+       mechanism 08-11 (BC anchor, lever (a)); the follow-up
+       revealed a SEPARATE, pre-existing hold/track pricing gap.**
+       Six reward-side arms collapsed to the identical feet-factor
+       curve regardless of mechanism (warm-start OOD drift). Lever
+       (a) (`rl_move/sim/bc_anchor.py`) landed; `cw-stand-bc1`
+       PASSES (partial): harness-verified honest six-foot plants
+       (bridge 7/12, crouch 6/8 valid_plant; flat cold-start 10/10
+       correct stand, footprint-only miss), zero flag-leg cheat in
+       42 video-checked episodes, clean one-variable attribution vs
+       the identical-minus-anchor parent (still 0/12). Dose-check
+       `cw-stand-bc1-coef03` (coef 0.3) FAILED decisively (valid_plant
+       0/16) — keep coef>=1.0. Hardening `cw-stand-bc1-hard1` (10M)
+       PASSES on rise (valid_plant 5/6 det, 83%, consolidates with
+       budget) but its per-episode duty_cycle/swing_count data expose
+       a REAL, pre-existing hold/track stillness gap (legs cycling
+       continuously, not the anchor's fault per se — present already
+       at 2M, WORSENS with more steps: 12-50mm foot elevation at 2M
+       -> 100-161mm at 10M). Do NOT queue another rise
+       reward-coefficient/RSI/dose/step-count variant on this
+       lineage. Detail: rl_docs/RISE.md.
+    3. **[NEW 08-11] Hold/track stillness pricing.** Harness
+       duty_cycle/swing_count/end_clear_mm on the whole rsi3/bc1
+       lineage show hold and track modes are not quiet stands — legs
+       cycle continuously (found via cw-stand-bc1-hard1's dig-in,
+       predates the BC anchor). `k_still` as written scopes to
+       belly-rest/lower, not general hold/track. SPECIFICATION first:
+       a HOLD-mode `test_task_semantics.py` bank entry (quiet stand >
+       continuous stepping > flag-leg) before any reward change.
+       Check duty_cycle/swing_count/end_clear_mm routinely for
+       stand-line modes going forward — a sparse video frame strip
+       missed this at two separate verdicts.
+    4. explicit mode/command one-hot in the obs (flagship
        prerequisite); LOWER + TURN + WALK trajectory banks for
        test_task_semantics.py (launch blockers for those modes);
        machine-readable metric semantics registry (RESEARCH_RULES);
