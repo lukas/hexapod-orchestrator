@@ -77,11 +77,17 @@ need a structural fix, not another price change (see below).
   of just gating the old terms (`cw-stand-score1`, 08-10 night) —
   even started clean from the honest stance champion, it converged
   right back to the same one-leg-up trick, 0/12 valid plant across
-  easy and hard starting poses. Three differently-designed reward
-  fixes have now lost to the identical cheat; tuning what the reward
-  pays is a dead end for this problem, not an unlucky run. Next
-  lever has to be outside reward shaping (bringing back trajectory
-  guidance, or tying the height command to real foot contact).
+  easy and hard starting poses. We then tried the other idea we had
+  left — showing the policy a real recorded stand-up motion to copy,
+  built so the cheat can't collect payout for faking it
+  (`cw-stand-scoreref1`, 08-11) — and it ALSO failed: same leg held
+  16-19cm in the air the whole episode, 0/6 valid plant every mode.
+  Four differently-designed fixes have now lost to the identical
+  cheat; tuning what the reward pays, and showing it the right
+  motion, are both dead ends for this problem. The only lever left
+  is structural: tie the height command itself to real foot contact
+  (refuse to keep raising a leg the instant it loses the ground) —
+  that needs new code, not another reward-tuning run.
   `rl_docs/RISE.md`.
 - **Turning on command.** Walk policies carry a structural left-yaw
   drift and ignore the yaw command channel; raising the price of
