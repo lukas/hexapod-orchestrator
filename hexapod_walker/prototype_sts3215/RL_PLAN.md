@@ -223,17 +223,16 @@ Open problems, in priority order:
 1.  Live truth for what's training/queued: `ops.sh census` +
     `launch_run.py backlog list` — never this file.
 2.  [CODE] backlog, in priority order:
-    1. **Mirror-symmetry re-hardening — reward hole FIXED 08-11,
-       `cw-omni-mirror2` relaunched.** The r1 collapse's true cause
-       (probe-confirmed; NOT the k_yaw_still guess): on turn-in-place
-       ticks the LINEAR kernel paid a frozen robot full income (the
-       prog gate needs s_ref>1e-3) — a ~1122/ep freeze floor above
-       what mid-training walking earned (500-860). Fix landed:
-       `reward.walk_kernel_yaw_gate` (prog-gate analog on achieved
-       yaw) + a freeze-floor bank in test_task_semantics.py (failed
-       pre-fix at park=0.77x turn; post-fix 0.38x, sampled-mixture
-       freeze 0.40x of gait). Mirror-symmetry itself still UNTESTED —
-       cw-omni-mirror2 (one variable vs r1: the gate) decides it.
+    1. **Mirror-symmetry re-hardening — gate fix CONFIRMED but a NEW
+       gait pathology blocks the test (`cw-omni-mirror2` FAILED
+       08-11).** The r1 freeze exploit is gone (walking now out-earns
+       the sacrifice pattern, 526-922 vs 399-425) but the gait still
+       collapses into a leg-sacrifice/tripod pattern in ~half of
+       episodes (0/6 success both modes, video-confirmed) —
+       known-exploit STOP, no dig-in. Mirror-symmetry itself is STILL
+       UNTESTED. Do NOT launch another mirror hardening arm; next
+       move is a term-by-term WALK-kernel income re-probe (what still
+       pays for a partial leg sacrifice), not a new gate/mechanism.
        Detail: `rl_docs/TURN.md`.
     2. **Rise beyond income shaping — NEW TOP CODE PRIORITY (08-10
        night, after `cw-stand-score1` made it a three-strikes close,

@@ -115,8 +115,14 @@ need a structural fix, not another price change (see below).
   now pays that income only in proportion to how much of the
   commanded turn is actually achieved, an offline check bank pins the
   exploit forever, and the 40M hardening run was relaunched with only
-  that one change (`cw-omni-mirror2`) — it will finally answer the
-  mirror-symmetry question.
+  that one change (`cw-omni-mirror2`). Result (08-11): the specific
+  freeze bug is confirmed fixed — walking now earns more than
+  freezing — but the gait still breaks down about half the time into
+  a different bad habit (one or more legs held stationary in the air
+  or planted and never moved, barely inching forward), so
+  mirror-symmetry is STILL unanswered. Next move is not another
+  mirror training run; it's finding what still pays for that
+  leg-sacrifice habit.
 - **Backward walking** — parks or falls; envelope is the front
   half-circle only.
 - **Sim effort realism**: sim under-prices standing still (0.11 A
