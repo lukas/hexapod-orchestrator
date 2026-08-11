@@ -89,14 +89,24 @@ need a structural fix, not another price change (see below).
   internal health checks are clean this time, no more corruption)
   and it STILL learned the identical cheat — three legs planted,
   three legs frozen 15-16cm in the air, 0/6 by our strict check.
-  So the bug was real but was never the reason stand-up fails.
-  **Every reward-design idea we had is now exhausted** (four
-  distinct mechanisms plus showing it the motion plus starting it
-  mid-motion, all beaten by the same trick). The only idea left is
-  structural: physically tie the height goal to which feet are
-  actually touching the ground, instead of paying for height and
-  hoping the feet follow — that needs new simulator code, not
-  another reward-number tweak. `rl_docs/RISE.md`.
+  So the bug was real but was never the reason stand-up fails. One
+  more variant (`cw-stand-rsi3`, 08-11: strip out an old penalty
+  term that might have been making the honest crouch look
+  artificially expensive) also failed, identically. **Every
+  reward-design idea we had is now exhausted, and the pattern across
+  all six attempts is the tell**: the same three-legs-frozen collapse
+  happens at the same point in training no matter which reward
+  mechanism or penalty is present — a behavior that doesn't change
+  when you change the reward isn't a reward problem. Best read: the
+  training recipe starts the robot in a body position it never
+  practiced enough (a warm-start gap), and early noisy updates drift
+  it into the frozen-leg trick before anything can pull it back out.
+  Two code ideas are queued, both needing a design pass first: teach
+  the policy to copy a real stand-up motion directly (not just get
+  paid for resembling it), or physically tie the height goal to which
+  feet are actually touching the ground. Either way it's new
+  simulator/trainer code next, not another reward-number tweak.
+  `rl_docs/RISE.md`.
 - **Turning on command.** Walk policies carry a structural left-yaw
   drift and ignore the yaw command channel; raising the price of
   drift failed repeatedly, and a second, better-designed reward
@@ -130,7 +140,15 @@ need a structural fix, not another price change (see below).
   or planted and never moved, barely inching forward), so
   mirror-symmetry is STILL unanswered. Next move is not another
   mirror training run; it's finding what still pays for that
-  leg-sacrifice habit.
+  leg-sacrifice habit. A DR-strength check (`cw-omni-mirror2-dr02`)
+  and a turning-removed variant (`cw-omni-trans1`, walking in any
+  direction with the turn-in-place logic dropped entirely) both
+  failed the same way — trans1's failure looked different again
+  (legs churning rapidly almost in place, two legs stuck planted,
+  body barely traveling), a third distinct collapse pattern. Turning
+  itself has been DE-SCOPED from the joystick deliverable (no camera
+  = no reason to need a "front"), so this line now serves only the
+  any-direction-walking goal.
 - **Backward walking** — parks or falls; envelope is the front
   half-circle only.
 - **Sim effort realism**: sim under-prices standing still (0.11 A

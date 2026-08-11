@@ -246,15 +246,27 @@ Open problems, in priority order:
        pays for a partial leg sacrifice), not a new gate/mechanism or
        DR level.
        Detail: `rl_docs/TURN.md`.
-    2. **Rise beyond income shaping — NEW TOP CODE PRIORITY (08-10
-       night, after `cw-stand-score1` made it a three-strikes close,
-       problem 2).** Reward-income routing is closed; design + land
-       ONE of: (a) re-enable `k_rise_ref_track` (landed, currently
-       annealed to 0) as a real term instead of a scaffold, or (b)
-       couple the height reference to measured foot contact so a
-       lifted leg can't count toward progress at all. Bank it in
-       `test_task_semantics.py` (flag-leg must still lose) BEFORE any
-       DISCOVERY launch.
+    2. **Rise beyond income shaping — TOP CODE PRIORITY, diagnosis
+       sharpened 08-11.** Six reward-side arms (score1/scoreref1/
+       plantgate1/rsi1/rsi2/rsi3) all collapse to the identical
+       feet-factor curve (0.87→~0.17 by the 25% mark) regardless of
+       which reward mechanism or penalty is present — behavior that
+       doesn't respond to reward changes is not reward-driven. Read:
+       **warm-start out-of-distribution drift** (the 108–114mm
+       command band is ~2.2x the stance champion's trained range; the
+       6° tracking kernel only pays a policy that's already nearly
+       perfect there, so early update noise drifts it into the
+       tripod and nothing anchors it back). Widening the kernel is
+       bank-blocked (sigma 10°: flag-leg farms 17% of replay, over
+       the 10% ceiling; 15° fails 3 bank tests). Two CODE levers,
+       both need a SPECIFICATION pass first: (a) **BC anchor in the
+       TRAINER** — auxiliary loss pulling the action toward the
+       reference action at RSI-spawned states (DeepMimic-family;
+       supervises actions directly, immune to pose-farming) —
+       operator's preferred first spec; (b) structural height↔foot-
+       contact coupling (height ref refuses to rise on a leg that
+       lost contact). Do NOT queue another reward-coefficient/RSI/
+       income variant on this stack. Detail: `rl_docs/RISE.md`.
     3. explicit mode/command one-hot in the obs (flagship
        prerequisite); LOWER + TURN + WALK trajectory banks for
        test_task_semantics.py (launch blockers for those modes);
