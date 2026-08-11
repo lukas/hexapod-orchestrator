@@ -406,19 +406,29 @@ Open problems, in priority order:
        same fingerprint as T5. Video clean six-leg gait, no cheat —
        an honest, informative miss. Gate-income alone is CLOSED as a
        lever at this dose; do not schedule another sigma variant.
-    T2a/T2b (k_height 300 / 1000 at ref −15) + T4 (speed band
-       0.03-0.04 at ref −15) LAUNCHED 08-11 eve (operator ordered all
-       arms now), warm from tall30 on train-0 (ckpt pushed, refusal
-       fixed) — **mechanically confirmed RUNNING 08-11 late** (kh3
-       train-0, kh10 train-3, slow1 train-4; ckpt fanned out to all
-       three pods). Gates amended: primary metric is the T5 probe's
-       walking height. T4 doubles as the T5-mechanism test: if
-       easing speed demand lifts posture and pulls mean leg yaw off
-       the 35° wall, the stability-purchase story is confirmed.
-    NEW LEVER CANDIDATES from T5 (for the fleet, pre-registered):
-       price the yaw-splay directly (charge |yaw| beyond ~25° in walk
-       mode — attacks the pinned-at-limit signature, not height);
-       or raise `walk_height_gate` σ→45 only if T2/T4 both fail.
+    **T2/T4 VERDICTS (08-11 eve, probe_tall_wall mid-gait steady
+       state): PRICING FAMILY CLOSED FOR POSTURE.** kh3 −74.5mm,
+       kh10 −72.7mm (pays ~5.6/tick — MORE than its walk income —
+       rather than stand up), slow1 −71.5mm at its trained 0.035
+       cmd. Six arms total (ref ladder, income gate σ30, gate+6M
+       budget, k_height 3x/10x, speed relief) all flat at
+       −72..−75mm, leg yaw pinned at the 35° limit in every one.
+       kh10's charge-eating proves the optimizer cannot FIND the
+       taller basin — it is not underpaying for it. Do NOT launch
+       more pricing variants for posture (incl. the yaw-splay charge
+       candidate and σ45 — same family, pre-refuted by kh10).
+    **T6 (RSI-for-walk) CODE LANDED + ARM RUNNING (08-11 eve):**
+       `goal.walk_gait_start_frac` (walk_task + sim_env, default 0 =
+       bit-exact, tests green): with prob f a walk episode spawns
+       MID-STRIDE in the scripted tripod gait's tall pose, built at
+       the episode's own command, command live from tick 0 (0.3 s
+       ramp, no hold). Rationale: episodes always spawned tall
+       STANDING — the missing states are tall mid-stride WALKING
+       (same shape as the rise-RSI exploration closure).
+       `cw-dep-tall-rsi1` = warm from tall-gate1, frac 0.5, 2M.
+       If FLAT even with direct state injection: the wall is dynamic
+       stability itself → physics easing or a taller scripted
+       reference gait, not more reward work.
     Winner → Gate 0 export + tipped retention + bench A/B vs tip1.
     Checkpoints: `ppo_goal_cw_dep_tall30{,h}`, `ppo_goal_cw_dep_tall15`,
     `ppo_goal_cw_dep_tall15_h1` (fastest dep walker, 0.051 m/s),
