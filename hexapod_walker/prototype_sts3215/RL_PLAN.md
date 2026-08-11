@@ -306,10 +306,16 @@ Open problems, in priority order:
        zero-gradient plateau; rise retention PASSED det 4/6 sto 6/6).
        Fade lever landed (`reward.hold_flag_fade`, REWARD.md; bank
        +3 tests green: slope exists, park stays scraps);
-       `cw-stand-holdstill2` = holdstill1 + fade, one variable, is
-       the live arm. If the fade also fails: BC-style supervision on
-       hold ticks (target = episode start pose), the mechanism
-       already validated on rise. Keep checking
+       `cw-stand-holdstill2` (one variable = the fade) moved the
+       behavior the right way (park 110 -> 90 mm, feet factor 0.1 ->
+       0.3 and rising) but hold still 0/12 at 2M — two pricing
+       misses in a row, so the hypothesis changes: NEXT [CODE] is
+       BC-style supervision on HOLD ticks (target = the episode
+       start pose; extend bc_anchor.py's bc_target beyond rise
+       ticks), the exact mechanism that unblocked rise. The
+       gate+fade pricing STAYS (bank-proven; it pays the correct
+       behavior once supervision gets the policy near it). Do NOT
+       queue a third hold pricing/mix/step variant. Keep checking
        duty_cycle/swing_count/end_clear_mm for stand-line modes — a
        sparse video frame strip missed this at two separate verdicts.
     4. explicit mode/command one-hot in the obs (flagship

@@ -132,12 +132,17 @@ need a structural fix, not another price change (see below).
   and training longer made that shuffling MORE pronounced, not less.
   This looks like a separate, pre-existing gap in how we reward
   staying stationary, not a side-effect of the new coaching itself.
-  That gap now has a landed fix (08-11): a test proved the old
-  pricing paid a robot that parks one leg in the air exactly as much
-  as one standing properly (a literal tie), and a new reward switch
-  prices leg-shuffling and leg-parking out of the "hold still" task;
-  a short training run is queued to verify the robot actually learns
-  a quiet stand under it. `rl_docs/RISE.md`.
+  Two pricing fixes were landed and short-run tested (08-11): a
+  test bank first proved the old pricing paid a robot that parks one
+  leg in the air exactly as much as one standing properly (a literal
+  tie). Re-pricing alone did NOT unlearn the habit (leg still parked,
+  earning zero), and adding partial credit as the foot comes down
+  moved it visibly (11 cm -> 9 cm, improvement still climbing) but
+  not to a quiet stand within the short-run budget. Same lesson as
+  stand-up: correct pricing is necessary but old habits need direct
+  action-coaching to break. Next fix is exactly that — the coaching
+  trick that solved stand-up, applied to holding still (small trainer
+  change queued). The corrected pricing stays. `rl_docs/RISE.md`.
 - **Turning on command.** Walk policies carry a structural left-yaw
   drift and ignore the yaw command channel; raising the price of
   drift failed repeatedly, and a second, better-designed reward
@@ -238,9 +243,11 @@ need a structural fix, not another price change (see below).
    mechanisms tried, all cheated); the fix that worked instead
    coaches the policy's actions directly (`cw-stand-bc1`, 08-11) and
    its long run is the official stand-up specialist. Next on the
-   stand line: teach it to hold STILL (quiet-stand pricing fix
-   landed 08-11, short verification run queued), then test the
-   stand-up specialist handing off to the walking champion. Reward
+   stand line: teach it to hold STILL (pricing fixed + verified
+   08-11, but two short runs show pricing alone doesn't break the
+   leg-parking habit — the stand-up coaching trick applied to hold
+   is the queued fix), then test the stand-up specialist handing
+   off to the walking champion. Reward
    tuning for turning is also closed; its structural next move
    (mirror-symmetry augmentation) is landed but every hardening
    attempt has collapsed into a different gait pathology before
