@@ -1,20 +1,31 @@
 # STATUS — how is it going?
 
-Plain-English answer to "how is it going, what can the robot do now,
-which checkpoints are the good ones, and what have we learned?" — for
-the operator or anyone catching up. Facts here must agree with
-`CURRENT_TRUTHS.md` (which wins on conflict); the full checkpoint
-inventory with gate numbers lives in `rl_docs/SKILLS.md`.
+**START HERE, then go to your track.** The campaign runs as five
+parallel research tracks, and the current state of each line of work
+lives in its own short per-track status file — read the one you care
+about first:
+
+- `rl_docs/tracks/hw/STATUS.md` — joystick robot on real hardware
+  (the mainline)
+- `rl_docs/tracks/arch/STATUS.md` — GRU/temporal architectures
+- `rl_docs/tracks/nobc/STATUS.md` — learning without BC anchors
+- `rl_docs/tracks/quad/STATUS.md` — four legs + two "hands"
+- `rl_docs/tracks/turn/STATUS.md` — commanded turning
+
+This file is the whole-campaign digest: the plain-English answer to
+"how is it going, what can the robot do now, which checkpoints are
+the good ones, and what have we learned?" — for the operator or
+anyone catching up. Facts here must agree with `CURRENT_TRUTHS.md`
+(which wins on conflict); the full checkpoint inventory with gate
+numbers lives in `rl_docs/SKILLS.md`.
 
 **Last updated: 2026-08-11 (evening) — merged the operator and agent
 rewrites, reconciled against live W&B (`l2k2/hexapod-balance`) and
 RL_LOG through the 18:33 cycle.**
 Update rule: refresh whenever a hardware session happens, a champion
-changes, or a big lesson closes — and stamp the date. Keep it honest:
-the "not working" list is the most valuable section. The campaign now
-runs as five research tracks (hw / arch / nobc / quad / turn), each
-with its own short status: `rl_docs/tracks/<track>/STATUS.md`. This
-file stays the whole-campaign digest.
+changes, or a big lesson closes — and stamp the date; per-track story
+changes go to the track's own STATUS.md. Keep it honest: the "not
+working" list is the most valuable section.
 
 ## The one-paragraph answer
 
