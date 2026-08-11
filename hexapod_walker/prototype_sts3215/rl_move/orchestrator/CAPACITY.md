@@ -16,9 +16,13 @@ with the script, the script is right; fix the doc.**
    partitioning into "our node" vs anything else.
 2. **At least 4 train slots per machine, never in doubt.** One
    `hexapod-mjx-train-*` pod = one slot = one H200 + one training run.
-3. **A free slot plus a non-empty backlog is a bug.** The watcher drains
-   `backlog.json` into free slots mechanically (`launch_run.py drain`);
-   no agent deliberation, no operator, no excuses.
+3. **The drain is mechanical.** The watcher drains `backlog.json` into
+   free slots (`launch_run.py drain`) with no agent deliberation — a
+   queued spec that sits unplaced next to a free slot is a bug.
+   **This is a placement rule, not a demand for a full backlog**
+   (prime directive, 08-10): nothing enters the backlog unless it
+   removes an unresolved blocker to the next hardware test. Idle
+   slots with an empty backlog are a normal, healthy state.
 4. Slot list lives in `guardrails.yaml compute.gpu_pods`; pod specs in
    `rl_move/sim/coreweave_pods_mjx_scaleout.yaml`; fresh-pod setup via
    `bootstrap_train_pod.sh <pod>`.
