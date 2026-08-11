@@ -80,7 +80,11 @@ one reward scalar. Hardware candidates pass Gate 0 (below).
 CLOSED moves — do not re-propose (evidence in `rl_docs/runs/`):
 
 - Anti-slip / income reward shaping against skating (10+ arms;
-  root cause is contact pricing, an operator calibration).
+  root cause is contact pricing, an operator calibration). SCOPE
+  narrowed 08-11 (operator): this closes income gates/shaping
+  retrofitted onto trained paddlers — it does NOT close the GAIT
+  CLEANUP line (queue -0.5 / rl_docs/GAIT.md): banked structural
+  drag charge, swing clearance, or from-scratch task curricula.
 - Rise reward-income shaping, reference-tracking-as-crutch, and RSI
   (state-distribution fix) — all beaten by the identical tripod/
   flag-leg cheat. A warp/MJX episode-pool state-loss bug (commit
@@ -237,6 +241,25 @@ Open problems, in priority order:
     session: measure walk distance (tape) → unlocks open problem 1.
     Audit sim wz sign vs hardware (+omega = clockwise, measured
     08-09).
+-0.5 **GAIT CLEANUP — kill the paddle (operator 08-11, TOP TRAINING
+    PRIORITY; full design + rationale: `rl_docs/GAIT.md`).** The
+    walkers travel by dragging loaded feet (slip/m 1.1–1.5); on
+    hardware this scrapes and can catch. Three-tier plan:
+    (P1, LAUNCH NOW, zero code) `cw-walk-gaitbc1` — BC-anchor gait
+    cleanup: warm from `cw-dep-vref1-r1`, `train.bc_anchor_coef=1.0`
+    on walk ticks (existing TripodGait target), 2M discovery; gate =
+    slip/m <0.6 at matched travel with the joystick gate retained.
+    (P2, CODE+bank) structural stance-slip CHARGE (foot-XY travel
+    while in contact — the scrape itself) + swing-clearance term;
+    bank must prove drag-gait < step-gait AND drag-gait > park.
+    (P3, the goal state — operator: learn it WITHOUT the anchor)
+    from-scratch curriculum line: terrain-as-teacher first (bumpy
+    ground makes paddling physically non-traveling; zero-training
+    champion-on-terrain slip probe FIRST), then drag charge annealed
+    up, physics easing, RSI-for-walk. The 10+ closed anti-slip arms
+    were income shaping retrofitted onto formed paddlers — the
+    closure does NOT cover P2's banked structural charge or P3's
+    task curriculum (operator ruling 08-11).
 0.  **UNIFIED JOYSTICK POLICY (top deliverable).** Stand/sit/turn/
     walk in one checkpoint. Turning: yawcmd/yawgate1/yawgate2 all
     FAILED (fixed left-yaw drift; price tuning CLOSED). The
