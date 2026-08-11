@@ -101,12 +101,18 @@ need a structural fix, not another price change (see below).
   training recipe starts the robot in a body position it never
   practiced enough (a warm-start gap), and early noisy updates drift
   it into the frozen-leg trick before anything can pull it back out.
-  Two code ideas are queued, both needing a design pass first: teach
-  the policy to copy a real stand-up motion directly (not just get
-  paid for resembling it), or physically tie the height goal to which
-  feet are actually touching the ground. Either way it's new
-  simulator/trainer code next, not another reward-number tweak.
-  `rl_docs/RISE.md`.
+  The first of the two code ideas is now BUILT and TRAINING (08-11):
+  a "copy the recorded stand-up motion directly" hand-hold in the
+  trainer itself — at every step of a stand-up episode the policy's
+  action is pulled toward what the recorded good stand-up did next,
+  a supervision signal the cheat cannot farm because it isn't reward.
+  It passed its full offline check suite (the anchor provably steers
+  toward the path, the reward checks are untouched) and the first
+  2M-step trial (`cw-stand-bc1`) is running; the decisive early
+  signal is whether the feet-on-ground measure stops collapsing at
+  the ~25% mark where all six previous attempts died. If it fails
+  too, the fallback is physically tying the height goal to which
+  feet are actually touching the ground. `rl_docs/RISE.md`.
 - **Turning on command.** Walk policies carry a structural left-yaw
   drift and ignore the yaw command channel; raising the price of
   drift failed repeatedly, and a second, better-designed reward
@@ -153,7 +159,14 @@ need a structural fix, not another price change (see below).
   half-circle only.
 - **Sim effort realism**: sim under-prices standing still (0.11 A
   vs the real 0.59 A) — needs a holding-current model fit before
-  effort-shaped gaits can be trusted.
+  effort-shaped gaits can be trusted. Servo LAG realism, by
+  contrast, is now validated end-to-end (08-11): training with the
+  measured under-load servo response (real servos take ~0.3 s to
+  settle a 2° step, not milliseconds) keeps the walking skill intact
+  and even slightly beats the old champion when both are judged
+  under that honest physics (`cw-dep-vref1-loaded1`) — the earlier
+  "it got 40% worse" read was just comparing against scores from the
+  old instant-servo physics.
 - **Learned gait quality**: the champion "walks" by paddling with
   loaded-foot slide; acceptable in sim scoring, but the real robot's
   scripted gait remains the quality bar.
