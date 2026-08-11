@@ -679,6 +679,16 @@ def _launch_locked(g: dict, a: argparse.Namespace,
             "log": log, "is_gpu": is_gpu}
 
 
+def _extra_int(extra_args: list, flag: str, default: int) -> int:
+    """Read an integer value passed as `--flag value` in an extra_args list."""
+    if flag in extra_args:
+        try:
+            return int(extra_args[extra_args.index(flag) + 1])
+        except (ValueError, IndexError):
+            return default
+    return default
+
+
 def _verify_started(g: dict, a: argparse.Namespace, ctx: dict) -> int:
     """Mechanical liveness verification of a just-started trainer.
 
@@ -738,12 +748,23 @@ def _verify_started(g: dict, a: argparse.Namespace, ctx: dict) -> int:
         checks["wandb_id"] = wb["id"]
         entry["wandb_id"] = wb["id"]
         s1 = wb.get("global_step") or 0
-        time.sleep(90)
+        # A single PPO iteration's wall time is floored by its rollout
+        # (n_envs * n_steps); a fixed 90s window false-killed cw-arch-gru-r4
+        # (2026-08-11, --n-steps 256 for a 10.24s BPTT window) whose FIRST
+        # iteration alone logged 84s just for env collection, before the
+        # heavier GRU backward pass even started. Scale the wait with
+        # --n-steps relative to the historic default (64) so long-BPTT
+        # recurrent runs get genuine time to show a second iteration,
+        # capped so a truly stalled run still fails in bounded time.
+        n_steps = _extra_int(entry.get("extra_args", []), "--n-steps", 64)
+        step_wait = min(600, max(90, int(90 * n_steps / 64)))
+        time.sleep(step_wait)
         s2 = (wandb_running_runs().get(a.run) or {}).get("global_step") or 0
         if s2 <= s1:
-            return fail(f"W&B global_step not advancing ({s1} -> {s2})")
+            return fail(f"W&B global_step not advancing ({s1} -> {s2}) "
+                        f"after {step_wait}s wait (n_steps={n_steps})")
         checks["global_step_window"] = [s1, s2]
-        checks["fps_estimate"] = round((s2 - s1) / 90.0, 1)
+        checks["fps_estimate"] = round((s2 - s1) / step_wait, 1)
         print(f"fps estimate: {checks['fps_estimate']}")
 
     entry["status"] = "RUNNING"
