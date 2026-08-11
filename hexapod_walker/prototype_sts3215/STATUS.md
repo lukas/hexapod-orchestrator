@@ -153,11 +153,16 @@ need a structural fix, not another price change (see below).
   tries while standing up — but that exact same tipping already
   showed up once in the checkpoint we started from, so it reads as
   an old, already-known rough edge appearing slightly more on a
-  small sample, not something the new coaching broke. Next: a longer
-  training run on this same recipe (the same thing that smoothed out
-  stand-up's rough edges) to see if it also fixes that rare tip-over,
-  then combining this "stand + hold" skill with the walking champion
-  into one policy. `rl_docs/RISE.md`.
+  small sample, not something the new coaching broke. A longer
+  training run on this same recipe (08-11) confirms the quiet stand
+  holds up with 5x more practice — still solid (11 of 12 test
+  episodes), and the rare crouch-start tip-over got slightly better,
+  not worse (about half those attempts now succeed cleanly, up from
+  a third). Standing and holding still are both done as their own
+  skill; next is testing whether this specialist can hand off
+  cleanly into the walking champion (stand up, then start walking)
+  — that needs a small new piece of code first, not yet built.
+  `rl_docs/RISE.md`.
 - **Turning on command.** Walk policies carry a structural left-yaw
   drift and ignore the yaw command channel; raising the price of
   drift failed repeatedly, and a second, better-designed reward

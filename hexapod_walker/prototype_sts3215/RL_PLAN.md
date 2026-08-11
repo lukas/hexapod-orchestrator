@@ -300,12 +300,20 @@ Open problems, in priority order:
        2/2 det, sto 6/6) but det crouch shows 2/6 tilt_roll falls —
        verified against holdstill1 (0 falls)/holdstill2 (1 identical
        fall) as the SAME pre-existing crouch fragility, not new.
-       Checkpoint `ppo_goal_cw_stand_holdbc1` (SKILLS.md). Next:
-       hardening continuation `cw-stand-holdbc1-hard1` (10M, mirrors
-       bc1->bc1-hard1) to check whether budget also closes the
-       crouch gap, then the rise+hold -> walk-champion handoff
-       composition test. Full history (pricing bank, both failed
-       levers, code change): rl_docs/RISE.md.
+       Checkpoint `ppo_goal_cw_stand_holdbc1` (SKILLS.md).
+       **Hardening continuation `cw-stand-holdbc1-hard1` (10M)
+       PASSES 08-11**: hold valid_plant 11/12 (matches discovery's
+       12/12, no regression), `env/hold_feet_factor` held 0.99-1.0
+       all 10M, det crouch-start rise improved 2/6->2/4 (33%->50%),
+       zero flag-leg/tripod cheat in 24 video-checked episodes.
+       `ppo_goal_cw_stand_holdbc1_hard1` is the hardened HOLD+RISE
+       checkpoint (SKILLS.md); lineage CLOSED for further hardening.
+       Next: the rise+hold -> walk-champion handoff composition
+       test -- needs a small new eval/handoff script first (CODE,
+       not yet built): run the specialist to a settled hold, switch
+       control to the walk champion, check it doesn't stumble on the
+       specialist's exact final pose. Full history (pricing bank,
+       both failed levers, code change): rl_docs/RISE.md.
     4. explicit mode/command one-hot in the obs (flagship
        prerequisite); LOWER + TURN + WALK trajectory banks for
        test_task_semantics.py (launch blockers for those modes);
