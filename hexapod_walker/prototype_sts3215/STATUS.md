@@ -112,6 +112,22 @@ need a structural fix, not another price change (see below).
 
 ## What is NOT working (the honest list)
 
+- **One single brain for all skills (the flagship unified policy).**
+  First real attempt trained 08-11 (from scratch, with an explicit
+  "which skill is being asked" input): it learned to hold still AND
+  sit down at specialist quality — the first time one network has
+  done both honestly from scratch — but standing up from a crouch
+  plateaued at 1-in-6, and five times more practice changed nothing
+  (`cw-uni-flag-a1-h2`). No cheating this time: on video it either
+  sprawls and stalls short of full height or gets up and tips over
+  sideways — the same crouch-start weakness even the dedicated
+  stand-up specialist still has. Whether the skills are genuinely
+  fighting for space in one network (which would justify splitting
+  into a mixture of experts) or stand-up-from-scratch is just hard
+  for ANY network is being settled right now by a one-variable
+  control run: the identical brain trained on stand-up ONLY
+  (`cw-uni-flag-a1-risectl1`). That single cheap run decides the
+  architecture fork.
 - **Unified stand-up (the top unsolved skill).** Every training
   attempt finds a cheat: torso at height with legs waving, tripod
   stands, stilts. A geometric "valid plant" spec (feet down, CoM
@@ -366,6 +382,7 @@ need a structural fix, not another price change (see below).
    attempt has collapsed into a different gait pathology before
    testing the real hypothesis — turning is de-scoped from the
    joystick deliverable for now (no camera, no "front" to need).
-3. Sim effort-pricing fix (holding-current model) so effort-shaped
-   arms become trustworthy.
+3. The unified-policy architecture fork: the stand-up-only control
+   run (`cw-uni-flag-a1-risectl1`) decides between one network and
+   a mixture of experts before any big rebuild is started.
 Queue and blockers: `RL_PLAN.md`.
