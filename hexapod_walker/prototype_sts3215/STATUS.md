@@ -19,9 +19,10 @@ anyone catching up. Facts here must agree with `CURRENT_TRUTHS.md`
 (which wins on conflict); the full checkpoint inventory with gate
 numbers lives in `rl_docs/SKILLS.md`.
 
-**Last updated: 2026-08-11 (evening) — merged the operator and agent
-rewrites, reconciled against live W&B (`l2k2/hexapod-balance`) and
-RL_LOG through the 18:33 cycle.**
+**Last updated: 2026-08-11 (late evening) — through the ~20:15 idle-kick
+cycle: crouchrise3 FAIL (dose axis dead), mirturn1 FAIL (mirror
+training closed, wrapper ships), GAIT P0 probe answered, dragstance1
+launched.**
 Update rule: refresh whenever a hardware session happens, a champion
 changes, or a big lesson closes — and stamp the date; per-track story
 changes go to the track's own STATUS.md. Keep it honest: the "not
@@ -89,7 +90,7 @@ double capacity) — running now.
 | **Best pure-sim driving envelope** | `cw-walk-joyheadfric` (and its payload variant) | ±90° steering + latency + floor-grip + payload, 3-seed confirmed, joystick gate zero falls. Superseded for hardware by vref1-r1 (deployment contract), but it's the widest proven driving recipe. |
 | **Standing up AND holding still** | `cw-stand-holdbc1-hard1` → `ppo_goal_cw_stand_holdbc1_hard1` | The deployed stance policy (robot's stand button), with its trained goal ramp shipped inside the weights. Hold 11/12 strict-valid, motionless on video; rise from flat belly reliable. |
 | **Crouch-start stand fix** | `cw-stand-crouchrise1`/`-2` — **banked, NOT deployed, do not warm-start** | The fix reproduces cleanly (crouchrise2: 6/6 det rises incl. all crouch starts, zero falls) but BOTH variants park the same two feet in the air during hold — even with the deployed policy's exact training mix restored. Start-mix lever closed (two-miss rule); next lever is code: a state-aligned BC anchor (see "not working"). |
-| **Turning on command** | `cw-dep-vref1-r1` + the new mirror wrapper (`mirror.MirrorPolicy`) — sim-proven 08-11, deploy port pending | Second hexagon trick: the mirrored policy turns RIGHT exactly as the naked one drifts left, same speed, zero falls; flipping between them steers both ways and holds a straight heading (2–4° over 12 s vs 38° drift). Slow (~2°/s) — a training run for FAST commanded turning (`cw-walk-mirturn1`) is queued on the newly fixed turn reward. |
+| **Turning on command** | `cw-dep-vref1-r1` + the new mirror wrapper (`mirror.MirrorPolicy`) — sim-proven 08-11, deploy port pending | Second hexagon trick: the mirrored policy turns RIGHT exactly as the naked one drifts left, same speed, zero falls; flipping between them steers both ways and holds a straight heading (2–4° over 12 s vs 38° drift). Slow (~2°/s) — and now the shipped story: the mirror-symmetry TRAINING run (`cw-walk-mirturn1`, 08-11 late) failed its gate (no turn tracking, gait degraded), closing that lever. |
 | **Four-leg stand (party trick)** | `cw-quad-hold2` (30% mix on the walk champion); `cw-dep-quad1-c2` on the deploy contract | Mechanism is solid (lifts fronts, level, never tips) but ANY mixing dose erodes walking — stays a deploy-time specialist. |
 | **Four-leg walking** | never attempted — NEW line opened 08-11 afternoon | Target: weight shifted back onto the four rear legs, front pair raised as "hands". Feasibility GO (39 mm margin). Spec first: today's reward provably punishes this exact behavior (RL_PLAN queue 0.3). |
 | **Legacy sim walk champion** | `ppo_goal_cw_walk_longdist_r2` (md5 bcddc65c) | Seed-confirmed forward walker the whole driving line descends from; kept for sim work. |
@@ -201,11 +202,14 @@ honest-but-unfinished stand-ups — no cheating, no skill fighting).
   drives straight (heading held to 2–4° where the naked policy
   drifts off by ~38°). Caveat: it turns at the drift rate (~2°/s),
   so it's steering, not a pirouette. (3) with the reward verified,
-  the never-cleanly-tested mirror-symmetry TRAINING run is queued
-  (`cw-walk-mirturn1`) — the shot at fast commanded turning; if it
-  fails while healthy, the mirror wrapper becomes the shipped
-  turning story. Hardware sign audit (does sim "+yaw" match robot
-  "+yaw"?) still gates any bench turn session.
+  the mirror-symmetry TRAINING run finally ran (`cw-walk-mirturn1`,
+  08-11 late) and FAILED: the symmetry penalty converged but turn
+  commands still aren't followed, baseline drift tripled, and the
+  forced symmetry rewrote the champion's gait into near-in-place
+  churning. That closes mirror TRAINING; the zero-training mirror
+  wrapper IS the shipped turning story (slow steering). Hardware
+  sign audit (does sim "+yaw" match robot "+yaw"?) still gates any
+  bench turn session.
 - **Gait quality: the champion walks by paddling, in a crouch**
   (loaded-foot slide, slip ~1.1–1.5 m per meter, body at ~50–77 mm
   below plant height). On hardware this scrapes. Walking taller and
@@ -361,10 +365,11 @@ honest-but-unfinished stand-ups — no cheating, no skill fighting).
    state-aligned BC anchor, the gait reward-accuracy probe, the
    drag-charge magnitude audit, and the P2 structural slip charge
    with its bank.
-3. **In flight / queued:** `cw-arch-gru-r4c` (arch track — window +
-   capacity levers on the from-scratch GRU) is training;
-   `cw-walk-mirturn1` (fast commanded turning on the bank-verified
-   turn pricing) is queued. Four-leg walking (weight back, front
+3. **In flight / queued:** `cw-walk-dragstance1` (hw — the first
+   structural per-stance scrape-charge arm, audit-derived size) is
+   training. `cw-arch-gru-r4c` finished and FAILED (from-scratch GRU
+   closed); `cw-walk-mirturn1` ran and FAILED (mirror training
+   closed — wrapper ships). Four-leg walking (weight back, front
    pair as "hands") still needs its spec + bank first — the current
    reward provably punishes exactly that posture.
 4. **Track hygiene:** each research line now keeps its own short
