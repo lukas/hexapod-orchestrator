@@ -23,8 +23,15 @@ up honestly (not faking it) just had its first real breakthrough
 (08-11, `cw-stand-bc1` — see below) after six straight reward-tuning
 failures, and the same trick just fixed standing STILL too (08-11,
 `cw-stand-holdbc1` — the robot no longer shuffles its legs while
-"holding" a stand); obeying turn commands is still unsolved (policies
-drift left and ignore the yaw channel). Turning got new machinery this
+"holding" a stand); walking in ANY commanded direction — the last
+unsolved piece of "walk where the joystick points", 0-for-4 across
+training attempts — fell the same day WITHOUT training: the robot is
+a perfect hexagon, so backward is just forward with the legs
+relabeled, and a small math wrapper now gives the existing hardware
+checkpoint the full circle (08-11, see below). Obeying turn commands
+is still unsolved (policies drift left and ignore the yaw channel)
+but turning is de-scoped: with no camera the robot has no "front" to
+turn. Turning got new machinery this
 cycle (mirror-symmetry training, new turn pricing) that passed the
 offline semantics checks — and it was then actually trained and
 FAILED: the new turn reward changed nothing measurable versus the
@@ -57,6 +64,19 @@ need a structural fix, not another price change (see below).
   falls — robust to physics variation (DR 0.5), bus latency, floor
   grip, 3° slopes, payload, and off-center mass, seed-confirmed.
   Caveat: it's a paddling gait that slips ~1 m per meter traveled.
+- **NEW (08-11): walk in ANY direction — the full circle, including
+  backward — with zero new training.** The robot is a perfect
+  hexagon, so "walk backward" is literally "walk forward with the
+  legs relabeled": a small mathematical wrapper (`rot60.py`) rotates
+  every joystick command into the narrow front wedge the policies
+  already master and relabels the legs to match. The actual hardware
+  checkpoint, which was completely frozen on backward commands
+  (traveled 3 cm of a commanded 30), now tracks every direction as
+  well as it tracks forward, with an honest six-leg gait on video
+  and zero falls even under rapid random full-circle command flips.
+  Months of failed "teach it to walk sideways" training runs were
+  chasing something the geometry gives us for free. Remaining step:
+  ~60 lines of the same math in the robot's onboard runner.
 - **Crouch walking** down to −70 mm body height; rough ground
   (bumps to 36 mm) doesn't perturb it.
 - **The whole motion cycle — stand up, drive, stop, sit down — now
@@ -246,16 +266,16 @@ need a structural fix, not another price change (see below).
   under it, travel is about a centimeter over 15 seconds, legs slide
   5-20x more than a normal walk. Copying one step at a time isn't
   enough to learn the different overall stepping pattern each new
-  direction needs. Any-direction walking is now 0-for-4 across every
-  reward and imitation idea tried; the next idea is structural (teach
-  the network that walking backward = walking forward with the legs
-  relabeled) rather than another reward tweak. (One real reward bug
-  WAS found along the way, but only in the de-scoped turning stack:
-  during straight-line walking the turn-tracking bonus pays a
-  motionless body its full income; fix if turning ever comes back in
-  scope.)
-- **Backward walking** — parks or falls; envelope is the front
-  half-circle only.
+  direction needs. Any-direction walking went 0-for-4 across every
+  reward and imitation idea tried. (One real reward bug WAS found
+  along the way, but only in the de-scoped turning stack: during
+  straight-line walking the turn-tracking bonus pays a motionless
+  body its full income; fix if turning ever comes back in scope.)
+  **08-11, hours later: SOLVED — structurally, with zero training**
+  (see "walk in ANY direction" in the sim capabilities above). The
+  whole 0-for-4 line was asking the trainer to discover something
+  the hexagon's geometry already guarantees; the wrapper closes this
+  chapter. Still open on it: the ~60-line onboard-runner port.
 - **Sim effort realism**: sim under-prices standing still (0.11 A
   vs the real 0.59 A) — needs a holding-current model fit before
   effort-shaped gaits can be trusted. Servo LAG realism, by

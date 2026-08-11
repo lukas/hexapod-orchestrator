@@ -39,10 +39,14 @@ fails, does it change what we do before the next hardware test?
 
 ## Critical path (simplification review §11, 08-10)
 
-**CURRENT GOAL:** joystick-controlled real robot. **BLOCKERS:**
-honest rise to a walkable plant; commanded turning;
-deployment-equivalent loaded/contact dynamics. **DEFERRED:** quad
-mode, generic DR composes, posetrack, architecture curiosity work
+**CURRENT GOAL:** joystick-controlled real robot. **BLOCKERS (as of
+08-11):** hardware attempt #2 (operator bench); deploy-side ports of
+the two sim-solved skills (rise+hold handoff composition; rot-60
+omni canonicalizer in the robot runner); deployment-equivalent
+loaded/contact dynamics (hold-current model fit). Rise/hold/lower
+and full-circle translation are SOLVED IN SIM; commanded turning is
+DE-SCOPED (no camera = no front). **DEFERRED:** quad mode, generic
+DR composes, posetrack, architecture curiosity work
 not tied to a demonstrated failure. **RULE:** idle GPUs are fine.
 **TEST:** the next experiment should take less than one minute to
 explain and should change what we do before the next useful
@@ -249,33 +253,31 @@ Open problems, in priority order:
 1.  Live truth for what's training/queued: `ops.sh census` +
     `launch_run.py backlog list` — never this file.
 2.  [CODE] backlog, in priority order:
-    1. **Omni translation — income re-probe DONE 08-11
-       (`probe_walk_income.py`): pricing EXONERATED on the
-       deliverable (trans1) stack.** Term-by-term decomposition of
-       all three degenerate fingerprints + the actual collapsed
-       checkpoints, 4 directions x DR 0/0.5: honest gait out-earns
-       every degenerate 2-4x uniformly, and the collapsed
-       trans1/mirror2 checkpoints earn BELOW A FREEZE under their own
-       reward — the attractors are optimization failures (no gradient
-       says which way a churning leg should move), not paid basins.
-       Reward surgery CLOSED on this stack. Latent defect found in
-       the DE-SCOPED turn stack only (ungated yaw kernel pays a
-       motionless body full income on linear ticks + k_yaw_still
-       taxes the honest gait's wz wobble ~-100/ep net) — fix before
-       any turn re-scope, not now. Third lever (BC anchor on walk
-       ticks toward the scripted TripodGait) **FAILED 08-11**
-       (`cw-omni-transbc1`): anchor loss converged cleanly
-       (0.14→0.0097, better than the rise/hold precedent) and std
-       stayed flat, yet the identical march-in-place/paddle
-       fingerprint reappeared (fwd 0.01 m/ep, prog_ratio med
-       0.09 det/0.05 sto vs gate ≥0.25, slip/m 6–19 vs champion
-       ~1.2–1.5, zero net floor travel on video) — the pre-registered
-       prediction-if-false; local per-tick imitation ≠ the global
-       stepping pattern each direction needs. BC-anchor/reward tuning
-       CLOSED on this stack (4th distinct-or-near collapse). NEXT,
-       untried: rot-60 exact equivariance (backward = forward with
-       legs relabeled — structural, not another coefficient). Detail:
-       `rl_docs/TURN.md`.
+    1. **Omni translation — RESOLVED IN SIM 08-11 by rot-60 exact
+       equivariance (`rl_move/sim/rot60.py`), zero training.** After
+       the income re-probe exonerated pricing (honest gait out-earns
+       every degenerate 2-4x; collapsed ckpts earn below a freeze —
+       optimization failure, not a paid basin) and the 4th collapse
+       (`cw-omni-transbc1`, BC anchor on walk ticks) closed
+       reward/anchor tuning, the reserve lever landed: the robot is a
+       regular hexagon (six identical leg templates at exact 60 deg
+       spacing, axisymmetric chassis inertia), so rotate-60+relabel-
+       legs is an EXACT model symmetry (test_rot60.py proves it on
+       the compiled model, <1e-6 over 30 contact steps). rot60.py
+       canonicalizes any heading into the +/-30 deg wedge at eval
+       time (obs rotation + leg relabel, action un-relabel).
+       Full-circle results, matched naked controls (`logs/rot60/`):
+       `cw-dep-vref1-r1` (THE hardware ckpt) naked backward is frozen
+       (0.027 m) — wrapped, every direction 0.024-0.036 trk_err at
+       DR0 + own DR0.35, zero falls incl. flip stress, harness 20/24
+       success, slip/m 1.1-1.3 (own band), video-clean gait;
+       hist16-dep1 naked DEGENERATES AT EVAL into the leg-sacrifice
+       (slip 7-11/m) — wrapped: gait_valid 24/24, slip 1.3-1.6.
+       No omni training arm is needed. REMAINING [CODE, deploy-side]:
+       port the ~60-line numpy canonicalizer into the robot runner's
+       obs/action path + replay-parity check vs rot60.py (spec in
+       `rl_docs/TURN.md` tail). Eval-side: `eval_drive --rot60`,
+       `eval_checkpoint --rot60`.
     2. **Rise beyond income shaping — RESOLVED to a validated
        mechanism 08-11 (BC anchor, lever (a)); the follow-up
        revealed a SEPARATE, pre-existing hold/track pricing gap.**
