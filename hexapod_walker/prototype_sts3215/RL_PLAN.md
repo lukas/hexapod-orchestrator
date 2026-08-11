@@ -346,6 +346,42 @@ Open problems, in priority order:
     stepping). Operating point k=8000 / 6mm / 0.25mm (skater pays
     2.5x income, honest gait 23%). From-scratch arm = the operator
     session's next launch. Detail: `rl_docs/GAIT.md` bottom.
+    (P2.5, TALL LADDER — operator session 08-11 eve, LIVE FLEET
+    CAMPAIGN: run these follow-ups.) Height-as-COMMANDED-REF rungs
+    work on the dep line where the hgt1 income gate did not:
+    `cw-dep-tall30` (warm from tip1, walk_height_off_mm=-30 +
+    k_drag_stance=8000/6mm/0.25mm, 2M) cut eval walk
+    height_err_end 60mm→15mm at −24% speed (0.0295 vs 0.0388) and
+    equal slip; isolation twin `cw-dep-tall30h` (no charge) is
+    statistically identical (17.5mm/0.0287/1.80) → the charge is
+    free, KEEP it; the speed cost belongs to the height rung.
+    Rung 2 `cw-dep-tall15` (ref −15, warm from tall30) STALLED:
+    body ≈ −44mm at either ref (err 29mm vs −15) — the free climb
+    ends at ~−44mm (tip1 eval-ends ~−60mm). WHY THE FLEET MISSED
+    IT: hgt1's FAIL verdict filed height as "cosmetic" and closed
+    the thread; lowgait proved ref-rung tracking but ran DOWNWARD
+    as a crouch envelope; nobody inverted it across lines.
+    Pre-registered follow-ups (one variable each, warm from
+    `ppo_goal_cw_dep_tall30` unless said otherwise; rung gate:
+    height_err_end ≤8mm at ref, speed ≥0.028, survived 1, slip
+    ≤1.8, no park):
+    T1 budget: rerun tall15 at 6-10M hardening (evidence: 2M rungs
+       moved 60→15 then stalled; posture shifts may be step-bound).
+    T2 k_height crank at fixed ref −15 (base height kernel ~0.36/tick
+       at 60mm is noise vs walk income; try 3x and 10x).
+    T3 height gate AT A REACHABLE REF: walk_height_gate=1.0 sigma 30
+       + ref −30→−15 (hgt1's gate failed at ref 0 = an unreachable
+       50mm one-shot; gate+reachable-ref is an untested condition).
+    T4 speed trade: walk_speed band 0.03-0.04 at ref −15 — does
+       releasing speed pressure buy height? (recover speed in a later
+       rung if so).
+    T5 probe (no training): stance geometry at the −44 wall vs the
+       scripted plant-height gait (`probe_walk_income.py` posture
+       dump) — kinematic/stability limit vs learned habit. If
+       kinematic: STOP the ladder, −30 rung is the envelope.
+    Winner → Gate 0 export + tipped retention + bench A/B vs tip1.
+    Checkpoints: `ppo_goal_cw_dep_tall30{,h}`, `ppo_goal_cw_dep_tall15`
+    on train-2; tall30 pulled to the Mac (md5 a50a5d61).
     (P3, the goal state — operator: learn it WITHOUT the anchor)
     from-scratch curriculum line: terrain-as-teacher CLOSED for good
     08-11 (two-miss rule — 72mm collapsed to leg-sacrifice, 54mm
