@@ -126,10 +126,11 @@ rungs until the flagship answers the real question — "can a
 history-aware policy with a correctly specified multitask MDP learn
 the joystick skill set?" — not "what is the best temporal arch?".
 
-**FLAGSHIP (queued behind the rise + turn MDP preflights passing):
-clean-sheet unified policy.** hist16 + EXPLICIT mode/command one-hot
-[CODE — the obs has no mode signal today] + 256×256 (or 256×256×128)
-MLP, from scratch, on HOLD/RISE/LOWER/WALK/TURN (not quad). Staged
+**FLAGSHIP (UNBLOCKED 08-11: banks landed, turn de-scoped, mode
+one-hot `obs.mode_onehot=1` + `--net-arch` LANDED, test_mode_onehot
+.py; stage A queued as `cw-uni-flag-a1`): clean-sheet unified
+policy.** hist16 + EXPLICIT mode/command one-hot + 256×256 MLP, from
+scratch, on HOLD/RISE/LOWER/WALK/TURN (not quad). Staged
 curriculum, not a fixed mixture: (A) hold + plant + near-plant
 rise/lower, (B) expand rise→belly / lower→sit, (C) forward
 locomotion, (D) turns, (E) transition-heavy joystick episodes.
@@ -323,10 +324,10 @@ Open problems, in priority order:
        profile rides in the weights meta, test_stand_runner.py locks
        the contract — remaining work is BENCH-ONLY. Numbers/evidence:
        rl_docs/RISE.md.
-    4. explicit mode/command one-hot in the obs (flagship
-       prerequisite); machine-readable metric semantics registry
-       (RESEARCH_RULES); contact-from-proprioception aux head;
-       zero-drift DR mechanism rework (open problem 5). **LOWER bank
+    4. mode/command one-hot — LANDED 08-11 (see Architecture);
+       machine-readable metric semantics registry (RESEARCH_RULES);
+       contact-from-proprioception aux head; zero-drift DR mechanism
+       rework (open problem 5). **LOWER bank
        LANDED 08-11 (last owed bank; TURN/WALK landed earlier):**
        under the deployed specialist stack, honest command-tracking
        descent out-earns the outrig/aloft cheats on every seed
