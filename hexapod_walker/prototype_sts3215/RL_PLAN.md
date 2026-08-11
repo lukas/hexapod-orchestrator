@@ -309,15 +309,20 @@ Open problems, in priority order:
        `cw-stand-holdstill2` (one variable = the fade) moved the
        behavior the right way (park 110 -> 90 mm, feet factor 0.1 ->
        0.3 and rising) but hold still 0/12 at 2M — two pricing
-       misses in a row, so the hypothesis changes: NEXT [CODE] is
-       BC-style supervision on HOLD ticks (target = the episode
-       start pose; extend bc_anchor.py's bc_target beyond rise
-       ticks), the exact mechanism that unblocked rise. The
-       gate+fade pricing STAYS (bank-proven; it pays the correct
-       behavior once supervision gets the policy near it). Do NOT
-       queue a third hold pricing/mix/step variant. Keep checking
-       duty_cycle/swing_count/end_clear_mm for stand-line modes — a
-       sparse video frame strip missed this at two separate verdicts.
+       misses in a row, so the hypothesis changed: the rise playbook
+       repeated. **CODE landed 08-11:** `bc_anchor.py`'s bc_target
+       now also fires on hold/track ticks (target = `_q_nom`, the
+       pose the episode actually settled at — constant per episode,
+       already tracked in `mjx_host.SNAP_ATTRS`); 4 new
+       `test_bc_anchor.py` tests green (14/14), full
+       `test_task_semantics.py` re-run green (32/1-skip, reward
+       stack confirmed untouched). `cw-stand-holdbc1` launched same
+       cycle (respec of holdstill2, byte-identical cfg — the ONE
+       variable is the code under the already-set
+       `bc_anchor_coef=1.0`). Do NOT queue a fourth hold lever before
+       this one reports. Keep checking duty_cycle/swing_count/
+       end_clear_mm for stand-line modes — a sparse video frame strip
+       missed this at two separate verdicts.
     4. explicit mode/command one-hot in the obs (flagship
        prerequisite); LOWER + TURN + WALK trajectory banks for
        test_task_semantics.py (launch blockers for those modes);

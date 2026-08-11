@@ -140,9 +140,10 @@ need a structural fix, not another price change (see below).
   moved it visibly (11 cm -> 9 cm, improvement still climbing) but
   not to a quiet stand within the short-run budget. Same lesson as
   stand-up: correct pricing is necessary but old habits need direct
-  action-coaching to break. Next fix is exactly that — the coaching
-  trick that solved stand-up, applied to holding still (small trainer
-  change queued). The corrected pricing stays. `rl_docs/RISE.md`.
+  action-coaching to break. That coaching trick (the one that solved
+  stand-up) now also applies to holding still — the trainer change
+  landed 08-11 and a short test run is in progress; results next
+  cycle. The corrected pricing stays. `rl_docs/RISE.md`.
 - **Turning on command.** Walk policies carry a structural left-yaw
   drift and ignore the yaw command channel; raising the price of
   drift failed repeatedly, and a second, better-designed reward
