@@ -121,13 +121,19 @@ need a structural fix, not another price change (see below).
   (`cw-uni-flag-a1-h2`). No cheating this time: on video it either
   sprawls and stalls short of full height or gets up and tips over
   sideways — the same crouch-start weakness even the dedicated
-  stand-up specialist still has. Whether the skills are genuinely
-  fighting for space in one network (which would justify splitting
-  into a mixture of experts) or stand-up-from-scratch is just hard
-  for ANY network is being settled right now by a one-variable
-  control run: the identical brain trained on stand-up ONLY
-  (`cw-uni-flag-a1-risectl1`). That single cheap run decides the
-  architecture fork.
+  stand-up specialist still has. **08-11: settled.** The control run
+  — the identical brain trained on stand-up ONLY, nothing else to
+  compete with it (`cw-uni-flag-a1-risectl1`) — scored exactly the
+  same 1-in-6, with the same honest sprawl/tip-over video and no
+  cheat. Removing every other skill didn't help at all, so the
+  skills were never fighting each other for space — splitting into a
+  mixture-of-experts would not have fixed this. Stand-up-from-scratch
+  is just hard for any network with this recipe; that's a match for
+  the dedicated specialist's own crouch-start struggle. Not a
+  hardware blocker today (the deployed specialist-handoff stand-up
+  already covers the bench plan); if this line reopens the next move
+  is copying over the specialist's learned habit as a head start, not
+  another reward tweak.
 - **Unified stand-up (the top unsolved skill).** Every training
   attempt finds a cheat: torso at height with legs waving, tripod
   stands, stilts. A geometric "valid plant" spec (feet down, CoM
@@ -382,7 +388,10 @@ need a structural fix, not another price change (see below).
    attempt has collapsed into a different gait pathology before
    testing the real hypothesis — turning is de-scoped from the
    joystick deliverable for now (no camera, no "front" to need).
-3. The unified-policy architecture fork: the stand-up-only control
-   run (`cw-uni-flag-a1-risectl1`) decides between one network and
-   a mixture of experts before any big rebuild is started.
+3. The unified-policy architecture fork is CLOSED (08-11): the
+   stand-up-only control run (`cw-uni-flag-a1-risectl1`) matched the
+   multitask flagship's plateau exactly, so no mixture-of-experts
+   rebuild is justified; the open thread is rise-teaching (specialist
+   seeding), and it is architecture curiosity, not a hardware
+   blocker.
 Queue and blockers: `RL_PLAN.md`.

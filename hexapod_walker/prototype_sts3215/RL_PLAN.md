@@ -162,10 +162,24 @@ factors across 10M, NO cheat (honest sprawl-stall/tip-over — the
 same crouch fragility the deployed specialist has, 0/6 RSI-off).
 None of the pre-registered outcomes fired cleanly; "skills fight →
 MoE" needs interference MEASURED, not inferred (no from-scratch
-rise-only cell ever ran). `cw-uni-flag-a1-risectl1` (2M, rise-only,
-one variable) decides the fork: beats flagship at matched
-rise-ticks → MoE; same plateau → MoE exonerated, fix rise teaching
-(state-aligned BC anchor spec / crouchrise recipe / seeding).
+rise-only cell ever ran). **08-11: `cw-uni-flag-a1-risectl1` (2M,
+rise-only, one variable, the missing cell) REFUTES the MoE fork.**
+Isolated on stand-up alone (zero sibling skills to fight for
+capacity, 2.5x the flagship's rise-tick exposure), it lands in the
+IDENTICAL band: det valid_plant 1/6 (matches h2's 1/6 exactly),
+`env/rise_feet_factor` last-quarter mean 0.537 (flagship band
+0.44–0.64, confirm threshold was >0.8), zero exploit fingerprint in
+12 video-checked episodes (honest crouch-start tip-overs/sprawl-
+stalls, same shape as h2). Shared-capacity interference is NOT the
+cause — a network with nothing else to learn hits the same wall.
+**Do not build MoE for unified-policy rise.** The bottleneck is
+rise-from-scratch itself (matches the deployed BC-anchor specialist
+also failing 0/6 RSI-off on crouch starts before its start-mix fix).
+Next lever if this line reopens: specialist seeding/warm-start, not
+another reward/mix variant — but this is now architecture curiosity,
+not a hardware blocker (specialist-handoff composition already
+covers rise for attempt #2, deployed 08-11). No further flagship
+arms queued this cycle.
 
 Not defaults: velocity estimator / DreamWaQ (NOT needed for attempt
 #2; revisit only on a demonstrated hidden-state failure);
