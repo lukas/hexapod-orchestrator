@@ -394,10 +394,24 @@ Open problems, in priority order:
        hardening (`cw-dep-tall-gate1-h1`) is an INFORMATIVE FAIL:
        err 15→39mm — a σ30 income gate SLOWS but does not STOP the
        posture-for-speed trade under budget.
+       **CONFIRMED 08-11 late (harness + probe_tall_wall.py on the
+       actual checkpoint):** harness det height_err_end 36-47mm at
+       DR0 (own-DR0.35 same band), speed 0.054-0.056 (above the
+       speed bar, so this is a pure height loss, not a stall);
+       steady-state walking height (the non-stop-window metric) is
+       **-72.6mm, statistically the same as tall30's own -75mm
+       wall** — 6M more steps under the gate bought ~2mm, not the
+       ~45mm the σ30 gate was priced to hold. Leg-yaw limit margin
+       still negative (-0.5..-0.3°, pinned at the 35° splay limit),
+       same fingerprint as T5. Video clean six-leg gait, no cheat —
+       an honest, informative miss. Gate-income alone is CLOSED as a
+       lever at this dose; do not schedule another sigma variant.
     T2a/T2b (k_height 300 / 1000 at ref −15) + T4 (speed band
        0.03-0.04 at ref −15) LAUNCHED 08-11 eve (operator ordered all
        arms now), warm from tall30 on train-0 (ckpt pushed, refusal
-       fixed). Gates amended: primary metric is the T5 probe's
+       fixed) — **mechanically confirmed RUNNING 08-11 late** (kh3
+       train-0, kh10 train-3, slow1 train-4; ckpt fanned out to all
+       three pods). Gates amended: primary metric is the T5 probe's
        walking height. T4 doubles as the T5-mechanism test: if
        easing speed demand lifts posture and pulls mean leg yaw off
        the 35° wall, the stability-purchase story is confirmed.
