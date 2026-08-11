@@ -373,25 +373,43 @@ Open problems, in priority order:
        episode, sto gait_valid 4/6). No cheat, still honest paddle.
        Do not schedule further step-count variants. Detail:
        GAIT.md. Next: T5 before T2/T3 (per this gate's own priority).
-    T2 k_height crank at fixed ref −15 (base height kernel ~0.36/tick
-       at 60mm is noise vs walk income; try 3x and 10x). WAITING on T5.
-    T3 height gate AT A REACHABLE REF: walk_height_gate=1.0 sigma 30
-       + ref −30→−15 (hgt1's gate failed at ref 0 = an unreachable
-       50mm one-shot; gate+reachable-ref is an untested condition).
-       WAITING on T5.
-    **T5 probe (no training, NOT YET BUILT 08-11):** stance geometry
-       at the −44 wall vs the scripted plant-height gait —
-       kinematic/stability limit vs learned habit. If kinematic:
-       STOP the ladder, −30 rung is the envelope. Design sketch
-       (GAIT.md bottom): drive the scripted TripodGait at an
-       IK-adjusted shallower stance (`geometry_plant.py.
-       knee_for_foot_z`, same FEMUR/TIBIA constants) and read
-       `info["height_mm"]` (already exposed per-tick, `sim_env.py`)
-       across the episode — does it hold near −15mm or get pushed
-       back toward −44mm? Do this before any more T2/T3 spend.
+    **T5 DONE (08-11 eve, operator session — `probe_tall_wall.py`,
+       landed):** the wall is HABIT/stability, NOT kinematics.
+       Deterministic steady-state rollouts of the tall30 checkpoint
+       vs the scripted plant-height gait in the same dep env:
+       mid-gait the tall30 body rides **−75mm** with hip pitch −41°
+       (≈70° of unused upward range) and knee 105° (≈46° room) —
+       nothing pinned upward — but leg YAW is PINNED at its 35°
+       limit (min margin < 0) with support radius 218mm vs the
+       gait's 179mm: the policy buys lateral stability with
+       splay+crouch. Scripted gait walks at +12mm in the same env
+       (existence proof). **MEASUREMENT CAVEAT (binding):**
+       `eval/walk/height_err_end_mm` is a STOP-WINDOW metric — the
+       ladder's 60→15mm "gains" were mostly stop-stance recovery.
+       Judge every tall arm by `probe_tall_wall.py` steady-state
+       WALKING height (tall30 baseline −75mm; first target ≥ −50mm).
+    **T3 result (08-11 eve):** 2M gate-at-reachable-ref
+       (`cw-dep-tall-gate1`) holds 15mm/no factor collapse (0.58 vs
+       hgt1's 0.24 crash) — gate and walking coexist. But the 6M
+       hardening (`cw-dep-tall-gate1-h1`) is an INFORMATIVE FAIL:
+       err 15→39mm — a σ30 income gate SLOWS but does not STOP the
+       posture-for-speed trade under budget.
+    T2a/T2b (k_height 300 / 1000 at ref −15) + T4 (speed band
+       0.03-0.04 at ref −15) LAUNCHED 08-11 eve (operator ordered all
+       arms now), warm from tall30 on train-0 (ckpt pushed, refusal
+       fixed). Gates amended: primary metric is the T5 probe's
+       walking height. T4 doubles as the T5-mechanism test: if
+       easing speed demand lifts posture and pulls mean leg yaw off
+       the 35° wall, the stability-purchase story is confirmed.
+    NEW LEVER CANDIDATES from T5 (for the fleet, pre-registered):
+       price the yaw-splay directly (charge |yaw| beyond ~25° in walk
+       mode — attacks the pinned-at-limit signature, not height);
+       or raise `walk_height_gate` σ→45 only if T2/T4 both fail.
     Winner → Gate 0 export + tipped retention + bench A/B vs tip1.
-    Checkpoints: `ppo_goal_cw_dep_tall30{,h}`, `ppo_goal_cw_dep_tall15`
-    on train-2; tall30 pulled to the Mac (md5 a50a5d61).
+    Checkpoints: `ppo_goal_cw_dep_tall30{,h}`, `ppo_goal_cw_dep_tall15`,
+    `ppo_goal_cw_dep_tall15_h1` (fastest dep walker, 0.051 m/s),
+    `ppo_goal_cw_dep_tall_gate1{,_h1}` on train-2; tall30 also on
+    train-0 + the Mac (md5 a50a5d61).
     (P3, the goal state — operator: learn it WITHOUT the anchor)
     from-scratch curriculum line: terrain-as-teacher CLOSED for good
     08-11 (two-miss rule — 72mm collapsed to leg-sacrifice, 54mm
