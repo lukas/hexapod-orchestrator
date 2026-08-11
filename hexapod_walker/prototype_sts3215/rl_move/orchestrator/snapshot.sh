@@ -21,6 +21,7 @@ if [ "${1:-}" = "--sync" ]; then
   tar -C hexapod_walker -czf "$TGZ" \
       --exclude='prototype_sts3215/logs' \
       --exclude='prototype_sts3215/rl_move/sim/policies' \
+      --exclude='prototype_sts3215/wandb' \
       --exclude='prototype_sts3215/rl_move/wandb' \
       --exclude='*.stl' --exclude='*.mp4' \
       prototype_sts3215
