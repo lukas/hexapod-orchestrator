@@ -286,43 +286,26 @@ Open problems, in priority order:
        -> 100-161mm at 10M). Do NOT queue another rise
        reward-coefficient/RSI/dose/step-count variant on this
        lineage. Detail: rl_docs/RISE.md.
-    3. **Hold/track stillness pricing — SPEC DONE 08-11, discovery
-       arm queued.** Harness duty_cycle/swing_count/end_clear_mm on
-       the whole rsi3/bc1 lineage show hold and track modes are not
-       quiet stands — legs cycle continuously (found via
-       cw-stand-bc1-hard1's dig-in, predates the BC anchor). HOLD
-       bank landed and PASSING (test_task_semantics.py): legacy
-       pricing pays a frozen flag-leg park 368.0 vs the quiet
-       stand's 367.9 (a literal tie) and continuous stepping 0.82x —
-       the hole measured, not inferred. Fix landed:
-       `reward.hold_still_gate` (REWARD.md; default 0 = legacy;
-       scales hold/track kernel by feet-down² × hard no-flag ×
-       stillness-when-ref-stationary; shared CPU/warp path). Gated
-       ordering quiet 368 > stepping 107 > flag 9.5, no tax on the
-       honest stand, full suite green. `cw-stand-holdstill1`
-       (discovery 2M, warm from the rise specialist, ONE variable =
-       the gate) FAILED on hold — identical parked-leg fingerprint at
-       ~110 mm despite earning ~0 all run (hard no-flag zero = flat
-       zero-gradient plateau; rise retention PASSED det 4/6 sto 6/6).
-       Fade lever landed (`reward.hold_flag_fade`, REWARD.md; bank
-       +3 tests green: slope exists, park stays scraps);
-       `cw-stand-holdstill2` (one variable = the fade) moved the
-       behavior the right way (park 110 -> 90 mm, feet factor 0.1 ->
-       0.3 and rising) but hold still 0/12 at 2M — two pricing
-       misses in a row, so the hypothesis changed: the rise playbook
-       repeated. **CODE landed 08-11:** `bc_anchor.py`'s bc_target
-       now also fires on hold/track ticks (target = `_q_nom`, the
-       pose the episode actually settled at — constant per episode,
-       already tracked in `mjx_host.SNAP_ATTRS`); 4 new
-       `test_bc_anchor.py` tests green (14/14), full
-       `test_task_semantics.py` re-run green (32/1-skip, reward
-       stack confirmed untouched). `cw-stand-holdbc1` launched same
-       cycle (respec of holdstill2, byte-identical cfg — the ONE
-       variable is the code under the already-set
-       `bc_anchor_coef=1.0`). Do NOT queue a fourth hold lever before
-       this one reports. Keep checking duty_cycle/swing_count/
-       end_clear_mm for stand-line modes — a sparse video frame strip
-       missed this at two separate verdicts.
+    3. **Hold/track stillness pricing — SOLVED 08-11 (third lever:
+       extending the rise BC-anchor to hold/track ticks).** Two
+       pricing-only levers (hard no-flag zero, then a fade) FAILED
+       first (0/12 each — earning near-zero reward gave PPO no
+       gradient telling a parked leg which way to move).
+       `cw-stand-holdbc1` (BC-anchor now also targets hold/track
+       ticks) PASSES: harness hold 12/12 valid_plant det+sto,
+       worst-foot 2-13mm, video-confirmed level motionless six-foot
+       stand det AND sto — first genuine quiet hold in the campaign.
+       `env/hold_feet_factor` cleared the 0.1-0.35 plateau to ~1.0 by
+       500k steps, held all 2M. Rise retention mostly clean (bridge
+       2/2 det, sto 6/6) but det crouch shows 2/6 tilt_roll falls —
+       verified against holdstill1 (0 falls)/holdstill2 (1 identical
+       fall) as the SAME pre-existing crouch fragility, not new.
+       Checkpoint `ppo_goal_cw_stand_holdbc1` (SKILLS.md). Next:
+       hardening continuation `cw-stand-holdbc1-hard1` (10M, mirrors
+       bc1->bc1-hard1) to check whether budget also closes the
+       crouch gap, then the rise+hold -> walk-champion handoff
+       composition test. Full history (pricing bank, both failed
+       levers, code change): rl_docs/RISE.md.
     4. explicit mode/command one-hot in the obs (flagship
        prerequisite); LOWER + TURN + WALK trajectory banks for
        test_task_semantics.py (launch blockers for those modes);

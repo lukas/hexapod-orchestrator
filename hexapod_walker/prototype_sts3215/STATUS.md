@@ -21,8 +21,10 @@ policy stack and a validated hardware-deployment candidate staged on
 the Mac, waiting on bench time (and one servo-zero repair). Standing
 up honestly (not faking it) just had its first real breakthrough
 (08-11, `cw-stand-bc1` — see below) after six straight reward-tuning
-failures; obeying turn commands is still unsolved (policies drift
-left and ignore the yaw channel). Turning got new machinery this
+failures, and the same trick just fixed standing STILL too (08-11,
+`cw-stand-holdbc1` — the robot no longer shuffles its legs while
+"holding" a stand); obeying turn commands is still unsolved (policies
+drift left and ignore the yaw channel). Turning got new machinery this
 cycle (mirror-symmetry training, new turn pricing) that passed the
 offline semantics checks — and it was then actually trained and
 FAILED: the new turn reward changed nothing measurable versus the
@@ -141,9 +143,21 @@ need a structural fix, not another price change (see below).
   not to a quiet stand within the short-run budget. Same lesson as
   stand-up: correct pricing is necessary but old habits need direct
   action-coaching to break. That coaching trick (the one that solved
-  stand-up) now also applies to holding still — the trainer change
-  landed 08-11 and a short test run is in progress; results next
-  cycle. The corrected pricing stays. `rl_docs/RISE.md`.
+  stand-up) now also applies to holding still, and **it worked
+  (08-11).** The robot now holds a genuinely quiet, level,
+  motionless six-legged stand — checked on video, every one of 12
+  test episodes, both with and without added randomness, feet within
+  about a centimeter of the ground. This is the first time "holding
+  still" has actually meant still. Small caveat: from the hardest
+  starting pose (belly-flat crouch) it tipped over twice out of six
+  tries while standing up — but that exact same tipping already
+  showed up once in the checkpoint we started from, so it reads as
+  an old, already-known rough edge appearing slightly more on a
+  small sample, not something the new coaching broke. Next: a longer
+  training run on this same recipe (the same thing that smoothed out
+  stand-up's rough edges) to see if it also fixes that rare tip-over,
+  then combining this "stand + hold" skill with the walking champion
+  into one policy. `rl_docs/RISE.md`.
 - **Turning on command.** Walk policies carry a structural left-yaw
   drift and ignore the yaw command channel; raising the price of
   drift failed repeatedly, and a second, better-designed reward
