@@ -301,8 +301,15 @@ Open problems, in priority order:
        ordering quiet 368 > stepping 107 > flag 9.5, no tax on the
        honest stand, full suite green. `cw-stand-holdstill1`
        (discovery 2M, warm from the rise specialist, ONE variable =
-       the gate) queued to verify PPO converges hold to a quiet
-       valid plant without losing the honest rise. Keep checking
+       the gate) FAILED on hold — identical parked-leg fingerprint at
+       ~110 mm despite earning ~0 all run (hard no-flag zero = flat
+       zero-gradient plateau; rise retention PASSED det 4/6 sto 6/6).
+       Fade lever landed (`reward.hold_flag_fade`, REWARD.md; bank
+       +3 tests green: slope exists, park stays scraps);
+       `cw-stand-holdstill2` = holdstill1 + fade, one variable, is
+       the live arm. If the fade also fails: BC-style supervision on
+       hold ticks (target = episode start pose), the mechanism
+       already validated on rise. Keep checking
        duty_cycle/swing_count/end_clear_mm for stand-line modes — a
        sparse video frame strip missed this at two separate verdicts.
     4. explicit mode/command one-hot in the obs (flagship
