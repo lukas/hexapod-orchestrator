@@ -223,19 +223,21 @@ Open problems, in priority order:
 1.  Live truth for what's training/queued: `ops.sh census` +
     `launch_run.py backlog list` — never this file.
 2.  [CODE] backlog, in priority order:
-    1. **Mirror-symmetry augmentation — LANDED (operator session,
-       08-10 evening; do not re-implement).** `rl_move/sim/mirror.py`:
-       sagittal maps (legs 0↔5/1↔4/2↔3, yaw negates, hip/knee keep
-       sign — FK-verified) + `MirrorPPO` (soft aux loss
-       pi(mirror(obs))≈mirror(pi(obs)); SOFT because the 25.65 mm
-       hip-anchor offset makes the body a chiral pinwheel). Cfg-gated
-       via `--cfg-set train.mirror_loss_coef=…` in train_ppo_mjx;
-       `tests/test_mirror.py` 11/11 incl. live-env integration; OMNI
-       semantics bank (full-circle + turn, dep contract, k_current=0)
-       added to test_task_semantics.py and PASSING. Discovery probe
-       `cw-omni-mirror1` (hist16-dep1 recipe + omni stack + mirror
-       coef 1.0) launched 08-10 eve; hardening 40M follows if the
-       mechanism-health gate passes.
+    1. **Mirror-symmetry augmentation — LANDED, mechanism-health PASS,
+       but the 40M hardening arm FAILED to a reward bug, not a
+       verdict (08-11).** `rl_move/sim/mirror.py` + `MirrorPPO` still
+       stand (do not re-implement); discovery probe `cw-omni-mirror1`
+       PASSED (mirror_sym_loss fell cleanly, reward climbed). The
+       follow-up `cw-omni-mirror1-r1` (40M) collapsed to a walk-mode
+       park/freeze exploit — standing still scored ~1130 vs walking
+       ~500-860 under that arm's stack (slow 0.05-0.06 m/s speed band
+       + k_yaw_still=50 starved walk income) — before turn-tracking
+       could be judged; mirror-symmetry itself is still UNTESTED.
+       **NEW CODE ITEM (before any re-hardening):** add a stall/
+       freeze-vs-walk ordering check to the OMNI bank at this speed
+       band + k_yaw_still (freeze must lose), then rebalance so walk
+       income beats parking by construction. Detail: `rl_docs/TURN.md`
+       "Mirror-symmetry landed; hardening run hit a reward bug".
     2. **Rise beyond income shaping — NEW TOP CODE PRIORITY (08-10
        night, after `cw-stand-score1` made it a three-strikes close,
        problem 2).** Reward-income routing is closed; design + land

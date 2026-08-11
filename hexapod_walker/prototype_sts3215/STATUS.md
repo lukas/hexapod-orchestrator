@@ -7,7 +7,7 @@ the evidence. Facts here must agree with `CURRENT_TRUTHS.md` (which
 wins on conflict); checkpoints and gate numbers live in
 `rl_docs/SKILLS.md`.
 
-**Last updated: 2026-08-10 night.**
+**Last updated: 2026-08-11.**
 Update rule: refresh this file whenever a hardware session happens, a
 new capability lands (SKILLS row that changes the story), or a big
 lesson closes — and stamp the date. Keep it honest: the "not working"
@@ -94,11 +94,17 @@ need a structural fix, not another price change (see below).
   08-10 night: a quick mechanism check (`cw-omni-mirror1`) confirmed
   the symmetry penalty actually takes hold during normal training
   (asymmetry signal fell to under half its peak, reward climbed
-  fine), so a full 40M-step run (`cw-omni-mirror1-r1`) is now
-  training the real omnidirectional/turn behavior under that rule.
-  Still UNKNOWN whether it cures the drift — that verdict needs the
-  finished run's turn-tracking numbers and video against the walking
-  champion.
+  fine). The follow-up 40M-step hardening run (`cw-omni-mirror1-r1`,
+  08-11) did NOT test the mirror-symmetry hypothesis either way: the
+  walk gait itself collapsed into standing almost still (forward
+  travel 0.68 m -> 0.01 m per episode vs the same recipe without
+  mirror, half the episodes with stuck/frozen legs) because standing
+  still scored HIGHER than walking under this arm's reward mix (a
+  large drift-hold penalty + a very slow commanded speed shrank the
+  walking income below the parking/height/alive terms) — a reward
+  bug, not a turning result, and mirror-symmetry is still UNKNOWN.
+  Next: fix that parking loophole and bank a stall-vs-walk check
+  before re-running the hardening step.
 - **Backward walking** — parks or falls; envelope is the front
   half-circle only.
 - **Sim effort realism**: sim under-prices standing still (0.11 A
@@ -149,8 +155,10 @@ need a structural fix, not another price change (see below).
 2. Reward tuning for both turning and standing (three rise
    mechanisms tried) is closed by trained evidence, not just
    prediction. Turning's structural next move (mirror-symmetry
-   augmentation) is landed and already training — a 40M-step run
-   (`cw-omni-mirror1-r1`) is underway, verdict pending. Rise's next
+   augmentation) is landed but its 40M-step hardening run
+   (`cw-omni-mirror1-r1`) failed to a walk-mode parking reward bug
+   before it could test the hypothesis (FAIL, 08-11) — fix the
+   parking loophole + bank a stall check, then re-run. Rise's next
    move (reference tracking or foot-contact-coupled height) is still
    a SPECIFICATION step — no code landed yet.
 3. Sim effort-pricing fix (holding-current model) so effort-shaped
