@@ -182,8 +182,18 @@ covers rise for attempt #2, deployed 08-11). No further flagship
 arms queued this cycle.
 
 Not defaults: velocity estimator / DreamWaQ (NOT needed for attempt
-#2; revisit only on a demonstrated hidden-state failure);
-transformers/CPG only on the archive review's triggers. Specialist
+#2; revisit only on a demonstrated hidden-state failure). 08-11 eve
+status of that rung: leg-odometry estimator BUILT and unit-tested
+(`rl_move/estimator.py`, sim-validated at DR0, corr collapses at
+DR0.5) but REFUTED as a hardware velocity source by the operator's
+tape data — real feet slip ~50%, and leg odometry over-reads by
+exactly the slip fraction (it cannot tell planted from sliding).
+Fleet evidence agrees velocity obs is not the gait lever (nv/nv2:
+"deployable obs are not the blocker"; aac: retention tool only). If
+true body velocity is ever wanted, the honest path is a downward
+optical-flow sensor (PMW3901, ~$20, SPI, works ≥80mm height — fits
+the ~142mm walk stance), not more inference.
+Transformers/CPG only on the archive review's triggers. Specialist
 heads / skill conditioning ARE acceptable if that is what reliable
 joystick control takes — deployability beats purity (GPT, 08-10).
 
@@ -307,9 +317,19 @@ Open problems, in priority order:
     itself in motion, so freeze-toward-it looks satisfied). Per its
     own pre-registered gate, not a coefficient-variant situation —
     next is P2 or P3 lever 4. Detail: `rl_docs/GAIT.md`.
-    (P2, CODE+bank) structural stance-slip CHARGE (foot-XY travel
-    while in contact — the scrape itself) + swing-clearance term;
-    bank must prove drag-gait < step-gait AND drag-gait > park.
+    (P2, CODE+bank LANDED 08-11 eve, operator session — CLAIMED,
+    do not duplicate) charge-magnitude AUDIT DONE
+    (`probe_drag_audit.py`): the per-tick charge FORM is refuted at
+    any coefficient (0.5mm deadband left 53-97% of skating free;
+    per-tick slip medians overlap gait's touchdown scuff), but
+    per-STANCE accumulated travel separates skate from step 3.3x.
+    Structural charge landed in walk_task (`reward.k_drag_stance`,
+    `drag_stance_allow_mm`, `drag_stance_tick_floor_mm`; default
+    off, bit-exact). Bank PASSING: step-gait > zero-lift skate AND
+    > stall > park (test_drag_stance_stack_prices_skating_below_
+    stepping). Operating point k=8000 / 6mm / 0.25mm (skater pays
+    2.5x income, honest gait 23%). From-scratch arm = the operator
+    session's next launch. Detail: `rl_docs/GAIT.md` bottom.
     (P3, the goal state — operator: learn it WITHOUT the anchor)
     from-scratch curriculum line: terrain-as-teacher CLOSED for good
     08-11 (two-miss rule — 72mm collapsed to leg-sacrifice, 54mm
