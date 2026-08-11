@@ -294,21 +294,16 @@ Open problems, in priority order:
     stance and walking without dragging feet are the same problem).**
     The walkers travel by dragging loaded feet (slip/m 1.1–1.5) at a
     ~50–77mm crouch; on hardware this scrapes and can catch.
-    (P0, REWARD-ACCURACY DIAGNOSTIC — run BEFORE any new arm,
-    operator 08-11: "we should really think about if the reward is
-    accurate"): extend `probe_walk_income.py` to replay the
-    TAPE-PROVEN scripted gait AT PLANT HEIGHT through the exact
-    champion reward stack and compare its full return — income AND
-    penalties AND termination risk — against what the trained
-    crouch-paddle actually earns. Prime suspect (from dep-hgt1/hgt2:
-    height INCOME gating maxed out and the policy still chose the
-    crouch): the PENALTY side. The real working gait rocks ±10–20°
-    in roll/pitch; k_gyro/k_roll/k_pitch and tilt-term risk charge
-    exactly that rocking, so an honest tall stepping gait may be
-    net-mispriced vs the smooth low paddle. If the real gait earns
-    LESS → the reward is wrong: reprice (rocking within the 25°
-    envelope should cost ~0), bank it, THEN train. If it earns
-    MORE → it's a discovery problem, proceed P1→P3.
+    (P0, REWARD-ACCURACY DIAGNOSTIC — DONE 08-11 late: `--stack
+    vref1` in `probe_walk_income.py`, GAIT.md bottom section.)
+    Penalty-side suspect REFUTED: the plant-height tape-proven gait
+    pays ≤1.5/ep total in gyro/roll/pitch and never terminates;
+    totals are near parity (gait −11% at DR0, +8% at own-DR 0.35).
+    The stack already favors tall by ~380/ep (stance kernel +
+    k_height) but the crouch-paddle collects ~495/ep MORE walk+prog
+    income because in sim it genuinely tracks the command (progress
+    1.06 vs the gait's slip-limited 0.35) — a DISCOVERY/effectiveness
+    problem, not a pricing hole. No repricing bank; proceed P2/P3.
     (P1, CLOSED 08-11) `cw-walk-gaitbc1` FAILED — BC-anchor gait
     cleanup froze into a static motionless tripod pose (video-
     confirmed, identical every episode, fwd ~0.00m vs parent's
@@ -373,14 +368,16 @@ Open problems, in priority order:
     commanded-rate tracking stays open. Deploy port + rot60
     composition are follow-up [CODE]; hardware sign audit still
     gates any bench turn.
-    (3) MIRROR-SYMMETRY TRAINING — licensed (fixes landed + banked)
-    and QUEUED: `cw-walk-mirturn1` (backlog; discovery 2M, warm from
-    vref1-r1, forward wedge + yaw set, full fixed pricing incl.
-    walk_kernel_yaw_gate which turnfix1 predates, mirror coef 1.0).
-    Judge: eval_yaw both signs + matched frozen-parent control. If
-    it fails healthy, the mirror line closes and MirrorPolicy
-    selection is the shipped turning story.
-    (4) BC-ANCHOR ON TURN TICKS: in reserve, unchanged.
+    (3) MIRROR-SYMMETRY TRAINING — RUN AND FAILED 08-11 late
+    (`cw-walk-mirturn1`, discovery 2M, warm from vref1-r1, full fixed
+    pricing, mirror coef 1.0): sym loss converged 28→0.5 but turn
+    tracking never arrived (|wz_err| med 0.254, L/R asymmetry intact)
+    AND the forced symmetry rewrote the gait (prog 0.41 vs ~1.0, slip
+    5x parent). Mirror TRAINING on a warm champion is CLOSED per the
+    pre-registered gate; MirrorPolicy chirality selection is the
+    shipped turning story (deploy port + rot60 composition [CODE]).
+    (4) BC-ANCHOR ON TURN TICKS: in reserve, unpromising after
+    transbc1's walk-tick freeze.
 0.3 **FOUR-LEG WALKING — NEW line (operator 08-11 afternoon).** The
     target image: the robot SHIFTS ITS WEIGHT BACK onto the four
     rear legs and walks on them, front pair raised off the ground as
