@@ -48,12 +48,13 @@ inferable run-name prefix); the launcher tags the W&B run
   run's track.** The launch question is asked against the TRACK's
   goal, not always the hardware test. A finding that matters to
   another track is escalated, not launched: record one line in BOTH
-  tracks' docs under "Current state" plus `CROSS-TRACK INSIGHT:` in
+  tracks' STATUS.md ("Now") plus `CROSS-TRACK INSIGHT:` in
   your cycle logline, and let the other track's next cycle act on
   it. Cross-track launches are operator-only.
-- A verdict that changes a track's story updates THAT track's doc
-  (`rl_docs/tracks/<TRACK>.md` "Current state"); STATUS.md stays the
-  whole-campaign digest.
+- A verdict that changes a track's story updates THAT track's
+  `rl_docs/tracks/<track>/STATUS.md` ("Now"/"Next" sections — keep it
+  SHORT, a screenful; detail goes to the linked docs). The top-level
+  STATUS.md stays the whole-campaign digest.
 
 ## Phases and budgets (launcher-enforced: `launch_run.py --phase`)
 

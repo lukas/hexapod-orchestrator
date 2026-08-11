@@ -27,10 +27,11 @@ mirror-symmetry). Every launch/backlog/respec carries `--track`
 (respec inherits the source's). **CONTAINMENT: a triaged run's
 follow-ups go ONLY to its own track**, judged against THAT track's
 goal (read its doc first). A finding that matters elsewhere is
-ESCALATED, not launched: one line in both tracks' docs +
+ESCALATED, not launched: one line in both tracks' STATUS.md +
 `CROSS-TRACK INSIGHT:` in your logline; cross-track launches are
 operator-only. Verdicts that change a track's story update that
-track's doc "Current state".
+track's `rl_docs/tracks/<track>/STATUS.md` — keep it a SHORT
+screenful (goal / Now / Next), detail goes to the linked docs.
 
 **PRIME DIRECTIVE (operator, 08-10 — supersedes GPU-occupancy
 rules; scope: the hw track — other tracks substitute their own
