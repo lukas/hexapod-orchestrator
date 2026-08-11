@@ -184,8 +184,15 @@ Open problems, in priority order:
    provenance + confidence table: **`rl_docs/SIM.md`**. Uncertain
    params (servo reaction times above all) are COVERED BY DR RANGES,
    not exact nominals; hip/yaw are an ASSUMPTION until a per-axis
-   loaded ladder. NEXT: re-run the liftoff reproduction on loaded
-   params; first arm = a dep-line respec, loaded vs its air twin.
+   loaded ladder. First training arm DONE (08-11 dig-in,
+   `cw-dep-vref1-loaded1` PASS): loaded-servo training retains the
+   dep-contract walk and slightly beats the air-trained parent under
+   matched loaded physics; the ~+40% vel-err/+50% slip vs old
+   instant-servo numbers is honest physics (hits the frozen parent
+   identically). Loaded params are a viable dep-line training
+   default; air-vs-loaded for attempt #2 is a bench decision.
+   Remaining: liftoff reproduction on loaded params; hold-current
+   model fit (problem 1).
 4. **Quad-mix erosion.** Dose-response so far: 50% erodes walk, 30%
    recovers on the walk champion, 30% on the driving champion
    FAILED, 15% in review. If erosion persists at useful mixes:
@@ -258,15 +265,14 @@ Open problems, in priority order:
        perfect there, so early update noise drifts it into the
        tripod and nothing anchors it back). Widening the kernel is
        bank-blocked (sigma 10°: flag-leg farms 17% of replay, over
-       the 10% ceiling; 15° fails 3 bank tests). Two CODE levers,
-       both need a SPECIFICATION pass first: (a) **BC anchor in the
-       TRAINER** — auxiliary loss pulling the action toward the
-       reference action at RSI-spawned states (DeepMimic-family;
-       supervises actions directly, immune to pose-farming) —
-       operator's preferred first spec; (b) structural height↔foot-
-       contact coupling (height ref refuses to rise on a leg that
-       lost contact). Do NOT queue another reward-coefficient/RSI/
-       income variant on this stack. Detail: `rl_docs/RISE.md`.
+       the 10% ceiling; 15° fails 3 bank tests). Lever (a) **BC
+       anchor in the TRAINER** LANDED 08-11 (spec pass green:
+       `rl_move/sim/bc_anchor.py`, 10/10 tests, bank unaffected,
+       MJX smoke engages — detail rl_docs/RISE.md); first arm
+       `cw-stand-bc1` (rsi3 stack + coef 1.0, ONE change, discovery
+       2M) decides it. Lever (b) structural height↔foot-contact
+       coupling stays next if the anchor fails. Do NOT queue another
+       reward-coefficient/RSI/income variant on this stack.
     3. explicit mode/command one-hot in the obs (flagship
        prerequisite); LOWER + TURN + WALK trajectory banks for
        test_task_semantics.py (launch blockers for those modes);
