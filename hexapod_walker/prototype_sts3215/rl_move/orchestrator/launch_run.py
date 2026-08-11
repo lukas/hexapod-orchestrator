@@ -794,13 +794,18 @@ def cmd_checkup(g: dict, a: argparse.Namespace) -> int:
     trainers = pod_trainers(pod)
     facts["process_alive"] = a.run in trainers
     if not facts["process_alive"]:
-        tail = kexec(pod, f"tail -c 600 {log} 2>/dev/null || true")
+        tail = kexec(pod, f"tail -c 2000 {log} 2>/dev/null || true")
         # A missing process is NOT necessarily a death: short runs and
         # canary auto-stops complete before/within the checkup window.
-        # The trainer's completion marker is "[train] N steps in Ts → ckpt"
-        # (cw-walk-step0-c1 false-positive DEAD, 2026-08-09: run had
-        # finished, saved its checkpoint, and been verdicted already).
-        if re.search(r"\[train\] \d+ steps in .*→", tail):
+        # Completion markers: CPU trainer "[train] N steps in Ts → ckpt"
+        # (cw-walk-step0-c1 false-positive DEAD, 2026-08-09) and MJX/GPU
+        # trainer "[mjx-train] done: N steps in Ts ... -> ckpt" (three
+        # false DEADs on sub-7-min discovery runs 2026-08-11: 01:55
+        # cycle, cw-stand-rsi1, cw-stand-rsi2 — the old regex only knew
+        # the CPU banner). Tail widened 600->2000 bytes because post-
+        # completion wandb-artifact lines can push the banner out.
+        if re.search(r"\[train\] \d+ steps in .*→", tail) or \
+                re.search(r"\[mjx-train\] done: [\d,]+ steps in", tail):
             record("FINISHED_BEFORE_CHECKUP", _status="FINISHED",
                    log_tail=tail[-600:])
             print(f"FINISHED: {a.run} completed before checkup on {pod} "
