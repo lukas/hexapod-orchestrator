@@ -262,16 +262,20 @@ Open problems, in priority order:
        the DE-SCOPED turn stack only (ungated yaw kernel pays a
        motionless body full income on linear ticks + k_yaw_still
        taxes the honest gait's wz wobble ~-100/ep net) — fix before
-       any turn re-scope, not now. NEXT (landed 08-11): third
-       application of the proven BC anchor — walk ticks emit the
-       command-conditioned scripted TripodGait (the gait that
-       walks/crabs/turns the REAL robot) as a supervised action
-       target; stop ticks unsupervised. Discovery arm
-       `cw-omni-transbc1` (trans1 config + train.bc_anchor_coef=1.0,
-       one variable). Reserve if it fails: rot-60 equivariance
-       (trans1's pre-registered alternate). Mirror-symmetry remains
-       untested (coef 1.0 was on during the trans1 collapse and did
-       not prevent it). Detail: `rl_docs/TURN.md`.
+       any turn re-scope, not now. Third lever (BC anchor on walk
+       ticks toward the scripted TripodGait) **FAILED 08-11**
+       (`cw-omni-transbc1`): anchor loss converged cleanly
+       (0.14→0.0097, better than the rise/hold precedent) and std
+       stayed flat, yet the identical march-in-place/paddle
+       fingerprint reappeared (fwd 0.01 m/ep, prog_ratio med
+       0.09 det/0.05 sto vs gate ≥0.25, slip/m 6–19 vs champion
+       ~1.2–1.5, zero net floor travel on video) — the pre-registered
+       prediction-if-false; local per-tick imitation ≠ the global
+       stepping pattern each direction needs. BC-anchor/reward tuning
+       CLOSED on this stack (4th distinct-or-near collapse). NEXT,
+       untried: rot-60 exact equivariance (backward = forward with
+       legs relabeled — structural, not another coefficient). Detail:
+       `rl_docs/TURN.md`.
     2. **Rise beyond income shaping — RESOLVED to a validated
        mechanism 08-11 (BC anchor, lever (a)); the follow-up
        revealed a SEPARATE, pre-existing hold/track pricing gap.**

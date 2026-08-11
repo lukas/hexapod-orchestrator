@@ -238,13 +238,22 @@ need a structural fix, not another price change (see below).
   churning leg which WAY to move — the same lesson as standing up
   and holding still). The fix that already worked twice for exactly
   this (show the trainer a correct example motion to imitate,
-  alongside the reward) is now wired up for walking: the imitation
-  target is the same scripted gait that walks the real robot, and it
-  knows how to step in every direction. First test run:
-  `cw-omni-transbc1`. (One real reward bug WAS found, but only in
-  the de-scoped turning stack: during straight-line walking the
-  turn-tracking bonus pays a motionless body its full income; it
-  must be fixed if turning ever comes back in scope.)
+  alongside the reward) was wired up for walking, but it did NOT
+  work (`cw-omni-transbc1`, 08-11): the robot copied the example
+  step almost perfectly (imitation error dropped even lower than it
+  did for the moves that DID succeed) yet still barely moved —
+  across 12 video-checked episodes the floor never visibly shifts
+  under it, travel is about a centimeter over 15 seconds, legs slide
+  5-20x more than a normal walk. Copying one step at a time isn't
+  enough to learn the different overall stepping pattern each new
+  direction needs. Any-direction walking is now 0-for-4 across every
+  reward and imitation idea tried; the next idea is structural (teach
+  the network that walking backward = walking forward with the legs
+  relabeled) rather than another reward tweak. (One real reward bug
+  WAS found along the way, but only in the de-scoped turning stack:
+  during straight-line walking the turn-tracking bonus pays a
+  motionless body its full income; fix if turning ever comes back in
+  scope.)
 - **Backward walking** — parks or falls; envelope is the front
   half-circle only.
 - **Sim effort realism**: sim under-prices standing still (0.11 A
