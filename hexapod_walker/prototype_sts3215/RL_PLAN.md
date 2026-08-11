@@ -429,6 +429,24 @@ Open problems, in priority order:
        If FLAT even with direct state injection: the wall is dynamic
        stability itself → physics easing or a taller scripted
        reference gait, not more reward work.
+    **T6 VERDICT (08-11 late): FLAT — −77.4mm by probe.** The policy
+       visits tall mid-stride states (50% of spawns) and actively
+       dives back to the crouch (survived 1: it learned tall→crouch
+       recovery, a robustness byproduct). CAMPAIGN CONCLUSION after
+       7 arms + probe: neither pricing nor state injection moves
+       mid-gait posture; crouch-splay is where PPO stabilizes this
+       walk under current physics. Existence proof stands (scripted
+       gait walks tall open-loop in the same env). Remaining levers
+       in order: (1) **BC-INIT** — pure action pretraining on the
+       scripted tall gait, THEN RL fine-tune under the gate income
+       (different mechanism from the refuted gaitbc1 anchor-loss-
+       during-RL, which could satisfy its loss by freezing; an init
+       cannot); (2) physics easing ladder; (3) accept the pareto:
+       `tall15_h1` (0.051 m/s, fastest dep walker ever, command-band
+       for the first time) + tall STOP-stance for hardware, posture
+       cosmetic. Byproduct: the 0.051 fast basin reappeared in rsi1
+       — robust, reachable from multiple parents, and DEPLOYABLE
+       (full dep contract) — bench-test it regardless.
     Winner → Gate 0 export + tipped retention + bench A/B vs tip1.
     Checkpoints: `ppo_goal_cw_dep_tall30{,h}`, `ppo_goal_cw_dep_tall15`,
     `ppo_goal_cw_dep_tall15_h1` (fastest dep walker, 0.051 m/s),
