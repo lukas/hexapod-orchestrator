@@ -23,7 +23,10 @@ up honestly (not faking it) just had its first real breakthrough
 (08-11, `cw-stand-bc1` — see below) after six straight reward-tuning
 failures, and the same trick just fixed standing STILL too (08-11,
 `cw-stand-holdbc1` — the robot no longer shuffles its legs while
-"holding" a stand); walking in ANY commanded direction — the last
+"holding" a stand); that learned stand-up is now LOADED ON THE ROBOT
+RUNNER's stand button (08-11 late — with the exact ramp it trained
+with, the old stance policy one rollback click away), so the next
+bench session can try stand → walk → sit end-to-end; walking in ANY commanded direction — the last
 unsolved piece of "walk where the joystick points", 0-for-4 across
 training attempts — fell the same day WITHOUT training: the robot is
 a perfect hexagon, so backward is just forward with the legs

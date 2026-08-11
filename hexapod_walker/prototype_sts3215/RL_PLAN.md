@@ -40,11 +40,14 @@ fails, does it change what we do before the next hardware test?
 ## Critical path (simplification review §11, 08-10)
 
 **CURRENT GOAL:** joystick-controlled real robot. **BLOCKERS (as of
-08-11):** hardware attempt #2 (operator bench); deploy-side port of
-the rise+hold handoff composition (the rot-60 omni canonicalizer
-port LANDED 08-11 — runner wraps rot60.Rot60Policy, parity-locked,
-bench validation pending); deployment-equivalent loaded/contact
-dynamics (hold-current model fit). Rise/hold/lower
+08-11 late):** hardware attempt #2 (operator bench — now covers walk,
+rot60 off-wedge headings, AND the learned stand-up: the rise+hold
+specialist port LANDED 08-11, the runner's stance slot runs
+`ppo_goal_cw_stand_holdbc1_hard1` with its trained goal profile
+shipped in the weights meta, contract-locked by
+`rl_move/tests/test_stand_runner.py`, sim-smoked end-to-end;
+stance_dr10 rollback = one picker call); deployment-equivalent
+loaded/contact dynamics (hold-current model fit). Rise/hold/lower
 and full-circle translation are SOLVED IN SIM; commanded turning is
 DE-SCOPED (no camera = no front). **DEFERRED:** quad mode, generic
 DR composes, posetrack, architecture curiosity work
@@ -337,6 +340,10 @@ Open problems, in priority order:
        physics and covers the deliverable). Crouch rises still tip
        pre-handoff (known fragility; flat+bridge 12/12). Optional
        unqueued polish: BC anchor on lower ticks. rl_docs/RISE.md.
+       **Deploy-side port LANDED 08-11 late** (RISE.md tail): the
+       runner's stance slot runs the specialist, goal profile rides
+       in the weights meta, test_stand_runner.py locks the contract,
+       sim smoke green — remaining work is BENCH-ONLY.
     4. explicit mode/command one-hot in the obs (flagship
        prerequisite); LOWER + TURN + WALK trajectory banks for
        test_task_semantics.py (launch blockers for those modes);
