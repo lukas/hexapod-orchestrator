@@ -365,20 +365,30 @@ Open problems, in priority order:
     `ppo_goal_cw_dep_tall30` unless said otherwise; rung gate:
     height_err_end ≤8mm at ref, speed ≥0.028, survived 1, slip
     ≤1.8, no park):
-    T1 budget: rerun tall15 at 6-10M hardening (evidence: 2M rungs
-       moved 60→15 then stalled; posture shifts may be step-bound).
+    **T1 budget FAIL (08-11, `cw-dep-tall15-h1`, 6M):** not
+       step-bound — `env/height_err_mm` plateaus by ~1M steps and
+       sits flat the remaining 5M; harness eval end-state is WORSE
+       than the 2M parent (51-58mm vs 29mm, near the tip1 ref-0
+       baseline 59.9mm), with a bit more instability (one spinning
+       episode, sto gait_valid 4/6). No cheat, still honest paddle.
+       Do not schedule further step-count variants. Detail:
+       GAIT.md. Next: T5 before T2/T3 (per this gate's own priority).
     T2 k_height crank at fixed ref −15 (base height kernel ~0.36/tick
-       at 60mm is noise vs walk income; try 3x and 10x).
+       at 60mm is noise vs walk income; try 3x and 10x). WAITING on T5.
     T3 height gate AT A REACHABLE REF: walk_height_gate=1.0 sigma 30
        + ref −30→−15 (hgt1's gate failed at ref 0 = an unreachable
        50mm one-shot; gate+reachable-ref is an untested condition).
-    T4 speed trade: walk_speed band 0.03-0.04 at ref −15 — does
-       releasing speed pressure buy height? (recover speed in a later
-       rung if so).
-    T5 probe (no training): stance geometry at the −44 wall vs the
-       scripted plant-height gait (`probe_walk_income.py` posture
-       dump) — kinematic/stability limit vs learned habit. If
-       kinematic: STOP the ladder, −30 rung is the envelope.
+       WAITING on T5.
+    **T5 probe (no training, NOT YET BUILT 08-11):** stance geometry
+       at the −44 wall vs the scripted plant-height gait —
+       kinematic/stability limit vs learned habit. If kinematic:
+       STOP the ladder, −30 rung is the envelope. Design sketch
+       (GAIT.md bottom): drive the scripted TripodGait at an
+       IK-adjusted shallower stance (`geometry_plant.py.
+       knee_for_foot_z`, same FEMUR/TIBIA constants) and read
+       `info["height_mm"]` (already exposed per-tick, `sim_env.py`)
+       across the episode — does it hold near −15mm or get pushed
+       back toward −44mm? Do this before any more T2/T3 spend.
     Winner → Gate 0 export + tipped retention + bench A/B vs tip1.
     Checkpoints: `ppo_goal_cw_dep_tall30{,h}`, `ppo_goal_cw_dep_tall15`
     on train-2; tall30 pulled to the Mac (md5 a50a5d61).
