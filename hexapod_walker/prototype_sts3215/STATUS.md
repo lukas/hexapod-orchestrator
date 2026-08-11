@@ -105,12 +105,18 @@ need a structural fix, not another price change (see below).
   walk gait itself collapsed into standing almost still (forward
   travel 0.68 m -> 0.01 m per episode vs the same recipe without
   mirror, half the episodes with stuck/frozen legs) because standing
-  still scored HIGHER than walking under this arm's reward mix (a
-  large drift-hold penalty + a very slow commanded speed shrank the
-  walking income below the parking/height/alive terms) — a reward
-  bug, not a turning result, and mirror-symmetry is still UNKNOWN.
-  Next: fix that parking loophole and bank a stall-vs-walk check
-  before re-running the hardening step.
+  still scored HIGHER than walking — a reward bug, not a turning
+  result, and mirror-symmetry is still UNKNOWN. The bug is now found
+  and FIXED (08-11): during "turn in place" commands the
+  speed-tracking reward paid a motionless robot its full income (zero
+  speed matched the zero speed command perfectly, and the gate that
+  normally stops that only watched straight-line walking), so
+  freezing out-earned imperfect walking by construction. The reward
+  now pays that income only in proportion to how much of the
+  commanded turn is actually achieved, an offline check bank pins the
+  exploit forever, and the 40M hardening run was relaunched with only
+  that one change (`cw-omni-mirror2`) — it will finally answer the
+  mirror-symmetry question.
 - **Backward walking** — parks or falls; envelope is the front
   half-circle only.
 - **Sim effort realism**: sim under-prices standing still (0.11 A
