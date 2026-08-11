@@ -286,17 +286,25 @@ Open problems, in priority order:
        -> 100-161mm at 10M). Do NOT queue another rise
        reward-coefficient/RSI/dose/step-count variant on this
        lineage. Detail: rl_docs/RISE.md.
-    3. **[NEW 08-11] Hold/track stillness pricing.** Harness
-       duty_cycle/swing_count/end_clear_mm on the whole rsi3/bc1
-       lineage show hold and track modes are not quiet stands — legs
-       cycle continuously (found via cw-stand-bc1-hard1's dig-in,
-       predates the BC anchor). `k_still` as written scopes to
-       belly-rest/lower, not general hold/track. SPECIFICATION first:
-       a HOLD-mode `test_task_semantics.py` bank entry (quiet stand >
-       continuous stepping > flag-leg) before any reward change.
-       Check duty_cycle/swing_count/end_clear_mm routinely for
-       stand-line modes going forward — a sparse video frame strip
-       missed this at two separate verdicts.
+    3. **Hold/track stillness pricing — SPEC DONE 08-11, discovery
+       arm queued.** Harness duty_cycle/swing_count/end_clear_mm on
+       the whole rsi3/bc1 lineage show hold and track modes are not
+       quiet stands — legs cycle continuously (found via
+       cw-stand-bc1-hard1's dig-in, predates the BC anchor). HOLD
+       bank landed and PASSING (test_task_semantics.py): legacy
+       pricing pays a frozen flag-leg park 368.0 vs the quiet
+       stand's 367.9 (a literal tie) and continuous stepping 0.82x —
+       the hole measured, not inferred. Fix landed:
+       `reward.hold_still_gate` (REWARD.md; default 0 = legacy;
+       scales hold/track kernel by feet-down² × hard no-flag ×
+       stillness-when-ref-stationary; shared CPU/warp path). Gated
+       ordering quiet 368 > stepping 107 > flag 9.5, no tax on the
+       honest stand, full suite green. `cw-stand-holdstill1`
+       (discovery 2M, warm from the rise specialist, ONE variable =
+       the gate) queued to verify PPO converges hold to a quiet
+       valid plant without losing the honest rise. Keep checking
+       duty_cycle/swing_count/end_clear_mm for stand-line modes — a
+       sparse video frame strip missed this at two separate verdicts.
     4. explicit mode/command one-hot in the obs (flagship
        prerequisite); LOWER + TURN + WALK trajectory banks for
        test_task_semantics.py (launch blockers for those modes);

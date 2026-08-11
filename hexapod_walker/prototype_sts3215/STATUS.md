@@ -131,9 +131,13 @@ need a structural fix, not another price change (see below).
   shuffles its legs the whole time instead of standing motionless,
   and training longer made that shuffling MORE pronounced, not less.
   This looks like a separate, pre-existing gap in how we reward
-  staying stationary, not a side-effect of the new coaching itself —
-  it needs its own proper fix before training this recipe further.
-  `rl_docs/RISE.md`.
+  staying stationary, not a side-effect of the new coaching itself.
+  That gap now has a landed fix (08-11): a test proved the old
+  pricing paid a robot that parks one leg in the air exactly as much
+  as one standing properly (a literal tie), and a new reward switch
+  prices leg-shuffling and leg-parking out of the "hold still" task;
+  a short training run is queued to verify the robot actually learns
+  a quiet stand under it. `rl_docs/RISE.md`.
 - **Turning on command.** Walk policies carry a structural left-yaw
   drift and ignore the yaw command channel; raising the price of
   drift failed repeatedly, and a second, better-designed reward
@@ -232,9 +236,11 @@ need a structural fix, not another price change (see below).
    (joystick walk on the bench, fresh `set_zero` first).
 2. Reward tuning for standing is closed by trained evidence (six
    mechanisms tried, all cheated); the fix that worked instead
-   coaches the policy's actions directly (`cw-stand-bc1`, 08-11) —
-   two follow-ups running to see if it holds up over more training
-   and whether a gentler dose removes its small side-effects. Reward
+   coaches the policy's actions directly (`cw-stand-bc1`, 08-11) and
+   its long run is the official stand-up specialist. Next on the
+   stand line: teach it to hold STILL (quiet-stand pricing fix
+   landed 08-11, short verification run queued), then test the
+   stand-up specialist handing off to the walking champion. Reward
    tuning for turning is also closed; its structural next move
    (mirror-symmetry augmentation) is landed but every hardening
    attempt has collapsed into a different gait pathology before
