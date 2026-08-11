@@ -302,7 +302,13 @@ Open problems, in priority order:
     on-robot stand copy lacks the goal profile, do NOT press STAND
     stale); (d) wz sign audit. If the runaway recurs on tip1 too,
     the fix is a sim contact/pinning model (no-skate feet), not
-    more DR.
+    more DR. **Session runner: `rl_move/scripts/bench_blast.py --go`
+    (guided checklist, all of a-d); sim half `rl_move/sim/sim_blast.py`
+    — 08-11 run: NO runaway in sim at ANY friction (mu 1.0-2.0, the
+    default already sits at the mu 2.0 saturation), every trap episode
+    re-levels to <2 deg — the pinning gap is not a friction-magnitude
+    story; tip1 outranks vref1 at nominal grip (0.88 vs 0.75 roll-trap
+    pass), agreeing with the bench tally.**
 -0.5 **GAIT CLEANUP — kill the paddle, walk TALLER (operator 08-11,
     TOP TRAINING PRIORITY; full design + rationale: `rl_docs/GAIT.md`;
     operator re-affirmed 08-11 afternoon: walking from a higher
