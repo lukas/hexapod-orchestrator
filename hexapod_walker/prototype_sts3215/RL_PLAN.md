@@ -307,49 +307,35 @@ Open problems, in priority order:
        -> 100-161mm at 10M). Do NOT queue another rise
        reward-coefficient/RSI/dose/step-count variant on this
        lineage. Detail: rl_docs/RISE.md.
-    3. **Hold/track stillness pricing — SOLVED 08-11 (third lever:
-       extending the rise BC-anchor to hold/track ticks).** Two
-       pricing-only levers (hard no-flag zero, then a fade) FAILED
-       first (0/12 each — earning near-zero reward gave PPO no
-       gradient telling a parked leg which way to move).
-       `cw-stand-holdbc1` (BC-anchor now also targets hold/track
-       ticks) PASSES: harness hold 12/12 valid_plant det+sto,
-       worst-foot 2-13mm, video-confirmed level motionless six-foot
-       stand det AND sto — first genuine quiet hold in the campaign.
-       `env/hold_feet_factor` cleared the 0.1-0.35 plateau to ~1.0 by
-       500k steps, held all 2M. Rise retention mostly clean (bridge
-       2/2 det, sto 6/6) but det crouch shows 2/6 tilt_roll falls —
-       verified against holdstill1 (0 falls)/holdstill2 (1 identical
-       fall) as the SAME pre-existing crouch fragility, not new.
-       Checkpoint `ppo_goal_cw_stand_holdbc1` (SKILLS.md).
-       **Hardening continuation `cw-stand-holdbc1-hard1` (10M)
-       PASSES 08-11**: hold valid_plant 11/12 (matches discovery's
-       12/12, no regression), `env/hold_feet_factor` held 0.99-1.0
-       all 10M, det crouch-start rise improved 2/6->2/4 (33%->50%),
-       zero flag-leg/tripod cheat in 24 video-checked episodes.
+    3. **Hold/track stillness pricing — SOLVED 08-11 (BC-anchor
+       extended to hold/track ticks; two pricing-only levers failed
+       0/12 first).** `cw-stand-holdbc1` PASSES (hold 12/12
+       valid_plant det+sto, first genuine quiet hold); 10M hardening
+       `cw-stand-holdbc1-hard1` PASSES with no regression —
        `ppo_goal_cw_stand_holdbc1_hard1` is the hardened HOLD+RISE
-       checkpoint (SKILLS.md); lineage CLOSED for further hardening.
-       **BOTH handoff composition tests DONE + PASS (08-11,
-       `eval_handoff.py` / `eval_handoff_reverse.py`): the full sim
-       joystick motion cycle composes with zero falls** — specialist
-       rise → walk champion on the exact final state (12/12, no
-       scripted blend, air AND loaded), and walk → stop → sit
-       (specialist lower on the walker's stopped state == its own
-       clean band 4/6 posture-strict, only miss a cosmetic 62–99mm
-       dangling foot; the scripted go_zero-sit glide is 6/6 both
-       physics and covers the deliverable). Crouch rises still tip
-       pre-handoff (known fragility; flat+bridge 12/12). Optional
-       unqueued polish: BC anchor on lower ticks. rl_docs/RISE.md.
-       **Deploy-side port LANDED 08-11 late** (RISE.md tail): the
-       runner's stance slot runs the specialist, goal profile rides
-       in the weights meta, test_stand_runner.py locks the contract,
-       sim smoke green — remaining work is BENCH-ONLY.
+       checkpoint (SKILLS.md), lineage CLOSED. **BOTH handoffs PASS
+       (eval_handoff.py / eval_handoff_reverse.py): the full sim
+       joystick motion cycle (rise→drive→stop→sit) composes with
+       zero falls**; the scripted go_zero-sit glide (6/6 both
+       physics) covers the deliverable's sit. Optional unqueued
+       polish: BC anchor on lower ticks. **Deploy-side port LANDED
+       08-11 late**: runner stance slot runs the specialist, goal
+       profile rides in the weights meta, test_stand_runner.py locks
+       the contract — remaining work is BENCH-ONLY. Numbers/evidence:
+       rl_docs/RISE.md.
     4. explicit mode/command one-hot in the obs (flagship
-       prerequisite); LOWER + TURN + WALK trajectory banks for
-       test_task_semantics.py (launch blockers for those modes);
-       machine-readable metric semantics registry (RESEARCH_RULES);
-       contact-from-proprioception aux head; zero-drift DR mechanism
-       rework (open problem 5).
+       prerequisite); machine-readable metric semantics registry
+       (RESEARCH_RULES); contact-from-proprioception aux head;
+       zero-drift DR mechanism rework (open problem 5). **LOWER bank
+       LANDED 08-11 (last owed bank; TURN/WALK landed earlier):**
+       under the deployed specialist stack, honest command-tracking
+       descent out-earns the outrig/aloft cheats on every seed
+       (540 vs 461/383) and posture-strict rejects them (pads ~300 mm
+       vs ~0) — lower-mode arms are unblocked. KNOWN THIN MARGIN
+       (strict-xfail in the bank): pf=5/6 pricing lets one-leg-aloft
+       keep 85% of honest income — the incentive behind the deployed
+       specialist's cosmetic dangling foot; strengthen pricing or
+       BC-anchor lower ticks before any lower-MECHANISM arm.
 
 ## Gate 0 — deployment equivalence (every hardware candidate)
 
