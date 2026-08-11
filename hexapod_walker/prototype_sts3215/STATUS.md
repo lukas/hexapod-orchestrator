@@ -275,7 +275,11 @@ need a structural fix, not another price change (see below).
   (see "walk in ANY direction" in the sim capabilities above). The
   whole 0-for-4 line was asking the trainer to discover something
   the hexagon's geometry already guarantees; the wrapper closes this
-  chapter. Still open on it: the ~60-line onboard-runner port.
+  chapter. The onboard-runner port landed the same day: the robot's
+  walk button now accepts any direction (the wrapper is a provable
+  no-op for the forward commands already validated on hardware), and
+  a test bank locks the onboard path against the sim original.
+  Nothing left here but trying it on the real robot.
 - **Sim effort realism**: sim under-prices standing still (0.11 A
   vs the real 0.59 A) — needs a holding-current model fit before
   effort-shaped gaits can be trusted. Servo LAG realism, by

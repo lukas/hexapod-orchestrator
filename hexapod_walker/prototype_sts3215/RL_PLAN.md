@@ -40,10 +40,11 @@ fails, does it change what we do before the next hardware test?
 ## Critical path (simplification review §11, 08-10)
 
 **CURRENT GOAL:** joystick-controlled real robot. **BLOCKERS (as of
-08-11):** hardware attempt #2 (operator bench); deploy-side ports of
-the two sim-solved skills (rise+hold handoff composition; rot-60
-omni canonicalizer in the robot runner); deployment-equivalent
-loaded/contact dynamics (hold-current model fit). Rise/hold/lower
+08-11):** hardware attempt #2 (operator bench); deploy-side port of
+the rise+hold handoff composition (the rot-60 omni canonicalizer
+port LANDED 08-11 — runner wraps rot60.Rot60Policy, parity-locked,
+bench validation pending); deployment-equivalent loaded/contact
+dynamics (hold-current model fit). Rise/hold/lower
 and full-circle translation are SOLVED IN SIM; commanded turning is
 DE-SCOPED (no camera = no front). **DEFERRED:** quad mode, generic
 DR composes, posetrack, architecture curiosity work
@@ -273,9 +274,13 @@ Open problems, in priority order:
        success, slip/m 1.1-1.3 (own band), video-clean gait;
        hist16-dep1 naked DEGENERATES AT EVAL into the leg-sacrifice
        (slip 7-11/m) — wrapped: gait_valid 24/24, slip 1.3-1.6.
-       No omni training arm is needed. REMAINING [CODE, deploy-side]:
-       port the ~60-line numpy canonicalizer into the robot runner's
-       obs/action path + replay-parity check vs rot60.py (spec in
+       No omni training arm is needed. **Deploy-side port LANDED
+       08-11**: the runner wraps rot60.Rot60Policy itself (no ported
+       copy; `rl_policy.py make_walk_canonicalizer`, shipped by
+       deploy_adb.sh, default-ON with bit-exact k=0 no-op + off-wedge
+       refusal fallback + per-tick `rot60_k` CSV logging);
+       replay-parity locked by `rl_move/tests/test_rot60_runner.py`.
+       Remaining: BENCH validation during attempt #2 (detail:
        `rl_docs/TURN.md` tail). Eval-side: `eval_drive --rot60`,
        `eval_checkpoint --rot60`.
     2. **Rise beyond income shaping — RESOLVED to a validated
