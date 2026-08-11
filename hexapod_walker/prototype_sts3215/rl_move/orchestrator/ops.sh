@@ -141,9 +141,14 @@ pullckpt)  # pullckpt <run> — fetch the run's checkpoint from its pod; md5
   # NOTE: `kubectl cp` exits 0 even when the remote file is missing (the
   # remote tar fails internally and just warns to stderr) — check the
   # DEST FILE, never cp's own exit code (bit us silently before this fix).
-  kubectl cp "$pod:$POD_PROTO/rl_move/sim/policies/$name" "$dest" 2>/dev/null
+  # --retries: a plain cp can TRUNCATE silently on a stream hiccup (bit us
+  # 08-10 on cw-dep-quad1-c2: 2.16 of 2.27 MB arrived, md5 looked "fine"
+  # because it's computed locally). Also print the size; compare against
+  # the pod's `stat -c %s` when in doubt.
+  kubectl cp --retries=5 "$pod:$POD_PROTO/rl_move/sim/policies/$name" "$dest" 2>/dev/null
   if [ -s "$dest" ]; then
     md5sum "$dest"
+    wc -c < "$dest" | awk '{print "size: "$1" bytes"}'
   else
     rm -f "$dest"
     # Fallback (08-10, cw-stance-riseproof1): launch_run.py now always
