@@ -84,15 +84,20 @@ never buried in a cycle log):**
   tip1) and `cw-stand-riserock4` (train-4, warm from
   holdbc1-hard1) — both VERIFIED RUNNING, 2M discovery, matched-
   parent gates. No further wait; verdict next cycle.
-- Fleet at ~03:45 UTC: `cw-arch-gru-anchor2` (arch) + `cw-gait-rsi1`
-  (nobc) training, 10/12 pods idle, backlog empty. Everything named
-  in the 01:35 "mid-triage elsewhere" note turned out to be STALE —
-  `cw-dep-bcgait1` and `cw-stand-minfeet1` had sat unverdicted 2-3h
-  with no cycle actually owning them; this cycle triaged both
-  directly rather than trusting the old note (lesson: a "handed off"
-  claim in STATUS is not proof of ownership — check `ops.sh triage`
-  yourself before skipping a stale-looking finished run). Do NOT
-  assume this note is current for new leaks either — re-check.
+- Fleet at ~04:00 UTC: `cw-arch-gru-anchor2` (arch) + `cw-dep-tip1-
+  push1-hard1` (hw) + `cw-gait-slowfirst1` (nobc, just launched)
+  training, 9/12 pods idle, backlog empty. `cw-gait-rsi1` (nobc,
+  RSI-for-walk mid-stride spawns) FAILED — same freeze/near-still
+  training mechanism as `cw-gait-dragstance1`, video is marching-in-
+  place not real stepping; lever CLOSED, detail GAIT.md/nobc STATUS.
+  Everything named in the 01:35 "mid-triage elsewhere" note turned
+  out to be STALE — `cw-dep-bcgait1` and `cw-stand-minfeet1` had sat
+  unverdicted 2-3h with no cycle actually owning them; this cycle
+  triaged both directly rather than trusting the old note (lesson: a
+  "handed off" claim in STATUS is not proof of ownership — check
+  `ops.sh triage` yourself before skipping a stale-looking finished
+  run). Do NOT assume this note is current for new leaks either —
+  re-check.
 - Operator-gated (bench, not GPU): NOTHING is deploy-blocked anymore.
   The deploy re-push is DONE and verified over HTTP (08-11 ~21:15):
   the robot's ACTIVE stance policy is stand_holdbc1_hard1 WITH the
