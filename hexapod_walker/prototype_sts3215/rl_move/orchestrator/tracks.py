@@ -30,6 +30,7 @@ PREFIX_MAP = (
     ("cw-nobc-", "nobc"),
     ("cw-gait-", "nobc"),
     ("cw-turn-", "turn"),
+    ("cw-mt-", "multitask"),
 )
 
 

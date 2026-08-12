@@ -37,7 +37,11 @@ hardware by any means (MAINLINE, pod priority — this file's queue is
 mostly hw); **arch** = GRU/temporal models learning walk/stand/sit;
 **nobc** = stand + clean gait from scratch, no BC anchor ever;
 **quad** = walk on four legs, front pair as hands; **turn** =
-commanded yaw via mirror symmetry. Non-hw tracks run on excess
+commanded yaw via mirror symmetry; **multitask** (opened 08-12,
+operator brief) = fresh command-conditioned generalist — stand +
+forward + small yaw as ONE command family, A/B/C
+specialist-vs-generalist cohort + transfer test; design + binding
+verdict labels: `rl_docs/MULTITASK.md`. Non-hw tracks run on excess
 capacity. **Containment: a triaged run's follow-ups stay in its
 track; cross-track findings are escalated in writing, and
 cross-track launches are operator-only.**

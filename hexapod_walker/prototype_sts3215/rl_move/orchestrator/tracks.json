@@ -23,5 +23,10 @@
     "name": "Commanded turning",
     "doc": "rl_docs/tracks/turn/STATUS.md",
     "goal": "Make commanded yaw actually work: fix the structural left-yaw drift baked into the walk gait (price tuning doubly closed; mirror-symmetry augmentation is the open lever). De-scoped from the hw deliverable (no camera = no front) but alive as its own research line."
+  },
+  "multitask": {
+    "name": "Multitask learning",
+    "doc": "rl_docs/tracks/multitask/STATUS.md",
+    "goal": "Test whether diverse SIMULTANEOUS training beats sequential specialist fine-tuning: a fresh command-conditioned locomotion policy (stand + forward + small yaw/lateral as ONE command family, one coherent reward) vs the specialist path. Decisive A/B/C cohort + transfer test; design doc rl_docs/MULTITASK.md. The campaign's failures look like failure-to-ACQUIRE (narrow gait local optimum), not primarily catastrophic forgetting - this track tests that reframe."
   }
 }
