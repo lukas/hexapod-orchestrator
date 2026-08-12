@@ -19,8 +19,9 @@ anyone catching up. Facts here must agree with `CURRENT_TRUTHS.md`
 (which wins on conflict); the full checkpoint inventory with gate
 numbers lives in `rl_docs/SKILLS.md`.
 
-**Last updated: 2026-08-11 (night) — after the bench_blast camera
-sessions and the operator's MuJoCo viewing.**
+**Last updated: 2026-08-12 (morning) — after the stand-pricing
+closures (margin1/transdrag1), the park-blindness audit + foot-height
+anchor fix, and the tall-champion retention panel starting.**
 Update rule: refresh whenever a hardware session happens, a champion
 changes, or a big lesson closes — and stamp the date; per-track story
 changes go to the track's own STATUS.md. Keep it honest: the "not
