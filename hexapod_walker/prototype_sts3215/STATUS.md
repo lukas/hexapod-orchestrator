@@ -19,19 +19,25 @@ anyone catching up. Facts here must agree with `CURRENT_TRUTHS.md`
 (which wins on conflict); the full checkpoint inventory with gate
 numbers lives in `rl_docs/SKILLS.md`.
 
-**Last updated: 2026-08-12 (afternoon) — stance line: the deep
-dig-in on `cw-stand-footlow2-r1` overturned both of its flagged
-residuals: standing up from flat is now SOLVED in sim (cold flat
-rises land level within 3 mm, every seed tested — the "15 mm stall"
-episodes were mislabeled mid-path eval spawns, evaluator fixed), and
-the "re-opened one-foot park" is a 0.9 mm commanded hover, invisible
-on video and below real-servo slop, not the old flag-leg cheat.
-Stand-up + quiet hold + sit-down are all clean at once in one policy
-for the first time; a 10 M consolidation run (deployment candidate)
-and a 1-mm-closure probe are queued. Earlier midday: the session
-ramp-jitter axis (`cw-stand-rampjit1`) FAILED and is CLOSED (next
-lever: start-state exposure). See WAITING-ON below. `holdbc1_hard1`
-stays deployed.**
+**Last updated: 2026-08-12 (afternoon) — stance line: the 10M
+consolidation `cw-stand-footlow2-hard1` PASSES all four
+pre-registered gate clauses at once — the first stance checkpoint
+with clean rise (incl. cold flat, confirmed 12/12 via a targeted
+probe), a genuinely park-free six-foot hold, clean 12/12 lower, AND
+a pass on the tougher interactive `eval_session` hard gates that the
+currently-deployed `holdbc1_hard1` FAILS (that checkpoint stalls its
+belly rise at 55mm under the interactive ramp; this one reaches the
+full 148mm). Visual-quality stats (drag, roll-tail) are flat-to-
+better than its parent on every mode, video-confirmed. It is a
+genuine sim-side stance DEPLOYMENT CANDIDATE (`ppo_goal_cw_stand_
+footlow2_hard1`, not yet bench-tested) — whether it replaces
+`holdbc1_hard1` as deployed is the next call. Earlier same day: the
+dig-in that got here overturned both of footlow2-r1's flagged
+residuals (flat rise was solved all along, mislabeled by the eval;
+the "reopened park" was a sub-mm cosmetic hover) — see hw/STATUS.md
+for the full chain. Earlier midday: the session ramp-jitter axis
+(`cw-stand-rampjit1`) FAILED and is CLOSED (next lever: start-state
+exposure). See WAITING-ON below.**
 Update rule: refresh whenever a hardware session happens, a champion
 changes, or a big lesson closes — and stamp the date; per-track story
 changes go to the track's own STATUS.md. Keep it honest: the "not
