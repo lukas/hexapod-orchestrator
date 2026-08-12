@@ -77,9 +77,13 @@ never buried in a cycle log):**
   refuse to drain (`cw-walk-lowgait-dr035-comshift-s1` — a crouch-50mm
   twin that now runs AGAINST the walk-taller directive — and
   `cw-dep-startvar1`); triage or delete them, don't let them squat.
-- Operator-gated (bench, not GPU): the ω=−0.3 turn-sign measurement
-  (camera missed it), the rot60 + learned-stand deploy re-push, and
-  any hardware turn session (sign audit still open).
+- Operator-gated (bench, not GPU): the rot60 + learned-stand deploy
+  re-push (`deploy_adb.sh`; the on-robot stand copy lacks its goal
+  profile — do not press STAND until re-pushed). The turn-sign audit
+  is CLOSED (operator 08-11 night: the robot turns the way the drawn
+  signs say, both directions — no bridge flip needed; rate
+  unmeasured, degrees are hard to eyeball). Bench turn sessions now
+  wait only on the MirrorPolicy deploy port [CODE].
 
 ## The one-paragraph answer
 

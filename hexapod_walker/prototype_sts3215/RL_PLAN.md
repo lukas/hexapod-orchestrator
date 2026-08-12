@@ -319,7 +319,9 @@ Open problems, in priority order:
     walk; (c) FIRST hardware runs of the newly-landed rot60 port and
     the stand specialist (re-push via deploy_adb.sh first — the
     on-robot stand copy lacks the goal profile, do NOT press STAND
-    stale); (d) wz sign audit. If the runaway recurs on tip1 too,
+    stale); (d) wz sign audit — **DONE 08-11 night (operator: turns
+    match the drawn signs both ways, no bridge flip; rate
+    unmeasured)**. If the runaway recurs on tip1 too,
     the fix is a sim contact/pinning model (no-skate feet), not
     more DR. **Session runner: `rl_move/scripts/bench_blast.py --go`
     (guided checklist, all of a-d); sim half `rl_move/sim/sim_blast.py`
@@ -512,8 +514,8 @@ Open problems, in priority order:
     naked runaway. Arc-left/arc-right/straight by chirality
     selection, zero training — but at the drift rate (~2 deg/s), so
     commanded-rate tracking stays open. Deploy port + rot60
-    composition are follow-up [CODE]; hardware sign audit still
-    gates any bench turn.
+    composition are follow-up [CODE]; sign audit CLOSED 08-11 night
+    (operator: turns as drawn, both signs — no bridge flip).
     (3) MIRROR-SYMMETRY TRAINING — RUN AND FAILED 08-11 late
     (`cw-walk-mirturn1`, discovery 2M, warm from vref1-r1, full fixed
     pricing, mirror coef 1.0): sym loss converged 28→0.5 but turn
