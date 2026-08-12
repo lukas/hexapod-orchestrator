@@ -15,6 +15,11 @@ View from the laptop:
         port-forward hexapod-sweep-friction 8090:8090
     open http://127.0.0.1:8090
 
+LLM-readable mirror (for GPT/Claude web fetchers assessing the
+campaign): /llms.txt is the index, /llm/{status,plan,log,runs}.md are
+plain markdown. Auth on those paths is stateless (?key=<token> on every
+request, no cookie redirect) because LLM fetchers don't keep cookies.
+
 Port 8090 on purpose: 5183/5173 are BuildViz (AGENTS.md), 8080 is the
 robot API. Data collection runs in background threads; page loads are
 always instant reads of the latest snapshot.
@@ -849,6 +854,133 @@ def render() -> str:
     return "".join(h)
 
 
+# ------------------------------------------------------- LLM endpoints
+# Plain-text/markdown mirror of the campaign state so GPT/Claude web
+# fetchers can read it without parsing the HTML dashboard (operator
+# 08-12). /llms.txt follows the llmstxt.org convention: a short index
+# whose links embed the access key, so a fetcher that was given the
+# llms.txt URL can follow them statelessly. Deliberately excluded:
+# spend/token numbers and pod names (infra detail an external reader
+# doesn't need) — those stay on the HTML page and /json.
+
+def llm_status_md() -> str:
+    """Campaign STATUS.md + every per-track STATUS.md, concatenated."""
+    parts = []
+    for d in status_docs().values():
+        parts.append(f"# {d['name']}\n\n{d['text'].rstrip()}\n")
+    return "\n\n".join(parts)
+
+
+def llm_plan_md() -> str:
+    try:
+        return (PROTO / "RL_PLAN.md").read_text(errors="replace")
+    except OSError as e:
+        return f"(RL_PLAN.md unreadable: {e})"
+
+
+LLM_LOG_CAP = 300_000  # bytes; keep a fetch well under context limits
+
+
+def llm_log_md() -> str:
+    try:
+        data = (PROTO / "RL_LOG.md").read_bytes()
+    except OSError as e:
+        return f"(RL_LOG.md unreadable: {e})"
+    if len(data) <= LLM_LOG_CAP:
+        return data.decode(errors="replace")
+    tail = data[-LLM_LOG_CAP:].decode(errors="replace")
+    tail = tail.split("\n", 1)[-1]  # drop the partial first line
+    return (f"(RL_LOG.md truncated: showing the newest {LLM_LOG_CAP // 1000} kB "
+            f"of {len(data) // 1000} kB — the log is append-only, newest last)"
+            f"\n\n{tail}")
+
+
+def llm_runs_md() -> str:
+    f = SNAP.get("fast", {})
+    rows = f.get("ledger", [])
+    out = ["# Launched runs — latest ledger entry per run, newest first",
+           "",
+           "Status meanings: RUNNING = training now. FINISHED = training "
+           "done AND an analysis cycle wrote a verdict. FAILED/KILLED = "
+           "died or was stopped. REFUSED = a launcher guardrail blocked "
+           "it before it started (no GPU time spent).", ""]
+    if not rows:
+        out.append("(ledger snapshot not collected yet — the server just "
+                   "restarted; retry in ~30 s)")
+    for e in rows:
+        out.append(f"## {e.get('run', '?')} — {e.get('status', '?')}")
+        created = (e.get("created") or "")[:16]
+        out.append(f"- track: {track_of_entry(e)} · phase: "
+                   f"{e.get('phase', '?')} · created: {created} UTC")
+        hyp = (e.get("hypothesis") or "").strip()
+        if hyp:
+            out.append(f"- hypothesis: {hyp}")
+        if e.get("parent"):
+            out.append(f"- parent run: {e['parent']}")
+        verdict = str(e.get("verdict") or "").strip()
+        if verdict:
+            out.append(f"- verdict: {verdict}")
+        elif e.get("triage"):
+            out.append(f"- analysis stage: {e['triage']}")
+        out.append("")
+    return "\n".join(out)
+
+
+def llms_txt(base: str, key: str) -> str:
+    f = SNAP.get("fast", {})
+    w = f.get("watcher", {})
+    counts = f.get("counts", {})
+    if not w:
+        live = "server just restarted — live snapshot still collecting"
+    else:
+        state = ("PAUSED" if w.get("pause")
+                 else "ON" if w.get("tmux") else "OFF")
+        live = (f"watcher {state} · "
+                f"{len(f.get('cycles', []))} LLM analysis cycle(s) in "
+                f"flight · "
+                f"{len(f.get('backlog', {}).get('queued', []))} queued in "
+                f"backlog · "
+                f"{counts.get('RUNNING', 0)} run(s) marked RUNNING · "
+                f"{counts.get('FINISHED', 0)} run(s) verdicted")
+    return f"""# Hexapod RL training orchestrator — live status
+
+> Autonomous RL training campaign teaching an 18-servo hexapod robot to
+> stand, walk, and turn (MuJoCo/MJX PPO on a GPU fleet). An LLM watcher
+> launches runs, evaluates checkpoints, and writes verdicts; the
+> documents below are its working state, mirrored as plain markdown for
+> LLM readers assessing how the campaign is going.
+
+Live state: {live}.
+
+## Status documents
+
+- [Campaign + per-track STATUS]({base}/llm/status.md{key}): the
+  campaign digest plus each research track's current state — read this
+  first for an overall assessment
+- [Research plan]({base}/llm/plan.md{key}): RL_PLAN.md, the plan the
+  autonomous agents work from (goals, phases, guardrails)
+- [Cycle log]({base}/llm/log.md{key}): RL_LOG.md, the append-only
+  decision-cycle log (newest entries at the end)
+- [Run ledger]({base}/llm/runs.md{key}): every launched training run
+  with its hypothesis, status, and verdict
+"""
+
+
+LLM_PAGES = {"/llm/status.md": llm_status_md, "/llm/plan.md": llm_plan_md,
+             "/llm/log.md": llm_log_md, "/llm/runs.md": llm_runs_md}
+
+
+def llm_body(path: str, base: str) -> tuple[bytes, str] | None:
+    if path in ("/llms.txt", "/llm", "/llm/"):
+        key = f"?key={TOKEN}" if TOKEN else ""
+        return (llms_txt(base, key).encode(),
+                "text/plain; charset=utf-8")
+    fn = LLM_PAGES.get(path)
+    if fn is None:
+        return None
+    return fn().encode(), "text/markdown; charset=utf-8"
+
+
 # Optional access token (STATUS_TOKEN env): needed once the page is on a
 # public LoadBalancer IP (operator 08-10) — it shows spend and infra.
 # First visit with ?key=<token> sets a cookie and redirects clean;
@@ -892,7 +1024,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return
         from urllib.parse import parse_qs, urlparse
         u = urlparse(self.path)
-        if TOKEN and parse_qs(u.query).get("key", [""])[0] == TOKEN:
+        # LLM paths are stateless: no cookie redirect (an LLM fetcher
+        # would drop the ?key= on the 302 and get a 403 next hop).
+        is_llm = u.path == "/llms.txt" or u.path.rstrip("/") == "/llm" \
+            or u.path.startswith("/llm/")
+        if TOKEN and not is_llm \
+                and parse_qs(u.query).get("key", [""])[0] == TOKEN:
             # set the cookie, drop the key from the URL
             self.send_response(302)
             self.send_header("Set-Cookie",
@@ -900,7 +1037,21 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.send_header("Location", u.path or "/")
             self.end_headers()
             return
-        if self.path.startswith("/json"):
+        if is_llm:
+            host = self.headers.get("Host") or f"127.0.0.1:{PORT}"
+            scheme = ("http" if host.split(":")[0] in
+                      ("127.0.0.1", "localhost") else "https")
+            out = llm_body(u.path, f"{scheme}://{host}")
+            if out is None:
+                body = b"404: see /llms.txt for the LLM-readable index"
+                self.send_response(404)
+                self.send_header("Content-Type", "text/plain")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+                return
+            body, ctype = out
+        elif self.path.startswith("/json"):
             body = json.dumps(SNAP, default=str).encode()
             ctype = "application/json"
         else:
