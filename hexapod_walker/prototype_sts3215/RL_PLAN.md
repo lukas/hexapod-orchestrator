@@ -59,7 +59,9 @@ fails, does it change what we do before the next hardware test?
 quality, and keep the fleet firing at exactly that.** Cycles think
 root-cause-deep about the open stand/walk blockers (hold's parked
 foot, det flat-rise stall, rise-rock + takeoff roll-rate DR axes,
-the crouch-splay tall wall, contact/pinning) and keep launching arms
+the crouch-splay tall wall, contact/pinning, and the 08-11
+interactive-profile overfit — deployed sit-from-plant tips + rise
+stalls under play.py's ramp, MODEL_TOUR) and keep launching arms
 that directly attack them — each spec'd so a PASS is a hardware
 candidate (Gate 0 / dep contract, champion warm-start, retention
 gates), not a throwaway. When the next lever is CODE (several are:
@@ -85,7 +87,18 @@ goal profile shipped in the weights meta, contract-locked by
 `rl_move/tests/test_stand_runner.py` — needs a deploy re-push
 first; stance_dr10 rollback = one picker call). The hold-current
 "gap" is RETRACTED (08-11 probe: pose/unit confound; SIM.md gap 2).
-Rise/hold/lower and full-circle translation are SOLVED IN SIM. **Sanctioned compute
+Rise/hold/lower and full-circle translation are SOLVED IN SIM —
+**but only under the TRAINING goal profiles: the 08-11 model tour
+(rl_docs/MODEL_TOUR_2026-08-11.md, all 27 deployable ckpts through
+the interactive play.py session) found the deployed stance tips
+deterministically on sit-from-the-142mm-plant and stalls its belly
+rise at 55 mm under the interactive ramp. New session gate
+`rl_move.sim.eval_session` (exit-code enforced; run it on every
+stand/sit candidate alongside the mode gates) + new default-off
+training axis `goal.rise_ramp_jitter`/`goal.lower_ramp_jitter`
+(bank: test_ramp_jitter_* green). First arm: champion-lineage warm
+retrain with jitter ~0.3, gate = eval_session hard gates + mode
+retention.** **Sanctioned compute
 experiment lines (operator 08-11 afternoon — not attempt-#2
 blockers, but wanted): turning (RE-OPENED, queue 0.2), four-leg
 walking (NEW, queue 0.3), tall/no-drag walking (queue -0.5). All
