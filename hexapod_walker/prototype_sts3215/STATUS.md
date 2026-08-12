@@ -84,18 +84,15 @@ never buried in a cycle log):**
   tip1) and `cw-stand-riserock4` (train-4, warm from
   holdbc1-hard1) — both VERIFIED RUNNING, 2M discovery, matched-
   parent gates. No further wait; verdict next cycle.
-- Fleet at ~03:00 UTC: 12/12 GPU pods idle again (a burst of hw+arch
-  runs finished together and were triaged this cycle). `cw-getup1`
-  and `cw-arch-gru-anchor1`/`-scratch-anchor1` are VERDICTED.
-  `cw-dep-bcgait1` (the BC-INIT tall-wall arm, launched 00:21) sat
-  unverdicted for ~2.5h with no cycle log entry claiming it despite
-  the 01:35 note above saying it was "mid-triage elsewhere" — that
-  claim was STALE; this cycle triaged it directly (see READ FIRST).
-  `cw-stand-minfeet1` (the parked-foot anchor-loss arm, launched
-  00:44) is STILL unverdicted as of this writing — same stale-claim
-  risk; next cycle should check it directly rather than trusting an
-  old "another cycle owns it" note. backlog.json holds one item
-  (`cw-arch-gru-anchor2`, draining now).
+- Fleet at ~03:45 UTC: `cw-arch-gru-anchor2` (arch) + `cw-gait-rsi1`
+  (nobc) training, 10/12 pods idle, backlog empty. Everything named
+  in the 01:35 "mid-triage elsewhere" note turned out to be STALE —
+  `cw-dep-bcgait1` and `cw-stand-minfeet1` had sat unverdicted 2-3h
+  with no cycle actually owning them; this cycle triaged both
+  directly rather than trusting the old note (lesson: a "handed off"
+  claim in STATUS is not proof of ownership — check `ops.sh triage`
+  yourself before skipping a stale-looking finished run). Do NOT
+  assume this note is current for new leaks either — re-check.
 - Operator-gated (bench, not GPU): NOTHING is deploy-blocked anymore.
   The deploy re-push is DONE and verified over HTTP (08-11 ~21:15):
   the robot's ACTIVE stance policy is stand_holdbc1_hard1 WITH the
