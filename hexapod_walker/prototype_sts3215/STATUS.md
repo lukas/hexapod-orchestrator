@@ -304,15 +304,28 @@ never buried in a cycle log):**
   `/dev/shm` cap, 0-step SIGBUS) that a concurrent cycle fixed and
   requeued as `cw-mt-b-hist16-r1`, now RUNNING (train-0) — the
   representation lever. Detail: `rl_docs/tracks/multitask/STATUS.md`.
-- **Fleet at ~23:3x UTC 08-12: 1/12 pods training
-  (`cw-mt-b-hist16-r1`, multitask representation-lever discovery,
+- **UPDATE (08-12 ~23:3x): `cw-mt-b-hist16-r1` (multitask
+  representation lever, 2M) FINISHED — FAIL per its pre-registered
+  gate.** 16-frame history does not change 2M discovery on b1's
+  recipe: gate(DR0) det prog med 0.21 vs the 0.32 bar (b1 baseline
+  0.16, delta inside noise), gait_valid 0/6, same low-crouch splay
+  video-confirmed. This closes the cheap-2M-probe menu for the track
+  (capacity/arch256, staged-widening/widen1-2, and now history all
+  FAIL at 2M or fail to acquire commands even with a surviving
+  walking prior at 20M). Refill: `cw-mt-b-hist16-20m1` (same recipe,
+  b2-matched 20M budget — the real command-acquisition test) is
+  RUNNING (train-0). Detail: `rl_docs/tracks/multitask/STATUS.md`.
+- **Fleet at ~23:5x UTC 08-12: 1/12 pods training
+  (`cw-mt-b-hist16-20m1`, multitask representation-lever hardening,
   train-0), 11 idle** — every idle slot is a named wait, none is an
   unattacked blocker. The wave-1 20M re-queue, the arch256 capacity
-  probe, and the
-  widen1 2M discovery are all verdicted (a2 PASS control; b2/c2 FAIL —
-  width interference; b-arch256-1 FAIL — capacity not the lever;
-  widen1 FAIL(acquisition) but walking-prior survival confirmed).
-  All earlier finished-but-unverdicted runs are verdicted (getup4
+  probe, the widen1/widen2 staged-widening pair, and the hist16-r1
+  2M probe are all verdicted (a2 PASS control; b2/c2 FAIL — width
+  interference; b-arch256-1 FAIL — capacity not the lever;
+  widen1 FAIL(acquisition)/widen2 FAIL(no-acquisition) — walking-prior
+  survival confirmed but budget doesn't teach new commands;
+  hist16-r1 FAIL — history isn't the 2M lever either). All earlier
+  finished-but-unverdicted runs are verdicted (getup4
   FAIL/pricing-refuted; footzsharp1 PASS/hover-lever; footlow2-tip1
   FAIL/tipped-DR-closed-harmful; mt-a1/b1/c1 FAIL-budget). Why the
   other 9 pods idle, per track: hw stance — two passing candidates,
