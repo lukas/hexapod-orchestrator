@@ -90,14 +90,20 @@ never buried in a cycle log):**
   coefficient scheduler (CODE, unqueued, spec first) or accepting
   BC-anchor (outside nobc's charter) — that will be a genuine
   code-wait for this track's mainline question.
-- Fleet at ~04:30 UTC: `cw-arch-gru-anchor2` (arch) + `cw-gait-
-  anneal1` (nobc, just launched) training, 10/12 pods idle, backlog
-  empty — not for lack of blockers to attack (see the two waits
-  above), but because both tracks' next levers on their live blocker
-  are either running (anneal1) or need code that doesn't exist yet.
-  `cw-dep-tip1-push1-hard1` and `cw-gait-slowfirst1` both FINISHED
-  and FAILED this cycle (detail above); do not re-launch either
-  family without new code.
+- Fleet at ~06:20 UTC: `cw-arch-gru-anchor2` FINISHED+FAILED this
+  cycle (arch) — dropping the walk-tick anchor did NOT unfreeze walk
+  (same pixel-static fingerprint as anchor1), which localizes the
+  interference to the shared GRU/feature-extractor trunk rather than
+  the walk-anchor term itself. CODE landed same cycle
+  (`train.bc_anchor_detach_trunk`, default off/bit-exact, tests
+  green) and `cw-arch-gru-anchor3` (2M discovery, direct test of that
+  mechanism) is VERIFIED RUNNING on train-0. `cw-gait-anneal1`
+  (nobc) also shows FINISHED — no verdict yet, awaiting its own
+  triage cycle (not this one's run per containment). 11/12 pods idle,
+  backlog empty — not for lack of blockers (see the hw/nobc waits
+  above, both still CODE-blocked and untouched this cycle), but
+  because arch's only live lever is the one run in flight and hw/nobc
+  refills are outside this cycle's triaged track (containment).
 - Operator-gated (bench, not GPU): NOTHING is deploy-blocked anymore.
   The deploy re-push is DONE and verified over HTTP (08-11 ~21:15):
   the robot's ACTIVE stance policy is stand_holdbc1_hard1 WITH the
