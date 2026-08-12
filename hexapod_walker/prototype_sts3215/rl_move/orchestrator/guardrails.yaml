@@ -382,6 +382,13 @@ operator_unblock_policy:
   # deployable candidate), and write+check in the code they need
   # (cfg-gated, default-off, tests green) instead of parking lines.
   idle_gpu_needs_hard_reason: false
+  # SURFACE ALL WAITING (operator, 08-11 night): any wait — on code,
+  # operator input, bench data, a missing checkpoint, a stale backlog
+  # item — is written into STATUS.md's top "READ FIRST / WAITING-ON"
+  # block in the SAME cycle it starts, named concretely, and removed
+  # in the cycle that clears it. Waiting silently (or only in cycle
+  # logs) is a guardrail violation.
+  surface_waits_in_status_top: true
 
 escalation:
   # If any of these happen, do NOT launch new runs; write the situation to

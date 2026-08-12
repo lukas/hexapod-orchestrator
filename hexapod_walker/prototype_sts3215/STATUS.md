@@ -19,14 +19,62 @@ anyone catching up. Facts here must agree with `CURRENT_TRUTHS.md`
 (which wins on conflict); the full checkpoint inventory with gate
 numbers lives in `rl_docs/SKILLS.md`.
 
-**Last updated: 2026-08-11 (late evening) — through the ~20:15 idle-kick
-cycle: crouchrise3 FAIL (dose axis dead), mirturn1 FAIL (mirror
-training closed, wrapper ships), GAIT P0 probe answered, dragstance1
-launched.**
+**Last updated: 2026-08-11 (night) — after the bench_blast camera
+sessions and the operator's MuJoCo viewing.**
 Update rule: refresh whenever a hardware session happens, a champion
 changes, or a big lesson closes — and stamp the date; per-track story
 changes go to the track's own STATUS.md. Keep it honest: the "not
 working" list is the most valuable section.
+
+## READ FIRST — operator ground truth (08-11 night), and what is blocked
+
+**The operator watched the deployed stand and walk in the MuJoCo
+viewer and on the robot, and both are visibly busted.** That verdict
+outranks every sim gate number below (CURRENT_TRUTHS: real-robot
+facts win). Concretely, camera-verified by the nine unattended bench
+sessions tonight (`rl_docs/BENCH_REPORT_2026-08-11.md`):
+
+- **The learned stand-up fails on hardware 10 times out of 10** — it
+  trips the roll limit at the same tick of the belly curl every
+  single time (10.1–10.6° vs the 10° limit, mid-curl rocking the sim
+  never shows). The scripted stand glide is the only working stand.
+- **Learned walks fall roughly half the time within seconds of
+  takeoff** (vref1 6/10 fell, tip1 4/7; every walk swings 13–27° of
+  roll in the first ~2 s; survival is luck, not skill). Neither
+  policy is better — surviving the takeoff transient is the problem.
+- **The robot drags its feet** — during walking (the low crouch
+  shuffle, slip ~1.0–1.5 m per meter of progress even in sim), and
+  worse, during stand/sit transitions, where until tonight NOTHING
+  in the reward even priced a loaded foot scraping the floor.
+- Past sim gates were measuring "didn't fall / reached height", not
+  "looks right" — which is how every status update stayed optimistic
+  while the robot got worse. Tonight the evals gained the operator's
+  eyes: hardware-comparable roll peak/tail/settled stats and per-
+  episode foot-drag meters in every eval line (`rl_docs/EVALS.md`),
+  and a new `reward.k_drag_trans` charge prices the stand/sit scrape
+  (bank-verified, `rl_docs/REWARD.md`).
+
+**WAITING-ON / fleet state (rule: anything the orchestrator is
+waiting on goes HERE, at the top, the moment it starts waiting —
+never buried in a cycle log):**
+
+- Fleet at this writing: both hardware gaps from tonight's bench are
+  TRAINING — `cw-dep-tip1-kick1` (takeoff roll-rate kick DR) and
+  `cw-stand-riserock2-r1` (rise-rock DR), plus `cw-stand-minfeet1`
+  (min-over-feet hold pricing) and `cw-arch-gru-anchor1`; ~8 slots
+  idle. The 08-11-night binding directive (RL_PLAN +
+  ORCHESTRATOR_PROMPT): idle pods next to an unattacked stand/walk
+  blocker are the failure mode, and when the next lever is CODE the
+  cycle writes it instead of parking. Newest landed lever to spend
+  slots on: the transition drag charge (`reward.k_drag_trans`,
+  banked tonight; first arm `cw-stand-transdrag1` queued).
+- Controller backlog holds two STALE 08-10 items that repeatedly
+  refuse to drain (`cw-walk-lowgait-dr035-comshift-s1` — a crouch-50mm
+  twin that now runs AGAINST the walk-taller directive — and
+  `cw-dep-startvar1`); triage or delete them, don't let them squat.
+- Operator-gated (bench, not GPU): the ω=−0.3 turn-sign measurement
+  (camera missed it), the rot60 + learned-stand deploy re-push, and
+  any hardware turn session (sign audit still open).
 
 ## The one-paragraph answer
 
@@ -37,14 +85,16 @@ champion `vref1-r1` itself went 0-for-2 with an intermittent runaway
 roll (a pinned loaded leg feeds a lean that the policy never
 recovers — a sim-to-real contact gap, since sim recovery can exploit
 feet that skate). That runaway is THE open hardware question: the
-discriminating vref1-vs-tip1 A/B on the same floor never actually
-ran (the policy switch didn't land on the robot). In simulation, the
-whole joystick motion cycle works end to end with zero falls: a
-learned stand-up from the belly, a genuinely motionless hold,
-driving in ANY direction, stop, and sit — the rot60 wrapper and the
-stand-up specialist are ported but have NOT had their first hardware
-runs yet (re-push required first: the on-robot stand copy lacks its
-goal profile).
+discriminating vref1-vs-tip1 A/B on the same floor ran tonight and
+has NO winner — both fall about half the time at takeoff (see READ
+FIRST). In simulation the joystick motion cycle completes end to end
+without falling — but "without falling" is the whole claim: the walk
+is a low crouched shuffle that drags feet (slip ~1.0–1.5 m per meter
+of progress), the stand-up that looks smooth in sim rocks over and
+trips 10/10 on the real robot, and the stand/sit transitions scrape
+feet across the floor (unpriced by any reward term until tonight).
+The operator has seen all of this in the viewer; the eval stack now
+measures it (roll tail/settled + drag meters, EVALS.md).
 The two breakthroughs that got us here (both 08-11): first,
 **BC-anchoring** — instead of tuning reward prices yet again, we pull
 the policy's actions directly toward a recorded good motion during

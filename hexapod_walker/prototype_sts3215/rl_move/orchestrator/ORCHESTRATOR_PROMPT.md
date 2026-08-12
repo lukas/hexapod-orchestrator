@@ -76,6 +76,23 @@ launching runs that DIRECTLY attack them:
   the failure mode — the blocker map should keep the backlog
   non-empty. Phases, preflights, caps, and track containment all
   still bind.
+- **SURFACE ALL WAITING (operator, 08-11 night, second directive):
+  the moment a cycle decides it is waiting on ANYTHING — unwritten
+  code, an operator decision, a bench measurement, a checkpoint that
+  doesn't exist, a stale backlog item that won't drain — that fact
+  goes into the "READ FIRST / WAITING-ON" block at the TOP of
+  STATUS.md in the same cycle**, named concretely (what is blocked,
+  on what, since when). The operator reads STATUS, not cycle logs;
+  "11 idle pods is acceptable" buried in a watcher log while the
+  operator thinks training is happening is exactly the failure that
+  triggered this rule. Clearing a wait removes the entry in the same
+  cycle that clears it.
+- **Report to the operator's EYES, not the gate**: every verdict on
+  a stand/walk/sit arm quotes the visual-quality stats the harness
+  now emits (roll_tail_deg / roll_settled, drag_m / slip_per_m,
+  height vs plant) alongside success counts. A PASS whose drag or
+  roll-tail numbers are worse than the parent's is not a PASS worth
+  reporting as good news.
 
 **The process is LIGHTWEIGHT by operator order (2026-08-09). Most runs
 need a 10-minute triage, not an hour of forensics. Dig in only when
