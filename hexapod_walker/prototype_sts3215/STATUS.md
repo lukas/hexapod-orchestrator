@@ -182,19 +182,32 @@ never buried in a cycle log):**
   now refuted on the stand side too. Walk-takeoff needs an operator
   design discussion or the same anchor-side investigation once it
   exists. Nothing is training against the walk-takeoff blocker.
-- **WAITING (08-12 ~15:40, hw): the hardware-observed ~8° standing
-  lean has no validated sim lever yet.** `cw-stand-footlow2-level1`
-  (dr-scale 0.35 + ground_tilt 5° + tipped starts, off the hardware-
-  milestone `footlow2-hard1` checkpoint) FAILED — and its actual
-  question (do tipped-start holds re-level?) was never tested: the
-  standard eval draw sampled zero tipped-start episodes. Worse, the
-  run reopened the long-closed two-foot park exploit on plain
-  flat-floor retention. Waiting on a DESIGN fix (a probe/eval path
-  that FORCES a tipped spawn instead of hoping the random draw
-  includes one) before retrying this lever — not queued, nothing
-  training against the lean specifically. `footlow2-stable1`
-  (the lineage's other hardening arm, plant-polygon+ramp-jitter) is
-  still running and unaffected.
+- **CLEARED (08-12 ~16:1x, was WAITING): the "needs a probe that
+  FORCES a tipped spawn" design fix landed with ZERO new code** —
+  `dr.tipped_start_prob`/`dr.tipped_start_deg` are existing cfg keys
+  that apply as absolute overrides AFTER dr-scale (`sim_env.py`
+  reset), so `--dr-scale 0.0 --cfg-set dr.tipped_start_prob=1.0
+  --cfg-set dr.tipped_start_deg=8,8` forces every hold episode
+  tipped 8° with every OTHER DR axis isolated off — no launcher, no
+  training. Ran on both footlow2-hard1 and -stable1 (12 det + 12 sto
+  hold episodes each): the policy ALREADY partially self-corrects
+  (roll settles ≤2.6° in 11-12/12 episodes, classed
+  recovered/settled) but often misses the strict valid_plant spec on
+  final HEIGHT (15–31mm over the 15mm bar, one episode also
+  over-current) — valid_plant only 5/12 det, 9/12 sto on BOTH
+  checkpoints, near-identically. So `cw-stand-footlow2-level1`'s
+  FAIL is re-attributed: its 3-variable confound (dr-scale 0.35 +
+  ground_tilt 5° + tipped_start 0.30 in one run) — not the
+  tipped-start axis itself — is the more likely cause of the
+  reopened park. **Refilled with the one-variable isolation this
+  should have been:** `cw-stand-footlow2-tip1` (2M discovery, warm
+  from hard1, dr.tipped_start_prob=0.5/deg=6-10 ONLY, dr-scale 0.0,
+  everything else byte-identical to hard1) — gate: forced-8°-tip
+  valid_plant ≥9/12 each pass (vs the probe's own 5/12 det, 9/12 sto
+  baseline) + zero new foot-duty park + clean nominal retention.
+  `footlow2-stable1` PASSED its own gate this cycle (see Now/RISE.md)
+  — a second stance candidate, real hold-drag tradeoff vs hard1
+  (+75%), does not strictly dominate it.
 - **WAITING (08-12, confirmed ~08:30): nobc's from-scratch gait line
   has exhausted every no-new-code lever.** `cw-gait-anneal1` (the
   last one — warm-start-as-curriculum) FAILED: it keeps moving
