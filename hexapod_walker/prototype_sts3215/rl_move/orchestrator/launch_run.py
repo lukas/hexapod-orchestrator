@@ -907,13 +907,23 @@ def cmd_checkup(g: dict, a: argparse.Namespace) -> int:
     wb2 = wandb_running_runs().get(a.run) or {}
     s2 = wb2.get("global_step") or 0
     facts["log_growth_bytes"] = size2 - size1
-    if size2 <= size1:
+    log_stalled = size2 <= size1
+    # A stalled log alone is NOT suspect when W&B global_step is
+    # advancing: the MJX trainer writes nothing to stdout after its
+    # startup banner (false SUSPECT on healthy cw-arch-gru-anchor2,
+    # 2026-08-12 — steps 131k->720k, fps ~1.5k, log frozen at 1519 B).
+    # Smokes run with W&B off, so there the log is the only signal.
+    if entry.get("smoke") and log_stalled:
         problems.append("log stopped growing")
     if not entry.get("smoke"):
         if not wb2:
             problems.append("W&B no longer reports the run as running")
+            if log_stalled:
+                problems.append("log stopped growing")
         elif s2 <= s1:
             problems.append(f"W&B global_step stalled at {s2}")
+            if log_stalled:
+                problems.append("log stopped growing")
         else:
             fps = (s2 - s1) / 45.0
             facts["fps"] = round(fps, 1)
