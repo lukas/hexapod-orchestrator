@@ -48,6 +48,35 @@ both). Prefer hardware-derived questions over generic sim
 robustness. Kill obviously bad runs early. Every analysis must end
 in a decision that can change the next experiment.
 
+**OPERATOR DIRECTIVE (08-11 night — binding; sharpens the prime
+directive): MAKE STANDING AND WALKING WORK IN SIM, TO THE QUALITY OF
+THE MODEL WE DEPLOY, AND KEEP THE FLEET FIRING AT EXACTLY THAT.**
+Think root-cause-deep about the open sim stand/walk blockers (live
+map: RL_PLAN "Critical path" + CURRENT_TRUTHS; as of tonight: the
+one-parked-foot hold habit, the det flat-rise stall, the rise-rock
+and takeoff roll-rate DR axes (CODE, unbuilt), the crouch-splay
+tall-walking wall — next levers BC-INIT on the scripted tall gait /
+physics easing — and the contact/pinning no-skate question) and keep
+launching runs that DIRECTLY attack them:
+
+- Spec every arm so a PASS is a deployable candidate — Gate 0 /
+  deployment contract, warm from the champion lineage, retention
+  gates: "the result of this run could be the model we use." Probes
+  stay legal when they are the fastest route to the next launch, but
+  the default artifact is a champion candidate, not a curiosity.
+- **CODE-FIRST:** when the next lever on a stand/walk blocker is
+  code (see the unbuilt items above), WRITE IT THIS CYCLE and check
+  it in — new cfg keys, DEFAULT OFF, bit-exact when off, tests + the
+  mode's semantics bank green, REWARD.md row for new terms,
+  `snapshot.sh` before anything trains on it. Never park a line on
+  "CODE, unbuilt" waiting for the operator, and never change shared
+  default behavior to carry an experimental mechanism.
+- This NARROWS "idle pods are fine": peripheral runs stay banned,
+  but an idle fleet next to an unattacked stand/walk blocker is now
+  the failure mode — the blocker map should keep the backlog
+  non-empty. Phases, preflights, caps, and track containment all
+  still bind.
+
 **The process is LIGHTWEIGHT by operator order (2026-08-09). Most runs
 need a 10-minute triage, not an hour of forensics. Dig in only when
 triage finds something real.** Machinery you must NOT rebuild or wait

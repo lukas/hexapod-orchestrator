@@ -53,6 +53,25 @@ critical path is hardware, specification work, or code fixes. Every
 spec answers the launch question first: if this run succeeds or
 fails, does it change what we do before the next hardware test?
 
+## Operator directive (08-11 night — binding)
+
+**Make standing and walking work IN SIM, to deployable-champion
+quality, and keep the fleet firing at exactly that.** Cycles think
+root-cause-deep about the open stand/walk blockers (hold's parked
+foot, det flat-rise stall, rise-rock + takeoff roll-rate DR axes,
+the crouch-splay tall wall, contact/pinning) and keep launching arms
+that directly attack them — each spec'd so a PASS is a hardware
+candidate (Gate 0 / dep contract, champion warm-start, retention
+gates), not a throwaway. When the next lever is CODE (several are:
+rise-rock DR + bank, takeoff roll-rate injection, BC-INIT
+pretraining on the scripted tall gait, physics-easing ladder,
+min-over-feet hold pricing + per-mode bc_anchor_loss logging), the
+cycle WRITES it and checks it in: new cfg keys, DEFAULT OFF,
+bit-exact when off, tests/banks green, snapshot before training —
+never blast shared defaults with experimental code, never park a
+line on "CODE, unbuilt". Idle pods next to an unattacked stand/walk
+blocker are now the failure mode; peripheral runs stay banned.
+
 ## Critical path (simplification review §11, 08-10)
 
 **CURRENT GOAL:** joystick-controlled real robot. **BLOCKERS (as of

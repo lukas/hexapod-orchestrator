@@ -375,6 +375,12 @@ operator_unblock_policy:
   # idle pods, but pulling from them is a judgment call, not a duty,
   # and never justifies peripheral DR/robustness composes — that broad
   # question is already answered.
+  # NARROWED by the 08-11 night operator directive (RL_PLAN.md
+  # "Operator directive (08-11 night)"): idle pods next to an
+  # unattacked SIM STAND/WALK blocker are the failure mode — keep the
+  # backlog fed with arms that directly attack those blockers (each a
+  # deployable candidate), and write+check in the code they need
+  # (cfg-gated, default-off, tests green) instead of parking lines.
   idle_gpu_needs_hard_reason: false
 
 escalation:
