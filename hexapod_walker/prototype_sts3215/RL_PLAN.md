@@ -317,9 +317,10 @@ Open problems, in priority order:
     attempt never actually switched policies — compare roll-ramp
     RATE / runaways per N, not one run); (b) tape reading on an RL
     walk; (c) FIRST hardware runs of the newly-landed rot60 port and
-    the stand specialist (re-push via deploy_adb.sh first — the
-    on-robot stand copy lacks the goal profile, do NOT press STAND
-    stale); (d) wz sign audit — **DONE 08-11 night (operator: turns
+    the stand specialist — **deploy re-push DONE 08-11 ~21:15,
+    HTTP-verified: active stance policy is stand_holdbc1_hard1 WITH
+    its trained goal profile (stand 5s/6s/+111mm), STAND no longer
+    stale**; (d) wz sign audit — **DONE 08-11 night (operator: turns
     match the drawn signs both ways, no bridge flip; rate
     unmeasured)**. If the runaway recurs on tip1 too,
     the fix is a sim contact/pinning model (no-skate feet), not

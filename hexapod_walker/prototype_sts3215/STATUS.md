@@ -77,13 +77,19 @@ never buried in a cycle log):**
   refuse to drain (`cw-walk-lowgait-dr035-comshift-s1` — a crouch-50mm
   twin that now runs AGAINST the walk-taller directive — and
   `cw-dep-startvar1`); triage or delete them, don't let them squat.
-- Operator-gated (bench, not GPU): the rot60 + learned-stand deploy
-  re-push (`deploy_adb.sh`; the on-robot stand copy lacks its goal
-  profile — do not press STAND until re-pushed). The turn-sign audit
-  is CLOSED (operator 08-11 night: the robot turns the way the drawn
-  signs say, both directions — no bridge flip needed; rate
-  unmeasured, degrees are hard to eyeball). Bench turn sessions now
-  wait only on the MirrorPolicy deploy port [CODE].
+- Operator-gated (bench, not GPU): NOTHING is deploy-blocked anymore.
+  The deploy re-push is DONE and verified over HTTP (08-11 ~21:15):
+  the robot's ACTIVE stance policy is stand_holdbc1_hard1 WITH the
+  trained goal profile in its meta (stand 5s hold / 6s ramp /
+  +111mm; lower 1s/5s/−45mm) — STAND is no longer profile-stale.
+  The turn-sign audit is CLOSED (operator 08-11 night: the robot
+  turns the way the drawn signs say, both directions — no bridge
+  flip needed; rate unmeasured). Remaining bench items are session
+  work when the operator wants them: first learned stand-up (hand
+  ready, belly start + fresh set_zero — preflight currently refuses
+  from the tilted rest pose, as designed), rot60 off-wedge headings,
+  the vref1-vs-tip1 A/B, RL-walk tape. Bench turn sessions wait
+  only on the MirrorPolicy deploy port [CODE].
 
 ## The one-paragraph answer
 
