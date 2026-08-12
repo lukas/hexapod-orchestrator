@@ -1156,6 +1156,20 @@ class Handler(http.server.BaseHTTPRequestHandler):
                    for c in cookies.split(";"))
 
     def do_GET(self):  # noqa: N802
+        # robots.txt must bypass the token gate: LLM fetchers (ChatGPT
+        # etc.) check it before any visit, and the gate's 403 there made
+        # them treat the ENTIRE site as disallowed (operator 08-12).
+        # Content is safe to allow — everything real still needs ?key=.
+        if self.path.split("?")[0] == "/robots.txt":
+            body = (b"User-agent: *\nAllow: /\n\n"
+                    b"# Status docs for LLM readers: /llms.txt "
+                    b"(access token required)\n")
+            self.send_response(200)
+            self.send_header("Content-Type", "text/plain")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
         if not self._authed():
             body = b"403: append ?key=<token> to the URL"
             self.send_response(403)
