@@ -241,10 +241,16 @@ never buried in a cycle log):**
   19/24): command-width interference is real and monotone at a
   matched 20M budget. The follow-up capacity probe
   `cw-mt-b-arch256-1` (256×256 fresh at 2M) also FAILED its gate —
-  width is not the lever. Now training: `cw-mt-widen1` (staged
-  widening — b1's command set warm-started from a2's walking
-  checkpoint, 2M discovery). Detail:
-  `rl_docs/tracks/multitask/STATUS.md`.
+  width is not the lever. **`cw-mt-widen1` (staged widening, 2M)
+  FAILS(acquisition) but CONFIRMS the walking prior fully survives
+  command widening** (gait_valid 6/6 det, prog med 1.57 vs a2's
+  1.23, zero sacrificed legs, roll_tail flat-to-better than a2) —
+  neither new command (stop/yaw) is acquired yet, but no mt arm has
+  ever acquired a command at only 2M, so this doesn't yet separate
+  "needs more budget" from "can't represent it". Now training:
+  `cw-mt-widen2` (train-0, same recipe continued to the b2-matched
+  20M) to settle that before reaching for the representation lever
+  (obs history). Detail: `rl_docs/tracks/multitask/STATUS.md`.
 - **CLEARED (08-12, was WAITING): the mode-gated dual-core GRU
   (`DualGruActorCriticPolicy`, commit 2137c00) landed and the answer
   is in.** `cw-arch-gru-dual-scratch1` (2M, from-scratch + full
@@ -285,12 +291,14 @@ never buried in a cycle log):**
   supervision-aim problem — the lever family is closed here; the
   live next step is the operator's in-progress DAgger rise
   redistillation (arch/STATUS.md "Next").
-- **Fleet at ~22:00 UTC 08-12 (idle-kick cycle): 1/12 pods training
-  (`cw-mt-widen1`, multitask staged-widening discovery, train-0),
-  11 idle — every idle slot is a named wait, none is an unattacked
-  blocker.** The wave-1 20M re-queue and the arch256 capacity probe
-  are all verdicted (a2 PASS control; b2/c2 FAIL — width
-  interference; b-arch256-1 FAIL — capacity not the lever).
+- **Fleet at ~22:3x UTC 08-12: 1/12 pods training
+  (`cw-mt-widen2`, multitask staged-widening hardening/discriminator,
+  train-0), 11 idle — every idle slot is a named wait, none is an
+  unattacked blocker.** The wave-1 20M re-queue, the arch256 capacity
+  probe, and the widen1 2M discovery are all verdicted (a2 PASS
+  control; b2/c2 FAIL — width interference; b-arch256-1 FAIL —
+  capacity not the lever; widen1 FAIL(acquisition) but walking-prior
+  survival confirmed).
   All earlier finished-but-unverdicted runs are verdicted (getup4
   FAIL/pricing-refuted; footzsharp1 PASS/hover-lever; footlow2-tip1
   FAIL/tipped-DR-closed-harmful; mt-a1/b1/c1 FAIL-budget). Why the
