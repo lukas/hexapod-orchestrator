@@ -67,43 +67,68 @@ sessions tonight (`rl_docs/BENCH_REPORT_2026-08-11.md`):
 waiting on goes HERE, at the top, the moment it starts waiting —
 never buried in a cycle log):**
 
-- **WAITING (08-12, new): hw's takeoff-roll blocker has no launchable
-  lever left except CODE.** `cw-dep-tip1-push1-hard1` (10M hardening)
-  FAILED bit-for-bit vs its 2M parent under the matched-parent
-  torque probe (fall count IDENTICAL, 5/12 vs frozen tip1's 9/12,
-  still short of the required 2x) — **the torque-DR family
-  (walk-kick, rise-rock, walk-push) is now CLOSED FOR GOOD, all
-  three axes**. The only remaining lever for the hardware takeoff
-  transient is a contact/pinning GEOMETRY fix (belly/tucked-shank
-  collision during load transfer, diagnosed by `replay_trace.py` —
-  detail `rl_docs/SIM.md` gap 4) — this is real, unqueued, unspec'd
-  CODE (mesh/geom collision modeling, not a cfg flag), not yet
-  written. Nothing is training against this blocker right now.
-- **WAITING (08-12, new): nobc's from-scratch gait line is one arm
-  from exhausting every no-new-code lever.** `cw-gait-slowfirst1`
-  (lever 5) FAILED the identical marching-in-place fingerprint as
-  dragstance1/rsi1 — levers 2, 4, 5 are all closed on one mechanism.
-  Re-opened same cycle without new code: `cw-gait-anneal1` (VERIFIED
-  RUNNING, train-4) warm-starts the structural charge onto an
-  already-mobile from-scratch paddler instead of a random init. If
-  this also floors, the ONLY remaining lever is a true in-run
-  coefficient scheduler (CODE, unqueued, spec first) or accepting
-  BC-anchor (outside nobc's charter) — that will be a genuine
-  code-wait for this track's mainline question.
-- Fleet at ~06:20 UTC: `cw-arch-gru-anchor2` FINISHED+FAILED this
-  cycle (arch) — dropping the walk-tick anchor did NOT unfreeze walk
-  (same pixel-static fingerprint as anchor1), which localizes the
-  interference to the shared GRU/feature-extractor trunk rather than
-  the walk-anchor term itself. CODE landed same cycle
-  (`train.bc_anchor_detach_trunk`, default off/bit-exact, tests
-  green) and `cw-arch-gru-anchor3` (2M discovery, direct test of that
-  mechanism) is VERIFIED RUNNING on train-0. `cw-gait-anneal1`
-  (nobc) also shows FINISHED — no verdict yet, awaiting its own
-  triage cycle (not this one's run per containment). 11/12 pods idle,
-  backlog empty — not for lack of blockers (see the hw/nobc waits
-  above, both still CODE-blocked and untouched this cycle), but
-  because arch's only live lever is the one run in flight and hw/nobc
-  refills are outside this cycle's triaged track (containment).
+- **UPDATE (08-12 ~08:30): the hw contact/pinning code-wait is
+  CLEARED — the code was written, and it falsified its own premise.**
+  The belly/tucked-shank collision axis exists now
+  (`env.leg_chassis_collision`, default off, tests green, SIM.md
+  gap 4), but replaying all ten stand-failure tapes with the new
+  contact pairs ON changes nothing (sim roll 2.4–2.5° vs hardware
+  10.1–10.4°, identical to off) — the recorded curls never touch
+  the chassis. The replay's support-polygon trace found the real
+  stand mechanism instead: in the last second of the rise the
+  deployed policy's own commands put the robot on THREE feet with
+  the balance margin flickering ±25 mm every tick — sim survives on
+  a hair-trigger catch, hardware tips. `cw-stand-margin1` (launched
+  this cycle, hw) attacks that directly by paying for CoM depth
+  inside the support polygon (`reward.k_support_margin`, an
+  already-built term no stand arm ever used). `cw-stand-riserock4`
+  (the ramp-gated rise-rock, last DR variant) FAILED with the
+  riserock3 outrigger cheat in lower retention — the perturbation-DR
+  approach to the stand trip is now closed in every form.
+  **Still WAITING (walk side): the takeoff-roll transient for
+  WALKING has no launchable lever** — torque/command DR families all
+  closed; if margin-style pricing works for the stand it may
+  generalize, otherwise walk-takeoff needs an operator design
+  discussion. Nothing is training against the walk-takeoff blocker.
+- **WAITING (08-12, confirmed ~08:30): nobc's from-scratch gait line
+  has exhausted every no-new-code lever.** `cw-gait-anneal1` (the
+  last one — warm-start-as-curriculum) FAILED: it keeps moving
+  (0.4 m, unlike the three frozen predecessors) but never cleans up
+  — a leg-3 flag-leg skate, slip 4–5 m/m vs the 1.5 bar, reward
+  diving all run as the drag charge goes unresolved. The ONLY
+  remaining nobc lever is a true in-run coefficient scheduler
+  (CODE, unqueued, needs a spec pass first) or closing the
+  from-scratch gait line. Waiting on that spec/implementation
+  decision since 08-12; nothing is training in nobc.
+- **WAITING (08-12, new): arch's GRU-walk-while-standing question has
+  no launchable lever left except architecture CODE.**
+  `cw-arch-gru-anchor3` closed the anchor-for-recurrent-nets line for
+  good (see below) — the only remaining lever is a mode-gated or
+  separate recurrent core per skill (so walk's forward pass doesn't
+  share a trunk with the anchored stance modes). This is a real
+  architecture change, not a cfg flag; it is unspec'd and unwritten.
+  Nothing is training against this blocker right now — arch's pod
+  sits idle by design, not by neglect.
+- Fleet at ~07:15 UTC: `cw-arch-gru-anchor3` FINISHED+FAILED (arch) —
+  the trunk-detach fix (CODE landed last cycle) protects hold/lower
+  on the GRU exactly as designed (det 6/6 each) but walk is STILL
+  frozen (gait_valid 4/6, one leg flagged sacrificed, prog_ratio 0.03
+  vs a 0.80 bar, video pixel-static at DR0 and own-DR0.5). **The
+  anchor-for-recurrent-nets line (teach a shared-trunk GRU to walk
+  while anchoring stance ticks) is now CLOSED FOR GOOD** — three
+  independent levers refuted (anchor on, walk-anchor off,
+  trunk-detached). The remaining lever is a real architecture change
+  (mode-gated / separate recurrent core per skill), unspec'd and
+  unwritten — no run queued against it, arch's pod sits idle by
+  design (containment: this cycle only triaged an arch run, hw/nobc
+  refills are out of scope). `cw-gait-anneal1` (nobc) also shows
+  FINISHED — no verdict yet, awaiting its own triage cycle. All 12
+  pods idle, backlog empty — not for lack of blockers (see the
+  hw/nobc waits below, both still CODE-blocked and untouched this
+  cycle), but because every track's next lever right now is CODE
+  that hasn't been written (hw: contact/pinning geometry; nobc: a
+  coefficient scheduler or a from-scratch triage; arch: mode-gated
+  recurrent cores) or is contained to another cycle's run.
 - Operator-gated (bench, not GPU): NOTHING is deploy-blocked anymore.
   The deploy re-push is DONE and verified over HTTP (08-11 ~21:15):
   the robot's ACTIVE stance policy is stand_holdbc1_hard1 WITH the
