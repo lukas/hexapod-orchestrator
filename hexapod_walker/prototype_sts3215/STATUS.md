@@ -98,7 +98,7 @@ never buried in a cycle log):**
   term (differentiable FK twin of body_ik, default off, bit-exact
   off, 3 new tests + full semantics bank green) under which a 10 mm
   commanded hover costs ~1.0 instead of ~1e-4. First arm
-  `cw-stand-footz1` (2M discovery, one variable vs holdbc1-hard1)
+  `cw-stand-footz1-r1` (2M discovery, one variable vs holdbc1-hard1)
   training now.
   **Still WAITING (walk side): the takeoff-roll transient for
   WALKING has no launchable lever** — torque/command DR families all
