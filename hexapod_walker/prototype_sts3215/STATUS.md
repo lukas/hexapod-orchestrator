@@ -53,6 +53,15 @@ sessions tonight (`rl_docs/BENCH_REPORT_2026-08-11.md`):
   episode foot-drag meters in every eval line (`rl_docs/EVALS.md`),
   and a new `reward.k_drag_trans` charge prices the stand/sit scrape
   (bank-verified, `rl_docs/REWARD.md`).
+- **08-12 sim-side good news: the low-crouch/leg-splay walking habit
+  is broken for the first time (`cw-dep-bcgait1`)** — after ten-plus
+  reward/pricing/state-injection attempts went nowhere, pre-teaching
+  the network the scripted tall gait's ACTIONS (then RL fine-tuning)
+  got it walking within a centimeter of full standing height with
+  legs no longer jammed sideways, genuinely covering ground. Not
+  hardware-ready yet (feet still slide more than the bar allows, one
+  in six stochastic runs still drops a leg) — next is hardening.
+  Detail: `rl_docs/tracks/hw/STATUS.md`, `rl_docs/GAIT.md`.
 
 **WAITING-ON / fleet state (rule: anything the orchestrator is
 waiting on goes HERE, at the top, the moment it starts waiting —
@@ -77,14 +86,18 @@ never buried in a cycle log):**
   before any further hw walk/rise-transient arm launches. Until it
   lands, idle hw pods are the correct state for these two blockers
   specifically (other hw items below are separately in flight).
-- Fleet at ~01:35 UTC: only `cw-arch-gru-anchor1` training (arch
-  track); 11/12 GPU pods idle. Several hw runs finished in the last
-  hour and are mid-triage by other concurrent cycles (`cw-getup1`,
-  `cw-stand-minfeet1`, `cw-dep-bcgait1`) — do not re-triage those,
-  they are not this cycle's. The two previously-stale backlog items
-  (`cw-walk-lowgait-dr035-comshift-s1`, `cw-dep-startvar1`) are
-  resolved (PASS / KILLED) and backlog.json is empty — that wait is
-  CLEARED.
+- Fleet at ~03:00 UTC: 12/12 GPU pods idle again (a burst of hw+arch
+  runs finished together and were triaged this cycle). `cw-getup1`
+  and `cw-arch-gru-anchor1`/`-scratch-anchor1` are VERDICTED.
+  `cw-dep-bcgait1` (the BC-INIT tall-wall arm, launched 00:21) sat
+  unverdicted for ~2.5h with no cycle log entry claiming it despite
+  the 01:35 note above saying it was "mid-triage elsewhere" — that
+  claim was STALE; this cycle triaged it directly (see READ FIRST).
+  `cw-stand-minfeet1` (the parked-foot anchor-loss arm, launched
+  00:44) is STILL unverdicted as of this writing — same stale-claim
+  risk; next cycle should check it directly rather than trusting an
+  old "another cycle owns it" note. backlog.json holds one item
+  (`cw-arch-gru-anchor2`, draining now).
 - Operator-gated (bench, not GPU): NOTHING is deploy-blocked anymore.
   The deploy re-push is DONE and verified over HTTP (08-11 ~21:15):
   the robot's ACTIVE stance policy is stand_holdbc1_hard1 WITH the

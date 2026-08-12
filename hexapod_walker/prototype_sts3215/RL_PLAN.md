@@ -482,6 +482,15 @@ Open problems, in priority order:
        cosmetic. Byproduct: the 0.051 fast basin reappeared in rsi1
        — robust, reachable from multiple parents, and DEPLOYABLE
        (full dep contract) — bench-test it regardless.
+    **BC-INIT WINS (08-12, `cw-dep-bcgait1`):** probe_tall_wall
+       steady height -10..+6mm (every prior arm: -72..-75mm), leg-yaw
+       margin +17..+18deg (every prior arm: pinned negative at the
+       35deg limit) — the crouch+splay habit is GONE. Harness
+       confirms real travel (prog_ratio 0.77, gait_valid 6/6, zero
+       falls), video visibly taller and walking. Not yet polished:
+       secondary slip bar missed (det 2.12 vs <=1.8, sto sacrifices a
+       leg 1/6). Next: harden (more steps + DR/tipped retention) —
+       GAIT.md bottom.
     Winner → Gate 0 export + tipped retention + bench A/B vs tip1.
     Checkpoints: `ppo_goal_cw_dep_tall30{,h}`, `ppo_goal_cw_dep_tall15`,
     `ppo_goal_cw_dep_tall15_h1` (fastest dep walker, 0.051 m/s),
