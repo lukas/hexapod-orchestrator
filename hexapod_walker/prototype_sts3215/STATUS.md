@@ -121,10 +121,24 @@ never buried in a cycle log):**
   cause: this lineage never got the lower-mode BC anchor that a
   sibling branch (`cw-stand-anchormix1-r1`) already used to solve
   lower cleanly (6/6) — the two fixes were never combined. `hard1`
-  (`holdbc1_hard1`) stays deployed. `cw-stand-footlow1` (discovery,
-  combines footz1-hard1's working hold fix with anchormix1-r1's
-  working lower fix) is LAUNCHED and training now (train-0) —
-  nothing waiting here.
+  (`holdbc1_hard1`) stays deployed. **UPDATE (08-12 midday):
+  `cw-stand-footlow1` (the combination arm) FINISHED — FAIL on its
+  own gate, but the merge is ADDITIVE on two of three modes: first
+  policy ever with a clean six-foot hold (det duty ≥0.94 every
+  foot) AND 12/12 lower with feet ending flush (sub-mm clearances;
+  parent was 0/12 at up to 126mm). The cost surfaced in RISE:
+  det 3/6 / sto 2/6, stalling belly-down ~100mm short — the
+  anchormix lineage's known det flat-rise stall, carried in by the
+  merge. NEW WAIT: the flat-rise stall now blocks the LAST broken
+  stance mode in an otherwise-complete policy, and it needs an
+  alignment-audit spec pass (what reference tick does the
+  state-aligned anchor pull toward at the stalled belly state? —
+  the same audit style that cracked the parked-foot mystery;
+  `bc_anchor_loss_rise` is low/converged DURING the stall, so
+  joint-space supervision is blind to it) BEFORE any further
+  anchor arm trains. No blind anchor merges/variants meanwhile
+  (pre-registered in the anchormix closure). Waiting since 08-12
+  midday; owner: next deep/dig-in cycle.**
   **Still WAITING (walk side): the takeoff-roll transient for
   WALKING has no launchable lever** — torque/command DR families all
   closed, and margin-style pricing (the hoped-for generalization) is
