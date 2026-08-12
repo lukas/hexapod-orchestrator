@@ -67,25 +67,23 @@ sessions tonight (`rl_docs/BENCH_REPORT_2026-08-11.md`):
 waiting on goes HERE, at the top, the moment it starts waiting —
 never buried in a cycle log):**
 
-- **WAITING ON DESIGN (since 08-12 ~01:35): contact/pinning modeling
-  (no-skate feet / belly contact geometry) is now the ONLY named
-  lever for BOTH open hardware roll-transient blockers** (walk
-  takeoff falls AND the rise belly-curl rock) — every command-bias
-  DR-injection dose tried on either one is now closed (walk-kick:
-  3 arms, zero separation; rise-rock: 2 arms, zero separation then
-  `cw-stand-riserock3` broke LOWER with a fresh flag-leg/outrigger
-  cheat instead). This is NOT a quick cfg-flag: it means changing how
-  the physics engine's contact/friction behaves for a loaded,
-  near-stationary foot (current finding: cranking friction 1.0→2.0×
-  makes no difference — `sim_blast.py` 08-11 — so it's a stick/no-
-  slip-while-loaded question, not a coefficient), which touches the
-  MJX/Warp contact solver and needs real design + careful validation,
-  not an assume-and-go cfg key. No spec exists yet. Flagging instead
-  of rushing it per the SAFETY/confounded-design escalation rule —
-  next cycle with design bandwidth (or the operator) should own this
-  before any further hw walk/rise-transient arm launches. Until it
-  lands, idle hw pods are the correct state for these two blockers
-  specifically (other hw items below are separately in flight).
+- **WAIT CLEARED (08-12): the contact/pinning DESIGN landed and the
+  retrains are now training.** `rl_move/sim/replay_trace.py`
+  (open-loop hardware-tape replay) diagnosed both transients instead
+  of needing more design time: the walk takeoff excursion is real
+  but never VISITED in training (sim reproduces 8–29° open-loop from
+  the recorded actions), and the rise failure is a support-geometry
+  knife-edge during load transfer, not actuator/friction/CoM. Two
+  mechanism-corrected DR axes shipped from that diagnosis (both
+  bank-tested, default-off): `dr.walk_push_*` (an xfrc chassis-roll
+  TORQUE pulse — the kick's command-side fold pulse structurally
+  couldn't reach the hardware regime; torque can) and `dr.rise_rock_*`
+  now RAMP-GATED (the old flat/persistent bias tested a rock shape no
+  hardware tape ever shows). This cycle (08-12) launched the
+  operator-ordered retrains: `cw-dep-tip1-push1` (train-3, warm from
+  tip1) and `cw-stand-riserock4` (train-4, warm from
+  holdbc1-hard1) — both VERIFIED RUNNING, 2M discovery, matched-
+  parent gates. No further wait; verdict next cycle.
 - Fleet at ~03:00 UTC: 12/12 GPU pods idle again (a burst of hw+arch
   runs finished together and were triaged this cycle). `cw-getup1`
   and `cw-arch-gru-anchor1`/`-scratch-anchor1` are VERDICTED.
