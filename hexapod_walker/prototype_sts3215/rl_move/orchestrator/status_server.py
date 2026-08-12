@@ -1122,18 +1122,21 @@ LLM_PAGES = {
 def llm_body(path: str, base: str) -> tuple[bytes, str] | None:
     from urllib.parse import unquote
     key = f"?key={TOKEN}" if TOKEN else ""
+    # Everything is text/plain, NOT text/markdown: GPT's web fetcher
+    # reaches text/markdown responses but refuses to expose the body
+    # (operator 08-12). The content is unchanged, only the label.
+    ctype = "text/plain; charset=utf-8"
     if path in ("/llms.txt", "/llm", "/llm/"):
-        return (llms_txt(base, key).encode(),
-                "text/plain; charset=utf-8")
+        return llms_txt(base, key).encode(), ctype
     if path.startswith("/llm/doc/"):
         body = llm_doc_file(unquote(path[len("/llm/doc/"):]))
         if body is None:
             return None
-        return body, "text/markdown; charset=utf-8"
+        return body, ctype
     fn = LLM_PAGES.get(path)
     if fn is None:
         return None
-    return fn(base, key).encode(), "text/markdown; charset=utf-8"
+    return fn(base, key).encode(), ctype
 
 
 # Optional access token (STATUS_TOKEN env): needed once the page is on a
