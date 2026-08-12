@@ -16,9 +16,12 @@ View from the laptop:
     open http://127.0.0.1:8090
 
 LLM-readable mirror (for GPT/Claude web fetchers assessing the
-campaign): /llms.txt is the index, /llm/{status,plan,log,runs}.md are
-plain markdown. Auth on those paths is stateless (?key=<token> on every
-request, no cookie redirect) because LLM fetchers don't keep cookies.
+campaign): /llms.txt is the index, /llm/{status,plan,log,runs,docs}.md
+are plain markdown, /llm/doc/<path> serves any .md in the prototype
+tree. Auth on those paths is stateless (?key=<token> on every request,
+no cookie redirect) because LLM fetchers don't keep cookies. On the
+controller, a background thread keeps the checkout synced to
+origin/main so pushed doc changes go live within ~1 min.
 
 Port 8090 on purpose: 5183/5173 are BuildViz (AGENTS.md), 8080 is the
 robot API. Data collection runs in background threads; page loads are
@@ -448,6 +451,9 @@ def data_health(f: dict, s: dict) -> list[str]:
     warns = []
     if SNAP.get("fast_err"):
         warns.append(f"status collector error: {SNAP['fast_err']}")
+    if SNAP.get("git_sync_err"):
+        warns.append(f"git doc sync failing: {SNAP['git_sync_err']} — "
+                     "the LLM mirror may serve stale docs")
     if f.get("at") and now - f["at"] > 3 * FAST_S:
         warns.append(f"watcher/ledger data is {int((now - f['at']) / 60)} "
                      "min stale — collector thread wedged?")
@@ -854,6 +860,46 @@ def render() -> str:
     return "".join(h)
 
 
+# -------------------------------------------------------- git doc sync
+# Keep the controller checkout tracking origin/main so every doc the
+# LLM mirror serves goes live within a minute of the operator pushing
+# from the laptop — no manual `git pull` (operator 08-12). Serialized
+# against snapshot.sh's commit/rebase/push with the same host-wide
+# lock; `flock -n` SKIPS the round instead of blocking when a decision
+# cycle holds it. NOTE: this updates docs only — a status_server.py
+# change still needs the runbook's tmux kill+restart to take effect.
+REPO = PROTO.parent.parent
+GIT_SYNC_S = 60
+GIT_LOCK = "/workspace/git_snapshot.lock"
+
+
+def git_sync_worker() -> None:
+    def git(*args, timeout=60):
+        return subprocess.run(["git", "-C", str(REPO), *args],
+                              capture_output=True, text=True,
+                              timeout=timeout)
+    while True:
+        time.sleep(GIT_SYNC_S)
+        try:
+            git("fetch", "-q", "origin", "main")
+            if git("rev-parse", "HEAD").stdout == \
+                    git("rev-parse", "origin/main").stdout:
+                SNAP.pop("git_sync_err", None)
+                continue
+            r = subprocess.run(
+                ["flock", "-n", GIT_LOCK, "git", "-C", str(REPO), "pull",
+                 "--rebase", "--autostash", "-q", "origin", "main"],
+                capture_output=True, text=True, timeout=180)
+            if r.returncode == 0:
+                SNAP.pop("git_sync_err", None)
+            # flock -n exits 1 while a cycle holds the lock: not an
+            # error, just try again next round
+            elif r.returncode != 1:
+                SNAP["git_sync_err"] = (r.stderr or r.stdout)[:300]
+        except Exception as e:
+            SNAP["git_sync_err"] = repr(e)[:300]
+
+
 # ------------------------------------------------------- LLM endpoints
 # Plain-text/markdown mirror of the campaign state so GPT/Claude web
 # fetchers can read it without parsing the HTML dashboard (operator
@@ -895,7 +941,7 @@ def llm_log_md() -> str:
             f"\n\n{tail}")
 
 
-def llm_runs_md() -> str:
+def llm_runs_md(base: str, key: str) -> str:
     f = SNAP.get("fast", {})
     rows = f.get("ledger", [])
     out = ["# Launched runs — latest ledger entry per run, newest first",
@@ -908,7 +954,8 @@ def llm_runs_md() -> str:
         out.append("(ledger snapshot not collected yet — the server just "
                    "restarted; retry in ~30 s)")
     for e in rows:
-        out.append(f"## {e.get('run', '?')} — {e.get('status', '?')}")
+        run = e.get("run", "?")
+        out.append(f"## {run} — {e.get('status', '?')}")
         created = (e.get("created") or "")[:16]
         out.append(f"- track: {track_of_entry(e)} · phase: "
                    f"{e.get('phase', '?')} · created: {created} UTC")
@@ -922,8 +969,88 @@ def llm_runs_md() -> str:
             out.append(f"- verdict: {verdict}")
         elif e.get("triage"):
             out.append(f"- analysis stage: {e['triage']}")
+        if (PROTO / "rl_docs" / "runs" / f"{run}.md").is_file():
+            out.append(f"- full story: {base}/llm/doc/rl_docs/runs/"
+                       f"{run}.md{key}")
         out.append("")
     return "\n".join(out)
+
+
+# Directories never descended into when indexing docs (artifacts, not
+# documentation — logs/ alone can hold thousands of files).
+DOC_SKIP_DIRS = {".git", "logs", "wandb", "policies", "node_modules",
+                 "__pycache__"}
+
+
+def list_docs() -> list[str]:
+    """Every .md under the prototype tree, PROTO-relative, sorted."""
+    out = []
+    for root, dirs, files in os.walk(PROTO):
+        dirs[:] = [d for d in dirs if d not in DOC_SKIP_DIRS]
+        rel = os.path.relpath(root, PROTO)
+        for name in files:
+            if name.endswith(".md"):
+                out.append(name if rel == "." else f"{rel}/{name}")
+    return sorted(out)
+
+
+def git_head() -> str:
+    try:
+        r = subprocess.run(["git", "-C", str(PROTO), "log", "-1",
+                            "--format=%h (%cd)", "--date=format:%Y-%m-%d "
+                            "%H:%M UTC"], capture_output=True, text=True,
+                           timeout=15)
+        return r.stdout.strip() or "?"
+    except Exception:
+        return "?"
+
+
+def llm_docs_md(base: str, key: str) -> str:
+    n_runs = 0
+    by_dir: dict[str, list[tuple[str, int]]] = {}
+    for rel in list_docs():
+        if rel.startswith("rl_docs/runs/"):
+            n_runs += 1
+            continue
+        try:
+            size = (PROTO / rel).stat().st_size
+        except OSError:
+            size = 0
+        d = os.path.dirname(rel) or "(root)"
+        by_dir.setdefault(d, []).append((rel, size))
+    out = ["# All documentation files",
+           "",
+           f"Every markdown doc in the prototype tree, served live from "
+           f"the git checkout at {git_head()} (auto-synced from origin/"
+           f"main, so a push goes live within ~{GIT_SYNC_S} s). Fetch any "
+           f"file at `{base}/llm/doc/<path>{key or '?key=<token>'}`.", ""]
+    for d in sorted(by_dir):
+        out.append(f"## {d}")
+        out.append("")
+        for rel, size in by_dir[d]:
+            out.append(f"- [{rel}]({base}/llm/doc/{rel}{key}) "
+                       f"({size // 1000} kB)")
+        out.append("")
+    out.append("## rl_docs/runs — per-run stories")
+    out.append("")
+    out.append(f"{n_runs} files, one per launched training run, at "
+               f"`{base}/llm/doc/rl_docs/runs/<run>.md{key or '?key=<token>'}` "
+               f"— run names are in [the run ledger]({base}/llm/runs.md"
+               f"{key}), which links each run's story directly.")
+    return "\n".join(out)
+
+
+def llm_doc_file(rel: str) -> bytes | None:
+    """One doc by PROTO-relative path; None = not found/not allowed."""
+    if not rel.endswith(".md") or ".." in rel:
+        return None
+    p = (PROTO / rel).resolve()
+    if not p.is_relative_to(PROTO.resolve()):
+        return None
+    try:
+        return p.read_bytes()
+    except OSError:
+        return None
 
 
 def llms_txt(base: str, key: str) -> str:
@@ -962,23 +1089,38 @@ Live state: {live}.
 - [Cycle log]({base}/llm/log.md{key}): RL_LOG.md, the append-only
   decision-cycle log (newest entries at the end)
 - [Run ledger]({base}/llm/runs.md{key}): every launched training run
-  with its hypothesis, status, and verdict
+  with its hypothesis, status, and verdict (links each run's full
+  story document)
+- [All documentation]({base}/llm/docs.md{key}): index of every other
+  markdown doc in the tree (hardware, sim, rewards, evals, per-run
+  stories, …), each fetchable at {base}/llm/doc/<path>{key}
 """
 
 
-LLM_PAGES = {"/llm/status.md": llm_status_md, "/llm/plan.md": llm_plan_md,
-             "/llm/log.md": llm_log_md, "/llm/runs.md": llm_runs_md}
+LLM_PAGES = {
+    "/llm/status.md": lambda base, key: llm_status_md(),
+    "/llm/plan.md": lambda base, key: llm_plan_md(),
+    "/llm/log.md": lambda base, key: llm_log_md(),
+    "/llm/runs.md": llm_runs_md,
+    "/llm/docs.md": llm_docs_md,
+}
 
 
 def llm_body(path: str, base: str) -> tuple[bytes, str] | None:
+    from urllib.parse import unquote
+    key = f"?key={TOKEN}" if TOKEN else ""
     if path in ("/llms.txt", "/llm", "/llm/"):
-        key = f"?key={TOKEN}" if TOKEN else ""
         return (llms_txt(base, key).encode(),
                 "text/plain; charset=utf-8")
+    if path.startswith("/llm/doc/"):
+        body = llm_doc_file(unquote(path[len("/llm/doc/"):]))
+        if body is None:
+            return None
+        return body, "text/markdown; charset=utf-8"
     fn = LLM_PAGES.get(path)
     if fn is None:
         return None
-    return fn().encode(), "text/markdown; charset=utf-8"
+    return fn(base, key).encode(), "text/markdown; charset=utf-8"
 
 
 # Optional access token (STATUS_TOKEN env): needed once the page is on a
@@ -1072,6 +1214,10 @@ def main() -> int:
     for key, fn in SLOW_PARTS:
         threading.Thread(target=part_worker, args=(key, fn),
                          daemon=True).start()
+    # Only on the controller: never auto-pull a laptop checkout (a dev
+    # running this locally has uncommitted work in the working tree).
+    if str(REPO) == "/workspace/weird_objects":
+        threading.Thread(target=git_sync_worker, daemon=True).start()
     srv = http.server.ThreadingHTTPServer(("0.0.0.0", PORT), Handler)
     print(f"status page on :{PORT}")
     srv.serve_forever()
