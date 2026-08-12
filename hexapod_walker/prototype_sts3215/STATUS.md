@@ -58,25 +58,33 @@ sessions tonight (`rl_docs/BENCH_REPORT_2026-08-11.md`):
 waiting on goes HERE, at the top, the moment it starts waiting —
 never buried in a cycle log):**
 
-- Fleet at ~00:45 UTC: 3/12 slots training — `cw-stand-transdrag1`
-  (the new transition drag charge, launched and verified ~10.9k fps),
-  `cw-stand-riserock2-r1` (rise-rock DR against the 10/10 hardware
-  stand-up trip), `cw-arch-gru-anchor1`; ~9 slots idle. Tonight's
-  verdicts so far: `cw-walk-mirturn1` FAILED its gate (symmetry loss
-  rewrote the champion's gait instead of adding turn authority —
-  mirror TRAINING closed, eval-time MirrorPolicy selection ships;
-  see `rl_docs/tracks/turn/STATUS.md`) and `cw-dep-tip1-kick1` was
-  an informative NULL (the walk-kick DR injection fells NEITHER
-  policy, 0/24 vs 0/24 — the sim still cannot reproduce the hardware
-  takeoff falls, so that mechanism hunt is the open [CODE] item the
-  orchestrator is triaging). The 08-11-night binding directive
-  (RL_PLAN + ORCHESTRATOR_PROMPT): idle pods next to an unattacked
-  stand/walk blocker are the failure mode, and when the next lever
-  is CODE the cycle writes it instead of parking.
-- Controller backlog holds two STALE 08-10 items that repeatedly
-  refuse to drain (`cw-walk-lowgait-dr035-comshift-s1` — a crouch-50mm
-  twin that now runs AGAINST the walk-taller directive — and
-  `cw-dep-startvar1`); triage or delete them, don't let them squat.
+- **WAITING ON DESIGN (since 08-12 ~01:35): contact/pinning modeling
+  (no-skate feet / belly contact geometry) is now the ONLY named
+  lever for BOTH open hardware roll-transient blockers** (walk
+  takeoff falls AND the rise belly-curl rock) — every command-bias
+  DR-injection dose tried on either one is now closed (walk-kick:
+  3 arms, zero separation; rise-rock: 2 arms, zero separation then
+  `cw-stand-riserock3` broke LOWER with a fresh flag-leg/outrigger
+  cheat instead). This is NOT a quick cfg-flag: it means changing how
+  the physics engine's contact/friction behaves for a loaded,
+  near-stationary foot (current finding: cranking friction 1.0→2.0×
+  makes no difference — `sim_blast.py` 08-11 — so it's a stick/no-
+  slip-while-loaded question, not a coefficient), which touches the
+  MJX/Warp contact solver and needs real design + careful validation,
+  not an assume-and-go cfg key. No spec exists yet. Flagging instead
+  of rushing it per the SAFETY/confounded-design escalation rule —
+  next cycle with design bandwidth (or the operator) should own this
+  before any further hw walk/rise-transient arm launches. Until it
+  lands, idle hw pods are the correct state for these two blockers
+  specifically (other hw items below are separately in flight).
+- Fleet at ~01:35 UTC: only `cw-arch-gru-anchor1` training (arch
+  track); 11/12 GPU pods idle. Several hw runs finished in the last
+  hour and are mid-triage by other concurrent cycles (`cw-getup1`,
+  `cw-stand-minfeet1`, `cw-dep-bcgait1`) — do not re-triage those,
+  they are not this cycle's. The two previously-stale backlog items
+  (`cw-walk-lowgait-dr035-comshift-s1`, `cw-dep-startvar1`) are
+  resolved (PASS / KILLED) and backlog.json is empty — that wait is
+  CLEARED.
 - Operator-gated (bench, not GPU): NOTHING is deploy-blocked anymore.
   The deploy re-push is DONE and verified over HTTP (08-11 ~21:15):
   the robot's ACTIVE stance policy is stand_holdbc1_hard1 WITH the
