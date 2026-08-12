@@ -67,29 +67,45 @@ sessions tonight (`rl_docs/BENCH_REPORT_2026-08-11.md`):
 waiting on goes HERE, at the top, the moment it starts waiting —
 never buried in a cycle log):**
 
-- **UPDATE (08-12 ~08:30): the hw contact/pinning code-wait is
-  CLEARED — the code was written, and it falsified its own premise.**
-  The belly/tucked-shank collision axis exists now
-  (`env.leg_chassis_collision`, default off, tests green, SIM.md
-  gap 4), but replaying all ten stand-failure tapes with the new
-  contact pairs ON changes nothing (sim roll 2.4–2.5° vs hardware
-  10.1–10.4°, identical to off) — the recorded curls never touch
-  the chassis. The replay's support-polygon trace found the real
-  stand mechanism instead: in the last second of the rise the
-  deployed policy's own commands put the robot on THREE feet with
-  the balance margin flickering ±25 mm every tick — sim survives on
-  a hair-trigger catch, hardware tips. `cw-stand-margin1` (launched
-  this cycle, hw) attacks that directly by paying for CoM depth
-  inside the support polygon (`reward.k_support_margin`, an
-  already-built term no stand arm ever used). `cw-stand-riserock4`
-  (the ramp-gated rise-rock, last DR variant) FAILED with the
-  riserock3 outrigger cheat in lower retention — the perturbation-DR
-  approach to the stand trip is now closed in every form.
+- **UPDATE (08-12, hold/rise pricing-only levers now ALL closed):**
+  the contact/pinning code-wait cleared earlier (belly/tucked-shank
+  collision built and falsified — the recorded curls never touch the
+  chassis; the real mechanism is the rise ending on a 3-foot,
+  ±25mm-flickering knife-edge that sim survives and hardware doesn't).
+  `cw-stand-margin1` (paying for CoM depth inside the support
+  polygon) and `cw-stand-transdrag1` (charging loaded-foot scrape
+  during stand/sit) both FAILED — margin1's own target stat never
+  moved (BC-anchor-pinned) and BOTH runs independently reproduce the
+  identical hold one-foot park (idx1, duty 0.03-0.05) that closed
+  `cw-stand-minfeet1` a few hours earlier. **Three independent
+  reward-side arms (minfeet1, margin1, transdrag1) now confirm the
+  SAME closed door: no more pricing-only levers on an anchored stand
+  mode.** `cw-stand-riserock4` (last rise-rock DR variant) also
+  FAILED via the same outrigger cheat. **CLEARED (08-12 ~09:5x, same
+  cycle as the margin1/transdrag1 verdicts): the anchor-side
+  spec/verify pass RAN, and the answer is neither of the two
+  theories on the board.** (a) `_q_nom` is exonerated: 48/48 hold
+  resets settle with ALL SIX feet firmly loaded (3.2–3.6 N, none
+  under 0.5 N) — the anchor reference is a genuine six-foot stance
+  (though feet 1/4 ARE the two lightest at settle, matching which
+  foot every park has ever chosen). (b) "PPO defies supervision" is
+  wrong too: the parked policy's per-leg anchor loss on the parked
+  leg (0.0032) is byte-comparable to the clean parent's same leg
+  (0.0031) — **the park is INVISIBLE to joint-space action MSE**,
+  because a millimetre-scale contact break needs only fractions of a
+  degree of hip lift (3 dims in 18, diluted to ~1e-4). Fix landed
+  same cycle: `train.bc_anchor_foot_z` — a foot-HEIGHT-space anchor
+  term (differentiable FK twin of body_ik, default off, bit-exact
+  off, 3 new tests + full semantics bank green) under which a 10 mm
+  commanded hover costs ~1.0 instead of ~1e-4. First arm
+  `cw-stand-footz1` (2M discovery, one variable vs holdbc1-hard1)
+  training now.
   **Still WAITING (walk side): the takeoff-roll transient for
   WALKING has no launchable lever** — torque/command DR families all
-  closed; if margin-style pricing works for the stand it may
-  generalize, otherwise walk-takeoff needs an operator design
-  discussion. Nothing is training against the walk-takeoff blocker.
+  closed, and margin-style pricing (the hoped-for generalization) is
+  now refuted on the stand side too. Walk-takeoff needs an operator
+  design discussion or the same anchor-side investigation once it
+  exists. Nothing is training against the walk-takeoff blocker.
 - **WAITING (08-12, confirmed ~08:30): nobc's from-scratch gait line
   has exhausted every no-new-code lever.** `cw-gait-anneal1` (the
   last one — warm-start-as-curriculum) FAILED: it keeps moving
