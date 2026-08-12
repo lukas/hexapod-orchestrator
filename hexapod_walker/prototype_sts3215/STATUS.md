@@ -19,13 +19,13 @@ anyone catching up. Facts here must agree with `CURRENT_TRUTHS.md`
 (which wins on conflict); the full checkpoint inventory with gate
 numbers lives in `rl_docs/SKILLS.md`.
 
-**Last updated: 2026-08-12 (morning) — after the stand-pricing
-closures (margin1/transdrag1), the park-blindness audit + foot-height
-anchor fix, and its first result: `cw-stand-footz1-r1` PASS (partial),
-the first clean six-foot hold in the whole park saga. UPDATE same
-morning: the 10M hardening `cw-stand-footz1-hard1` FAILED (hold now
-clean, lower regressed) — see WAITING-ON below; the fix (combine with
-the sibling lineage's already-working lower fix) is training now.**
+**Last updated: 2026-08-12 (midday) — stance line: the height-floor
+retry `cw-stand-footlow2-r1` cut the last broken mode's error from
+~100 mm to ~15 mm (noisy-mode flat rises now 6/6) but re-opened the
+hold one-foot park — FAIL per its own gate, deep dig-in flagged on
+the two residuals; the session ramp-jitter axis (`cw-stand-rampjit1`)
+FAILED and is CLOSED (next lever: start-state exposure). See
+WAITING-ON below. `holdbc1_hard1` stays deployed.**
 Update rule: refresh whenever a hardware session happens, a champion
 changes, or a big lesson closes — and stamp the date; per-track story
 changes go to the track's own STATUS.md. Keep it honest: the "not
@@ -139,7 +139,31 @@ never buried in a cycle log):**
   the stall, not blind to it). Fix landed + tested
   (`train.bc_anchor_min_h_ahead_mm`: the aimed-at demo frame must be
   ≥15 mm above the robot's current height); the one-variable retry
-  `cw-stand-footlow2` is training.**
+  `cw-stand-footlow2-r1` trained.**
+  **RESULT + NEW WAIT (08-12 midday): `cw-stand-footlow2-r1` FAIL
+  per its own gate, but the floor mechanism WORKS — the det flat
+  stall moved from ~100 mm short to 15–16 mm short, and noisy-mode
+  rises now succeed 6/6 including every flat start (was 2/6). Two
+  residuals block the next arm, both flagged for a DEEP DIG-IN
+  (waiting on that cycle since this one): (a) the exact-mode rise
+  ends 15 mm short only on the eval's seeded flat starts (a probe
+  from a different start reaches 3 mm error with the anchor
+  correctly aiming at the demo's final plant frame) — need the
+  seeded audit before choosing a lever; (b) the stronger rise
+  supervision re-opened the hold one-foot park (foot idx1 duty 0.03
+  all 6 det episodes) DESPITE the foot-height anchor that fixed it —
+  the rise/hold seesaw is real and unpriced. Sit-down stayed 12/12.
+  `holdbc1_hard1` stays deployed.**
+  **CLOSED (08-12 midday): the session-profile ramp-jitter axis**
+  (`cw-stand-rampjit1`, the 08-11 model-tour follow-up) — FAIL per
+  its own pre-registered gate: the interactive-session rise still
+  misses the bar (59.5 vs 60 mm @9.5 s; parent 55) and sit-down
+  retention regressed (det 2/6, sto 0/6, outrigger class). One real
+  positive for the record: the parent's deterministic
+  sit-after-walk TIP-OVER did not occur (session no_falls +
+  sit_descends PASS). Per the gate, next lever is START-STATE
+  exposure, not more profile jitter — unspec'd, folded into the
+  same stance-line wait above.
   **Still WAITING (walk side): the takeoff-roll transient for
   WALKING has no launchable lever** — torque/command DR families all
   closed, and margin-style pricing (the hoped-for generalization) is
