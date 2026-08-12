@@ -233,15 +233,18 @@ never buried in a cycle log):**
   (CODE, unqueued, needs a spec pass first) or closing the
   from-scratch gait line. Waiting on that spec/implementation
   decision since 08-12; nothing is training in nobc.
-- **WAITING (08-12 ~21:3x, was 20:00): multitask's 20M re-queue is
-  2/3 read — waiting on `cw-mt-c2` only.** Control arm `cw-mt-a2`
-  PASSED (real six-leg gait, prog med 1.23-1.30) and narrow generalist
-  `cw-mt-b2` FAILED (real gait too, but prog med only ~0.51-0.53 —
-  short of the >=0.5x-of-a2 bar — plus an unreliable/falls-prone
-  yaw response on an extra probe). `cw-mt-c2` (broader command diet)
-  also just finished training (~21:2x) but is UNTRIAGED — not this
-  cycle's run, picked up separately — before any wave-1-wide
-  conclusion. Detail: `rl_docs/tracks/multitask/STATUS.md`.
+- **CLEARED (08-12 ~22:0x, was WAITING on the 20M re-queue): the
+  multitask wave-1 read is COMPLETE and CLOSED** — `cw-mt-a2`
+  specialist control PASS (real six-leg gait, prog med 1.23-1.30),
+  `cw-mt-b2` narrow generalist FAIL (real gait but short on
+  speed/yaw), `cw-mt-c2` broad generalist FAIL (flag-leg, falls
+  19/24): command-width interference is real and monotone at a
+  matched 20M budget. The follow-up capacity probe
+  `cw-mt-b-arch256-1` (256×256 fresh at 2M) also FAILED its gate —
+  width is not the lever. Now training: `cw-mt-widen1` (staged
+  widening — b1's command set warm-started from a2's walking
+  checkpoint, 2M discovery). Detail:
+  `rl_docs/tracks/multitask/STATUS.md`.
 - **CLEARED (08-12, was WAITING): the mode-gated dual-core GRU
   (`DualGruActorCriticPolicy`, commit 2137c00) landed and the answer
   is in.** `cw-arch-gru-dual-scratch1` (2M, from-scratch + full
@@ -282,12 +285,13 @@ never buried in a cycle log):**
   supervision-aim problem — the lever family is closed here; the
   live next step is the operator's in-progress DAgger rise
   redistillation (arch/STATUS.md "Next").
-- **Fleet at ~21:00 UTC 08-12 (idle-kick cycle cleared the triage
-  backlog): 3/12 pods training, 9 idle — every idle slot is a named
-  wait, none is an unattacked blocker.** Training: the multitask
-  wave-1 re-queue at its pre-registered 20M budget (`cw-mt-a2/b2/c2`,
-  the 2M cohort FAILED under-budget with nothing walking in any arm).
-  All six finished-but-unverdicted runs are now verdicted (getup4
+- **Fleet at ~22:00 UTC 08-12 (idle-kick cycle): 1/12 pods training
+  (`cw-mt-widen1`, multitask staged-widening discovery, train-0),
+  11 idle — every idle slot is a named wait, none is an unattacked
+  blocker.** The wave-1 20M re-queue and the arch256 capacity probe
+  are all verdicted (a2 PASS control; b2/c2 FAIL — width
+  interference; b-arch256-1 FAIL — capacity not the lever).
+  All earlier finished-but-unverdicted runs are verdicted (getup4
   FAIL/pricing-refuted; footzsharp1 PASS/hover-lever; footlow2-tip1
   FAIL/tipped-DR-closed-harmful; mt-a1/b1/c1 FAIL-budget). Why the
   other 9 pods idle, per track: hw stance — two passing candidates,
