@@ -129,16 +129,17 @@ never buried in a cycle log):**
   parent was 0/12 at up to 126mm). The cost surfaced in RISE:
   det 3/6 / sto 2/6, stalling belly-down ~100mm short — the
   anchormix lineage's known det flat-rise stall, carried in by the
-  merge. NEW WAIT: the flat-rise stall now blocks the LAST broken
-  stance mode in an otherwise-complete policy, and it needs an
-  alignment-audit spec pass (what reference tick does the
-  state-aligned anchor pull toward at the stalled belly state? —
-  the same audit style that cracked the parked-foot mystery;
-  `bc_anchor_loss_rise` is low/converged DURING the stall, so
-  joint-space supervision is blind to it) BEFORE any further
-  anchor arm trains. No blind anchor merges/variants meanwhile
-  (pre-registered in the anchormix closure). Waiting since 08-12
-  midday; owner: next deep/dig-in cycle.**
+  merge. **WAIT CLEARED (08-12, same day): the alignment audit RAN
+  (`probe_anchor_align.py` on the live stalled policy) and found the
+  mechanism — a PLATEAU FIXED POINT: the recorded demo crawls
+  0→25 mm over 5+ s, so the anchor's half-second-ahead target at the
+  stalled belly state commands only 1–5 mm of height gain, servo lag
+  cancels it, and the policy follows its supervision perfectly (its
+  anchor error is LOWEST during the stall — the anchor was teaching
+  the stall, not blind to it). Fix landed + tested
+  (`train.bc_anchor_min_h_ahead_mm`: the aimed-at demo frame must be
+  ≥15 mm above the robot's current height); the one-variable retry
+  `cw-stand-footlow2` is training.**
   **Still WAITING (walk side): the takeoff-roll transient for
   WALKING has no launchable lever** — torque/command DR families all
   closed, and margin-style pricing (the hoped-for generalization) is
