@@ -1022,21 +1022,23 @@ def llm_docs_md(base: str, key: str) -> str:
            "",
            f"Every markdown doc in the prototype tree, served live from "
            f"the git checkout at {git_head()} (auto-synced from origin/"
-           f"main, so a push goes live within ~{GIT_SYNC_S} s). Fetch any "
-           f"file at `{base}/llm/doc/<path>{key or '?key=<token>'}`.", ""]
+           f"main, so a push goes live within ~{GIT_SYNC_S} s). URLs are "
+           f"plain text (some LLM fetchers fail on markdown links) — "
+           f"fetch them exactly as written, keeping the key.", ""]
     for d in sorted(by_dir):
         out.append(f"## {d}")
         out.append("")
         for rel, size in by_dir[d]:
-            out.append(f"- [{rel}]({base}/llm/doc/{rel}{key}) "
-                       f"({size // 1000} kB)")
+            out.append(f"- {rel} ({size // 1000} kB): "
+                       f"{base}/llm/doc/{rel}{key}")
         out.append("")
     out.append("## rl_docs/runs — per-run stories")
     out.append("")
     out.append(f"{n_runs} files, one per launched training run, at "
-               f"`{base}/llm/doc/rl_docs/runs/<run>.md{key or '?key=<token>'}` "
-               f"— run names are in [the run ledger]({base}/llm/runs.md"
-               f"{key}), which links each run's story directly.")
+               f"{base}/llm/doc/rl_docs/runs/<run>.md"
+               f"{key or '?key=<token>'} — run names are in the run "
+               f"ledger ({base}/llm/runs.md{key}), which gives each "
+               f"run's story URL directly.")
     return "\n".join(out)
 
 
@@ -1081,19 +1083,30 @@ Live state: {live}.
 
 ## Status documents
 
-- [Campaign + per-track STATUS]({base}/llm/status.md{key}): the
-  campaign digest plus each research track's current state — read this
-  first for an overall assessment
-- [Research plan]({base}/llm/plan.md{key}): RL_PLAN.md, the plan the
-  autonomous agents work from (goals, phases, guardrails)
-- [Cycle log]({base}/llm/log.md{key}): RL_LOG.md, the append-only
-  decision-cycle log (newest entries at the end)
-- [Run ledger]({base}/llm/runs.md{key}): every launched training run
-  with its hypothesis, status, and verdict (links each run's full
-  story document)
-- [All documentation]({base}/llm/docs.md{key}): index of every other
-  markdown doc in the tree (hardware, sim, rewards, evals, per-run
-  stories, …), each fetchable at {base}/llm/doc/<path>{key}
+URLs are given as plain text (some LLM fetchers fail to follow
+markdown-style links). Fetch each URL exactly as written — the access
+key must stay in the query string.
+
+Campaign + per-track STATUS — the campaign digest plus each research
+track's current state; read this first for an overall assessment:
+{base}/llm/status.md{key}
+
+Research plan — RL_PLAN.md, the plan the autonomous agents work from
+(goals, phases, guardrails):
+{base}/llm/plan.md{key}
+
+Cycle log — RL_LOG.md, the append-only decision-cycle log (newest
+entries at the end):
+{base}/llm/log.md{key}
+
+Run ledger — every launched training run with its hypothesis, status,
+and verdict, plus the URL of its full story document:
+{base}/llm/runs.md{key}
+
+All documentation — index of every other markdown doc in the tree
+(hardware, sim, rewards, evals, per-run stories, …), each fetchable
+at {base}/llm/doc/<path>{key}:
+{base}/llm/docs.md{key}
 """
 
 
