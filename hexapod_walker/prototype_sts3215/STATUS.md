@@ -22,7 +22,10 @@ numbers lives in `rl_docs/SKILLS.md`.
 **Last updated: 2026-08-12 (morning) — after the stand-pricing
 closures (margin1/transdrag1), the park-blindness audit + foot-height
 anchor fix, and its first result: `cw-stand-footz1-r1` PASS (partial),
-the first clean six-foot hold in the whole park saga.**
+the first clean six-foot hold in the whole park saga. UPDATE same
+morning: the 10M hardening `cw-stand-footz1-hard1` FAILED (hold now
+clean, lower regressed) — see WAITING-ON below; the fix (combine with
+the sibling lineage's already-working lower fix) is training now.**
 Update rule: refresh whenever a hardware session happens, a champion
 changes, or a big lesson closes — and stamp the date; per-track story
 changes go to the track's own STATUS.md. Keep it honest: the "not
@@ -109,8 +112,19 @@ never buried in a cycle log):**
   (current-spec, not duty), det rise 5/6 vs parent's 6/6 (one
   flat-start height miss, zero falls). Lower unchanged (matches the
   parent's own pre-existing 3-leg-proud pattern exactly, confirmed
-  not new). 10M hardening `cw-stand-footz1-hard1` queued to
-  consolidate; hard1 stays deployed until it lands clean.
+  not new). **UPDATE (08-12): `cw-stand-footz1-hard1` (the 10M
+  hardening) FINISHED — FAIL.** Hold now survives hardening cleanly
+  (det+sto all-six-feet duty 0.92-0.99, matching/beating discovery),
+  but lower REGRESSED from the ~4/6-matching-parent baseline to 0/12
+  both passes — the SAME known three-leg outrigger cheat, more
+  entrenched under the extra budget (clearances up to 170mm). Root
+  cause: this lineage never got the lower-mode BC anchor that a
+  sibling branch (`cw-stand-anchormix1-r1`) already used to solve
+  lower cleanly (6/6) — the two fixes were never combined. `hard1`
+  (`holdbc1_hard1`) stays deployed. `cw-stand-footlow1` (discovery,
+  combines footz1-hard1's working hold fix with anchormix1-r1's
+  working lower fix) is LAUNCHED and training now (train-0) —
+  nothing waiting here.
   **Still WAITING (walk side): the takeoff-roll transient for
   WALKING has no launchable lever** — torque/command DR families all
   closed, and margin-style pricing (the hoped-for generalization) is
