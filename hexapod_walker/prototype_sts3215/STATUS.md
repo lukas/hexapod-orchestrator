@@ -67,37 +67,37 @@ sessions tonight (`rl_docs/BENCH_REPORT_2026-08-11.md`):
 waiting on goes HERE, at the top, the moment it starts waiting —
 never buried in a cycle log):**
 
-- **WAIT CLEARED (08-12): the contact/pinning DESIGN landed and the
-  retrains are now training.** `rl_move/sim/replay_trace.py`
-  (open-loop hardware-tape replay) diagnosed both transients instead
-  of needing more design time: the walk takeoff excursion is real
-  but never VISITED in training (sim reproduces 8–29° open-loop from
-  the recorded actions), and the rise failure is a support-geometry
-  knife-edge during load transfer, not actuator/friction/CoM. Two
-  mechanism-corrected DR axes shipped from that diagnosis (both
-  bank-tested, default-off): `dr.walk_push_*` (an xfrc chassis-roll
-  TORQUE pulse — the kick's command-side fold pulse structurally
-  couldn't reach the hardware regime; torque can) and `dr.rise_rock_*`
-  now RAMP-GATED (the old flat/persistent bias tested a rock shape no
-  hardware tape ever shows). This cycle (08-12) launched the
-  operator-ordered retrains: `cw-dep-tip1-push1` (train-3, warm from
-  tip1) and `cw-stand-riserock4` (train-4, warm from
-  holdbc1-hard1) — both VERIFIED RUNNING, 2M discovery, matched-
-  parent gates. No further wait; verdict next cycle.
-- Fleet at ~04:00 UTC: `cw-arch-gru-anchor2` (arch) + `cw-dep-tip1-
-  push1-hard1` (hw) + `cw-gait-slowfirst1` (nobc, just launched)
-  training, 9/12 pods idle, backlog empty. `cw-gait-rsi1` (nobc,
-  RSI-for-walk mid-stride spawns) FAILED — same freeze/near-still
-  training mechanism as `cw-gait-dragstance1`, video is marching-in-
-  place not real stepping; lever CLOSED, detail GAIT.md/nobc STATUS.
-  Everything named in the 01:35 "mid-triage elsewhere" note turned
-  out to be STALE — `cw-dep-bcgait1` and `cw-stand-minfeet1` had sat
-  unverdicted 2-3h with no cycle actually owning them; this cycle
-  triaged both directly rather than trusting the old note (lesson: a
-  "handed off" claim in STATUS is not proof of ownership — check
-  `ops.sh triage` yourself before skipping a stale-looking finished
-  run). Do NOT assume this note is current for new leaks either —
-  re-check.
+- **WAITING (08-12, new): hw's takeoff-roll blocker has no launchable
+  lever left except CODE.** `cw-dep-tip1-push1-hard1` (10M hardening)
+  FAILED bit-for-bit vs its 2M parent under the matched-parent
+  torque probe (fall count IDENTICAL, 5/12 vs frozen tip1's 9/12,
+  still short of the required 2x) — **the torque-DR family
+  (walk-kick, rise-rock, walk-push) is now CLOSED FOR GOOD, all
+  three axes**. The only remaining lever for the hardware takeoff
+  transient is a contact/pinning GEOMETRY fix (belly/tucked-shank
+  collision during load transfer, diagnosed by `replay_trace.py` —
+  detail `rl_docs/SIM.md` gap 4) — this is real, unqueued, unspec'd
+  CODE (mesh/geom collision modeling, not a cfg flag), not yet
+  written. Nothing is training against this blocker right now.
+- **WAITING (08-12, new): nobc's from-scratch gait line is one arm
+  from exhausting every no-new-code lever.** `cw-gait-slowfirst1`
+  (lever 5) FAILED the identical marching-in-place fingerprint as
+  dragstance1/rsi1 — levers 2, 4, 5 are all closed on one mechanism.
+  Re-opened same cycle without new code: `cw-gait-anneal1` (VERIFIED
+  RUNNING, train-4) warm-starts the structural charge onto an
+  already-mobile from-scratch paddler instead of a random init. If
+  this also floors, the ONLY remaining lever is a true in-run
+  coefficient scheduler (CODE, unqueued, spec first) or accepting
+  BC-anchor (outside nobc's charter) — that will be a genuine
+  code-wait for this track's mainline question.
+- Fleet at ~04:30 UTC: `cw-arch-gru-anchor2` (arch) + `cw-gait-
+  anneal1` (nobc, just launched) training, 10/12 pods idle, backlog
+  empty — not for lack of blockers to attack (see the two waits
+  above), but because both tracks' next levers on their live blocker
+  are either running (anneal1) or need code that doesn't exist yet.
+  `cw-dep-tip1-push1-hard1` and `cw-gait-slowfirst1` both FINISHED
+  and FAILED this cycle (detail above); do not re-launch either
+  family without new code.
 - Operator-gated (bench, not GPU): NOTHING is deploy-blocked anymore.
   The deploy re-push is DONE and verified over HTTP (08-11 ~21:15):
   the robot's ACTIVE stance policy is stand_holdbc1_hard1 WITH the
