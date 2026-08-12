@@ -1,6 +1,6 @@
 # STATUS — how is it going?
 
-**START HERE, then go to your track.** The campaign runs as five
+**START HERE, then go to your track.** The campaign runs as six
 parallel research tracks, and the current state of each line of work
 lives in its own short per-track status file — read the one you care
 about first:
@@ -11,6 +11,8 @@ about first:
 - `rl_docs/tracks/nobc/STATUS.md` — learning without BC anchors
 - `rl_docs/tracks/quad/STATUS.md` — four legs + two "hands"
 - `rl_docs/tracks/turn/STATUS.md` — commanded turning
+- `rl_docs/tracks/multitask/STATUS.md` — command-conditioned
+  generalist vs sequential specialists
 
 This file is the whole-campaign digest: the plain-English answer to
 "how is it going, what can the robot do now, which checkpoints are
@@ -19,7 +21,7 @@ anyone catching up. Facts here must agree with `CURRENT_TRUTHS.md`
 (which wins on conflict); the full checkpoint inventory with gate
 numbers lives in `rl_docs/SKILLS.md`.
 
-**Last updated: 2026-08-12 (afternoon) — stance line: the 10M
+**Last updated: 2026-08-12 (evening) — stance line: the 10M
 consolidation `cw-stand-footlow2-hard1` PASSES all four
 pre-registered gate clauses at once — the first stance checkpoint
 with clean rise (incl. cold flat, confirmed 12/12 via a targeted
@@ -208,6 +210,19 @@ never buried in a cycle log):**
   `footlow2-stable1` PASSED its own gate this cycle (see Now/RISE.md)
   — a second stance candidate, real hold-drag tradeoff vs hard1
   (+75%), does not strictly dominate it.
+  **RESULT (08-12 eve): `cw-stand-footlow2-tip1` FAILED both
+  pre-registered clauses — the tipped-start DR axis is CLOSED as
+  HARMFUL on anchored stance.** Training at 50% tipped spawns taught
+  the policy to LIVE TILTED, not to level: the forced-8° probe holds
+  height (det valid_plant 12/12 vs parent 0/12) but never levels
+  (roll tail med 7.2°, settled 0/12 vs parent 11/12) with a foot
+  parked every det episode; worse, NOMINAL retention broke — untipped
+  det hold ends tilted 7.6° and the standard eval logged 6 tilt_roll
+  falls (parent: zero, everywhere). Per the gate's own consequence
+  clause the anchor is implicated: no further isolated-DR retries on
+  this lineage. Tip robustness, if hardware demands it, needs an
+  anchor-side design (tip-aware reference), not a DR knob. The
+  stance candidates stand unchanged (hard1 / stable1).
 - **WAITING (08-12, confirmed ~08:30): nobc's from-scratch gait line
   has exhausted every no-new-code lever.** `cw-gait-anneal1` (the
   last one — warm-start-as-curriculum) FAILED: it keeps moving
@@ -218,6 +233,15 @@ never buried in a cycle log):**
   (CODE, unqueued, needs a spec pass first) or closing the
   from-scratch gait line. Waiting on that spec/implementation
   decision since 08-12; nothing is training in nobc.
+- **WAITING (08-12 ~21:3x, was 20:00): multitask's 20M re-queue is
+  2/3 read — waiting on `cw-mt-c2` only.** Control arm `cw-mt-a2`
+  PASSED (real six-leg gait, prog med 1.23-1.30) and narrow generalist
+  `cw-mt-b2` FAILED (real gait too, but prog med only ~0.51-0.53 —
+  short of the >=0.5x-of-a2 bar — plus an unreliable/falls-prone
+  yaw response on an extra probe). `cw-mt-c2` (broader command diet)
+  also just finished training (~21:2x) but is UNTRIAGED — not this
+  cycle's run, picked up separately — before any wave-1-wide
+  conclusion. Detail: `rl_docs/tracks/multitask/STATUS.md`.
 - **CLEARED (08-12, was WAITING): the mode-gated dual-core GRU
   (`DualGruActorCriticPolicy`, commit 2137c00) landed and the answer
   is in.** `cw-arch-gru-dual-scratch1` (2M, from-scratch + full
@@ -236,31 +260,45 @@ never buried in a cycle log):**
   (parent anchor3: 0.03, pixel-static) — real translation confirmed
   on video. Hold/lower det 6/6 each, with BETTER drag/roll-tail than
   the shared-trunk parent (hold drag 55mm vs 117mm; lower 99mm vs
-  310mm). Fails its own gate by one clause: rise det 1/6, needs
-  >=2/6 (own-DR0.5 clears it, 3/6). Mode-gated dual-core routing is
+  310mm). Fails its pre-registered n=6/seed=0 gate draw by one
+  episode on rise (1/6, needs >=2/6) — but a same-cycle n=12 recheck
+  found 7/12 (58%, incl. real non-crouch wins), so the small first
+  draw was noise, not a true deficiency; rise is much closer to
+  solved than the gate letter shows. Mode-gated dual-core routing is
   now the confirmed fix for the arch line's shared-trunk walk-freeze;
-  not yet a full-skill candidate (rise short). Next: a rise-focused
-  follow-up on the same recipe (arch/STATUS.md "Next").
-- Fleet at ~07:15 UTC: `cw-arch-gru-anchor3` FINISHED+FAILED (arch) —
-  the trunk-detach fix (CODE landed last cycle) protects hold/lower
-  on the GRU exactly as designed (det 6/6 each) but walk is STILL
-  frozen (gait_valid 4/6, one leg flagged sacrificed, prog_ratio 0.03
-  vs a 0.80 bar, video pixel-static at DR0 and own-DR0.5). **The
-  anchor-for-recurrent-nets line (teach a shared-trunk GRU to walk
-  while anchoring stance ticks) is now CLOSED FOR GOOD** — three
-  independent levers refuted (anchor on, walk-anchor off,
-  trunk-detached). The remaining lever is a real architecture change
-  (mode-gated / separate recurrent core per skill), unspec'd and
-  unwritten — no run queued against it, arch's pod sits idle by
-  design (containment: this cycle only triaged an arch run, hw/nobc
-  refills are out of scope). `cw-gait-anneal1` (nobc) also shows
-  FINISHED — no verdict yet, awaiting its own triage cycle. All 12
-  pods idle, backlog empty — not for lack of blockers (see the
-  hw/nobc waits below, both still CODE-blocked and untouched this
-  cycle), but because every track's next lever right now is CODE
-  that hasn't been written (hw: contact/pinning geometry; nobc: a
-  coefficient scheduler or a from-scratch triage; arch: mode-gated
-  recurrent cores) or is contained to another cycle's run.
+  not yet formally re-passed as a full-skill candidate. **Follow-up
+  `cw-arch-gru-dual-hfloor1` FINISHED — FAIL, and informative: the
+  MLP lineage's plateau-fix lever (aim the rise anchor >=15mm above
+  current height) does NOT transfer here.** A fair larger-sample
+  recheck (n=12, matching the method that corrected dual1's own
+  noisy draw) finds rise WORSE, not better (5/12 det with zero
+  non-crouch wins vs dual1's 7/12 with two; 1/12 sto vs dual1's
+  4/12), plus a new pathology — 3-4 non-crouch attempts now trip an
+  over-current shutdown from straining in a stuck low crouch for the
+  full episode (video-confirmed honest stall, not a cheat). Walk/
+  hold/lower all held clean, hold/lower slightly BETTER than dual1's
+  own numbers. Conclusion: this architecture's rise gap is data-
+  poverty in the BC-distill (never enough real rise demos), not a
+  supervision-aim problem — the lever family is closed here; the
+  live next step is the operator's in-progress DAgger rise
+  redistillation (arch/STATUS.md "Next").
+- **Fleet at ~21:00 UTC 08-12 (idle-kick cycle cleared the triage
+  backlog): 3/12 pods training, 9 idle — every idle slot is a named
+  wait, none is an unattacked blocker.** Training: the multitask
+  wave-1 re-queue at its pre-registered 20M budget (`cw-mt-a2/b2/c2`,
+  the 2M cohort FAILED under-budget with nothing walking in any arm).
+  All six finished-but-unverdicted runs are now verdicted (getup4
+  FAIL/pricing-refuted; footzsharp1 PASS/hover-lever; footlow2-tip1
+  FAIL/tipped-DR-closed-harmful; mt-a1/b1/c1 FAIL-budget). Why the
+  other 9 pods idle, per track: hw stance — two passing candidates,
+  promotion is a BENCH call (operator); hw walk — bcgait1-hard1's
+  path to Gate 0 is bench tape evidence (operator), takeoff
+  transient still needs the contact/pinning design discussion
+  (below); arch — waiting on the operator's in-progress DAgger rise
+  redistillation; nobc — coefficient-scheduler CODE needs a spec
+  pass first; quad — four-leg-walk reward spec+bank FIRST
+  (specification, never trains); turn — MirrorPolicy deploy port
+  is robot-runner work (operator-only by guardrail).
 - Operator-gated (bench, not GPU): NOTHING is deploy-blocked anymore.
   The deploy re-push is DONE and verified over HTTP (08-11 ~21:15):
   the robot's ACTIVE stance policy is stand_holdbc1_hard1 WITH the
