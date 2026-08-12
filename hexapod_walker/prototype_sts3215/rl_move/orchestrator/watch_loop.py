@@ -31,6 +31,12 @@ REPO = subprocess.check_output(
 ).strip()
 PROMPT_PATH = HERE / "ORCHESTRATOR_PROMPT.md"
 PAUSE = HERE / "PAUSE"
+# Operator on-demand session (ops.sh cycle, 08-12): touching KICK — with
+# optional focus text inside — spawns ONE deep-model decision cycle on
+# the next poll. Allowed ONE slot past MAX_CONCURRENT_CYCLES (a
+# temporary overflow session so an operator ask never queues behind a
+# full triage board) and still counted in the rolling daily budget.
+KICK = HERE / "KICK"
 LEDGER = HERE / "experiments.json"
 LOG = pathlib.Path("/workspace/orchestrator.log")
 STATE = pathlib.Path("/workspace/orchestrator_state.json")
@@ -420,14 +426,21 @@ def spawn_cycle(newly_finished: set[str], still_running: set[str],
                 findings: str, in_flight: set[str],
                 auto_started: dict[str, str] | None = None,
                 model: str | None = None,
-                extra_prompt: str = "") -> dict:
+                extra_prompt: str = "",
+                trigger_text: str | None = None,
+                label_override: str | None = None) -> dict:
     """Start one decision cycle as a CONCURRENT subprocess.
 
     Returns a handle {proc, runs, out, t0}; reap_cycles() collects it.
     Event-driven: each batch of newly finished runs gets its own cycle
     immediately instead of queuing behind whichever cycle is running.
+    ``trigger_text``/``label_override``: operator-kick sessions supply
+    their own trigger paragraph (the idle-kick boilerplate would
+    mislead a session spawned while runs are training).
     """
-    if newly_finished:
+    if trigger_text is not None:
+        trigger = trigger_text
+    elif newly_finished:
         trigger = f"Runs that just finished: {', '.join(sorted(newly_finished))}\n"
     elif findings:
         trigger = (
@@ -524,7 +537,9 @@ def spawn_cycle(newly_finished: set[str], still_running: set[str],
         log(f"git pull failed before cycle: {(pull.stderr or '')[-500:]}")
     CYCLE_OUT_DIR.mkdir(parents=True, exist_ok=True)
     stamp = datetime.datetime.now().strftime("%Y%m%dT%H%M%S")
-    label = "-".join(sorted(newly_finished)) or ("findings" if findings else "kick")
+    label = (label_override
+             or "-".join(sorted(newly_finished))
+             or ("findings" if findings else "kick"))
     out = CYCLE_OUT_DIR / f"cycle_{stamp}_{label[:120]}.log"
     with out.open("w") as fh:
         proc = subprocess.Popen(
@@ -674,6 +689,46 @@ def main() -> None:
                 findings = FINDINGS.read_text().strip() if FINDINGS.exists() else ""
             except OSError:
                 findings = ""
+
+            # Operator kick (ops.sh cycle): spawn one focused session on
+            # demand. Allowed ONE slot past the concurrency cap — a
+            # TEMPORARY overflow session (operator 08-12: an ask must not
+            # queue behind a full triage board) — and counted against the
+            # rolling daily budget like any other cycle. The KICK file is
+            # only consumed when the session actually spawns; while it
+            # waits (overflow busy / daily cap) it survives polls.
+            if KICK.exists():
+                now = time.time()
+                cap = daily_cycle_cap()
+                cycle_times = [t for t in cycle_times if now - t < 86400]
+                if len(active) >= MAX_CONCURRENT_CYCLES + 1:
+                    log("operator kick waiting: overflow slot busy "
+                        f"({len(active)} cycles active)")
+                elif len(cycle_times) >= cap:
+                    log(f"operator kick waiting: daily cycle cap "
+                        f"({len(cycle_times)}/{cap})")
+                else:
+                    try:
+                        note = KICK.read_text().strip()
+                    except OSError:
+                        note = ""
+                    KICK.unlink(missing_ok=True)
+                    cycle_times.append(now)
+                    handle = spawn_cycle(
+                        set(), running, "", in_flight,
+                        model=AGENT_MODEL_DEEP,
+                        trigger_text=(
+                            "No run just finished — the OPERATOR requested "
+                            "this session (ops.sh cycle). Do what the focus "
+                            "note asks; skip eval steps for runs already "
+                            "logged and leave training pods alone.\n"),
+                        label_override="operator-kick",
+                        extra_prompt=(
+                            "\n## Operator focus note\n"
+                            + (note or "(no focus text — do a normal "
+                               "campaign review/refill pass)")
+                            + "\n"))
+                    active.append(handle)
 
             if not newly and not findings:
                 if running or active:

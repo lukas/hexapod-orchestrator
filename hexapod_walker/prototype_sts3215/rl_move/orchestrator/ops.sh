@@ -558,6 +558,25 @@ oplaunch)  # oplaunch <launch_run.py args...> — run a launcher command ON
   fi
   ;;
 
+cycle)  # cycle ["focus text"] — OPERATOR: kick one decision session now.
+  # Writes orchestrator/KICK (optional focus note inside); the watcher
+  # spawns a deep-model session on its next poll (<=5 min), allowed ONE
+  # slot past MAX_CONCURRENT_CYCLES (temporary overflow session) and
+  # counted in the daily cycle budget. Works from the operator Mac or
+  # the controller. The file survives polls until a slot/budget frees.
+  shift
+  note="${*:-}"
+  KICKPATH=/workspace/weird_objects/hexapod_walker/prototype_sts3215/rl_move/orchestrator/KICK
+  if [ -d /workspace/weird_objects ]; then      # already on the controller
+    printf '%s\n' "$note" > "$KICKPATH"
+  else
+    CTL=hexapod-sweep-friction
+    printf '%s\n' "$note" | kubectl exec -i "$CTL" -- bash -c "cat > '$KICKPATH'" || exit 1
+  fi
+  echo "KICK written — watcher spawns the session within ~5 min"
+  echo "watch: tail /workspace/orchestrator.log + /workspace/cycle_logs/cycle_*_operator-kick.log"
+  ;;
+
 waitlog)  # waitlog <file> <regex> [timeout_s] — poll instead of sleep-and-pray
   f="$2"; pat="$3"; t="${4:-900}"; el=0
   until grep -qE "$pat" "$f" 2>/dev/null; do
@@ -575,6 +594,7 @@ waitlog)  # waitlog <file> <regex> [timeout_s] — poll instead of sleep-and-pra
   echo "  podeval <run> [sfx] | evalcmd <run> | drain | killrun <run> |"
   echo "  waitlog <file> <regex> [t] |"
   echo "  logline \"line\" | frames <mp4> [n] | expdir <run> | wandbdump <run> |"
-  echo "  wandbnote <run> \"paragraph\" | oplaunch <launch_run.py args...>"
+  echo "  wandbnote <run> \"paragraph\" | oplaunch <launch_run.py args...> |"
+  echo "  cycle [\"focus text\"] (operator: kick a decision session now)"
   ;;
 esac

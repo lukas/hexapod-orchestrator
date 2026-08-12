@@ -55,6 +55,10 @@ the drain requires before treating a pod as a slot.
   gotchas, which command answers which question).
 - **Pause cycles:** `touch PAUSE` in this directory on the controller
   (training keeps going). Unpause: remove the file.
+- **Kick a session now:** `ops.sh cycle ["focus text"]` (works from the
+  operator Mac) writes `KICK` here; the watcher spawns one deep-model
+  session on its next poll (≤5 min), allowed one slot past the
+  concurrency cap (temporary 5th session), counted in the daily budget.
 - **Restart the watcher:** ONLY via `restart_watcher.sh` (nohup'd on
   the controller). Hard-killing the tmux session murders in-flight
   cycles, which only write their output at exit.

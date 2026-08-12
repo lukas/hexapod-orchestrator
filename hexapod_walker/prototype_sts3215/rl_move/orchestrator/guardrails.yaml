@@ -126,6 +126,11 @@ compute:
   # Raised 2 -> 4 (operator, 08-09 ~10:3x): 12 GPU runs finishing in the
   # same half hour left 14 GPUs idle behind a 2-cycle triage bottleneck.
   # Keep in sync with watch_loop.py.
+  # OPERATOR KICK OVERFLOW (operator, 08-12): `ops.sh cycle ["focus"]`
+  # writes orchestrator/KICK; the watcher spawns ONE extra deep-model
+  # session for it, allowed to run as a TEMPORARY 5th concurrent cycle
+  # (cap+1) so an operator ask never queues behind a full triage board.
+  # Still counted in max_decision_cycles_per_day.
   max_concurrent_cycles: 4
   # Model tiering (operator cost order, 08-09 evening: ~$23/cycle all-
   # fable was too expensive). Triage = sonnet; dig-in escalations,
