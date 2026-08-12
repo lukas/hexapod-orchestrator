@@ -21,7 +21,8 @@ numbers lives in `rl_docs/SKILLS.md`.
 
 **Last updated: 2026-08-12 (morning) — after the stand-pricing
 closures (margin1/transdrag1), the park-blindness audit + foot-height
-anchor fix, and the tall-champion retention panel starting.**
+anchor fix, and its first result: `cw-stand-footz1-r1` PASS (partial),
+the first clean six-foot hold in the whole park saga.**
 Update rule: refresh whenever a hardware session happens, a champion
 changes, or a big lesson closes — and stamp the date; per-track story
 changes go to the track's own STATUS.md. Keep it honest: the "not
@@ -98,9 +99,18 @@ never buried in a cycle log):**
   same cycle: `train.bc_anchor_foot_z` — a foot-HEIGHT-space anchor
   term (differentiable FK twin of body_ik, default off, bit-exact
   off, 3 new tests + full semantics bank green) under which a 10 mm
-  commanded hover costs ~1.0 instead of ~1e-4. First arm
-  `cw-stand-footz1-r1` (2M discovery, one variable vs holdbc1-hard1)
-  training now.
+  commanded hover costs ~1.0 instead of ~1e-4. **RESULT (08-12):
+  `cw-stand-footz1-r1` PASS (partial) — the fix WORKS.** Det hold:
+  ALL SIX feet duty 0.92–0.98 in every one of 6 episodes (the frozen
+  parent scores 0.05 on the same leg in the identical test) — the
+  first clean six-foot det hold after 6+ straight pricing-arm
+  failures, video-confirmed. Two minor misses, both at/near the
+  parent's own rate and not park-related: sto hold 4/6 valid_plant
+  (current-spec, not duty), det rise 5/6 vs parent's 6/6 (one
+  flat-start height miss, zero falls). Lower unchanged (matches the
+  parent's own pre-existing 3-leg-proud pattern exactly, confirmed
+  not new). 10M hardening `cw-stand-footz1-hard1` queued to
+  consolidate; hard1 stays deployed until it lands clean.
   **Still WAITING (walk side): the takeoff-roll transient for
   WALKING has no launchable lever** — torque/command DR families all
   closed, and margin-style pricing (the hoped-for generalization) is
