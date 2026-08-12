@@ -19,13 +19,19 @@ anyone catching up. Facts here must agree with `CURRENT_TRUTHS.md`
 (which wins on conflict); the full checkpoint inventory with gate
 numbers lives in `rl_docs/SKILLS.md`.
 
-**Last updated: 2026-08-12 (midday) — stance line: the height-floor
-retry `cw-stand-footlow2-r1` cut the last broken mode's error from
-~100 mm to ~15 mm (noisy-mode flat rises now 6/6) but re-opened the
-hold one-foot park — FAIL per its own gate, deep dig-in flagged on
-the two residuals; the session ramp-jitter axis (`cw-stand-rampjit1`)
-FAILED and is CLOSED (next lever: start-state exposure). See
-WAITING-ON below. `holdbc1_hard1` stays deployed.**
+**Last updated: 2026-08-12 (afternoon) — stance line: the deep
+dig-in on `cw-stand-footlow2-r1` overturned both of its flagged
+residuals: standing up from flat is now SOLVED in sim (cold flat
+rises land level within 3 mm, every seed tested — the "15 mm stall"
+episodes were mislabeled mid-path eval spawns, evaluator fixed), and
+the "re-opened one-foot park" is a 0.9 mm commanded hover, invisible
+on video and below real-servo slop, not the old flag-leg cheat.
+Stand-up + quiet hold + sit-down are all clean at once in one policy
+for the first time; a 10 M consolidation run (deployment candidate)
+and a 1-mm-closure probe are queued. Earlier midday: the session
+ramp-jitter axis (`cw-stand-rampjit1`) FAILED and is CLOSED (next
+lever: start-state exposure). See WAITING-ON below. `holdbc1_hard1`
+stays deployed.**
 Update rule: refresh whenever a hardware session happens, a champion
 changes, or a big lesson closes — and stamp the date; per-track story
 changes go to the track's own STATUS.md. Keep it honest: the "not
