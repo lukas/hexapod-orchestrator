@@ -192,15 +192,22 @@ never buried in a cycle log):**
   (CODE, unqueued, needs a spec pass first) or closing the
   from-scratch gait line. Waiting on that spec/implementation
   decision since 08-12; nothing is training in nobc.
-- **WAITING (08-12, new): arch's GRU-walk-while-standing question has
-  no launchable lever left except architecture CODE.**
-  `cw-arch-gru-anchor3` closed the anchor-for-recurrent-nets line for
-  good (see below) — the only remaining lever is a mode-gated or
-  separate recurrent core per skill (so walk's forward pass doesn't
-  share a trunk with the anchored stance modes). This is a real
-  architecture change, not a cfg flag; it is unspec'd and unwritten.
-  Nothing is training against this blocker right now — arch's pod
-  sits idle by design, not by neglect.
+- **CLEARED (08-12, was WAITING): the mode-gated dual-core GRU
+  (`DualGruActorCriticPolicy`, commit 2137c00) landed and the answer
+  is in.** `cw-arch-gru-dual-scratch1` (2M, from-scratch + full
+  anchor stack on the dual arch) FAILS its own gate on one narrow
+  clause (rise sto 2/6 vs the >=3/6 bar, n=6 — det rise unchanged at
+  parent's 1/6) but DECISIVELY confirms the central question:
+  splitting locomotion/stance into separate cores removes the
+  shared-trunk interference — det walk gait_valid 6/6 with ZERO
+  sacrificed legs (parent scratch-anchor1: 0/6, one leg parked in
+  every episode), hold/lower both hold at parent's 6/6, anchor loss
+  converges clean (~0.01). New residual to watch, not gate-breaking:
+  under own-DR 0.5 the leg-sacrifice partially reappears (gait_valid
+  3/6 vs parent's 5/6). `cw-arch-gru-dual1` (10M, warm from the dual
+  BC-distill, walk-anchor OFF/stance anchors ON — the actual "can it
+  walk" test) is already training on this same architecture; its
+  result is the next word on this line, not new CODE.
 - Fleet at ~07:15 UTC: `cw-arch-gru-anchor3` FINISHED+FAILED (arch) —
   the trunk-detach fix (CODE landed last cycle) protects hold/lower
   on the GRU exactly as designed (det 6/6 each) but walk is STILL
