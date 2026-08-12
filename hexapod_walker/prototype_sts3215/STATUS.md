@@ -230,10 +230,17 @@ never buried in a cycle log):**
   every episode), hold/lower both hold at parent's 6/6, anchor loss
   converges clean (~0.01). New residual to watch, not gate-breaking:
   under own-DR 0.5 the leg-sacrifice partially reappears (gait_valid
-  3/6 vs parent's 5/6). `cw-arch-gru-dual1` (10M, warm from the dual
-  BC-distill, walk-anchor OFF/stance anchors ON — the actual "can it
-  walk" test) is already training on this same architecture; its
-  result is the next word on this line, not new CODE.
+  3/6 vs parent's 5/6). **CLEARED (08-12): `cw-arch-gru-dual1` (10M
+  hardening) FINISHED — the walk-freeze question is answered YES.**
+  Det walk gait_valid 6/6, zero sacrificed legs, prog_ratio 0.95
+  (parent anchor3: 0.03, pixel-static) — real translation confirmed
+  on video. Hold/lower det 6/6 each, with BETTER drag/roll-tail than
+  the shared-trunk parent (hold drag 55mm vs 117mm; lower 99mm vs
+  310mm). Fails its own gate by one clause: rise det 1/6, needs
+  >=2/6 (own-DR0.5 clears it, 3/6). Mode-gated dual-core routing is
+  now the confirmed fix for the arch line's shared-trunk walk-freeze;
+  not yet a full-skill candidate (rise short). Next: a rise-focused
+  follow-up on the same recipe (arch/STATUS.md "Next").
 - Fleet at ~07:15 UTC: `cw-arch-gru-anchor3` FINISHED+FAILED (arch) —
   the trunk-detach fix (CODE landed last cycle) protects hold/lower
   on the GRU exactly as designed (det 6/6 each) but walk is STILL
