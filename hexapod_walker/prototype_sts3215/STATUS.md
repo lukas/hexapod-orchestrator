@@ -182,6 +182,19 @@ never buried in a cycle log):**
   now refuted on the stand side too. Walk-takeoff needs an operator
   design discussion or the same anchor-side investigation once it
   exists. Nothing is training against the walk-takeoff blocker.
+- **WAITING (08-12 ~15:40, hw): the hardware-observed ~8° standing
+  lean has no validated sim lever yet.** `cw-stand-footlow2-level1`
+  (dr-scale 0.35 + ground_tilt 5° + tipped starts, off the hardware-
+  milestone `footlow2-hard1` checkpoint) FAILED — and its actual
+  question (do tipped-start holds re-level?) was never tested: the
+  standard eval draw sampled zero tipped-start episodes. Worse, the
+  run reopened the long-closed two-foot park exploit on plain
+  flat-floor retention. Waiting on a DESIGN fix (a probe/eval path
+  that FORCES a tipped spawn instead of hoping the random draw
+  includes one) before retrying this lever — not queued, nothing
+  training against the lean specifically. `footlow2-stable1`
+  (the lineage's other hardening arm, plant-polygon+ramp-jitter) is
+  still running and unaffected.
 - **WAITING (08-12, confirmed ~08:30): nobc's from-scratch gait line
   has exhausted every no-new-code lever.** `cw-gait-anneal1` (the
   last one — warm-start-as-curriculum) FAILED: it keeps moving
