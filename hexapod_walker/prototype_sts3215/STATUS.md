@@ -58,16 +58,21 @@ sessions tonight (`rl_docs/BENCH_REPORT_2026-08-11.md`):
 waiting on goes HERE, at the top, the moment it starts waiting —
 never buried in a cycle log):**
 
-- Fleet at this writing: both hardware gaps from tonight's bench are
-  TRAINING — `cw-dep-tip1-kick1` (takeoff roll-rate kick DR) and
-  `cw-stand-riserock2-r1` (rise-rock DR), plus `cw-stand-minfeet1`
-  (min-over-feet hold pricing) and `cw-arch-gru-anchor1`; ~8 slots
-  idle. The 08-11-night binding directive (RL_PLAN +
-  ORCHESTRATOR_PROMPT): idle pods next to an unattacked stand/walk
-  blocker are the failure mode, and when the next lever is CODE the
-  cycle writes it instead of parking. Newest landed lever to spend
-  slots on: the transition drag charge (`reward.k_drag_trans`,
-  banked tonight; first arm `cw-stand-transdrag1` queued).
+- Fleet at ~00:45 UTC: 3/12 slots training — `cw-stand-transdrag1`
+  (the new transition drag charge, launched and verified ~10.9k fps),
+  `cw-stand-riserock2-r1` (rise-rock DR against the 10/10 hardware
+  stand-up trip), `cw-arch-gru-anchor1`; ~9 slots idle. Tonight's
+  verdicts so far: `cw-walk-mirturn1` FAILED its gate (symmetry loss
+  rewrote the champion's gait instead of adding turn authority —
+  mirror TRAINING closed, eval-time MirrorPolicy selection ships;
+  see `rl_docs/tracks/turn/STATUS.md`) and `cw-dep-tip1-kick1` was
+  an informative NULL (the walk-kick DR injection fells NEITHER
+  policy, 0/24 vs 0/24 — the sim still cannot reproduce the hardware
+  takeoff falls, so that mechanism hunt is the open [CODE] item the
+  orchestrator is triaging). The 08-11-night binding directive
+  (RL_PLAN + ORCHESTRATOR_PROMPT): idle pods next to an unattacked
+  stand/walk blocker are the failure mode, and when the next lever
+  is CODE the cycle writes it instead of parking.
 - Controller backlog holds two STALE 08-10 items that repeatedly
   refuse to drain (`cw-walk-lowgait-dr035-comshift-s1` — a crouch-50mm
   twin that now runs AGAINST the walk-taller directive — and
