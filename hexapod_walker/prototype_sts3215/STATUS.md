@@ -315,28 +315,50 @@ never buried in a cycle log):**
   walking prior at 20M). Refill: `cw-mt-b-hist16-20m1` (same recipe,
   b2-matched 20M budget — the real command-acquisition test) is
   RUNNING (train-0). Detail: `rl_docs/tracks/multitask/STATUS.md`.
-- **Fleet at ~23:5x UTC 08-12: 1/12 pods training
-  (`cw-mt-b-hist16-20m1`, multitask representation-lever hardening,
-  train-0), 11 idle** — every idle slot is a named wait, none is an
-  unattacked blocker. The wave-1 20M re-queue, the arch256 capacity
-  probe, the widen1/widen2 staged-widening pair, and the hist16-r1
-  2M probe are all verdicted (a2 PASS control; b2/c2 FAIL — width
-  interference; b-arch256-1 FAIL — capacity not the lever;
-  widen1 FAIL(acquisition)/widen2 FAIL(no-acquisition) — walking-prior
-  survival confirmed but budget doesn't teach new commands;
-  hist16-r1 FAIL — history isn't the 2M lever either). All earlier
-  finished-but-unverdicted runs are verdicted (getup4
-  FAIL/pricing-refuted; footzsharp1 PASS/hover-lever; footlow2-tip1
-  FAIL/tipped-DR-closed-harmful; mt-a1/b1/c1 FAIL-budget). Why the
-  other 9 pods idle, per track: hw stance — two passing candidates,
-  promotion is a BENCH call (operator); hw walk — bcgait1-hard1's
-  path to Gate 0 is bench tape evidence (operator), takeoff
-  transient still needs the contact/pinning design discussion
-  (below); arch — waiting on the operator's in-progress DAgger rise
-  redistillation; nobc — coefficient-scheduler CODE needs a spec
-  pass first; quad — four-leg-walk reward spec+bank FIRST
-  (specification, never trains); turn — MirrorPolicy deploy port
-  is robot-runner work (operator-only by guardrail).
+- **UPDATE (08-13 ~00:3x): `cw-mt-b-hist16-20m1` (the real 20M
+  command-acquisition test for history) FINISHED — FAIL(worse/no-gait),
+  decisively.** gait_valid collapses to 2-4/6 across all four passes
+  vs `b2`'s clean 6/6, driven by a front leg chronically near-frozen
+  (duty 0.01-0.17 in every one of 24 episodes, video-confirmed) —
+  worse than `b2`'s already-marginal weak leg. Progress/slip numbers
+  look flat-to-better but that's a drag-exploit artifact (the other
+  five legs dragging the near-frozen one), not real improvement; roll
+  stays flat-to-worse. History (16-frame) is now closed as a lever at
+  BOTH budgets tested (2M and this 20M budget-match) — no further
+  hist-frames variants. **The multitask track's entire cheap-lever
+  menu for the wave-1 acquisition shortfall (capacity, staged-
+  widening, history) is now exhausted; every lever FAILED or made
+  things worse.** WAITING-ON: an operator call on the next direction
+  (transplant the arch track's recurrent architecture onto this
+  recipe, vs. narrow the command-width curriculum, vs. accept `b2` as
+  this recipe's ceiling) — no further isolated-lever retries queued
+  pending that call. Detail: `rl_docs/tracks/multitask/STATUS.md`.
+- **Fleet at ~00:4x UTC 08-13: 0/12 pods training, ALL 12 idle** —
+  the last active run (`cw-mt-b-hist16-20m1`) finished and verdicted
+  this cycle; backlog is empty. Every idle slot is a named wait, none
+  is an unattacked blocker: multitask's lever menu is exhausted
+  pending the operator call above; the other 5 tracks' waits (below)
+  are unchanged from the prior fleet-state note and were re-checked
+  this cycle, not stale. The wave-1 20M re-queue, the arch256 capacity
+  probe, the widen1/widen2 staged-widening pair, and the hist16-r1/
+  hist16-20m1 history pair are all verdicted (a2 PASS control; b2/c2
+  FAIL — width interference; b-arch256-1 FAIL — capacity not the
+  lever; widen1 FAIL(acquisition)/widen2 FAIL(no-acquisition) —
+  walking-prior survival confirmed but budget doesn't teach new
+  commands; hist16-r1/hist16-20m1 FAIL/FAIL(worse) — history isn't
+  the lever at either budget). All earlier finished-but-unverdicted
+  runs are verdicted (getup4 FAIL/pricing-refuted; footzsharp1
+  PASS/hover-lever; footlow2-tip1 FAIL/tipped-DR-closed-harmful;
+  mt-a1/b1/c1 FAIL-budget). Why the other 11 pods idle, per track:
+  hw stance — two passing candidates, promotion is a BENCH call
+  (operator); hw walk — bcgait1-hard1's path to Gate 0 is bench tape
+  evidence (operator), takeoff transient still needs the
+  contact/pinning design discussion (below); arch — waiting on the
+  operator's in-progress DAgger rise redistillation; nobc —
+  coefficient-scheduler CODE needs a spec pass first; quad — four-leg-
+  walk reward spec+bank FIRST (specification, never trains); turn —
+  MirrorPolicy deploy port is robot-runner work (operator-only by
+  guardrail).
 - Operator-gated (bench, not GPU): NOTHING is deploy-blocked anymore.
   The deploy re-push is DONE and verified over HTTP (08-11 ~21:15):
   the robot's ACTIVE stance policy is stand_holdbc1_hard1 WITH the
