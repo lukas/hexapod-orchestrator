@@ -217,15 +217,14 @@ GAIT.md / SIM.md, and RL_LOG — not here):**
   Waiting on: operator flips the two cfg keys on the runner's walk
   engage and re-runs takeoff reps (deploy is operator-only). No
   training arm until the bench adopts the entry sequence.
-- **FLEET: 0/12 pods GPU-training (08-13 ~21:5x UTC; backlog empty;
-  no CPU jobs either).** `cw-arch-gru-dual2` (10M, warm from the
-  DAgger-redistilled dual BC init) finished at 3.18M — the canary
-  auto-stop fired (protected `rise_bridge` failed 3 consecutive
-  periodic probes, 0/0/0 from 1M on, while `lower`/`hold`/`walk` held
-  clean) — **DIG-IN flagged, not yet verdicted** (a triage cycle does
-  not call skill-erosion/canary-stop results; see this cycle's
-  DIG-IN line). Every OTHER idle slot maps to a named wait in this
-  block.
+- **FLEET: 0/12 pods GPU-training (08-13 ~23:xx UTC; backlog
+  empty).** `cw-arch-gru-dual2`'s dig-in is DONE — verdict FAIL
+  (see the arch WAIT below); the arch track's next TRAINING arms
+  (`cw-arch-trans-dagger1`, `cw-arch-modeseq1`) are blocked only on
+  agent-doable CODE (`distill_gru --transitions`, TRANSITIONS_
+  DIRECTIVE item 2 — marked next cycle's first job in
+  arch/STATUS.md), not on the operator. Every OTHER idle slot maps
+  to a named wait in this block.
   ~~ASSUMPTION (operator to review, 08-13 ~12:0x)~~ **APPROVED by
   operator ruling above:** idle-kick BACKOFF stays — five deep-model
   idle-kick cycles in 80 min (10:37–11:58 UTC) each re-verified this
@@ -241,6 +240,20 @@ GAIT.md / SIM.md, and RL_LOG — not here):**
   tall-walk wall is BROKEN (bcgait1-hard1), contact/pinning + warp
   physics are audited clean, and the two open transients (takeoff
   roll, standing lean) are DECIDED per the rulings above.
+- **NEW WAIT (08-13 ~23:xx UTC): arch → rise-only-DAgger VARIANT
+  DISTILL (operator/local lever).** `cw-arch-gru-dual2` (warm-RL
+  from the DAgger-redistilled dual BC init, operator option (a))
+  is verdicted FAIL per its own pre-registration: RL erased the
+  init's hard-start stand-ups within 1M steps (canary auto-stop's
+  first true catch — the init passed rise_bridge 2/2 at baseline,
+  every probe after read 0) and the n=12/seed=1 recheck on the
+  stopped 3.18M checkpoint reads 5/12 crouch-only vs the init's
+  3/12 all-non-crouch (matched control, same pod/seeds). Every FAIL
+  branch pre-routes to option (b), the rise-only-DAgger variant
+  distill on the operator's Mac — with one requirement RELAXED by
+  this run's evidence: lower need NOT be kept BC-only (RL rebuilt
+  it 0/6→6/6 from the collapsed init). Detail: arch/STATUS.md,
+  rl_docs/runs/cw-arch-gru-dual2.md.
 - ~~hw — standing-lean design fork~~ **DECIDED 08-13 ~12:4x UTC
   (ruling 1 above): mechanical trim, outside RL.** The remaining
   work is a bench item (trim/zero-calibration/shimming), folded
