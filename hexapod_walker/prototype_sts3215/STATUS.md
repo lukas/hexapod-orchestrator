@@ -217,10 +217,15 @@ GAIT.md / SIM.md, and RL_LOG — not here):**
   Waiting on: operator flips the two cfg keys on the runner's walk
   engage and re-runs takeoff reps (deploy is operator-only). No
   training arm until the bench adopts the entry sequence.
-- **FLEET: 0/12 pods GPU-training (08-13 ~19:4x UTC; backlog empty;
-  no CPU jobs either — the dynrep seed-retry on train-11 finished
-  at G1 FAIL, see the dynrep wait below).**
-  Every idle slot maps to a named wait in this block.
+- **FLEET: 0/12 pods GPU-training (08-13 ~21:5x UTC; backlog empty;
+  no CPU jobs either).** `cw-arch-gru-dual2` (10M, warm from the
+  DAgger-redistilled dual BC init) finished at 3.18M — the canary
+  auto-stop fired (protected `rise_bridge` failed 3 consecutive
+  periodic probes, 0/0/0 from 1M on, while `lower`/`hold`/`walk` held
+  clean) — **DIG-IN flagged, not yet verdicted** (a triage cycle does
+  not call skill-erosion/canary-stop results; see this cycle's
+  DIG-IN line). Every OTHER idle slot maps to a named wait in this
+  block.
   ~~ASSUMPTION (operator to review, 08-13 ~12:0x)~~ **APPROVED by
   operator ruling above:** idle-kick BACKOFF stays — five deep-model
   idle-kick cycles in 80 min (10:37–11:58 UTC) each re-verified this
@@ -288,7 +293,16 @@ GAIT.md / SIM.md, and RL_LOG — not here):**
   consolidated RL, dual1 stack + mode sequencing as the only new
   variable). Gates, warm-start order, and FAIL branches are
   pre-registered in the directive; its 12-lesson failure ledger is
-  binding. Detail: arch/STATUS.md Next.
+  binding. **CODE item 3 LANDED+BASELINED (08-13, c-triage):
+  `eval_modeseq.py` (pure external orchestration, no env/reward
+  touch). Reference composition must be `footlow2_hard1`, not the
+  deployed `holdbc1_hard1` (which reproduces its known sit-after-walk
+  stall here, 7/12 zero-fall); footlow2_hard1 clears the directive's
+  own bar 11/12 det but only 9/12 stochastic, ALL stochastic falls on
+  the second (post-lower) rise — a decisive, numbered instance of the
+  start-relative-`_z0` risk. Items 1/2 still OPEN, scoped not
+  attempted (too large for a triage pass — see arch/STATUS.md Next
+  for the concrete split).** Detail: arch/STATUS.md Next.
 - ~~nobc — close the from-scratch gait line?~~ **DECIDED 08-13
   ~12:4x UTC (ruling 3 above): CLOSED; stand-from-scratch charter
   retained.** Reopen requires new hardware evidence. Detail:
