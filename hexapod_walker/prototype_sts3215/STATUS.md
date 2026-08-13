@@ -21,7 +21,13 @@ anyone catching up. Facts here must agree with `CURRENT_TRUTHS.md`
 (which wins on conflict); the full checkpoint inventory with gate
 numbers lives in `rl_docs/SKILLS.md`.
 
-**Last updated: 2026-08-13 (~13:xx UTC — WAITING-ON block pruned to
+**Last updated: 2026-08-13 (~19:xx UTC — quad: the quadwalk cheat
+saga CONCLUDES its lever ladder: `cw-quadwalk7` proved exploration
+noise cannot escape the mid-leg-park optimum even after quadwalk6's
+gate made it money-losing; pricing/spawn/structural-gating/
+exploration are ALL measured-exhausted, quadwalk is now an operator
+architecture/curriculum design call — see WAITING-ON. Earlier
+~13:xx — WAITING-ON block pruned to
 LIVE waits only per the 08-11 "removed in the cycle that clears it"
 rule; every cleared entry's resolution narrative is preserved in its
 track STATUS doc / rl_docs/runs/ / RISE.md / GAIT.md / SIM.md and in
@@ -175,23 +181,23 @@ GAIT.md / SIM.md, and RL_LOG — not here):**
      `cw-quadwalk1` is RUNNING (see FLEET line) — no longer a wait.
   5. **watcher idle-kick backoff → APPROVED** (15m→30→60→2h→4h
      no-op spacing, snap-back on real activity, stays live).
-- ~~NEW WAIT (08-13 ~16:5x UTC): quad → structural CODE fix for the
-  quadwalk leg-sacrifice loophole is UNWRITTEN.~~ **CLEARED 08-13
-  ~18:xx UTC: the structural fix landed (`reward.walk_gait_gate`,
-  commit 1a21060) and its own first arm (`cw-quadwalk6`) PROVED the
-  pricing works (matched-behavior A/B vs quadwalk5: identical [1,4]
-  leg-sacrifice cheat flips from +722..+1146/ep to -65..-290/ep) —
-  but the policy stayed stuck reproducing that now-losing behavior
-  anyway (gait_valid still 0/6). Read: exploration-blocked local
-  optimum, not a pricing gap. `cw-quadwalk7` (quadwalk6 +
-  `--ent-coef` 0.001→0.02, ONE lever, 2M discovery) is running on
-  train-0 to test the exploration hypothesis directly. Detail:
-  quad/STATUS.md Now.
-- **FLEET: 1/12 pods GPU-training (08-13 ~18:xx UTC: `cw-quadwalk7`
-  on train-0 — the entropy-exploration follow-up above; ~13-15k fps,
-  verified). Backlog empty; train-11's idle CPUs still run the
-  dynrep pilot replication.** Every other idle slot maps to a named
-  wait below.
+- **NEW WAIT (08-13 ~19:xx UTC): quad → quadwalk needs an
+  ARCHITECTURE/CURRICULUM design discussion (operator).**
+  `cw-quadwalk7` (ent-coef 0.001→0.02, the exploration lever) STOP:
+  identical [1,4] mid-leg-sacrifice shuffle as quadwalk5/6,
+  gait_valid 0/6 det+sto — the pre-registered closing branch. All
+  four lever classes are now measured-exhausted on this family:
+  pricing (quadwalk2/3/5), spawn (quadwalk4), structural income
+  gating (quadwalk6 — proven to make the cheat lose money), and
+  exploration (quadwalk7). Per pre-registration, no more
+  entropy/coefficient scans; no quadwalk arm launches until the
+  operator picks a direction (candidate options in quad/STATUS.md
+  Now: staged swing curriculum, temporal policy, BC from a feedback
+  stepping reference). Quad-hold retention stayed clean throughout.
+- **FLEET: 0/12 pods GPU-training (08-13 ~19:xx UTC — `cw-quadwalk7`
+  finished + verdicted STOP; backlog empty; train-11's idle CPUs
+  still run the dynrep pilot replication).** Every idle slot maps to
+  a named wait in this block.
   ~~ASSUMPTION (operator to review, 08-13 ~12:0x)~~ **APPROVED by
   operator ruling above:** idle-kick BACKOFF stays — five deep-model
   idle-kick cycles in 80 min (10:37–11:58 UTC) each re-verified this
