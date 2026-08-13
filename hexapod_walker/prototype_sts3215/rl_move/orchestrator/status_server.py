@@ -18,10 +18,11 @@ View from the laptop:
 LLM-readable mirror (for GPT/Claude web fetchers assessing the
 campaign): /llms.txt is the index, /llm/{status,plan,log,runs,docs}.md
 are plain markdown, /llm/doc/<path> serves any .md in the prototype
-tree. Auth on those paths is stateless (?key=<token> on every request,
-no cookie redirect) because LLM fetchers don't keep cookies. On the
-controller, a background thread keeps the checkout synced to
-origin/main so pushed doc changes go live within ~1 min.
+tree. Those paths need NO token: they mirror a public GitHub repo, and
+GPT's URL-safety wrapper refuses keyed URLs. The dashboard and /json
+(spend, infra) stay token-gated. On the controller, a background
+thread keeps the checkout synced to origin/main so pushed doc changes
+go live within ~1 min.
 
 Port 8090 on purpose: 5183/5173 are BuildViz (AGENTS.md), 8080 is the
 robot API. Data collection runs in background threads; page loads are
@@ -1034,8 +1035,8 @@ def llm_docs_md(base: str, key: str) -> str:
            f"Every markdown doc in the prototype tree, served live from "
            f"the git checkout at {git_head()} (auto-synced from origin/"
            f"main, so a push goes live within ~{GIT_SYNC_S} s). URLs are "
-           f"plain text (some LLM fetchers fail on markdown links) — "
-           f"fetch them exactly as written, keeping the key.", ""]
+           f"plain text (some LLM fetchers fail on markdown links); no "
+           f"authentication is required.", ""]
     for d in sorted(by_dir):
         out.append(f"## {d}")
         out.append("")
@@ -1046,10 +1047,9 @@ def llm_docs_md(base: str, key: str) -> str:
     out.append("## rl_docs/runs — per-run stories")
     out.append("")
     out.append(f"{n_runs} files, one per launched training run, at "
-               f"{base}/llm/doc/rl_docs/runs/<run>.md"
-               f"{key or '?key=<token>'} — run names are in the run "
-               f"ledger ({base}/llm/runs.md{key}), which gives each "
-               f"run's story URL directly.")
+               f"{base}/llm/doc/rl_docs/runs/<run>.md — run names are "
+               f"in the run ledger ({base}/llm/runs.md{key}), which "
+               f"gives each run's story URL directly.")
     return "\n".join(out)
 
 
@@ -1095,8 +1095,7 @@ Live state: {live}.
 ## Status documents
 
 URLs are given as plain text (some LLM fetchers fail to follow
-markdown-style links). Fetch each URL exactly as written — the access
-key must stay in the query string.
+markdown-style links). No authentication is required on any /llm URL.
 
 Campaign + per-track STATUS — the campaign digest plus each research
 track's current state; read this first for an overall assessment:
@@ -1132,7 +1131,10 @@ LLM_PAGES = {
 
 def llm_body(path: str, base: str) -> tuple[bytes, str] | None:
     from urllib.parse import unquote
-    key = f"?key={TOKEN}" if TOKEN else ""
+    # Keyless URLs: the LLM mirror needs no token (see do_GET), and
+    # GPT's URL-safety wrapper refuses to follow keyed child links
+    # anyway (operator 08-13).
+    key = ""
     # Everything is text/plain, NOT text/markdown: GPT's web fetcher
     # reaches text/markdown responses but refuses to expose the body
     # (operator 08-12). The content is unchanged, only the label.
@@ -1186,20 +1188,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
         # robots.txt must bypass the token gate: LLM fetchers (ChatGPT
         # etc.) check it before any visit, and the gate's 403 there made
         # them treat the ENTIRE site as disallowed (operator 08-12).
-        # Content is safe to allow — everything real still needs ?key=.
         if self.path.split("?")[0] == "/robots.txt":
             body = (b"User-agent: *\nAllow: /\n\n"
-                    b"# Status docs for LLM readers: /llms.txt "
-                    b"(access token required)\n")
+                    b"# Status docs for LLM readers: /llms.txt\n")
             self.send_response(200)
-            self.send_header("Content-Type", "text/plain")
-            self.send_header("Content-Length", str(len(body)))
-            self.end_headers()
-            self.wfile.write(body)
-            return
-        if not self._authed():
-            body = b"403: append ?key=<token> to the URL"
-            self.send_response(403)
             self.send_header("Content-Type", "text/plain")
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
@@ -1207,10 +1199,21 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return
         from urllib.parse import parse_qs, urlparse
         u = urlparse(self.path)
-        # LLM paths are stateless: no cookie redirect (an LLM fetcher
-        # would drop the ?key= on the 302 and get a 403 next hop).
+        # The LLM mirror is keyless (operator 08-13): the git repo it
+        # mirrors is PUBLIC on GitHub, so the token gated nothing there,
+        # and GPT's URL-safety wrapper refuses keyed URLs outright.
+        # Spend + infra stay gated: the dashboard and /json still need
+        # the token.
         is_llm = u.path == "/llms.txt" or u.path.rstrip("/") == "/llm" \
             or u.path.startswith("/llm/")
+        if not is_llm and not self._authed():
+            body = b"403: append ?key=<token> to the URL"
+            self.send_response(403)
+            self.send_header("Content-Type", "text/plain")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
         if TOKEN and not is_llm \
                 and parse_qs(u.query).get("key", [""])[0] == TOKEN:
             # set the cookie, drop the key from the URL
