@@ -21,7 +21,15 @@ anyone catching up. Facts here must agree with `CURRENT_TRUTHS.md`
 (which wins on conflict); the full checkpoint inventory with gate
 numbers lives in `rl_docs/SKILLS.md`.
 
-**Last updated: 2026-08-13 (~12:xx) — quad diag session: the
+**Last updated: 2026-08-13 (~13:xx) — the interactive SESSION gate
+(the deployment-contract eval that separated the stance candidates
+from the deployed policy) is now AUTOMATIC: the watcher's pre-staged
+pod evals run `eval_session` on every finished stance/walk candidate
+(WISHLIST 8e landed — seat rule + tests in `pod_eval.py`, cv2→PIL
+strip fix so it runs on the train pods; verified end-to-end on
+train-0). No training implication; every future candidate's triage
+now sees the interactive-protocol result without asking. Earlier
+(~12:xx) — quad diag session: the
 open question "can any scripted gait walk on four legs?" is now
 ANSWERED, negatively and permanently — an instrumented probe
 session measured that a statically-stable open-loop quad crawl with

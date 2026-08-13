@@ -198,6 +198,10 @@ podeval)  # podeval <run> [suffix] — run gate + own-DR evals ON the run's
   # own pod (idle CPUs, checkpoint already there), stream logs to
   # /tmp/eval_<run>*.log, copy artifacts back to logs/ckpt_eval/.
   # Blocking; wait for the SYNCED line. Idempotent per artifact dir.
+  # Since 08-13 (WISHLIST 8e) also runs the interactive SESSION gate
+  # for stance/walk candidates (stance seat vs deployed walk / walk
+  # seat vs deployed stance) — informational, never fails the exit
+  # code; result in /tmp/eval_<run>_session.log + <run>_session/.
   shift
   exec python3 "$HERE/pod_eval.py" "$@"
   ;;
