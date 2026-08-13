@@ -268,17 +268,14 @@ GAIT.md / SIM.md, and RL_LOG — not here):**
   fail; capacity/staged-widening/history levers all closed);
   `eval_cmd_suite.py` remains available to other tracks. Detail:
   multitask/STATUS.md.
-- **arch — DAgger rise redistillation LANDED on the operator's Mac
-  (08-13 ~13:05: rise is in the BC init for the first time, det
-  3/12 real wins, hold retained; COST: lower collapsed 0/6) but the
-  artifact `ppo_goal_cw_gru_dual_bc_dagger1.zip` (md5 b5167c10) is
-  LAPTOP-LOCAL — not on the controller/pods, so no arch arm can
-  warm from it (wait since 08-13 ~14:xx: checkpoint push).** Also
-  open: the operator's recorded a/b call (accept as-is and let
-  RL+anchors rebuild lower, vs a rise-only-DAgger variant distill).
-  Recommendation on file if assume-and-go applies once the zip
-  arrives: (a) accept — dual1's RL+anchors already rebuilt lower
-  6/6 from a weaker init. Detail: arch/STATUS.md.
+- **arch — DAgger rise redistillation LANDED (08-13 ~13:00, operator
+  session, local Mac); next: operator picks (a) warm a dual-core RL
+  arm from `ppo_goal_cw_gru_dual_bc_dagger1.zip` as-is (rise now in
+  the BC init: n=12 det 3/12 with non-crouch wins; hold 6/6, walk
+  gait honest; lower collapsed 0/6 — dual1's RL+anchors rebuilt
+  lower from a weaker init) or (b) a rise-only-DAgger variant
+  distill first.** The no-slip line CONCLUDES at its r4 gate-pass
+  artifact. Detail: arch/STATUS.md.
 - ~~nobc — close the from-scratch gait line?~~ **DECIDED 08-13
   ~12:4x UTC (ruling 3 above): CLOSED; stand-from-scratch charter
   retained.** Reopen requires new hardware evidence. Detail:
