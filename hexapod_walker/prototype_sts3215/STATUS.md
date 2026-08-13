@@ -153,7 +153,7 @@ narratives live in the track STATUS docs, rl_docs/runs/, RISE.md /
 GAIT.md / SIM.md, and RL_LOG — not here):**
 
 - **FLEET: 0/12 pods training, backlog empty (since 08-13 ~03:1x;
-  re-verified 08-13 ~11:3x UTC).** Every idle slot maps to a named wait
+  re-verified 08-13 ~11:4x UTC).** Every idle slot maps to a named wait
   below. No unattacked sim stand/walk blocker remains: the
   one-parked-foot hold and det flat-rise stall are SOLVED
   (footlow2-hard1), the crouch-splay tall-walk wall is BROKEN
