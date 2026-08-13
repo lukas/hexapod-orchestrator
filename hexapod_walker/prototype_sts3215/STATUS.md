@@ -152,39 +152,49 @@ named concretely, REMOVED in the cycle that clears it; resolution
 narratives live in the track STATUS docs, rl_docs/runs/, RISE.md /
 GAIT.md / SIM.md, and RL_LOG — not here):**
 
+- **OPERATOR RULINGS (08-13 ~12:4x UTC) — five waits DECIDED this
+  cycle; full narratives live in the named track docs:**
+  1. **hw standing lean → MECHANICAL TRIM** (outside RL; no
+     lean-pricing term, no more tipped-exposure/teacher arms;
+     bench-session fix). Detail: hw/STATUS.md Now.
+  2. **hw walk-takeoff roll → STOP reward/DR sweeps; INSTRUMENT the
+     transient, then design a STAGED GAIT-ENTRY TRANSITION**
+     (deploy-side entry sequence + sim prototyping; training arms
+     only after an instrumented design exists). Detail:
+     hw/STATUS.md Now.
+  3. **nobc from-scratch gait line → CLOSED; stand-from-scratch
+     charter RETAINED** (reopen only on new hardware evidence).
+     Detail: nobc/STATUS.md.
+  4. **quad → route (2) APPROVED: a feedback/RL rear-four-stepping
+     policy is permitted as the quadwalk bank reference, WITH an
+     explicit pre-registered ROBUSTNESS GATE** (gate spec is the
+     first artifact of the first arm — see the binding conditions
+     in quad/STATUS.md). MDP_PREFLIGHT unblocks under those terms.
+  5. **watcher idle-kick backoff → APPROVED** (15m→30→60→2h→4h
+     no-op spacing, snap-back on real activity, stays live).
 - **FLEET: 0/12 pods GPU-training, backlog empty (since 08-13 ~03:1x;
   re-verified 08-13 ~12:3x UTC — train-11's idle CPUs now run the
   dynrep pilot replication, GPU still free; see the dynrep entry).**
-  Every idle slot maps to a named wait below. **ASSUMPTION (operator to review, 08-13 ~12:0x): idle-kick
-  BACKOFF added to the watcher** — five deep-model idle-kick cycles in
-  80 min (10:37–11:58 UTC) each re-verified this same unchanged,
-  fully operator-gated board; at the 96/day cap that's ~$1k+/day of
-  no-op deliberation (08-09 cost order). Consecutive no-op kicks now
-  space out 15min→30→60→2h→4h (capped); cadence snaps back to 15 min
-  on ANY real activity (finished run, training run, checkup findings,
-  operator `ops.sh cycle`). Not a disable: the watcher still kicks at
-  least every 4 h, and triage/drain/checkup paths are untouched.
-  Watcher restart queued via `restart_watcher.sh` (takes effect when
-  this cycle exits). Revert = `git revert` the tagged commit +
-  restart. No unattacked sim stand/walk blocker remains: the
-  one-parked-foot hold and det flat-rise stall are SOLVED
-  (footlow2-hard1), the crouch-splay tall-walk wall is BROKEN
-  (bcgait1-hard1), contact/pinning + warp physics are audited clean,
-  and the two open transients (takeoff roll, standing lean) are the
-  operator forks below.
-- **hw — standing-lean design fork (since 08-13 ~12:xx).** The ~8°
-  hardware standing lean: both training-side levers are measured
-  exhausted (tiltcomp1/2/3 — teacher design proven capable, hold
-  income already pays leveling, 4× tipped exposure moved adoption
-  only 10%→20% vs the ≥50% bar AND leaked the one-foot park into the
-  nominal untipped hold; the untrained parent's innate 1.45°
-  recovery beats every tipped-trained child). Blocked on an OPERATOR
-  DESIGN CALL: price residual lean directly in hold income (a new
-  reward term — note three prior pricing terms on anchored stance
-  were all evaded by parking) vs. treat the lean as hardware/
-  mechanical trim outside RL. No tipped-exposure or teacher arm may
-  queue without it. `holdbc1_hard1` stays deployed, unaffected.
-  Detail: hw/STATUS.md Now, RISE.md.
+  Every idle slot maps to a named wait below.
+  ~~ASSUMPTION (operator to review, 08-13 ~12:0x)~~ **APPROVED by
+  operator ruling above:** idle-kick BACKOFF stays — five deep-model
+  idle-kick cycles in 80 min (10:37–11:58 UTC) each re-verified this
+  same unchanged, fully operator-gated board; at the 96/day cap
+  that's ~$1k+/day of no-op deliberation (08-09 cost order).
+  Consecutive no-op kicks space out 15min→30→60→2h→4h (capped);
+  cadence snaps back to 15 min on ANY real activity (finished run,
+  training run, checkup findings, operator `ops.sh cycle`). Not a
+  disable: the watcher still kicks at least every 4 h, and
+  triage/drain/checkup paths are untouched. No unattacked sim
+  stand/walk blocker remains: the one-parked-foot hold and det
+  flat-rise stall are SOLVED (footlow2-hard1), the crouch-splay
+  tall-walk wall is BROKEN (bcgait1-hard1), contact/pinning + warp
+  physics are audited clean, and the two open transients (takeoff
+  roll, standing lean) are DECIDED per the rulings above.
+- ~~hw — standing-lean design fork~~ **DECIDED 08-13 ~12:4x UTC
+  (ruling 1 above): mechanical trim, outside RL.** The remaining
+  work is a bench item (trim/zero-calibration/shimming), folded
+  into the bench-session list below. Detail: hw/STATUS.md Now.
 - **hw — stance promotion is a BENCH call (since 08-12 eve).**
   `cw-stand-footlow2-hard1` passes the full stance gate incl. the
   interactive `eval_session` hard gates the deployed `holdbc1_hard1`
@@ -198,14 +208,13 @@ GAIT.md / SIM.md, and RL_LOG — not here):**
   axes PASS, push-probe falls no worse than tip1 with zero push
   exposure). Blocked on: hardware bench evidence — per its own
   ruling, NOT another sim DR axis. Detail: hw/STATUS.md, GAIT.md.
-- **hw — walk-takeoff roll transient: operator design discussion
-  (since 08-12).** All three perturb-during-training families are
-  closed (walk-kick, rise-rock incl. ramp-gated shape fix,
-  walk-push at 2M and 10M), the contact/pinning hypothesis is
-  falsified (tape replay: curls never touch the chassis), and warp
-  physics is exonerated (parity audit 08-13). No launchable sim
-  lever is named; nothing trains against this blocker. Detail:
-  hw/STATUS.md Next, SIM.md gap 4.
+- ~~hw — walk-takeoff roll transient: operator design discussion~~
+  **DECIDED 08-13 ~12:4x UTC (ruling 2 above): no more reward/DR
+  sweeps; instrument the takeoff transient, then design a staged
+  gait-entry transition.** This is now NAMED agent-doable work
+  (instrumentation of bench tapes + sim replays of the first
+  ~1.5 s, then a deploy-side staged entry sequence prototype) —
+  not a wait. Detail: hw/STATUS.md Now.
 - **multitask — PAUSED by operator (08-13 ~12:2x UTC), direction
   call withdrawn.** Operator is prioritizing the dynrep
   (world-dynamics) line instead. Do not launch, queue, or plan
@@ -219,23 +228,26 @@ GAIT.md / SIM.md, and RL_LOG — not here):**
   BC-demo data poverty (hfloor1 refuted the supervision-aim lever);
   the no-slip line CONCLUDES at its r4 gate-pass artifact. No
   agent-side arm without new demos. Detail: arch/STATUS.md.
-- **nobc — close the from-scratch gait line? Operator accept/reject
-  (since 08-13 ~03:1x).** All five planned levers closed honestly
-  (`cw-gait-ease1` froze identically even at half gravity).
-  Recommendation: CLOSE (nobc keeps its stand-from-scratch charter).
-  The build-first ASSUMPTION for the ease code is on record in
-  nobc/STATUS.md (mechanism default-off, nothing else trains on it).
-- **quad — MDP_PREFLIGHT ruling needed (since 08-13 ~08:xx).** A
-  statically-stable open-loop quad crawl is measured GEOMETRICALLY
-  INFEASIBLE (CoM needs 5–7cm more aft than the ±35° hip-yaw
-  workspace can place it), so no scripted bank reference can exist;
-  the only route is the operator accepting a future RL/feedback
-  rear-four-stepping policy as the quadwalk bank reference. The
-  quadwalk mode/reward/eval code is built, default-off, and
-  correctly launch-blocked meanwhile. Detail: quad/STATUS.md.
-- **turn — MirrorPolicy deploy port (since 08-11).** Robot-runner
-  work, operator-only by guardrail; the quad-turn rung closed 08-13
-  behind the track's needs-new-idea wall. Detail: turn/STATUS.md.
+- ~~nobc — close the from-scratch gait line?~~ **DECIDED 08-13
+  ~12:4x UTC (ruling 3 above): CLOSED; stand-from-scratch charter
+  retained.** Reopen requires new hardware evidence. Detail:
+  nobc/STATUS.md.
+- ~~quad — MDP_PREFLIGHT ruling needed~~ **DECIDED 08-13 ~12:4x UTC
+  (ruling 4 above): feedback/RL rear-four stepping PERMITTED as the
+  quadwalk bank reference, with an explicit pre-registered
+  robustness gate.** The gate spec (multi-seed det, DR panel, zero
+  falls, fronts-lifted + no-credit verification, stillness bar) is
+  the FIRST artifact before any arm launches — binding conditions
+  in quad/STATUS.md. Quadwalk is now launchable under those terms
+  (excess-capacity priority rules still apply; hw keeps pod
+  priority).
+- ~~turn — MirrorPolicy deploy port~~ **CLEARED 08-13 (operator
+  session, 08-12 night): the port LANDED** — `run_policy_move(...,
+  turn="left"/"right"/"hold")` + rot60 composition in
+  `linux_control/rl_policy.py`, `POST /api/rl/walk {"turn": ...}`,
+  mirror.py in both deploy scripts, `tests/test_mirror_runner.py`.
+  Remaining turn work is a bench session (below; re-deploy first).
+  Detail: turn/STATUS.md.
 - **dynrep — pilot seed replication RUNNING on train-11 idle CPUs
   (since 08-13 ~12:3x UTC; waiting on the pod job, hours-scale).**
   The operator's push (4d26954, 08-13 12:12 UTC) CLEARED the old
@@ -256,9 +268,11 @@ GAIT.md / SIM.md, and RL_LOG — not here):**
   deploy-blocked):** first hardware run of the learned stand-up
   (deploy re-push DONE + HTTP-verified 08-11 ~21:15, goal profile in
   the meta), rot60 off-wedge headings, the vref1-vs-tip1 A/B on one
-  floor, tape reading on an RL walk. Turn-sign audit CLOSED (signs
-  match both ways). Session runner: `rl_move/scripts/bench_blast.py
-  --go`.
+  floor, tape reading on an RL walk, **mirror turn session
+  (turn=left/right/hold — re-deploy the board first: new
+  rl_policy.py + mirror.py)**, and **the standing-lean mechanical
+  trim (per ruling 1)**. Turn-sign audit CLOSED (signs match both
+  ways). Session runner: `rl_move/scripts/bench_blast.py --go`.
 
 - **UPDATE (08-12, hold/rise pricing-only levers now ALL closed):**
   the contact/pinning code-wait cleared earlier (belly/tucked-shank
