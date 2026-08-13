@@ -21,14 +21,18 @@ anyone catching up. Facts here must agree with `CURRENT_TRUTHS.md`
 (which wins on conflict); the full checkpoint inventory with gate
 numbers lives in `rl_docs/SKILLS.md`.
 
-**Last updated: 2026-08-13 (~05:00) — new headline: the GPU (warp/
-MJX) training physics provably under-charges loaded-foot slip vs the
-trusted C physics (same policy: slip factor 0.085 in MJX vs 0.31 in
-C; the C env docks the slide ~−280/ep that MJX pays). Found by the
-arch no-slip line, which also produced its first gate-passing
-RL-fine-tuned no-slip walker (r4) today; a warp-vs-C contact parity
-audit is now the named next step and would raise walking quality for
-every MJX-trained line (see WAITING-ON). Earlier 08-13: nobc's
+**Last updated: 2026-08-13 (~06:xx) — headline CORRECTED: the
+warp-vs-C contact parity audit ran and the GPU training physics is
+FINE.** Matched command-stream replays (new `probe_contact_parity.py`)
+show warp@1/4 within ~3–6% of C@50 on loaded-foot slip in both the
+normal and the no-slip speed regimes, flat across solver iterations,
+zero stance creep under pure load — the earlier "under-charges slip"
+headline compared a stochastic training metric against a
+deterministic probe and is retracted; no campaign-wide physics fix is
+coming, slip levers stay reward/BC-side. The arch no-slip line
+CONCLUDES at its gate-passing r4 walker (RL preserves the taught
+no-slip gait; adding more needs a new mechanism — see arch/STATUS.md).
+Earlier 08-13 (~05:00): nobc's
 from-scratch gait line is out of levers after `cw-gait-ease1`
 (physics easing, the last planned lever) froze exactly like its five
 predecessors; recommendation to the operator is to CLOSE that line
@@ -349,29 +353,29 @@ never buried in a cycle log):**
   recipe, vs. narrow the command-width curriculum, vs. accept `b2` as
   this recipe's ceiling) — no further isolated-lever retries queued
   pending that call. Detail: `rl_docs/tracks/multitask/STATUS.md`.
-- **NEW WAIT + BIG LESSON (08-13 ~04:5x, idle-kick cycle): the
-  warp/MJX training physics under-charges loaded-foot slip vs the C
-  env — measured, and it likely biases EVERY MJX-trained walking
-  line toward foot-dragging.** The arch no-slip line's r4 GATE PASS
-  (first RL fine-tune that keeps the taught no-slip gait) carried
-  the caveat "RL preserves but doesn't improve"; the pre-registered
-  discriminator `cw-arch-noslipphase1-dr0` (r3's exact dose, ALL DR
-  off) now shows MJX PPO erodes foot anchoring even in a clean world
-  (loadslip 1.00→0.085 with training return climbing) while a
-  matched C-env replay of the identical training pricing CHARGES
-  that drift ~−280/ep; the same checkpoint measures loadslip 0.085
-  in MJX vs 0.31 in C. **WAITING-ON: a warp-vs-C loaded-foot
-  contact-creep parity audit** (replay matched det action streams in
-  both physics, compare per-tick loaded-foot XY displacement; warp
-  iterations-1/4 contact looseness is the suspect) — orchestrator
-  cycle work (analysis tooling, not operator-gated), the arch line
-  is training-frozen per its own gate until then. Audit data:
-  `logs/probe_noslip_income/` (train-0), tool
-  `probe_walk_income --set/--cmd` (extended this cycle). Also fixed
-  this cycle: the launcher false-FAILing healthy fast-finishing runs
-  (r3/r4/dr0 all completed in <230s and were marked dead;
-  `launch_run.py` now verifies-FINISHED when W&B's last global_step
-  reached the budget).
+- **CLEARED (08-13 ~06:xx, was WAITING since ~04:5x): the warp-vs-C
+  contact parity audit RAN — the physics is EXONERATED and the
+  "under-charges slip" lesson is RETRACTED.** New tool
+  `probe_contact_parity.py` (snapshot ac5500a) replayed the identical
+  TripodGait command stream through the identical servo-profile
+  pipeline from one shared settled start across {C@50, C@1/4,
+  warp@1/4, 2/4, 4/8, 8/8}: loaded-foot slip warp@1/4 vs C@50 within
+  ~6% (0.055 m/s) and ~3% (0.012 m/s, the no-slip band), flat across
+  iterations, zero warp stance creep under pure load; C@1/4 itself is
+  NaN-unstable, so warp@1/4 was never "truncated C". The recorded
+  0.085-vs-0.31 gap mixed a stochastic on-policy TRAINING metric with
+  a deterministic probe (the prior audit's own C stochastic replays
+  measured ratio 1.42–1.45 ≈ MJX's ~1.44) and the steep
+  loadslip-factor clip amplified the ~13% raw-ratio difference 3.6×.
+  What survives: PPO anchoring erosion is real, det-visible and
+  dose-monotone under bank-verified pricing — an RL-incentive fact.
+  Consequence: the arch no-slip line is unfrozen and CONCLUDES at its
+  r4 GATE-PASS artifact; no training arm queued (a genuine
+  improvement needs a new mechanism — the operator's in-progress
+  DAgger redistillation, or an erosion-proof anchoring design, both
+  spec/operator work). Audit data: train-0
+  `logs/probe_contact_parity/`. (Kept from the same cycle: the
+  launcher fast-finish false-FAIL fix in `launch_run.py`.)
 - **Fleet at ~03:1x UTC 08-13: 0/12 pods training, backlog empty —
   every idle slot is a named wait, none an unattacked blocker.**
   `cw-gait-ease1` (the last run in flight) FINISHED and is verdicted
