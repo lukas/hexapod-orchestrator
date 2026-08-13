@@ -21,17 +21,26 @@ anyone catching up. Facts here must agree with `CURRENT_TRUTHS.md`
 (which wins on conflict); the full checkpoint inventory with gate
 numbers lives in `rl_docs/SKILLS.md`.
 
-**Last updated: 2026-08-13 (~10:3x UTC) — the standing-lean verdict
-is OVERTURNED by a new measurement and the mainline is training
-again: a probe that rolls out the tilt-comp anchor TEACHER itself
-shows a perfect student of it can only ever level to ~4° (a
-proportional-controller fixed point — the teacher was the defect,
-not the reward, which already pays leveling 3× better than staying
-tilted). The fixed teacher (correction frozen at the episode's
-settled lean) is probe-verified to level to 1.76° and is now
-training as `cw-stand-tiltcomp2` (train-0); the operator design-fork
-escalation on the ~8° hardware lean is withdrawn (see WAITING-ON).
-Earlier (~13:xx local) — the interactive SESSION gate
+**Last updated: 2026-08-13 (~12:xx UTC) — the standing-lean saga
+(tiltcomp1→2→3) is CONCLUDED in sim: both fixable-by-training levers
+(teacher design, then 4× training exposure) are now exhausted, and
+the ~8° hardware lean is a live OPERATOR DESIGN CALL (see
+WAITING-ON).** A probe that rolled out the tilt-comp anchor TEACHER
+itself found the first teacher mathematically incapable (a perfect
+student tops out ~4°, a P-controller fixed point) and fixed it
+(settle-lean design, probe-verified to level a perfect student to
+1.76°) — `cw-stand-tiltcomp2` trained that fix and still failed,
+but cleanly: the policy only ADOPTED ~10% of its now-capable
+teacher's correction. The obvious next lever, quadrupling how often
+the robot practices tipped recovery (`cw-stand-tiltcomp3`, hold-mix
+0.1→0.4), barely moved adoption (10%→20%, needs ≥50%) and — new
+finding — leaked the same one-foot-park habit into the ORDINARY
+(untipped) stance, which had never shown it before. Teacher
+capability, hold income, and now training exposure are all measured
+innocent; the operator's two remaining options are pricing residual
+lean directly in reward, or treating the lean as a hardware/
+mechanical trim problem outside RL. The deployed stance checkpoint
+is unaffected either way. Earlier (~13:xx local) — the interactive SESSION gate
 (the deployment-contract eval that separated the stance candidates
 from the deployed policy) is now AUTOMATIC: the watcher's pre-staged
 pod evals run `eval_session` on every finished stance/walk candidate
@@ -463,6 +472,24 @@ never buried in a cycle log):**
   adoption + the parent's innate 1.45° recovery beating every
   tipped-trained child = training-dynamics problem, operator's
   call).**
+  **SAME-LINEAGE FINAL RESULT (~12:xx UTC): `cw-stand-tiltcomp3`
+  FINISHED and FAILS — the pre-registered FAIL branch fires, and the
+  escalation this cycle withdrew is RESTORED (this time with a
+  complete measured dossier, not a conjecture).** 4× exposure moved
+  adoption only 10%→20% (bar ≥50%), settled/recovered count only
+  0/12→1/12 (bar ≥9/12, still "leaning" 11/12, still one foot
+  parked) — AND introduced a new cost outside every pre-registered
+  branch: the same park now shows up in the NOMINAL (untipped) hold
+  too (min duty down to 0.03, was 0.58–0.76), something none of the
+  three tiltcomp arms did before. **WAITING-ON (NEW, since ~12:xx
+  08-13): the ~8° hardware standing lean needs an OPERATOR DESIGN
+  CALL — price residual lean directly in hold income (new reward
+  term) vs. treat it as a hardware/mechanical trim problem outside
+  RL. Both training-side levers (teacher design, exposure dose) are
+  now measured exhausted; no further tipped-exposure or teacher
+  arm should be queued on this lineage without that call.** `hard1`
+  stays deployed, unaffected either way. Detail: hw/STATUS.md Now,
+  RISE.md.
 - **Fleet update ~11:3x UTC 08-13: 1/12 pods training —
   `cw-stand-tiltcomp3` (hw standing-lean exposure arm, 2M discovery)
   VERIFIED RUNNING on train-0; the other 11 idle slots remain the
