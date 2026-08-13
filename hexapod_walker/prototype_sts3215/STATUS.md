@@ -21,7 +21,12 @@ anyone catching up. Facts here must agree with `CURRENT_TRUTHS.md`
 (which wins on conflict); the full checkpoint inventory with gate
 numbers lives in `rl_docs/SKILLS.md`.
 
-**Last updated: 2026-08-12 (evening) — stance line: the 10M
+**Last updated: 2026-08-13 (early) — nobc's from-scratch gait line
+is out of levers after `cw-gait-ease1` (physics easing, the last
+planned lever) froze exactly like its five predecessors;
+recommendation to the operator is to CLOSE that line (see
+WAITING-ON). Fleet 0/12 training, all idle slots named waits.
+Previous headline (08-12 evening) — stance line: the 10M
 consolidation `cw-stand-footlow2-hard1` PASSES all four
 pre-registered gate clauses at once — the first stance checkpoint
 with clean rise (incl. cold flat, confirmed 12/12 via a targeted
@@ -337,11 +342,12 @@ never buried in a cycle log):**
   recipe, vs. narrow the command-width curriculum, vs. accept `b2` as
   this recipe's ceiling) — no further isolated-lever retries queued
   pending that call. Detail: `rl_docs/tracks/multitask/STATUS.md`.
-- **Fleet at ~04:xx UTC 08-13: 1/12 pods training** —
-  `cw-gait-ease1` (nobc, 2M discovery, train-0): GAIT P3 lever 3
-  (physics easing) BUILT this cycle and running (see the nobc entry
-  below); backlog otherwise empty. The other 11 idle slots are named
-  waits, none an unattacked blocker: multitask's lever menu is
+- **Fleet at ~03:1x UTC 08-13: 0/12 pods training, backlog empty —
+  every idle slot is a named wait, none an unattacked blocker.**
+  `cw-gait-ease1` (the last run in flight) FINISHED and is verdicted
+  FAIL (see the nobc WAITING-ON entry below — the from-scratch gait
+  line's lever menu is now exhausted and its closure is an operator
+  call). Remaining waits per track: multitask's lever menu is
   exhausted pending the operator call above; the other tracks' waits
   (below) are unchanged from the prior fleet-state note and were
   re-checked this cycle, not stale. The wave-1 20M re-queue, the arch256 capacity
@@ -364,6 +370,25 @@ never buried in a cycle log):**
   trains); turn — MirrorPolicy deploy port is robot-runner work
   (operator-only by guardrail); dynrep — blocked on the operator
   pushing the local code (below).
+- **WAITING (since 08-13 ~03:1x): nobc's from-scratch gait line is
+  out of levers — recommend CLOSING it; operator accept/reject
+  needed.** `cw-gait-ease1` (physics easing, GAIT P3 lever 3 — the
+  line's last planned lever) FAILED its pre-registered gate exactly
+  on the false branch: det fwd travel med 0.00 m (bar ≥0.3 m), slip/m
+  7.2 det / 19.2 sto, video a motionless splayed crouch — the
+  identical freeze fingerprint as every prior lever. Decisively,
+  `walk_loadslip_factor` was floored from the FIRST training sample
+  even at HALF GRAVITY (the anneal itself ran exactly as coded,
+  sched_value 0.5→1.0 over 0.4M–1.1M): easier physics gave
+  exploration nothing. Levers 1–5 (charge magnitude, RSI spawns,
+  slow-first targets, warm-anneal + in-run schedule, physics easing)
+  are ALL closed under honest trials. Per the pre-registration the
+  recommendation is to close the from-scratch gait line (nobc keeps
+  its stand-from-scratch charter; hw's deployable gait comes from
+  the BC-anchored lineage regardless). No nobc run is queued pending
+  the operator call. The untried `ease.vel_ceiling_scale` axis stays
+  pre-built but unqueued — the gate's marginal branch (its licensing
+  condition) did not occur. Detail: `rl_docs/tracks/nobc/STATUS.md`.
 - **CLEARED (08-13 ~04:xx, was WAITING since ~01:2x): nobc's
   physics-easing code-wait — the mechanism is BUILT and its first arm
   is running.** ASSUMPTION (operator to review): the 08-13 ~01:2x
