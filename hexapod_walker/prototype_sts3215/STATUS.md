@@ -175,12 +175,14 @@ GAIT.md / SIM.md, and RL_LOG — not here):**
      `cw-quadwalk1` is RUNNING (see FLEET line) — no longer a wait.
   5. **watcher idle-kick backoff → APPROVED** (15m→30→60→2h→4h
      no-op spacing, snap-back on real activity, stays live).
-- **FLEET: 1/12 pods GPU-training (08-13 ~13:xx UTC: `cw-quadwalk1`,
-  2M discovery on train-2 — the first quadwalk arm under ruling 4,
-  gate spec `rl_docs/tracks/quad/QUADWALK_REF_GATE.md` committed
-  first as required; backlog empty; train-11's idle CPUs still run
-  the dynrep pilot replication, GPU free; see the dynrep entry).**
-  Every OTHER idle slot maps to a named wait below.
+- **FLEET: 1/12 pods GPU-training (08-13 ~13:3x UTC: `cw-quadwalk1`
+  FINISHED — hit the pre-registered fronts-down six-leg cheat
+  (0/6 fronts_lifted, STOP, no continuation of that exact spec);
+  follow-up `cw-quadwalk2` (reprice respec: 3x the lift-leg income,
+  one lever) VERIFIED RUNNING on train-0, 2M discovery, same base/
+  mix/budget as quadwalk1. Backlog empty again; train-11's idle CPUs
+  still run the dynrep pilot replication, GPU free; see the dynrep
+  entry).** Every OTHER idle slot maps to a named wait below.
   ~~ASSUMPTION (operator to review, 08-13 ~12:0x)~~ **APPROVED by
   operator ruling above:** idle-kick BACKOFF stays — five deep-model
   idle-kick cycles in 80 min (10:37–11:58 UTC) each re-verified this
