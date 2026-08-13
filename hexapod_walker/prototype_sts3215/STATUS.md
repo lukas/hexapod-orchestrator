@@ -337,16 +337,14 @@ never buried in a cycle log):**
   recipe, vs. narrow the command-width curriculum, vs. accept `b2` as
   this recipe's ceiling) — no further isolated-lever retries queued
   pending that call. Detail: `rl_docs/tracks/multitask/STATUS.md`.
-- **Fleet at ~01:3x UTC 08-13: 0/12 pods training** —
-  `cw-gait-sched1` (nobc) FINISHED and FAILED (see the WAITING entry
-  above); backlog is empty (`capacity.py` confirms 12/12 free, no
-  drain-bug). All 12 idle slots are now named waits, none an
-  unattacked blocker: multitask's lever menu is exhausted pending the
-  operator call above; nobc's is exhausted pending the physics-easing
-  build-or-close call above; the other tracks' waits (below) are
-  unchanged from the prior fleet-state note and were re-checked this
-  cycle, not stale. (Earlier note, superseded: at ~01:xx the fleet was
-  1/12 with `cw-gait-sched1` running on train-0.) The wave-1 20M re-queue, the arch256 capacity
+- **Fleet at ~04:xx UTC 08-13: 1/12 pods training** —
+  `cw-gait-ease1` (nobc, 2M discovery, train-0): GAIT P3 lever 3
+  (physics easing) BUILT this cycle and running (see the nobc entry
+  below); backlog otherwise empty. The other 11 idle slots are named
+  waits, none an unattacked blocker: multitask's lever menu is
+  exhausted pending the operator call above; the other tracks' waits
+  (below) are unchanged from the prior fleet-state note and were
+  re-checked this cycle, not stale. The wave-1 20M re-queue, the arch256 capacity
   probe, the widen1/widen2 staged-widening pair, and the hist16-r1/
   hist16-20m1 history pair are all verdicted (a2 PASS control; b2/c2
   FAIL — width interference; b-arch256-1 FAIL — capacity not the
@@ -361,30 +359,47 @@ never buried in a cycle log):**
   (operator); hw walk — bcgait1-hard1's path to Gate 0 is bench tape
   evidence (operator), takeoff transient still needs the
   contact/pinning design discussion (below); arch — waiting on the
-  operator's in-progress DAgger rise redistillation; nobc —
-  gait-from-scratch's last lever (physics easing) is unbuilt code,
-  waiting since 08-13 (below); quad — four-leg-walk reward spec+bank
-  FIRST (specification, never trains); turn — MirrorPolicy deploy
-  port is robot-runner work (operator-only by guardrail).
-- **WAITING (since 08-13 ~01:2x): nobc's gait-from-scratch line —
-  `cw-gait-sched1` (the in-run coefficient scheduler's first and only
-  arm) FAILED, the pre-registered false branch exactly (det fwd
-  travel 0.01m vs the 0.3m bar, slip/m 9.4/18.4 vs the 3.0 bar,
-  frozen-stance video, unresolved drag charge despite the ramp firing
-  correctly).** This closes GAIT P3 lever 2 in every form tried
-  (fixed rung, warm-start anneal, true in-run schedule); the whole
-  no-new-code lever menu (2, 4, 5) for nobc gait-from-scratch is now
-  exhausted. The only remaining lever (physics easing: relax
-  gravity/servo-velocity-ceiling early, anneal to nominal) is genuine
-  UNBUILT CODE — it needs new per-episode-reset plumbing in
-  `domain_rand.py`, code shared by every run in every track, so it
-  was NOT written this cycle next to a live triage (exactly the kind
-  of rushed shared-code change that produced past pool-restore/
-  dilution bugs). Blocked on: an operator call to either dedicate a
-  cycle to building+testing physics easing, or accept the
-  from-scratch gait line as exhausted for now (does not block the hw
-  mainline — BC-init already solved tall walking there). Detail:
-  `rl_docs/tracks/nobc/STATUS.md`, `rl_docs/GAIT.md` P3.
+  operator's in-progress DAgger rise redistillation; quad —
+  four-leg-walk reward spec+bank FIRST (specification, never
+  trains); turn — MirrorPolicy deploy port is robot-runner work
+  (operator-only by guardrail); dynrep — blocked on the operator
+  pushing the local code (below).
+- **CLEARED (08-13 ~04:xx, was WAITING since ~01:2x): nobc's
+  physics-easing code-wait — the mechanism is BUILT and its first arm
+  is running.** ASSUMPTION (operator to review): the 08-13 ~01:2x
+  entry asked for a build-vs-close call on GAIT P3 lever 3; this
+  idle-kick cycle adopted BUILD per the CODE-FIRST directive (never
+  park a line on unbuilt code) and because a dedicated build+test
+  cycle — exactly what that entry said the change needed — was
+  available (fleet fully idle, no live triage). The build turned out
+  NOT to need the feared `domain_rand.py` per-reset range-refresh
+  plumbing: `ease.gravity_scale` / `ease.vel_ceiling_scale` (new cfg
+  keys, DEFAULT OFF, bit-exact when off, snapshot e40a3ea) scale the
+  per-episode DR *draw* at the single choke point both trainer
+  stacks already consume, are re-read every reset so the existing
+  `sched.*` engine anneals them in-run, and raise loudly in the one
+  configuration they can't serve (shared-model shim without DR).
+  8 new tests (`test_physics_ease.py`) + scheduler tests + the full
+  task-semantics bank green. First arm `cw-gait-ease1` (2M
+  discovery, train-0, VERIFIED RUNNING): dragstance1 stack, full
+  charge from step 0, gravity 0.5→1.0 over 0.4M–1.1M; pre-registered
+  — PASS = first-ever from-scratch gait signal, FAIL = P3 levers 1–5
+  all closed and the recommendation is to close the from-scratch
+  gait line. If overruled: the mechanism is default-off, nothing
+  else trains on it. Detail: `rl_docs/tracks/nobc/STATUS.md`,
+  `rl_docs/GAIT.md` P3.
+- **WAITING (since 08-12 ~21:40, surfaced 08-13): the new dynrep
+  track cannot launch anything — its code was never pushed.**
+  Commit 7b83dce registered the track (tracks.json, DYNREP.md, track
+  STATUS claiming G1/G2 PASS and "V1 pipeline landed in
+  `rl_move/dynamics/`"), but its own commit message says "code in
+  rl_move/dynamics/ stays local" — that directory does NOT exist in
+  the repo, and the v1 dataset/checkpoints are laptop-local too.
+  Every next step in dynrep/STATUS.md (A/B/C PPO wiring, dataset
+  growth, G3 probes) needs that code. Blocked on: the operator
+  pushing `rl_move/dynamics/` (and stating where datasets/ckpts
+  live). Orchestrator cycles will not rebuild it from the design doc
+  — that would fork the operator's in-progress local work.
 - Operator-gated (bench, not GPU): NOTHING is deploy-blocked anymore.
   The deploy re-push is DONE and verified over HTTP (08-11 ~21:15):
   the robot's ACTIVE stance policy is stand_holdbc1_hard1 WITH the
