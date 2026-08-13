@@ -21,7 +21,18 @@ anyone catching up. Facts here must agree with `CURRENT_TRUTHS.md`
 (which wins on conflict); the full checkpoint inventory with gate
 numbers lives in `rl_docs/SKILLS.md`.
 
-**Last updated: 2026-08-13 (~19:xx UTC — quad: the quadwalk cheat
+**Last updated: 2026-08-13 (~2x:xx UTC — hw: the walk-takeoff
+transient (the "learned walks fall half the time in the first two
+seconds" hardware blocker) is now INSTRUMENTED and has a bench-ready
+fix design: the roll excursion turns out to start the moment the
+policy takes over — at ZERO velocity command — because the policy
+re-organizes the whole stance at the maximum allowed joint speed; a
+new default-off "entry slew ramp" throttles that handoff 6× and, in
+a 144-rollout paired sim prototype, saves 5 of the deployed walker's
+9 falls under the calibrated disturbance proxy while causing none
+and leaving normal walking intact. Next step is an operator bench
+session flipping two cfg keys on the runner (`rl_docs/TAKEOFF.md`;
+see WAITING-ON). Earlier ~19:xx — quad: the quadwalk cheat
 saga CONCLUDES its lever ladder: `cw-quadwalk7` proved exploration
 noise cannot escape the mid-leg-park optimum even after quadwalk6's
 gate made it money-losing; pricing/spawn/structural-gating/
@@ -194,14 +205,22 @@ GAIT.md / SIM.md, and RL_LOG — not here):**
   operator picks a direction (candidate options in quad/STATUS.md
   Now: staged swing curriculum, temporal policy, BC from a feedback
   stepping reference). Quad-hold retention stayed clean throughout.
-- **FLEET: 0/12 pods GPU-training (08-13 ~19:xx UTC — `cw-quadwalk7`
-  finished + verdicted STOP; backlog empty; train-11's idle CPUs run
-  the dynrep encoder seed-retry).** Every idle slot maps to a named
-  wait in this block, EXCEPT the hw takeoff-transient
-  instrumentation (ruling 2), which is named agent-doable work — the
-  next dedicated hw cycle should take it (bench-tape + sim-replay
-  analysis first, no training arm until the instrumented design
-  exists).
+- **NEW WAIT (08-13 ~2x:xx UTC): hw takeoff staged gait-entry →
+  OPERATOR BENCH SESSION.** Ruling 2's agent-doable half is DONE this
+  cycle: transient instrumented (it is a drop-in posture snap at
+  ZERO command — slew-saturated on all 18 joints from tick 0; half
+  the tapes cross 5° roll before the velocity ramp starts), staged
+  entry designed + built (`safety.entry_slew_ramp_s`, default-off,
+  bit-exact, tests green) and prototyped (deployed walker: paired
+  falls 9/12→4/12 under the calibrated push proxy, 5 saved / 0
+  caused, no-push arms clean — full dossier `rl_docs/TAKEOFF.md`).
+  Waiting on: operator flips the two cfg keys on the runner's walk
+  engage and re-runs takeoff reps (deploy is operator-only). No
+  training arm until the bench adopts the entry sequence.
+- **FLEET: 0/12 pods GPU-training (08-13 ~2x:xx UTC; backlog empty;
+  train-11's idle CPUs run the dynrep encoder seed-retry; train-0's
+  idle CPUs ran this cycle's gait-entry prototype probe, done).**
+  Every idle slot maps to a named wait in this block.
   ~~ASSUMPTION (operator to review, 08-13 ~12:0x)~~ **APPROVED by
   operator ruling above:** idle-kick BACKOFF stays — five deep-model
   idle-kick cycles in 80 min (10:37–11:58 UTC) each re-verified this
