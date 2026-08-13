@@ -814,6 +814,23 @@ def _verify_started(g: dict, a: argparse.Namespace, ctx: dict) -> int:
                     if flat_streak >= 2:
                         break  # two flat samples past budget = real stall
         if s2 <= s1:
+            # Fast short runs FINISH before/during this window (a 0.5-1M
+            # step GPU run completes in ~90-200 s): the run leaves W&B's
+            # 'running' set, s2 reads 0, CPU goes flat — and a healthy
+            # completed run was marked FAILED ("global_step not advancing
+            # (1048576 -> 0)"), which also stops the watcher from staging
+            # its evals. Hit cw-arch-noslipphase1-r3/-r4/-dr0 (08-13).
+            # If the last observed global_step already reached the
+            # requested budget, that is a clean finish, not a stall.
+            target = int(entry.get("steps") or 0)
+            if target and s1 >= target:
+                checks["finished_during_verification"] = [s1, target]
+                entry["status"] = "FINISHED"
+                entry["verified"] = now()
+                upsert_entry(entry)
+                print(f"VERIFIED FINISHED (run completed during "
+                      f"verification window): {a.run} on {a.pod}")
+                return 0
             return fail(f"W&B global_step not advancing ({s1} -> {s2}) "
                         f"after {elapsed:.0f}s (n_steps={n_steps}, "
                         f"cpu-time flat for {flat_streak} polls)")

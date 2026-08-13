@@ -21,11 +21,18 @@ anyone catching up. Facts here must agree with `CURRENT_TRUTHS.md`
 (which wins on conflict); the full checkpoint inventory with gate
 numbers lives in `rl_docs/SKILLS.md`.
 
-**Last updated: 2026-08-13 (early) — nobc's from-scratch gait line
-is out of levers after `cw-gait-ease1` (physics easing, the last
-planned lever) froze exactly like its five predecessors;
-recommendation to the operator is to CLOSE that line (see
-WAITING-ON). Fleet 0/12 training, all idle slots named waits.
+**Last updated: 2026-08-13 (~05:00) — new headline: the GPU (warp/
+MJX) training physics provably under-charges loaded-foot slip vs the
+trusted C physics (same policy: slip factor 0.085 in MJX vs 0.31 in
+C; the C env docks the slide ~−280/ep that MJX pays). Found by the
+arch no-slip line, which also produced its first gate-passing
+RL-fine-tuned no-slip walker (r4) today; a warp-vs-C contact parity
+audit is now the named next step and would raise walking quality for
+every MJX-trained line (see WAITING-ON). Earlier 08-13: nobc's
+from-scratch gait line is out of levers after `cw-gait-ease1`
+(physics easing, the last planned lever) froze exactly like its five
+predecessors; recommendation to the operator is to CLOSE that line
+(see WAITING-ON). Fleet 0/12 training, all idle slots named waits.
 Previous headline (08-12 evening) — stance line: the 10M
 consolidation `cw-stand-footlow2-hard1` PASSES all four
 pre-registered gate clauses at once — the first stance checkpoint
@@ -342,6 +349,29 @@ never buried in a cycle log):**
   recipe, vs. narrow the command-width curriculum, vs. accept `b2` as
   this recipe's ceiling) — no further isolated-lever retries queued
   pending that call. Detail: `rl_docs/tracks/multitask/STATUS.md`.
+- **NEW WAIT + BIG LESSON (08-13 ~04:5x, idle-kick cycle): the
+  warp/MJX training physics under-charges loaded-foot slip vs the C
+  env — measured, and it likely biases EVERY MJX-trained walking
+  line toward foot-dragging.** The arch no-slip line's r4 GATE PASS
+  (first RL fine-tune that keeps the taught no-slip gait) carried
+  the caveat "RL preserves but doesn't improve"; the pre-registered
+  discriminator `cw-arch-noslipphase1-dr0` (r3's exact dose, ALL DR
+  off) now shows MJX PPO erodes foot anchoring even in a clean world
+  (loadslip 1.00→0.085 with training return climbing) while a
+  matched C-env replay of the identical training pricing CHARGES
+  that drift ~−280/ep; the same checkpoint measures loadslip 0.085
+  in MJX vs 0.31 in C. **WAITING-ON: a warp-vs-C loaded-foot
+  contact-creep parity audit** (replay matched det action streams in
+  both physics, compare per-tick loaded-foot XY displacement; warp
+  iterations-1/4 contact looseness is the suspect) — orchestrator
+  cycle work (analysis tooling, not operator-gated), the arch line
+  is training-frozen per its own gate until then. Audit data:
+  `logs/probe_noslip_income/` (train-0), tool
+  `probe_walk_income --set/--cmd` (extended this cycle). Also fixed
+  this cycle: the launcher false-FAILing healthy fast-finishing runs
+  (r3/r4/dr0 all completed in <230s and were marked dead;
+  `launch_run.py` now verifies-FINISHED when W&B's last global_step
+  reached the budget).
 - **Fleet at ~03:1x UTC 08-13: 0/12 pods training, backlog empty —
   every idle slot is a named wait, none an unattacked blocker.**
   `cw-gait-ease1` (the last run in flight) FINISHED and is verdicted
