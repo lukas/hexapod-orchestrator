@@ -337,13 +337,16 @@ never buried in a cycle log):**
   recipe, vs. narrow the command-width curriculum, vs. accept `b2` as
   this recipe's ceiling) — no further isolated-lever retries queued
   pending that call. Detail: `rl_docs/tracks/multitask/STATUS.md`.
-- **Fleet at ~00:4x UTC 08-13: 0/12 pods training, ALL 12 idle** —
-  the last active run (`cw-mt-b-hist16-20m1`) finished and verdicted
-  this cycle; backlog is empty. Every idle slot is a named wait, none
-  is an unattacked blocker: multitask's lever menu is exhausted
-  pending the operator call above; the other 5 tracks' waits (below)
+- **Fleet at ~01:xx UTC 08-13: 1/12 pods training** —
+  `cw-gait-sched1` (nobc, 2M discovery, the newly built in-run
+  coefficient scheduler's first arm) VERIFIED RUNNING on train-0;
+  backlog otherwise empty. The 11 idle slots are all named waits,
+  none an unattacked blocker: multitask's lever menu is exhausted
+  pending the operator call above; the other tracks' waits (below)
   are unchanged from the prior fleet-state note and were re-checked
-  this cycle, not stale. The wave-1 20M re-queue, the arch256 capacity
+  this cycle, not stale. (Earlier note, superseded: at ~00:4x the
+  fleet was 0/12 after `cw-mt-b-hist16-20m1` finished; the nobc
+  scheduler code-wait was cleared this cycle by building the code.) The wave-1 20M re-queue, the arch256 capacity
   probe, the widen1/widen2 staged-widening pair, and the hist16-r1/
   hist16-20m1 history pair are all verdicted (a2 PASS control; b2/c2
   FAIL — width interference; b-arch256-1 FAIL — capacity not the
