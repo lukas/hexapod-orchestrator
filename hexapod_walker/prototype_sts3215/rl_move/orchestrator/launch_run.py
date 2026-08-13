@@ -1081,7 +1081,17 @@ def cmd_respec(g: dict, a: argparse.Namespace) -> int:
     if not src:
         print(f"no ledger entry with extra_args for {a.source}")
         return 1
-    entry = src[-1]
+    # 08-13 fix: a source run name can carry a LATER, unrelated REFUSED
+    # entry (e.g. a same-pod-busy re-launch attempt after the real run
+    # already finished) whose thin extra_args ("--n-envs 4096" only, no
+    # --init-from/--cfg-set) still pass the truthiness check above.
+    # Blindly taking src[-1] (list/creation order) picked that stub
+    # instead of the real training entry and silently respec'd from a
+    # near-empty arg vector (root cause of the cw-arch-noslipphase1-r2
+    # corruption: no --init-from, default task). Prefer an entry that
+    # actually ran; fall back to the last match only if none did.
+    ran = [e for e in src if e.get("wandb_id") or e.get("checks", {}).get("pid")]
+    entry = ran[-1] if ran else src[-1]
     args = list(entry["extra_args"])
 
     def set_flag(flag: str, val: str) -> None:
@@ -1391,7 +1401,17 @@ def cmd_update(a: argparse.Namespace) -> int:
                      "note": "created via `update --create`"}
             led.append(entry)
             matches = [entry]
-        entry = matches[-1]  # newest entry for this run name
+        # 08-13 fix: without an explicit --created, prefer an entry that
+        # actually ran (wandb_id/pid) over a LATER same-name REFUSED
+        # stub (e.g. a busy-pod re-launch attempt after the real run
+        # finished) — plain "newest by list order" silently attached
+        # verdicts/notes to the wrong (unexecuted) entry.
+        if not a.created:
+            ran = [e for e in matches
+                   if e.get("wandb_id") or e.get("checks", {}).get("pid")]
+            if ran:
+                matches = ran
+        entry = matches[-1]  # newest (ran-preferred) entry for this run name
         for kv in a.set or []:
             key, _, val = kv.partition("=")
             if not _:
