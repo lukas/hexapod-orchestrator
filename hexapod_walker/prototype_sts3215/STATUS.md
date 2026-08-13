@@ -239,6 +239,25 @@ never buried in a cycle log):**
   this lineage. Tip robustness, if hardware demands it, needs an
   anchor-side design (tip-aware reference), not a DR knob. The
   stance candidates stand unchanged (hard1 / stable1).
+  **CLEARED (08-13 ~07:xx, was the one unattacked stand blocker with
+  a named-but-unbuilt lever): the tip-aware anchor reference is
+  BUILT and its first arm is training.** `train.bc_anchor_tilt_comp`
+  (snapshot 1efc816): on HOLD episodes the anchor target becomes the
+  IK pose that counter-rotates the measured lean (FixedFootBodyIK
+  from q_nom at BodyOffset = −comp × rel attitude; soft deadband
+  1.5°, cap 6° = the MEASURED action-space expressibility boundary —
+  7°+ saturates a joint bound; track mode excluded since it commands
+  attitude goals) — so tipped spawns supervise LEVELING instead of
+  the tilt-tolerance tip1 learned from the tilt-blind constant
+  target. Default off, bit-exact; 6 new tests (sign discriminated
+  against the trusted IK transform), 50-test anchor suite + 78-test
+  semantics bank green; RISE.md has the design note.
+  `cw-stand-tiltcomp1` (2M discovery, train-0, VERIFIED RUNNING) =
+  tip1's exact recipe + this one variable; gate = matched-parent
+  forced-8°-tip probe (settle AND valid_plant) + full nominal
+  retention; pre-registered FAIL consequence = the tipped-exposure
+  route is closed even with a correct teacher → operator design
+  discussion on the hardware lean.
 - **CLEARED (08-13 ~01:xx, was WAITING since 08-12): nobc's
   scheduler code-wait is closed — the in-run coefficient scheduler
   LANDED and its first arm is training.** `sched.*` cfg keys ramp
@@ -376,6 +395,9 @@ never buried in a cycle log):**
   spec/operator work). Audit data: train-0
   `logs/probe_contact_parity/`. (Kept from the same cycle: the
   launcher fast-finish false-FAIL fix in `launch_run.py`.)
+- **Fleet update ~07:xx UTC 08-13: 1/12 pods training
+  (`cw-stand-tiltcomp1`, hw stance-lean arm, train-0); the other 11
+  idle slots remain the named waits below (unchanged, re-checked).**
 - **Fleet at ~03:1x UTC 08-13: 0/12 pods training, backlog empty —
   every idle slot is a named wait, none an unattacked blocker.**
   `cw-gait-ease1` (the last run in flight) FINISHED and is verdicted
