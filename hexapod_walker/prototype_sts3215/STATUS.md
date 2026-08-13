@@ -223,16 +223,20 @@ never buried in a cycle log):**
   this lineage. Tip robustness, if hardware demands it, needs an
   anchor-side design (tip-aware reference), not a DR knob. The
   stance candidates stand unchanged (hard1 / stable1).
-- **WAITING (08-12, confirmed ~08:30): nobc's from-scratch gait line
-  has exhausted every no-new-code lever.** `cw-gait-anneal1` (the
-  last one — warm-start-as-curriculum) FAILED: it keeps moving
-  (0.4 m, unlike the three frozen predecessors) but never cleans up
-  — a leg-3 flag-leg skate, slip 4–5 m/m vs the 1.5 bar, reward
-  diving all run as the drag charge goes unresolved. The ONLY
-  remaining nobc lever is a true in-run coefficient scheduler
-  (CODE, unqueued, needs a spec pass first) or closing the
-  from-scratch gait line. Waiting on that spec/implementation
-  decision since 08-12; nothing is training in nobc.
+- **CLEARED (08-13 ~01:xx, was WAITING since 08-12): nobc's
+  scheduler code-wait is closed — the in-run coefficient scheduler
+  LANDED and its first arm is training.** `sched.*` cfg keys ramp
+  one coefficient by global env steps during a run; implemented in
+  `sim_env._step_begin` so both trainer stacks get it by
+  construction; default off = bit-exact, 10 new tests
+  (`test_coef_sched.py`) + the full semantics bank green, REWARD.md
+  row added. `cw-gait-sched1` (2M discovery, from-scratch on the
+  dragstance1 stack, k_drag_stance ramped 0→8000 over steps
+  0.5M→1.5M — paddle first, then price the skate away) is the LAST
+  untried form of GAIT P3 lever 2; pre-registered: if it produces
+  the freeze OR the unresolved-charge skate again, the from-scratch
+  gait line has no levers left and the recommendation to the
+  operator is to close it.
 - **CLEARED (08-12 ~22:0x, was WAITING on the 20M re-queue): the
   multitask wave-1 read is COMPLETE and CLOSED** — `cw-mt-a2`
   specialist control PASS (real six-leg gait, prog med 1.23-1.30),
