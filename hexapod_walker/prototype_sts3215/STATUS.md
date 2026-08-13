@@ -337,16 +337,16 @@ never buried in a cycle log):**
   recipe, vs. narrow the command-width curriculum, vs. accept `b2` as
   this recipe's ceiling) — no further isolated-lever retries queued
   pending that call. Detail: `rl_docs/tracks/multitask/STATUS.md`.
-- **Fleet at ~01:xx UTC 08-13: 1/12 pods training** —
-  `cw-gait-sched1` (nobc, 2M discovery, the newly built in-run
-  coefficient scheduler's first arm) VERIFIED RUNNING on train-0;
-  backlog otherwise empty. The 11 idle slots are all named waits,
-  none an unattacked blocker: multitask's lever menu is exhausted
-  pending the operator call above; the other tracks' waits (below)
-  are unchanged from the prior fleet-state note and were re-checked
-  this cycle, not stale. (Earlier note, superseded: at ~00:4x the
-  fleet was 0/12 after `cw-mt-b-hist16-20m1` finished; the nobc
-  scheduler code-wait was cleared this cycle by building the code.) The wave-1 20M re-queue, the arch256 capacity
+- **Fleet at ~01:3x UTC 08-13: 0/12 pods training** —
+  `cw-gait-sched1` (nobc) FINISHED and FAILED (see the WAITING entry
+  above); backlog is empty (`capacity.py` confirms 12/12 free, no
+  drain-bug). All 12 idle slots are now named waits, none an
+  unattacked blocker: multitask's lever menu is exhausted pending the
+  operator call above; nobc's is exhausted pending the physics-easing
+  build-or-close call above; the other tracks' waits (below) are
+  unchanged from the prior fleet-state note and were re-checked this
+  cycle, not stale. (Earlier note, superseded: at ~01:xx the fleet was
+  1/12 with `cw-gait-sched1` running on train-0.) The wave-1 20M re-queue, the arch256 capacity
   probe, the widen1/widen2 staged-widening pair, and the hist16-r1/
   hist16-20m1 history pair are all verdicted (a2 PASS control; b2/c2
   FAIL — width interference; b-arch256-1 FAIL — capacity not the
@@ -362,10 +362,29 @@ never buried in a cycle log):**
   evidence (operator), takeoff transient still needs the
   contact/pinning design discussion (below); arch — waiting on the
   operator's in-progress DAgger rise redistillation; nobc —
-  coefficient-scheduler CODE needs a spec pass first; quad — four-leg-
-  walk reward spec+bank FIRST (specification, never trains); turn —
-  MirrorPolicy deploy port is robot-runner work (operator-only by
-  guardrail).
+  gait-from-scratch's last lever (physics easing) is unbuilt code,
+  waiting since 08-13 (below); quad — four-leg-walk reward spec+bank
+  FIRST (specification, never trains); turn — MirrorPolicy deploy
+  port is robot-runner work (operator-only by guardrail).
+- **WAITING (since 08-13 ~01:2x): nobc's gait-from-scratch line —
+  `cw-gait-sched1` (the in-run coefficient scheduler's first and only
+  arm) FAILED, the pre-registered false branch exactly (det fwd
+  travel 0.01m vs the 0.3m bar, slip/m 9.4/18.4 vs the 3.0 bar,
+  frozen-stance video, unresolved drag charge despite the ramp firing
+  correctly).** This closes GAIT P3 lever 2 in every form tried
+  (fixed rung, warm-start anneal, true in-run schedule); the whole
+  no-new-code lever menu (2, 4, 5) for nobc gait-from-scratch is now
+  exhausted. The only remaining lever (physics easing: relax
+  gravity/servo-velocity-ceiling early, anneal to nominal) is genuine
+  UNBUILT CODE — it needs new per-episode-reset plumbing in
+  `domain_rand.py`, code shared by every run in every track, so it
+  was NOT written this cycle next to a live triage (exactly the kind
+  of rushed shared-code change that produced past pool-restore/
+  dilution bugs). Blocked on: an operator call to either dedicate a
+  cycle to building+testing physics easing, or accept the
+  from-scratch gait line as exhausted for now (does not block the hw
+  mainline — BC-init already solved tall walking there). Detail:
+  `rl_docs/tracks/nobc/STATUS.md`, `rl_docs/GAIT.md` P3.
 - Operator-gated (bench, not GPU): NOTHING is deploy-blocked anymore.
   The deploy re-push is DONE and verified over HTTP (08-11 ~21:15):
   the robot's ACTIVE stance policy is stand_holdbc1_hard1 WITH the
