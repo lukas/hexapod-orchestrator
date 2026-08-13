@@ -110,13 +110,12 @@ compute:
   # Raised 12 -> 48 (operator, 2026-08-09 morning): at GPU speeds a run
   # finishes every ~25-40 min; 12 cycles/day was sized for the CPU era
   # and would idle the fleet for hours. Keep in sync with watch_loop.py.
-  # TEMPORARY +100 bump (operator, 08-10 afternoon): the restart-proof
-  # budget accounting landed with the rolling window already spent
-  # (~109 used), which would have idled decision cycles all evening
-  # right after the simplification-review changes. RESTORE TO 96 on
-  # 08-11. The watcher reads this key live each loop pass — no restart
-  # needed to change it.
-  max_decision_cycles_per_day: 196  # watcher enforces; agent should not try to exceed
+  # TEMPORARY +100 bump (operator, 08-10 afternoon) EXPIRED: the bump
+  # carried an explicit "RESTORE TO 96 on 08-11" order; restored
+  # 2026-08-13 by an idle-kick cycle (two days overdue — no cycle had
+  # executed the operator's own expiry note). The watcher reads this
+  # key live each loop pass — no restart needed to change it.
+  max_decision_cycles_per_day: 96  # watcher enforces; agent should not try to exceed
   # Cycles are event-driven and CONCURRENT (08-08 evening): when a run
   # finishes while another cycle is still working, the watcher spawns a
   # second cycle immediately instead of queuing. Coordination is
