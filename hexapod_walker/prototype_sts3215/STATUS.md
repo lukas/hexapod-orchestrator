@@ -277,6 +277,18 @@ GAIT.md / SIM.md, and RL_LOG — not here):**
   train pods); FAIL branches route to the rise-only-DAgger variant
   distill (operator/local). The no-slip line CONCLUDES at its r4
   gate-pass artifact. Detail: arch/STATUS.md.
+- **arch — NEW OPERATOR DIRECTIVE (08-13 ~21:00 UTC), agent-doable,
+  not a wait: ONE model for operator-commanded rise→walk→sit→rise
+  cycles — two jobs, spec of record
+  `rl_docs/tracks/arch/TRANSITIONS_DIRECTIVE.md`.** CODE first
+  (`goal.mode_seq` with per-switch re-anchoring; `distill_gru
+  --transitions`; per-segment sequence eval baselined on the
+  zero-fall two-specialist composition), then `cw-arch-trans-dagger1`
+  (transition DAgger distill, CPU) and `cw-arch-modeseq1` (10M
+  consolidated RL, dual1 stack + mode sequencing as the only new
+  variable). Gates, warm-start order, and FAIL branches are
+  pre-registered in the directive; its 12-lesson failure ledger is
+  binding. Detail: arch/STATUS.md Next.
 - ~~nobc — close the from-scratch gait line?~~ **DECIDED 08-13
   ~12:4x UTC (ruling 3 above): CLOSED; stand-from-scratch charter
   retained.** Reopen requires new hardware evidence. Detail:
