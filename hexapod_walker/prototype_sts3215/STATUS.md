@@ -175,35 +175,27 @@ GAIT.md / SIM.md, and RL_LOG — not here):**
      `cw-quadwalk1` is RUNNING (see FLEET line) — no longer a wait.
   5. **watcher idle-kick backoff → APPROVED** (15m→30→60→2h→4h
      no-op spacing, snap-back on real activity, stays live).
-- **NEW WAIT (08-13 ~16:5x UTC): quad → structural CODE fix for the
-  quadwalk leg-sacrifice loophole is UNWRITTEN.** Five arms
-  (quadwalk1-5) confirmed pricing-only coefficient tuning cannot
-  close it — a 6x charge that should have dominated the return
-  (`cw-quadwalk5`) produced zero behavior change. No design exists
-  yet for the structural term (something that closes "sacrifice any
-  subset of support legs" generically, the quad analogue of the
-  stance line's per-foot-price→`bc_anchor_foot_z` fix); writing one
-  needs a root-cause pass, not a same-cycle triage guess. No
-  quadwalk arm is launchable until it exists and its semantics-bank
-  case is written. Excess-capacity track, hw keeps pod priority —
-  idle quad pods are fine meanwhile. Detail: quad/STATUS.md Now.
-- **FLEET: 0/12 pods GPU-training (08-13 ~16:5x UTC: `cw-quadwalk5`
-  (the one-lever `k_park_duty` 1.0→6.0 reprice) STOP — the price
-  hike changed NOTHING: det+sto both sacrifice the identical mid
-  legs [1,4] in 12/12 episodes (gait_valid 0/6, slip ~13 unchanged,
-  fwd 0.17m med vs 0.05-0.06 commanded), fronts_lifted regressed
-  11/12→3/6 det; quad-hold retention held (creep/roll in-band). A
-  6x charge that should dominate return producing zero behavior
-  change means pricing-only is now measured-exhausted for BOTH
-  quadwalk cheat families found so far (fronts-down, quadwalk1-3;
-  mid-leg-park, quadwalk4-5) — the next lever is a structural CODE
-  fix (closing the "sacrifice any subset of support legs" loophole
-  generically), not another coefficient, and needs a root-cause
-  pass before writing it. No 6th reprice launched this cycle.
-  Backlog empty; train-11's idle CPUs still run the dynrep pilot
-  replication, all 12 GPU slots free).** Every idle slot maps to a
-  named wait below or is quad excess-capacity with no ready lever
-  (pricing closed, structural fix not yet designed).
+- ~~NEW WAIT (08-13 ~16:5x UTC): quad → structural CODE fix for the
+  quadwalk leg-sacrifice loophole is UNWRITTEN.~~ **CLEARED 08-13
+  ~18:xx UTC: the structural fix is BUILT, bank-proven and TRAINING
+  (`reward.walk_gait_gate`, commit 1a21060, tag exp/cw-quadwalk6).**
+  Root cause measured: every existing income gate's fraction spans
+  LOADED feet only, so a leg parked in the AIR silently drops out of
+  the denominator, and additive charges are payable fines. The fix
+  multiplies velocity income (kernel + positive progress + quadwalk
+  clear/plant) by the MIN over commanded support legs of a
+  "completed a real swing recently" score — parking ANY support leg
+  (air-flag or floor-pin) collapses transport income to the floor by
+  construction. Default-off bit-exact; 4 new semantics tests (bank
+  91 pass): scripted mid-pin scoot loses 72% of income, honest
+  six-leg gait keeps ~99%. `cw-quadwalk6` (quadwalk5 + gate=1.0, ONE
+  lever, 2M discovery) is running on train-0. Detail:
+  quad/STATUS.md Now.
+- **FLEET: 1/12 pods GPU-training (08-13 ~18:xx UTC: `cw-quadwalk6`
+  on train-0 — the structural gait-gate arm above; ~15.3k fps,
+  verified). Backlog empty; train-11's idle CPUs still run the
+  dynrep pilot replication.** Every other idle slot maps to a named
+  wait below.
   ~~ASSUMPTION (operator to review, 08-13 ~12:0x)~~ **APPROVED by
   operator ruling above:** idle-kick BACKOFF stays — five deep-model
   idle-kick cycles in 80 min (10:37–11:58 UTC) each re-verified this
