@@ -175,14 +175,17 @@ GAIT.md / SIM.md, and RL_LOG — not here):**
      `cw-quadwalk1` is RUNNING (see FLEET line) — no longer a wait.
   5. **watcher idle-kick backoff → APPROVED** (15m→30→60→2h→4h
      no-op spacing, snap-back on real activity, stays live).
-- **FLEET: 1/12 pods GPU-training (08-13 ~13:3x UTC: `cw-quadwalk1`
-  FINISHED — hit the pre-registered fronts-down six-leg cheat
-  (0/6 fronts_lifted, STOP, no continuation of that exact spec);
-  follow-up `cw-quadwalk2` (reprice respec: 3x the lift-leg income,
-  one lever) VERIFIED RUNNING on train-0, 2M discovery, same base/
-  mix/budget as quadwalk1. Backlog empty again; train-11's idle CPUs
-  still run the dynrep pilot replication, GPU free; see the dynrep
-  entry).** Every OTHER idle slot maps to a named wait below.
+- **FLEET: 1/12 pods GPU-training (08-13 ~14:xx UTC: `cw-quadwalk2`
+  FAIL — same pre-registered fronts-down cheat as quadwalk1, milder
+  (front contact duty 1.0→0.62/0.32, still ≫ the 0.15 bar): pure
+  reprice CLOSED per the two-miss fork; the prescribed CODE lever
+  `reward.k_quad_lift_contact` (per-tick charge on grounded lift
+  legs, default-off, semantics bank green, tag exp/cw-quadwalk3) is
+  checked in and **`cw-quadwalk3` is VERIFIED RUNNING on train-0**,
+  2M discovery, one lever vs quadwalk2. Backlog empty again;
+  train-11's idle CPUs still run the dynrep pilot replication, GPU
+  free; see the dynrep entry).** Every OTHER idle slot maps to a
+  named wait below.
   ~~ASSUMPTION (operator to review, 08-13 ~12:0x)~~ **APPROVED by
   operator ruling above:** idle-kick BACKOFF stays — five deep-model
   idle-kick cycles in 80 min (10:37–11:58 UTC) each re-verified this
@@ -230,11 +233,17 @@ GAIT.md / SIM.md, and RL_LOG — not here):**
   fail; capacity/staged-widening/history levers all closed);
   `eval_cmd_suite.py` remains available to other tracks. Detail:
   multitask/STATUS.md.
-- **arch — waiting on the operator's in-progress DAgger rise
-  redistillation (since 08-12).** The dual-GRU line's rise gap is
-  BC-demo data poverty (hfloor1 refuted the supervision-aim lever);
-  the no-slip line CONCLUDES at its r4 gate-pass artifact. No
-  agent-side arm without new demos. Detail: arch/STATUS.md.
+- **arch — DAgger rise redistillation LANDED on the operator's Mac
+  (08-13 ~13:05: rise is in the BC init for the first time, det
+  3/12 real wins, hold retained; COST: lower collapsed 0/6) but the
+  artifact `ppo_goal_cw_gru_dual_bc_dagger1.zip` (md5 b5167c10) is
+  LAPTOP-LOCAL — not on the controller/pods, so no arch arm can
+  warm from it (wait since 08-13 ~14:xx: checkpoint push).** Also
+  open: the operator's recorded a/b call (accept as-is and let
+  RL+anchors rebuild lower, vs a rise-only-DAgger variant distill).
+  Recommendation on file if assume-and-go applies once the zip
+  arrives: (a) accept — dual1's RL+anchors already rebuilt lower
+  6/6 from a weaker init. Detail: arch/STATUS.md.
 - ~~nobc — close the from-scratch gait line?~~ **DECIDED 08-13
   ~12:4x UTC (ruling 3 above): CLOSED; stand-from-scratch charter
   retained.** Reopen requires new hardware evidence. Detail:
