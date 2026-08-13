@@ -227,6 +227,17 @@ def status_docs() -> dict:
             docs[tid] = {"name": f"{tid} — {v['name']}", "text": text}
     except Exception as e:
         docs["tracks_err"] = {"name": "error", "text": repr(e)}
+    # Track dirs tracks.json doesn't know yet: a new track's docs often
+    # land before its registration (operator 08-12, dynrep) — show them
+    # anyway rather than silently hiding a whole line of research.
+    try:
+        for p in sorted((PROTO / "rl_docs" / "tracks").glob("*/STATUS.md")):
+            tid = p.parent.name
+            if tid not in docs:
+                docs[tid] = {"name": f"{tid} — (unregistered track)",
+                             "text": p.read_text(errors="replace")}
+    except OSError:
+        pass
     return docs
 
 

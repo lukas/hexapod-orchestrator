@@ -28,5 +28,10 @@
     "name": "Multitask learning",
     "doc": "rl_docs/tracks/multitask/STATUS.md",
     "goal": "Test whether diverse SIMULTANEOUS training beats sequential specialist fine-tuning: a fresh command-conditioned locomotion policy (stand + forward + small yaw/lateral as ONE command family, one coherent reward) vs the specialist path. Decisive A/B/C cohort + transfer test; design doc rl_docs/MULTITASK.md. The campaign's failures look like failure-to-ACQUIRE (narrow gait local optimum), not primarily catastrophic forgetting - this track tests that reframe."
+  },
+  "dynrep": {
+    "name": "Dynamics-representation pretraining",
+    "doc": "rl_docs/tracks/dynrep/STATUS.md",
+    "goal": "Learn a task-independent latent of the body's dynamics by self-supervised action-conditioned multi-horizon prediction on diverse sim rollouts (failures included), then test whether PPO reusing that representation (frozen / continually anchored) learns new motor skills with fewer env steps than PPO from scratch. Hard gate: the predictor must beat persistence + linear baselines on held-out data BEFORE any PPO wiring. Design doc rl_docs/DYNREP.md; code rl_move/dynamics/."
   }
 }
