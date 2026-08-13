@@ -205,13 +205,13 @@ GAIT.md / SIM.md, and RL_LOG — not here):**
   physics is exonerated (parity audit 08-13). No launchable sim
   lever is named; nothing trains against this blocker. Detail:
   hw/STATUS.md Next, SIM.md gap 4.
-- **multitask — direction call (since 08-13 ~00:3x).** The wave-1
-  acquisition shortfall's whole cheap-lever menu FAILED (capacity/
-  arch256, staged widening at 2M and 20M, obs history at 2M and
-  20M). Options on the table: transplant arch's dual-core recurrent
-  architecture (cross-track launch = operator-only), narrow the
-  command-width curriculum, or accept `b2` as this recipe's ceiling.
-  `eval_cmd_suite.py` is pre-built for whichever direction. Detail:
+- **multitask — PAUSED by operator (08-13 ~12:2x UTC), direction
+  call withdrawn.** Operator is prioritizing the dynrep
+  (world-dynamics) line instead. Do not launch, queue, or plan
+  further `cw-mt-` arms until the operator unpauses. The wave-1
+  read stands as recorded (a2 pass; b2 acquisition shortfall; c2
+  fail; capacity/staged-widening/history levers all closed);
+  `eval_cmd_suite.py` remains available to other tracks. Detail:
   multitask/STATUS.md.
 - **arch — waiting on the operator's in-progress DAgger rise
   redistillation (since 08-12).** The dual-GRU line's rise gap is
@@ -248,6 +248,362 @@ GAIT.md / SIM.md, and RL_LOG — not here):**
   match both ways). Session runner: `rl_move/scripts/bench_blast.py
   --go`.
 
+- **UPDATE (08-12, hold/rise pricing-only levers now ALL closed):**
+  the contact/pinning code-wait cleared earlier (belly/tucked-shank
+  collision built and falsified — the recorded curls never touch the
+  chassis; the real mechanism is the rise ending on a 3-foot,
+  ±25mm-flickering knife-edge that sim survives and hardware doesn't).
+  `cw-stand-margin1` (paying for CoM depth inside the support
+  polygon) and `cw-stand-transdrag1` (charging loaded-foot scrape
+  during stand/sit) both FAILED — margin1's own target stat never
+  moved (BC-anchor-pinned) and BOTH runs independently reproduce the
+  identical hold one-foot park (idx1, duty 0.03-0.05) that closed
+  `cw-stand-minfeet1` a few hours earlier. **Three independent
+  reward-side arms (minfeet1, margin1, transdrag1) now confirm the
+  SAME closed door: no more pricing-only levers on an anchored stand
+  mode.** `cw-stand-riserock4` (last rise-rock DR variant) also
+  FAILED via the same outrigger cheat. **CLEARED (08-12 ~09:5x, same
+  cycle as the margin1/transdrag1 verdicts): the anchor-side
+  spec/verify pass RAN, and the answer is neither of the two
+  theories on the board.** (a) `_q_nom` is exonerated: 48/48 hold
+  resets settle with ALL SIX feet firmly loaded (3.2–3.6 N, none
+  under 0.5 N) — the anchor reference is a genuine six-foot stance
+  (though feet 1/4 ARE the two lightest at settle, matching which
+  foot every park has ever chosen). (b) "PPO defies supervision" is
+  wrong too: the parked policy's per-leg anchor loss on the parked
+  leg (0.0032) is byte-comparable to the clean parent's same leg
+  (0.0031) — **the park is INVISIBLE to joint-space action MSE**,
+  because a millimetre-scale contact break needs only fractions of a
+  degree of hip lift (3 dims in 18, diluted to ~1e-4). Fix landed
+  same cycle: `train.bc_anchor_foot_z` — a foot-HEIGHT-space anchor
+  term (differentiable FK twin of body_ik, default off, bit-exact
+  off, 3 new tests + full semantics bank green) under which a 10 mm
+  commanded hover costs ~1.0 instead of ~1e-4. **RESULT (08-12):
+  `cw-stand-footz1-r1` PASS (partial) — the fix WORKS.** Det hold:
+  ALL SIX feet duty 0.92–0.98 in every one of 6 episodes (the frozen
+  parent scores 0.05 on the same leg in the identical test) — the
+  first clean six-foot det hold after 6+ straight pricing-arm
+  failures, video-confirmed. Two minor misses, both at/near the
+  parent's own rate and not park-related: sto hold 4/6 valid_plant
+  (current-spec, not duty), det rise 5/6 vs parent's 6/6 (one
+  flat-start height miss, zero falls). Lower unchanged (matches the
+  parent's own pre-existing 3-leg-proud pattern exactly, confirmed
+  not new). **UPDATE (08-12): `cw-stand-footz1-hard1` (the 10M
+  hardening) FINISHED — FAIL.** Hold now survives hardening cleanly
+  (det+sto all-six-feet duty 0.92-0.99, matching/beating discovery),
+  but lower REGRESSED from the ~4/6-matching-parent baseline to 0/12
+  both passes — the SAME known three-leg outrigger cheat, more
+  entrenched under the extra budget (clearances up to 170mm). Root
+  cause: this lineage never got the lower-mode BC anchor that a
+  sibling branch (`cw-stand-anchormix1-r1`) already used to solve
+  lower cleanly (6/6) — the two fixes were never combined. `hard1`
+  (`holdbc1_hard1`) stays deployed. **UPDATE (08-12 midday):
+  `cw-stand-footlow1` (the combination arm) FINISHED — FAIL on its
+  own gate, but the merge is ADDITIVE on two of three modes: first
+  policy ever with a clean six-foot hold (det duty ≥0.94 every
+  foot) AND 12/12 lower with feet ending flush (sub-mm clearances;
+  parent was 0/12 at up to 126mm). The cost surfaced in RISE:
+  det 3/6 / sto 2/6, stalling belly-down ~100mm short — the
+  anchormix lineage's known det flat-rise stall, carried in by the
+  merge. **WAIT CLEARED (08-12, same day): the alignment audit RAN
+  (`probe_anchor_align.py` on the live stalled policy) and found the
+  mechanism — a PLATEAU FIXED POINT: the recorded demo crawls
+  0→25 mm over 5+ s, so the anchor's half-second-ahead target at the
+  stalled belly state commands only 1–5 mm of height gain, servo lag
+  cancels it, and the policy follows its supervision perfectly (its
+  anchor error is LOWEST during the stall — the anchor was teaching
+  the stall, not blind to it). Fix landed + tested
+  (`train.bc_anchor_min_h_ahead_mm`: the aimed-at demo frame must be
+  ≥15 mm above the robot's current height); the one-variable retry
+  `cw-stand-footlow2-r1` trained.**
+  **RESULT + NEW WAIT (08-12 midday): `cw-stand-footlow2-r1` FAIL
+  per its own gate, but the floor mechanism WORKS — the det flat
+  stall moved from ~100 mm short to 15–16 mm short, and noisy-mode
+  rises now succeed 6/6 including every flat start (was 2/6). Two
+  residuals block the next arm, both flagged for a DEEP DIG-IN
+  (waiting on that cycle since this one): (a) the exact-mode rise
+  ends 15 mm short only on the eval's seeded flat starts (a probe
+  from a different start reaches 3 mm error with the anchor
+  correctly aiming at the demo's final plant frame) — need the
+  seeded audit before choosing a lever; (b) the stronger rise
+  supervision re-opened the hold one-foot park (foot idx1 duty 0.03
+  all 6 det episodes) DESPITE the foot-height anchor that fixed it —
+  the rise/hold seesaw is real and unpriced. Sit-down stayed 12/12.
+  `holdbc1_hard1` stays deployed.**
+  **CLOSED (08-12 midday): the session-profile ramp-jitter axis**
+  (`cw-stand-rampjit1`, the 08-11 model-tour follow-up) — FAIL per
+  its own pre-registered gate: the interactive-session rise still
+  misses the bar (59.5 vs 60 mm @9.5 s; parent 55) and sit-down
+  retention regressed (det 2/6, sto 0/6, outrigger class). One real
+  positive for the record: the parent's deterministic
+  sit-after-walk TIP-OVER did not occur (session no_falls +
+  sit_descends PASS). Per the gate, next lever is START-STATE
+  exposure, not more profile jitter — unspec'd, folded into the
+  same stance-line wait above.
+  **Still WAITING (walk side): the takeoff-roll transient for
+  WALKING has no launchable lever** — torque/command DR families all
+  closed, and margin-style pricing (the hoped-for generalization) is
+  now refuted on the stand side too. Walk-takeoff needs an operator
+  design discussion or the same anchor-side investigation once it
+  exists. Nothing is training against the walk-takeoff blocker.
+- **CLEARED (08-12 ~16:1x, was WAITING): the "needs a probe that
+  FORCES a tipped spawn" design fix landed with ZERO new code** —
+  `dr.tipped_start_prob`/`dr.tipped_start_deg` are existing cfg keys
+  that apply as absolute overrides AFTER dr-scale (`sim_env.py`
+  reset), so `--dr-scale 0.0 --cfg-set dr.tipped_start_prob=1.0
+  --cfg-set dr.tipped_start_deg=8,8` forces every hold episode
+  tipped 8° with every OTHER DR axis isolated off — no launcher, no
+  training. Ran on both footlow2-hard1 and -stable1 (12 det + 12 sto
+  hold episodes each): the policy ALREADY partially self-corrects
+  (roll settles ≤2.6° in 11-12/12 episodes, classed
+  recovered/settled) but often misses the strict valid_plant spec on
+  final HEIGHT (15–31mm over the 15mm bar, one episode also
+  over-current) — valid_plant only 5/12 det, 9/12 sto on BOTH
+  checkpoints, near-identically. So `cw-stand-footlow2-level1`'s
+  FAIL is re-attributed: its 3-variable confound (dr-scale 0.35 +
+  ground_tilt 5° + tipped_start 0.30 in one run) — not the
+  tipped-start axis itself — is the more likely cause of the
+  reopened park. **Refilled with the one-variable isolation this
+  should have been:** `cw-stand-footlow2-tip1` (2M discovery, warm
+  from hard1, dr.tipped_start_prob=0.5/deg=6-10 ONLY, dr-scale 0.0,
+  everything else byte-identical to hard1) — gate: forced-8°-tip
+  valid_plant ≥9/12 each pass (vs the probe's own 5/12 det, 9/12 sto
+  baseline) + zero new foot-duty park + clean nominal retention.
+  `footlow2-stable1` PASSED its own gate this cycle (see Now/RISE.md)
+  — a second stance candidate, real hold-drag tradeoff vs hard1
+  (+75%), does not strictly dominate it.
+  **RESULT (08-12 eve): `cw-stand-footlow2-tip1` FAILED both
+  pre-registered clauses — the tipped-start DR axis is CLOSED as
+  HARMFUL on anchored stance.** Training at 50% tipped spawns taught
+  the policy to LIVE TILTED, not to level: the forced-8° probe holds
+  height (det valid_plant 12/12 vs parent 0/12) but never levels
+  (roll tail med 7.2°, settled 0/12 vs parent 11/12) with a foot
+  parked every det episode; worse, NOMINAL retention broke — untipped
+  det hold ends tilted 7.6° and the standard eval logged 6 tilt_roll
+  falls (parent: zero, everywhere). Per the gate's own consequence
+  clause the anchor is implicated: no further isolated-DR retries on
+  this lineage. Tip robustness, if hardware demands it, needs an
+  anchor-side design (tip-aware reference), not a DR knob. The
+  stance candidates stand unchanged (hard1 / stable1).
+- **CLEARED (08-13 ~01:xx, was WAITING since 08-12): nobc's
+  scheduler code-wait is closed — the in-run coefficient scheduler
+  LANDED and its first arm is training.** `sched.*` cfg keys ramp
+  one coefficient by global env steps during a run; implemented in
+  `sim_env._step_begin` so both trainer stacks get it by
+  construction; default off = bit-exact, 10 new tests
+  (`test_coef_sched.py`) + the full semantics bank green, REWARD.md
+  row added. `cw-gait-sched1` (2M discovery, from-scratch on the
+  dragstance1 stack, k_drag_stance ramped 0→8000 over steps
+  0.5M→1.5M — paddle first, then price the skate away) is the LAST
+  untried form of GAIT P3 lever 2; pre-registered: if it produces
+  the freeze OR the unresolved-charge skate again, the from-scratch
+  gait line has no levers left and the recommendation to the
+  operator is to close it.
+- **CLEARED (08-12 ~22:0x, was WAITING on the 20M re-queue): the
+  multitask wave-1 read is COMPLETE and CLOSED** — `cw-mt-a2`
+  specialist control PASS (real six-leg gait, prog med 1.23-1.30),
+  `cw-mt-b2` narrow generalist FAIL (real gait but short on
+  speed/yaw), `cw-mt-c2` broad generalist FAIL (flag-leg, falls
+  19/24): command-width interference is real and monotone at a
+  matched 20M budget. The follow-up capacity probe
+  `cw-mt-b-arch256-1` (256×256 fresh at 2M) also FAILED its gate —
+  width is not the lever. **`cw-mt-widen1` (staged widening, 2M)
+  FAILS(acquisition) but CONFIRMS the walking prior fully survives
+  command widening** (gait_valid 6/6 det, prog med 1.57 vs a2's
+  1.23, zero sacrificed legs, roll_tail flat-to-better than a2) —
+  neither new command (stop/yaw) is acquired yet, but no mt arm has
+  ever acquired a command at only 2M, so this doesn't yet separate
+  "needs more budget" from "can't represent it". Now training:
+  `cw-mt-widen2` (train-0, same recipe continued to the b2-matched
+  20M) to settle that before reaching for the representation lever
+  (obs history). Detail: `rl_docs/tracks/multitask/STATUS.md`.
+- **CLEARED (08-12, was WAITING): the mode-gated dual-core GRU
+  (`DualGruActorCriticPolicy`, commit 2137c00) landed and the answer
+  is in.** `cw-arch-gru-dual-scratch1` (2M, from-scratch + full
+  anchor stack on the dual arch) FAILS its own gate on one narrow
+  clause (rise sto 2/6 vs the >=3/6 bar, n=6 — det rise unchanged at
+  parent's 1/6) but DECISIVELY confirms the central question:
+  splitting locomotion/stance into separate cores removes the
+  shared-trunk interference — det walk gait_valid 6/6 with ZERO
+  sacrificed legs (parent scratch-anchor1: 0/6, one leg parked in
+  every episode), hold/lower both hold at parent's 6/6, anchor loss
+  converges clean (~0.01). New residual to watch, not gate-breaking:
+  under own-DR 0.5 the leg-sacrifice partially reappears (gait_valid
+  3/6 vs parent's 5/6). **CLEARED (08-12): `cw-arch-gru-dual1` (10M
+  hardening) FINISHED — the walk-freeze question is answered YES.**
+  Det walk gait_valid 6/6, zero sacrificed legs, prog_ratio 0.95
+  (parent anchor3: 0.03, pixel-static) — real translation confirmed
+  on video. Hold/lower det 6/6 each, with BETTER drag/roll-tail than
+  the shared-trunk parent (hold drag 55mm vs 117mm; lower 99mm vs
+  310mm). Fails its pre-registered n=6/seed=0 gate draw by one
+  episode on rise (1/6, needs >=2/6) — but a same-cycle n=12 recheck
+  found 7/12 (58%, incl. real non-crouch wins), so the small first
+  draw was noise, not a true deficiency; rise is much closer to
+  solved than the gate letter shows. Mode-gated dual-core routing is
+  now the confirmed fix for the arch line's shared-trunk walk-freeze;
+  not yet formally re-passed as a full-skill candidate. **Follow-up
+  `cw-arch-gru-dual-hfloor1` FINISHED — FAIL, and informative: the
+  MLP lineage's plateau-fix lever (aim the rise anchor >=15mm above
+  current height) does NOT transfer here.** A fair larger-sample
+  recheck (n=12, matching the method that corrected dual1's own
+  noisy draw) finds rise WORSE, not better (5/12 det with zero
+  non-crouch wins vs dual1's 7/12 with two; 1/12 sto vs dual1's
+  4/12), plus a new pathology — 3-4 non-crouch attempts now trip an
+  over-current shutdown from straining in a stuck low crouch for the
+  full episode (video-confirmed honest stall, not a cheat). Walk/
+  hold/lower all held clean, hold/lower slightly BETTER than dual1's
+  own numbers. Conclusion: this architecture's rise gap is data-
+  poverty in the BC-distill (never enough real rise demos), not a
+  supervision-aim problem — the lever family is closed here; the
+  live next step is the operator's in-progress DAgger rise
+  redistillation (arch/STATUS.md "Next").
+- **UPDATE (08-12 ~23:1x): `cw-mt-widen2` (multitask staged-widening,
+  budget-matched 20M) FINISHED — FAIL(no-acquisition), decisively.**
+  The walking prior survives the widened command set perfectly at
+  the full 20M budget (gait_valid 6/6 det+sto both DR passes, zero
+  terms, roll_tail 0.4-1.0°) but neither stop nor turn is acquired
+  (signed-probe stop-hold speed 0.0417 m/s vs fwd-hold 0.0688, needed
+  <=0.02; tip-yaw differential 0.0032, needed >=0.10) — this closes
+  the budget question the widen1→widen2 pair was designed to answer:
+  20M is not a too-short fine-tune, the staged-widening budget lever
+  is dead. Refill hit a documented infra gotcha (hist16+model-DR
+  `/dev/shm` cap, 0-step SIGBUS) that a concurrent cycle fixed and
+  requeued as `cw-mt-b-hist16-r1`, now RUNNING (train-0) — the
+  representation lever. Detail: `rl_docs/tracks/multitask/STATUS.md`.
+- **UPDATE (08-12 ~23:3x): `cw-mt-b-hist16-r1` (multitask
+  representation lever, 2M) FINISHED — FAIL per its pre-registered
+  gate.** 16-frame history does not change 2M discovery on b1's
+  recipe: gate(DR0) det prog med 0.21 vs the 0.32 bar (b1 baseline
+  0.16, delta inside noise), gait_valid 0/6, same low-crouch splay
+  video-confirmed. This closes the cheap-2M-probe menu for the track
+  (capacity/arch256, staged-widening/widen1-2, and now history all
+  FAIL at 2M or fail to acquire commands even with a surviving
+  walking prior at 20M). Refill: `cw-mt-b-hist16-20m1` (same recipe,
+  b2-matched 20M budget — the real command-acquisition test) is
+  RUNNING (train-0). Detail: `rl_docs/tracks/multitask/STATUS.md`.
+- **UPDATE (08-13 ~00:3x): `cw-mt-b-hist16-20m1` (the real 20M
+  command-acquisition test for history) FINISHED — FAIL(worse/no-gait),
+  decisively.** gait_valid collapses to 2-4/6 across all four passes
+  vs `b2`'s clean 6/6, driven by a front leg chronically near-frozen
+  (duty 0.01-0.17 in every one of 24 episodes, video-confirmed) —
+  worse than `b2`'s already-marginal weak leg. Progress/slip numbers
+  look flat-to-better but that's a drag-exploit artifact (the other
+  five legs dragging the near-frozen one), not real improvement; roll
+  stays flat-to-worse. History (16-frame) is now closed as a lever at
+  BOTH budgets tested (2M and this 20M budget-match) — no further
+  hist-frames variants. **The multitask track's entire cheap-lever
+  menu for the wave-1 acquisition shortfall (capacity, staged-
+  widening, history) is now exhausted; every lever FAILED or made
+  things worse.** WAITING-ON: an operator call on the next direction
+  (transplant the arch track's recurrent architecture onto this
+  recipe, vs. narrow the command-width curriculum, vs. accept `b2` as
+  this recipe's ceiling) — no further isolated-lever retries queued
+  pending that call. **UPDATE (08-13): the transplant's CODE is now
+  built and tested** — `obs.mode_onehot_cmd=1` (walk_task) derives the
+  dual-core GRU's routing one-hot from the LIVE blended command
+  (stopped ⇒ stance core, moving ⇒ locomotion core), so
+  `DualGruActorCriticPolicy` drops onto the command-conditioned
+  recipe unchanged (`--gru-dual` + `--cfg-set obs.mode_onehot=1
+  --cfg-set obs.mode_onehot_cmd=1`; default OFF = bit-exact legacy
+  obs, `tests/test_mode_onehot.py`). The per-command eval runner the track
+  spec calls for also landed: `rl_move/sim/eval_cmd_suite.py` (exact
+  (vx,vy,wz) triples — `--cmd` repeatable / `--suite` JSON / default
+  panel; per-command tracking/falls/progress/slip/current, det+sto,
+  JSON `--out`). NOTE: the landed version is MLP-only — a laptop
+  variant with GRU/dual-GRU checkpoint loading sits unmerged at
+  `eval_cmd_suite.laptop-20260812.py`; that port is needed before
+  the transplant's per-command gate can run on a dual-core
+  checkpoint. The operator call is otherwise a launch decision.
+  Detail: `rl_docs/tracks/multitask/STATUS.md`.
+- **Fleet at ~01:3x UTC 08-13: 0/12 pods training** —
+  `cw-gait-sched1` (nobc) FINISHED and FAILED (see the WAITING entry
+  above); backlog is empty (`capacity.py` confirms 12/12 free, no
+  drain-bug). All 12 idle slots are now named waits, none an
+  unattacked blocker: multitask's lever menu is exhausted pending the
+  operator call above; nobc's is exhausted pending the physics-easing
+  build-or-close call above; the other tracks' waits (below) are
+  unchanged from the prior fleet-state note and were re-checked this
+  cycle, not stale. (Earlier note, superseded: at ~01:xx the fleet was
+  1/12 with `cw-gait-sched1` running on train-0.) The wave-1 20M re-queue, the arch256 capacity
+  probe, the widen1/widen2 staged-widening pair, and the hist16-r1/
+  hist16-20m1 history pair are all verdicted (a2 PASS control; b2/c2
+  FAIL — width interference; b-arch256-1 FAIL — capacity not the
+  lever; widen1 FAIL(acquisition)/widen2 FAIL(no-acquisition) —
+  walking-prior survival confirmed but budget doesn't teach new
+  commands; hist16-r1/hist16-20m1 FAIL/FAIL(worse) — history isn't
+  the lever at either budget). All earlier finished-but-unverdicted
+  runs are verdicted (getup4 FAIL/pricing-refuted; footzsharp1
+  PASS/hover-lever; footlow2-tip1 FAIL/tipped-DR-closed-harmful;
+  mt-a1/b1/c1 FAIL-budget). Why the other 11 pods idle, per track:
+  hw stance — two passing candidates, promotion is a BENCH call
+  (operator); hw walk — bcgait1-hard1's path to Gate 0 is bench tape
+  evidence (operator), takeoff transient still needs the
+  contact/pinning design discussion (below); arch — waiting on the
+  operator's in-progress DAgger rise redistillation; nobc —
+  gait-from-scratch's last lever (physics easing) was unbuilt code at
+  the time; built+tested later on 08-13 (see the UPDATE below); quad —
+  four-leg-walk reward spec+bank FIRST (specification, never trains);
+  turn — MirrorPolicy deploy port was robot-runner work; landed 08-13
+  (see the UPDATE below), bench session pending.
+- **WAITING (since 08-13 ~01:2x): nobc's gait-from-scratch line —
+  `cw-gait-sched1` (the in-run coefficient scheduler's first and only
+  arm) FAILED, the pre-registered false branch exactly (det fwd
+  travel 0.01m vs the 0.3m bar, slip/m 9.4/18.4 vs the 3.0 bar,
+  frozen-stance video, unresolved drag charge despite the ramp firing
+  correctly).** This closes GAIT P3 lever 2 in every form tried
+  (fixed rung, warm-start anneal, true in-run schedule); the whole
+  no-new-code lever menu (2, 4, 5) for nobc gait-from-scratch is now
+  exhausted. The only remaining lever (physics easing: relax
+  gravity/servo-velocity-ceiling early, anneal to nominal) is genuine
+  UNBUILT CODE — it needs new per-episode-reset plumbing in
+  `domain_rand.py`, code shared by every run in every track, so it
+  was NOT written this cycle next to a live triage (exactly the kind
+  of rushed shared-code change that produced past pool-restore/
+  dilution bugs). Blocked on: an operator call to either dedicate a
+  cycle to building+testing physics easing, or accept the
+  from-scratch gait line as exhausted for now (does not block the hw
+  mainline — BC-init already solved tall walking there). **UPDATE
+  (08-13): physics easing was BUILT, tested, RUN — and its arm
+  FAILED.** `ease.gravity_scale` / `ease.vel_ceiling_scale` landed
+  in `sim_env._reset_begin` (snapshot e40a3ea), scaling the
+  per-episode DR draw (`_ep_rand`) both trainer stacks already
+  consume (C-path `apply_to_model`, MJX device rows) with zero new
+  `domain_rand.py` plumbing; both keys re-read every reset so the
+  existing `sched.*` engine anneals them in-run. Default OFF is
+  bit-exact legacy (`tests/test_physics_ease.py`, 8 green; sched +
+  full semantics bank green). Its one arm `cw-gait-ease1`
+  (half-gravity annealed 0.4M–1.1M, otherwise byte-identical
+  dragstance1 stack) FAILED the pre-registered false branch — the
+  identical freeze even at half gravity — so P3 levers 1–5 are ALL
+  closed and the from-scratch gait line is out of levers; the CLOSE
+  recommendation is an operator call (see the Now section above).
+  Detail: `rl_docs/tracks/nobc/STATUS.md`, `rl_docs/GAIT.md` P3.
+  (A parallel laptop reimplementation of easing — `ease.scale` /
+  `ease.servo_vel_scale`, `test_phys_ease.py` — was superseded by
+  the e40a3ea version and discarded in the 08-13 merge resolution.)
+- Operator-gated (bench, not GPU): NOTHING is deploy-blocked anymore.
+  The deploy re-push is DONE and verified over HTTP (08-11 ~21:15):
+  the robot's ACTIVE stance policy is stand_holdbc1_hard1 WITH the
+  trained goal profile in its meta (stand 5s hold / 6s ramp /
+  +111mm; lower 1s/5s/−45mm) — STAND is no longer profile-stale.
+  The turn-sign audit is CLOSED (operator 08-11 night: the robot
+  turns the way the drawn signs say, both directions — no bridge
+  flip needed; rate unmeasured). Remaining bench items are session
+  work when the operator wants them: first learned stand-up (hand
+  ready, belly start + fresh set_zero — preflight currently refuses
+  from the tilted rest pose, as designed), rot60 off-wedge headings,
+  the vref1-vs-tip1 A/B, RL-walk tape. Bench turn sessions wait
+  only on the MirrorPolicy deploy port [CODE]. **UPDATE (08-13): the
+  deploy port LANDED** — `run_policy_move(..., turn="left"/"right"/
+  "hold")` in `linux_control/rl_policy.py` (mirror wrapped OUTSIDE its
+  own rot60 instance; heading-hold bang-bang on integrated gyro z,
+  4° hysteresis, per the sim probe), exposed through
+  `POST /api/rl/walk {"turn": ...}`; `turn` unset is bit-identical to
+  today's walk path. mirror.py ships in both deploy scripts;
+  `tests/test_mirror_runner.py` locks the port (replay parity vs the
+  mirror primitives, selector semantics, numpy-only import chain).
+  Bench turn sessions now wait only on an operator session (re-deploy
+  first — the board needs the new rl_policy.py + mirror.py).
 
 ## The one-paragraph answer
 
