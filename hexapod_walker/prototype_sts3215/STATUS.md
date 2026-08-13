@@ -265,10 +265,17 @@ GAIT.md / SIM.md, and RL_LOG — not here):**
   provenance). Log: `rl_move/dynamics/logs/pod_pilot_rep.log` on
   train-11 (`pod_pilot_rep.sh`). Known recipe drift: the noslip
   actor's 10% share falls back to tripod (noslip_gait.py is
-  laptop-only; collect.py now degrades gracefully). Next cycle to
-  see it finished: verdict per DYNREP.md (B/C vs A
-  steps-to-threshold + retention across 3 seeds), then the
-  pod-scale task-ladder design. GPU on train-11 stays free.
+  laptop-only; collect.py now degrades gracefully). Health-checked
+  08-13 ~13:19 UTC (operator-kick cycle): encoder pretraining
+  ~25k/40k, trainer at ~18.5 cores, healthy — PPO cohort still
+  ahead, hours-scale. Next cycle to see it finished: triage as a
+  direction-of-effect check against the operator's laptop 3-seed
+  sweep (30ca480 verdict revision: better-final YES, faster/
+  retention NO; expected ordering in dynrep/STATUS.md), then launch
+  the hold->walk pair — its code landed 08-13 ~13:3x (walk task +
+  eval-every<=10k + seeds 1–5 runner `pod_holdwalk.sh`, smoke-tested;
+  launch-blocked ONLY on the rep triage per operator ordering). GPU
+  on train-11 stays free.
 - **Bench session items (operator time, not GPU — nothing is
   deploy-blocked):** first hardware run of the learned stand-up
   (deploy re-push DONE + HTTP-verified 08-11 ~21:15, goal profile in
