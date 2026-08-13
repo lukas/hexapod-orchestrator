@@ -153,8 +153,19 @@ narratives live in the track STATUS docs, rl_docs/runs/, RISE.md /
 GAIT.md / SIM.md, and RL_LOG — not here):**
 
 - **FLEET: 0/12 pods training, backlog empty (since 08-13 ~03:1x;
-  re-verified 08-13 ~11:4x UTC).** Every idle slot maps to a named wait
-  below. No unattacked sim stand/walk blocker remains: the
+  re-verified 08-13 ~12:0x UTC).** Every idle slot maps to a named wait
+  below. **ASSUMPTION (operator to review, 08-13 ~12:0x): idle-kick
+  BACKOFF added to the watcher** — five deep-model idle-kick cycles in
+  80 min (10:37–11:58 UTC) each re-verified this same unchanged,
+  fully operator-gated board; at the 96/day cap that's ~$1k+/day of
+  no-op deliberation (08-09 cost order). Consecutive no-op kicks now
+  space out 15min→30→60→2h→4h (capped); cadence snaps back to 15 min
+  on ANY real activity (finished run, training run, checkup findings,
+  operator `ops.sh cycle`). Not a disable: the watcher still kicks at
+  least every 4 h, and triage/drain/checkup paths are untouched.
+  Watcher restart queued via `restart_watcher.sh` (takes effect when
+  this cycle exits). Revert = `git revert` the tagged commit +
+  restart. No unattacked sim stand/walk blocker remains: the
   one-parked-foot hold and det flat-rise stall are SOLVED
   (footlow2-hard1), the crouch-splay tall-walk wall is BROKEN
   (bcgait1-hard1), contact/pinning + warp physics are audited clean,

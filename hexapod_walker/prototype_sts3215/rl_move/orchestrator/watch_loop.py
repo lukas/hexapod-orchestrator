@@ -94,6 +94,28 @@ RUN_PREFIX = "cw-"
 # polls, kick a cycle anyway so the campaign can't deadlock (e.g. after a
 # blocked launch or a watcher restart with idle pods).
 IDLE_KICK_POLLS = 3
+# Idle-kick BACKOFF (08-13 idle-kick cycle; ASSUMPTION, operator to
+# review — recorded in STATUS.md): when the whole fleet is parked on
+# operator-gated waits (STATUS.md WAITING-ON), consecutive no-op idle
+# kicks double the wait before the next one (15 min -> 30 -> 60 -> ...
+# capped below). Any real activity — a finished run, checkup findings,
+# a training run appearing, or an operator KICK — resets the cadence
+# to IDLE_KICK_POLLS. Trigger: five fable idle kicks re-verified an
+# UNCHANGED all-operator-gated fleet in 80 min on 08-13; at the
+# 96/day cap that is ~$1k+/day of no-op deliberation (operator cost
+# order, 08-09). The campaign still cannot deadlock: a kick fires at
+# least every IDLE_KICK_MAX_POLLS * POLL_S (~4 h).
+IDLE_KICK_MAX_POLLS = 48  # 48 * 300 s = 4 h floor on kick cadence
+
+
+def idle_kick_threshold(streak: int) -> int:
+    """Polls to wait before the next idle kick, given how many
+    consecutive idle kicks already fired with no intervening activity."""
+    try:
+        return min(IDLE_KICK_POLLS * (2 ** max(0, streak)),
+                   IDLE_KICK_MAX_POLLS)
+    except OverflowError:
+        return IDLE_KICK_MAX_POLLS
 
 
 def log(msg: str) -> None:
@@ -641,6 +663,7 @@ def main() -> None:
     cycle_times: list[float] = spawned_cycles_last_24h()
     failed_cycles = 0
     idle_polls = 0
+    idle_kick_streak = 0  # consecutive idle kicks with no real activity
     active: list[dict] = []
     log(f"watcher started — {len(cycle_times)}/{daily_cycle_cap()} "
         "cycles already spawned in the rolling 24h window")
@@ -713,6 +736,7 @@ def main() -> None:
                     except OSError:
                         note = ""
                     KICK.unlink(missing_ok=True)
+                    idle_kick_streak = 0  # operator attention: full cadence
                     cycle_times.append(now)
                     handle = spawn_cycle(
                         set(), running, "", in_flight,
@@ -733,6 +757,11 @@ def main() -> None:
             if not newly and not findings:
                 if running or active:
                     idle_polls = 0
+                    if running:
+                        # Actual training = real activity: restore the
+                        # 15-min idle-kick cadence. (An active idle-kick
+                        # cycle alone does NOT reset the backoff streak.)
+                        idle_kick_streak = 0
                     log(
                         f"{len(running)} training, {len(active)} cycle(s) "
                         f"active; nothing new finished"
@@ -740,16 +769,24 @@ def main() -> None:
                     time.sleep(POLL_S)
                     continue
                 idle_polls += 1
-                if idle_polls < IDLE_KICK_POLLS:
+                threshold = idle_kick_threshold(idle_kick_streak)
+                if idle_polls < threshold:
                     log(
                         f"nothing running, nothing new finished "
-                        f"(idle poll {idle_polls}/{IDLE_KICK_POLLS})"
+                        f"(idle poll {idle_polls}/{threshold}"
+                        + (f", kick streak {idle_kick_streak})"
+                           if idle_kick_streak else ")")
                     )
                     time.sleep(POLL_S)
                     continue
-                log("pods idle too long — kicking a cycle to resume the campaign")
+                log("pods idle too long — kicking a cycle to resume the campaign"
+                    + (f" (idle-kick streak {idle_kick_streak + 1}, next "
+                       f"threshold {idle_kick_threshold(idle_kick_streak + 1)}"
+                       " polls)" if idle_kick_streak + 1 else ""))
+                idle_kick_streak += 1
             else:
                 idle_polls = 0
+                idle_kick_streak = 0
                 if findings:
                     log("checkup findings pending — injecting into next cycle")
 
