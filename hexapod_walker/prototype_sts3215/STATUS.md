@@ -21,9 +21,15 @@ anyone catching up. Facts here must agree with `CURRENT_TRUTHS.md`
 (which wins on conflict); the full checkpoint inventory with gate
 numbers lives in `rl_docs/SKILLS.md`.
 
-**Last updated: 2026-08-13 (~06:xx) — headline CORRECTED: the
+**Last updated: 2026-08-13 (~08:xx) — the standing-lean fix attempt
+failed: `cw-stand-tiltcomp1` (tilt-aware anchor teacher) reproduces
+the stay-tilted habit (~5.75° lean, 24/24 episodes) instead of
+leveling; tipped-exposure training is CLOSED with two teacher designs
+now converged on the same pathology, and the hardware ~8° lean
+escalates to an operator design discussion (see WAITING-ON).**
+Earlier (~06:xx) — headline CORRECTED: the
 warp-vs-C contact parity audit ran and the GPU training physics is
-FINE.** Matched command-stream replays (new `probe_contact_parity.py`)
+FINE. Matched command-stream replays (new `probe_contact_parity.py`)
 show warp@1/4 within ~3–6% of C@50 on loaded-foot slip in both the
 normal and the no-slip speed regimes, flat across solver iterations,
 zero stance creep under pure load — the earlier "under-charges slip"
@@ -395,9 +401,24 @@ never buried in a cycle log):**
   spec/operator work). Audit data: train-0
   `logs/probe_contact_parity/`. (Kept from the same cycle: the
   launcher fast-finish false-FAIL fix in `launch_run.py`.)
-- **Fleet update ~07:xx UTC 08-13: 1/12 pods training
-  (`cw-stand-tiltcomp1`, hw stance-lean arm, train-0); the other 11
-  idle slots remain the named waits below (unchanged, re-checked).**
+- **NEW WAIT (08-13 ~08:xx, hw): the hardware ~8° standing-lean
+  blocker now needs an OPERATOR DESIGN DISCUSSION — the
+  tipped-exposure training route is CLOSED even with a correct
+  teacher.** `cw-stand-tiltcomp1` (tilt-aware anchor teacher,
+  the lever tip1's gate prescribed) FAILED its matched forced-8°-tip
+  gate exactly like tip1: the policy holds full height (valid_plant
+  12/12 vs parent 0/12) but settles LEANING ~5.75° in 24/24 episodes
+  (parent rights itself to 1.45° in 11/12) and parks a foot every
+  time. Two differently-designed teachers (tilt-blind, tilt-aware)
+  converged on the same stay-tilted habit → the incentive is the
+  problem (hold income never prices residual lean), not the teacher.
+  Pre-registered consequence: no dose retry; operator call on next
+  design (e.g. price levelness in hold income vs a non-RL correction
+  on hardware). Waiting since 08-13 ~08:xx.
+- **Fleet update ~08:xx UTC 08-13: 0/12 pods training —
+  `cw-stand-tiltcomp1` FINISHED and is verdicted FAIL (entry above);
+  all 12 idle slots are named waits below, none an unattacked
+  stand/walk blocker (the lean was the last self-serve hw lever).**
 - **Fleet at ~03:1x UTC 08-13: 0/12 pods training, backlog empty —
   every idle slot is a named wait, none an unattacked blocker.**
   `cw-gait-ease1` (the last run in flight) FINISHED and is verdicted
