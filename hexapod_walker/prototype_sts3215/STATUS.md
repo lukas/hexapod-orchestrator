@@ -170,12 +170,17 @@ GAIT.md / SIM.md, and RL_LOG — not here):**
      explicit pre-registered ROBUSTNESS GATE** (gate spec is the
      first artifact of the first arm — see the binding conditions
      in quad/STATUS.md). MDP_PREFLIGHT unblocks under those terms.
+     **EXECUTED 08-13 ~13:xx UTC:** gate spec committed
+     (`rl_docs/tracks/quad/QUADWALK_REF_GATE.md`) and the first arm
+     `cw-quadwalk1` is RUNNING (see FLEET line) — no longer a wait.
   5. **watcher idle-kick backoff → APPROVED** (15m→30→60→2h→4h
      no-op spacing, snap-back on real activity, stays live).
-- **FLEET: 0/12 pods GPU-training, backlog empty (since 08-13 ~03:1x;
-  re-verified 08-13 ~12:3x UTC — train-11's idle CPUs now run the
-  dynrep pilot replication, GPU still free; see the dynrep entry).**
-  Every idle slot maps to a named wait below.
+- **FLEET: 1/12 pods GPU-training (08-13 ~13:xx UTC: `cw-quadwalk1`,
+  2M discovery on train-2 — the first quadwalk arm under ruling 4,
+  gate spec `rl_docs/tracks/quad/QUADWALK_REF_GATE.md` committed
+  first as required; backlog empty; train-11's idle CPUs still run
+  the dynrep pilot replication, GPU free; see the dynrep entry).**
+  Every OTHER idle slot maps to a named wait below.
   ~~ASSUMPTION (operator to review, 08-13 ~12:0x)~~ **APPROVED by
   operator ruling above:** idle-kick BACKOFF stays — five deep-model
   idle-kick cycles in 80 min (10:37–11:58 UTC) each re-verified this
