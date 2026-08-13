@@ -177,22 +177,18 @@ GAIT.md / SIM.md, and RL_LOG — not here):**
      no-op spacing, snap-back on real activity, stays live).
 - ~~NEW WAIT (08-13 ~16:5x UTC): quad → structural CODE fix for the
   quadwalk leg-sacrifice loophole is UNWRITTEN.~~ **CLEARED 08-13
-  ~18:xx UTC: the structural fix is BUILT, bank-proven and TRAINING
-  (`reward.walk_gait_gate`, commit 1a21060, tag exp/cw-quadwalk6).**
-  Root cause measured: every existing income gate's fraction spans
-  LOADED feet only, so a leg parked in the AIR silently drops out of
-  the denominator, and additive charges are payable fines. The fix
-  multiplies velocity income (kernel + positive progress + quadwalk
-  clear/plant) by the MIN over commanded support legs of a
-  "completed a real swing recently" score — parking ANY support leg
-  (air-flag or floor-pin) collapses transport income to the floor by
-  construction. Default-off bit-exact; 4 new semantics tests (bank
-  91 pass): scripted mid-pin scoot loses 72% of income, honest
-  six-leg gait keeps ~99%. `cw-quadwalk6` (quadwalk5 + gate=1.0, ONE
-  lever, 2M discovery) is running on train-0. Detail:
+  ~18:xx UTC: the structural fix landed (`reward.walk_gait_gate`,
+  commit 1a21060) and its own first arm (`cw-quadwalk6`) PROVED the
+  pricing works (matched-behavior A/B vs quadwalk5: identical [1,4]
+  leg-sacrifice cheat flips from +722..+1146/ep to -65..-290/ep) —
+  but the policy stayed stuck reproducing that now-losing behavior
+  anyway (gait_valid still 0/6). Read: exploration-blocked local
+  optimum, not a pricing gap. `cw-quadwalk7` (quadwalk6 +
+  `--ent-coef` 0.001→0.02, ONE lever, 2M discovery) is running on
+  train-0 to test the exploration hypothesis directly. Detail:
   quad/STATUS.md Now.
-- **FLEET: 1/12 pods GPU-training (08-13 ~18:xx UTC: `cw-quadwalk6`
-  on train-0 — the structural gait-gate arm above; ~15.3k fps,
+- **FLEET: 1/12 pods GPU-training (08-13 ~18:xx UTC: `cw-quadwalk7`
+  on train-0 — the entropy-exploration follow-up above; ~13-15k fps,
   verified). Backlog empty; train-11's idle CPUs still run the
   dynrep pilot replication.** Every other idle slot maps to a named
   wait below.
