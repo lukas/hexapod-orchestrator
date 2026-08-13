@@ -217,9 +217,9 @@ GAIT.md / SIM.md, and RL_LOG — not here):**
   Waiting on: operator flips the two cfg keys on the runner's walk
   engage and re-runs takeoff reps (deploy is operator-only). No
   training arm until the bench adopts the entry sequence.
-- **FLEET: 0/12 pods GPU-training (08-13 ~2x:xx UTC; backlog empty;
-  train-11's idle CPUs run the dynrep encoder seed-retry; train-0's
-  idle CPUs ran this cycle's gait-entry prototype probe, done).**
+- **FLEET: 0/12 pods GPU-training (08-13 ~19:4x UTC; backlog empty;
+  no CPU jobs either — the dynrep seed-retry on train-11 finished
+  at G1 FAIL, see the dynrep wait below).**
   Every idle slot maps to a named wait in this block.
   ~~ASSUMPTION (operator to review, 08-13 ~12:0x)~~ **APPROVED by
   operator ruling above:** idle-kick BACKOFF stays — five deep-model
@@ -299,24 +299,23 @@ GAIT.md / SIM.md, and RL_LOG — not here):**
   mirror.py in both deploy scripts, `tests/test_mirror_runner.py`.
   Remaining turn work is a bench session (below; re-deploy first).
   Detail: turn/STATUS.md.
-- **dynrep — pilot replication G1-FAILED at the encoder gate; ONE
-  pre-registered seed-retry RUNNING on train-11 idle CPUs (since
-  08-13 ~18:26 UTC; waiting on the pod job, hours-scale).** The
-  original rep (`pod_pilot_rep.sh`) finished its encoder stage and
-  the DYNREP.md hard gate correctly refused to wire PPO: the pod
-  encoder lost to the linear baseline at k=1 ONLY (0.1718 vs
-  0.1673, ~2.7%; all longer horizons pass; model quality ≈ the
-  laptop's passing run — the pod's linear BASELINE is stronger,
-  plausibly the known noslip→tripod dataset drift). So no A/B/C
-  cohort ran yet, and the hold→walk pair stays hard-blocked (its
-  runner aborts without a G1 PASS). Retry (`pod_pilot_rep_retry.sh`,
-  tag exp/dynrep-podrep-retry1): encoder `--seed 1`, ONE variable;
-  on PASS auto-continues into the full seeds-1–3 cohort +
-  aggregation; on FAIL the dataset drift is the prime suspect and
-  the next move is OPERATOR-side (push `noslip_gait.py` or revise
-  the v2 recipe) — no third seed. Log:
-  `rl_move/dynamics/logs/pod_pilot_rep_retry.log` on train-11.
-  GPU on train-11 stays free. Detail: dynrep/STATUS.md.
+- **dynrep — G1 encoder-gate FAIL REPLICATED across two seeds
+  (retry finished 08-13 ~19:15 UTC); waiting on an OPERATOR-side
+  dataset fix (since 08-13 ~19:4x): push `noslip_gait.py` to the
+  pods or revise the v2 collection recipe.** The pre-registered
+  seed-retry (`pod_pilot_rep_retry.sh`, seed 1, tag
+  exp/dynrep-podrep-retry1) lost to the linear baseline at k=1
+  ONLY, same as seed 0 (0.1718 vs 0.1673, ~2.7%; all longer
+  horizons pass; checkpoints md5-distinct, so a seed-plumbing bug
+  is ruled out — genuine replication). Per pre-registration:
+  training variance is CLOSED as the explanation, the known
+  noslip→tripod dataset drift is the prime suspect, NO third seed
+  may run, and no PPO cohort / hold→walk pair can launch (both
+  hard-abort without a G1 PASS on record). Nothing dynrep is
+  agent-launchable until the operator ships the dataset fix.
+  Artifacts on train-11: `rl_move/dynamics/logs/
+  pod_pilot_rep_retry.log`, `eval_dyn_v2pod_obs_s1_*.json`.
+  Detail: dynrep/STATUS.md.
 - **Bench session items (operator time, not GPU — nothing is
   deploy-blocked):** first hardware run of the learned stand-up
   (deploy re-push DONE + HTTP-verified 08-11 ~21:15, goal profile in
