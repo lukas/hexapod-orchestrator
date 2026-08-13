@@ -268,14 +268,15 @@ GAIT.md / SIM.md, and RL_LOG — not here):**
   fail; capacity/staged-widening/history levers all closed);
   `eval_cmd_suite.py` remains available to other tracks. Detail:
   multitask/STATUS.md.
-- **arch — DAgger rise redistillation LANDED (08-13 ~13:00, operator
-  session, local Mac); next: operator picks (a) warm a dual-core RL
-  arm from `ppo_goal_cw_gru_dual_bc_dagger1.zip` as-is (rise now in
-  the BC init: n=12 det 3/12 with non-crouch wins; hold 6/6, walk
-  gait honest; lower collapsed 0/6 — dual1's RL+anchors rebuilt
-  lower from a weaker init) or (b) a rise-only-DAgger variant
-  distill first.** The no-slip line CONCLUDES at its r4 gate-pass
-  artifact. Detail: arch/STATUS.md.
+- **arch — DAgger rise redistillation LANDED (08-13 ~13:00) and the
+  follow-up is QUEUED: `cw-arch-gru-dual2` in backlog (operator
+  ruling 08-13 ~20:0x UTC).** Rise is in the BC init for the first
+  time (`ppo_goal_cw_gru_dual_bc_dagger1.zip`: n=12 det 3/12 with
+  non-crouch wins; hold 6/6; walk gait honest; lower collapsed 0/6).
+  dual2 = exact dual1 recipe warm from the new init (ckpt on all 12
+  train pods); FAIL branches route to the rise-only-DAgger variant
+  distill (operator/local). The no-slip line CONCLUDES at its r4
+  gate-pass artifact. Detail: arch/STATUS.md.
 - ~~nobc — close the from-scratch gait line?~~ **DECIDED 08-13
   ~12:4x UTC (ruling 3 above): CLOSED; stand-from-scratch charter
   retained.** Reopen requires new hardware evidence. Detail:
