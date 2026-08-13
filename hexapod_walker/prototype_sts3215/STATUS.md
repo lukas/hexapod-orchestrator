@@ -195,9 +195,13 @@ GAIT.md / SIM.md, and RL_LOG — not here):**
   Now: staged swing curriculum, temporal policy, BC from a feedback
   stepping reference). Quad-hold retention stayed clean throughout.
 - **FLEET: 0/12 pods GPU-training (08-13 ~19:xx UTC — `cw-quadwalk7`
-  finished + verdicted STOP; backlog empty; train-11's idle CPUs
-  still run the dynrep pilot replication).** Every idle slot maps to
-  a named wait in this block.
+  finished + verdicted STOP; backlog empty; train-11's idle CPUs run
+  the dynrep encoder seed-retry).** Every idle slot maps to a named
+  wait in this block, EXCEPT the hw takeoff-transient
+  instrumentation (ruling 2), which is named agent-doable work — the
+  next dedicated hw cycle should take it (bench-tape + sim-replay
+  analysis first, no training arm until the instrumented design
+  exists).
   ~~ASSUMPTION (operator to review, 08-13 ~12:0x)~~ **APPROVED by
   operator ruling above:** idle-kick BACKOFF stays — five deep-model
   idle-kick cycles in 80 min (10:37–11:58 UTC) each re-verified this
@@ -276,29 +280,24 @@ GAIT.md / SIM.md, and RL_LOG — not here):**
   mirror.py in both deploy scripts, `tests/test_mirror_runner.py`.
   Remaining turn work is a bench session (below; re-deploy first).
   Detail: turn/STATUS.md.
-- **dynrep — pilot seed replication RUNNING on train-11 idle CPUs
-  (since 08-13 ~12:3x UTC; waiting on the pod job, hours-scale).**
-  The operator's push (4d26954, 08-13 12:12 UTC) CLEARED the old
-  code wait. Datasets/models stayed laptop-local (gitignored), so
-  the pipeline regenerates the v2-recipe dataset + obs encoder on
-  the pod (artifacts named `*v2pod*` so they can't be confused with
-  the laptop's; G1/G2 gates enforced before any PPO wiring), then
-  runs the A/B/C pilot cohort for seeds 1–3 in parallel (s0 = the
-  operator's laptop pilot; NOT pooled — different encoder
-  provenance). Log: `rl_move/dynamics/logs/pod_pilot_rep.log` on
-  train-11 (`pod_pilot_rep.sh`). Known recipe drift: the noslip
-  actor's 10% share falls back to tripod (noslip_gait.py is
-  laptop-only; collect.py now degrades gracefully). Health-checked
-  08-13 ~13:19 UTC (operator-kick cycle): encoder pretraining
-  ~25k/40k, trainer at ~18.5 cores, healthy — PPO cohort still
-  ahead, hours-scale. Next cycle to see it finished: triage as a
-  direction-of-effect check against the operator's laptop 3-seed
-  sweep (30ca480 verdict revision: better-final YES, faster/
-  retention NO; expected ordering in dynrep/STATUS.md), then launch
-  the hold->walk pair — its code landed 08-13 ~13:3x (walk task +
-  eval-every<=10k + seeds 1–5 runner `pod_holdwalk.sh`, smoke-tested;
-  launch-blocked ONLY on the rep triage per operator ordering). GPU
-  on train-11 stays free.
+- **dynrep — pilot replication G1-FAILED at the encoder gate; ONE
+  pre-registered seed-retry RUNNING on train-11 idle CPUs (since
+  08-13 ~18:26 UTC; waiting on the pod job, hours-scale).** The
+  original rep (`pod_pilot_rep.sh`) finished its encoder stage and
+  the DYNREP.md hard gate correctly refused to wire PPO: the pod
+  encoder lost to the linear baseline at k=1 ONLY (0.1718 vs
+  0.1673, ~2.7%; all longer horizons pass; model quality ≈ the
+  laptop's passing run — the pod's linear BASELINE is stronger,
+  plausibly the known noslip→tripod dataset drift). So no A/B/C
+  cohort ran yet, and the hold→walk pair stays hard-blocked (its
+  runner aborts without a G1 PASS). Retry (`pod_pilot_rep_retry.sh`,
+  tag exp/dynrep-podrep-retry1): encoder `--seed 1`, ONE variable;
+  on PASS auto-continues into the full seeds-1–3 cohort +
+  aggregation; on FAIL the dataset drift is the prime suspect and
+  the next move is OPERATOR-side (push `noslip_gait.py` or revise
+  the v2 recipe) — no third seed. Log:
+  `rl_move/dynamics/logs/pod_pilot_rep_retry.log` on train-11.
+  GPU on train-11 stays free. Detail: dynrep/STATUS.md.
 - **Bench session items (operator time, not GPU — nothing is
   deploy-blocked):** first hardware run of the learned stand-up
   (deploy re-push DONE + HTTP-verified 08-11 ~21:15, goal profile in
