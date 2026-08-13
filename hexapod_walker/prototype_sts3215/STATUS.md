@@ -448,12 +448,25 @@ never buried in a cycle log):**
   variable: `train.bc_anchor_tilt_from_settle=1`, teacher
   probe-verified to level a perfect student to 1.76° at +0.385/tick;
   code default-off bit-exact, anchor suite + semantics bank green,
-  snapshot fdc48d4). If overruled, kill tiltcomp2 and restore the
-  escalation. Detail: hw/STATUS.md Now.
-- **Fleet update ~10:xx UTC 08-13: 1/12 pods training —
-  `cw-stand-tiltcomp2` (hw standing-lean teacher-defect fix, 2M
-  discovery) VERIFIED RUNNING on train-0; the other 11 idle slots
-  remain the named waits below.**
+  snapshot fdc48d4). If overruled, kill the tiltcomp arms and restore
+  the escalation. Detail: hw/STATUS.md Now.
+  **SAME-CYCLE RESULT: `cw-stand-tiltcomp2` FINISHED (2M in ~6 min)
+  and is verdicted FAIL — but the discriminator answered: the policy
+  adopted only ~10% of its now-capable teacher's correction (forced-
+  tip tail 5.25° vs the teacher's own 1.76°; act-vs-target MSE ≈ the
+  full signal size), i.e. under-ADOPTION, with leveling supervision
+  only ~5% of training episodes. Nominal retention identical to
+  sibling (no new damage). The pre-registered exposure arm
+  `cw-stand-tiltcomp3` (ONE knob: goal mix hold 0.1→0.4) is running;
+  its FAIL branch ends the tipped-exposure route for real with a
+  complete dossier (capable teacher + paying income + refused
+  adoption + the parent's innate 1.45° recovery beating every
+  tipped-trained child = training-dynamics problem, operator's
+  call).**
+- **Fleet update ~11:3x UTC 08-13: 1/12 pods training —
+  `cw-stand-tiltcomp3` (hw standing-lean exposure arm, 2M discovery)
+  VERIFIED RUNNING on train-0; the other 11 idle slots remain the
+  named waits below.**
 - **Fleet at ~03:1x UTC 08-13: 0/12 pods training, backlog empty —
   every idle slot is a named wait, none an unattacked blocker.**
   `cw-gait-ease1` (the last run in flight) FINISHED and is verdicted
