@@ -175,17 +175,17 @@ GAIT.md / SIM.md, and RL_LOG — not here):**
      `cw-quadwalk1` is RUNNING (see FLEET line) — no longer a wait.
   5. **watcher idle-kick backoff → APPROVED** (15m→30→60→2h→4h
      no-op spacing, snap-back on real activity, stays live).
-- **FLEET: 1/12 pods GPU-training (08-13 ~15:xx UTC: `cw-quadwalk3`
-  FAIL — fronts-down cheat a THIRD time with the lift-contact charge
-  verifiably live (−1.54/tick ≈ −575/ep, ~40% of return, simply
-  paid): PRICING is a measured-exhausted lever class for quadwalk;
-  per the pre-registered false branch the blocker is EXPLORATION
-  from the six-foot plant spawn. CODE lever landed same cycle
-  (`goal.quadwalk_start="quad"`: episodes spawn already in the
-  four-leg stance, tilt refs level, 25° envelope for the ~16°
-  limp-settle sag; default bit-exact, bank 87 green, commit e208b86)
-  and **`cw-quadwalk4` is VERIFIED RUNNING on train-0**, 2M
-  discovery, one lever package vs quadwalk3. Backlog empty;
+- **FLEET: 1/12 pods GPU-training (08-13 ~16:3x UTC: `cw-quadwalk4`
+  FAIL — the quad spawn WORKS (fronts_lifted 11/12 det+sto, first
+  quadwalk arm ever to clear the fronts-down cheat) but the policy
+  found a NEW flag-leg cheat: it parks the two MID support legs
+  (duty 0.0-0.06) and scoots on the rear pair alone (gait_valid 0/6,
+  slip ~13 m/m, height sagged 35mm, 0 falls). Mechanism measured:
+  `k_drag_loaded=10` prices a mid foot touching down ~100x above
+  what `k_park_duty=1.0` charges for holding it parked in the air —
+  an active price choice, not a basin artifact. One-lever reprice
+  (`reward.k_park_duty` 1.0→6.0) queued and **`cw-quadwalk5` is
+  VERIFIED RUNNING on train-0**, 2M discovery. Backlog empty;
   train-11's idle CPUs still run the dynrep pilot replication, GPU
   free; see the dynrep entry).** Every OTHER idle slot maps to a
   named wait below.
