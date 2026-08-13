@@ -444,7 +444,12 @@ never buried in a cycle log):**
   contact/pinning design discussion (below); arch — waiting on the
   operator's in-progress DAgger rise redistillation; quad —
   four-leg-walk reward spec+bank FIRST (specification, never
-  trains); turn — MirrorPolicy deploy port is robot-runner work
+  trains; 08-13 UPDATE: this is now the track's ONLY open rung —
+  the quad-turn compose rung closed FAIL with `cw-quad-turn1-r1`'s
+  dropped 08-10 dig-in finally verdicted today — and the spec is
+  buildable by a dedicated orchestrator cycle, no operator input
+  needed: audited term list in `rl_docs/tracks/quad/STATUS.md`
+  Next); turn — MirrorPolicy deploy port is robot-runner work
   (operator-only by guardrail); dynrep — blocked on the operator
   pushing the local code (below).
 - **WAITING (since 08-13 ~03:1x): nobc's from-scratch gait line is
