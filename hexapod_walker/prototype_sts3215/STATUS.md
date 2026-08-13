@@ -175,14 +175,17 @@ GAIT.md / SIM.md, and RL_LOG — not here):**
      `cw-quadwalk1` is RUNNING (see FLEET line) — no longer a wait.
   5. **watcher idle-kick backoff → APPROVED** (15m→30→60→2h→4h
      no-op spacing, snap-back on real activity, stays live).
-- **FLEET: 1/12 pods GPU-training (08-13 ~14:xx UTC: `cw-quadwalk2`
-  FAIL — same pre-registered fronts-down cheat as quadwalk1, milder
-  (front contact duty 1.0→0.62/0.32, still ≫ the 0.15 bar): pure
-  reprice CLOSED per the two-miss fork; the prescribed CODE lever
-  `reward.k_quad_lift_contact` (per-tick charge on grounded lift
-  legs, default-off, semantics bank green, tag exp/cw-quadwalk3) is
-  checked in and **`cw-quadwalk3` is VERIFIED RUNNING on train-0**,
-  2M discovery, one lever vs quadwalk2. Backlog empty again;
+- **FLEET: 1/12 pods GPU-training (08-13 ~15:xx UTC: `cw-quadwalk3`
+  FAIL — fronts-down cheat a THIRD time with the lift-contact charge
+  verifiably live (−1.54/tick ≈ −575/ep, ~40% of return, simply
+  paid): PRICING is a measured-exhausted lever class for quadwalk;
+  per the pre-registered false branch the blocker is EXPLORATION
+  from the six-foot plant spawn. CODE lever landed same cycle
+  (`goal.quadwalk_start="quad"`: episodes spawn already in the
+  four-leg stance, tilt refs level, 25° envelope for the ~16°
+  limp-settle sag; default bit-exact, bank 87 green, commit e208b86)
+  and **`cw-quadwalk4` is VERIFIED RUNNING on train-0**, 2M
+  discovery, one lever package vs quadwalk3. Backlog empty;
   train-11's idle CPUs still run the dynrep pilot replication, GPU
   free; see the dynrep entry).** Every OTHER idle slot maps to a
   named wait below.
