@@ -152,9 +152,10 @@ named concretely, REMOVED in the cycle that clears it; resolution
 narratives live in the track STATUS docs, rl_docs/runs/, RISE.md /
 GAIT.md / SIM.md, and RL_LOG — not here):**
 
-- **FLEET: 0/12 pods training, backlog empty (since 08-13 ~03:1x;
-  re-verified 08-13 ~12:0x UTC).** Every idle slot maps to a named wait
-  below. **ASSUMPTION (operator to review, 08-13 ~12:0x): idle-kick
+- **FLEET: 0/12 pods GPU-training, backlog empty (since 08-13 ~03:1x;
+  re-verified 08-13 ~12:3x UTC — train-11's idle CPUs now run the
+  dynrep pilot replication, GPU still free; see the dynrep entry).**
+  Every idle slot maps to a named wait below. **ASSUMPTION (operator to review, 08-13 ~12:0x): idle-kick
   BACKOFF added to the watcher** — five deep-model idle-kick cycles in
   80 min (10:37–11:58 UTC) each re-verified this same unchanged,
   fully operator-gated board; at the 96/day cap that's ~$1k+/day of
@@ -235,11 +236,22 @@ GAIT.md / SIM.md, and RL_LOG — not here):**
 - **turn — MirrorPolicy deploy port (since 08-11).** Robot-runner
   work, operator-only by guardrail; the quad-turn rung closed 08-13
   behind the track's needs-new-idea wall. Detail: turn/STATUS.md.
-- **dynrep — blocked on the operator pushing `rl_move/dynamics/`
-  (since 08-12 ~21:40, surfaced 08-13).** The track's code +
-  datasets/checkpoints are laptop-local (commit 7b83dce registered
-  the track only). Cycles will not rebuild it from the design doc —
-  that would fork the operator's in-progress local work.
+- **dynrep — pilot seed replication RUNNING on train-11 idle CPUs
+  (since 08-13 ~12:3x UTC; waiting on the pod job, hours-scale).**
+  The operator's push (4d26954, 08-13 12:12 UTC) CLEARED the old
+  code wait. Datasets/models stayed laptop-local (gitignored), so
+  the pipeline regenerates the v2-recipe dataset + obs encoder on
+  the pod (artifacts named `*v2pod*` so they can't be confused with
+  the laptop's; G1/G2 gates enforced before any PPO wiring), then
+  runs the A/B/C pilot cohort for seeds 1–3 in parallel (s0 = the
+  operator's laptop pilot; NOT pooled — different encoder
+  provenance). Log: `rl_move/dynamics/logs/pod_pilot_rep.log` on
+  train-11 (`pod_pilot_rep.sh`). Known recipe drift: the noslip
+  actor's 10% share falls back to tripod (noslip_gait.py is
+  laptop-only; collect.py now degrades gracefully). Next cycle to
+  see it finished: verdict per DYNREP.md (B/C vs A
+  steps-to-threshold + retention across 3 seeds), then the
+  pod-scale task-ladder design. GPU on train-11 stays free.
 - **Bench session items (operator time, not GPU — nothing is
   deploy-blocked):** first hardware run of the learned stand-up
   (deploy re-push DONE + HTTP-verified 08-11 ~21:15, goal profile in
