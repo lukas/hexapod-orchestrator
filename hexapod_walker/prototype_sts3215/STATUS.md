@@ -21,7 +21,17 @@ anyone catching up. Facts here must agree with `CURRENT_TRUTHS.md`
 (which wins on conflict); the full checkpoint inventory with gate
 numbers lives in `rl_docs/SKILLS.md`.
 
-**Last updated: 2026-08-13 (~13:xx) — the interactive SESSION gate
+**Last updated: 2026-08-13 (~10:3x UTC) — the standing-lean verdict
+is OVERTURNED by a new measurement and the mainline is training
+again: a probe that rolls out the tilt-comp anchor TEACHER itself
+shows a perfect student of it can only ever level to ~4° (a
+proportional-controller fixed point — the teacher was the defect,
+not the reward, which already pays leveling 3× better than staying
+tilted). The fixed teacher (correction frozen at the episode's
+settled lean) is probe-verified to level to 1.76° and is now
+training as `cw-stand-tiltcomp2` (train-0); the operator design-fork
+escalation on the ~8° hardware lean is withdrawn (see WAITING-ON).
+Earlier (~13:xx local) — the interactive SESSION gate
 (the deployment-contract eval that separated the stance candidates
 from the deployed policy) is now AUTOMATIC: the watcher's pre-staged
 pod evals run `eval_session` on every finished stance/walk candidate
@@ -420,24 +430,30 @@ never buried in a cycle log):**
   spec/operator work). Audit data: train-0
   `logs/probe_contact_parity/`. (Kept from the same cycle: the
   launcher fast-finish false-FAIL fix in `launch_run.py`.)
-- **NEW WAIT (08-13 ~08:xx, hw): the hardware ~8° standing-lean
-  blocker now needs an OPERATOR DESIGN DISCUSSION — the
-  tipped-exposure training route is CLOSED even with a correct
-  teacher.** `cw-stand-tiltcomp1` (tilt-aware anchor teacher,
-  the lever tip1's gate prescribed) FAILED its matched forced-8°-tip
-  gate exactly like tip1: the policy holds full height (valid_plant
-  12/12 vs parent 0/12) but settles LEANING ~5.75° in 24/24 episodes
-  (parent rights itself to 1.45° in 11/12) and parks a foot every
-  time. Two differently-designed teachers (tilt-blind, tilt-aware)
-  converged on the same stay-tilted habit → the incentive is the
-  problem (hold income never prices residual lean), not the teacher.
-  Pre-registered consequence: no dose retry; operator call on next
-  design (e.g. price levelness in hold income vs a non-RL correction
-  on hardware). Waiting since 08-13 ~08:xx.
-- **Fleet update ~08:xx UTC 08-13: 0/12 pods training —
-  `cw-stand-tiltcomp1` FINISHED and is verdicted FAIL (entry above);
-  all 12 idle slots are named waits below, none an unattacked
-  stand/walk blocker (the lean was the last self-serve hw lever).**
+- **CLEARED (08-13 ~10:xx, was the 08-13 ~08:xx hw wait): the
+  standing-lean operator design fork is WITHDRAWN — its premise was
+  measured wrong, and the line is training again.** The escalation
+  rested on "two CORRECT teachers converged on staying tilted ⇒ hold
+  income never prices lean". A closed-loop teacher rollout
+  (`probe_tilt_teacher`, n=6, train-0) refutes both halves: the
+  tilt-aware teacher is a P-controller on the CURRENT lean whose own
+  perfect student settles at 3.95° (predicted fixed point 3.98°,
+  above the 3° bar — the teacher can never demonstrate a pass), and
+  income already pays leveling (−0.046 vs −0.150/tick; k_track tilt
+  Gaussian σ1.5° vs level ref). ASSUMPTION (operator to review):
+  this cycle treated the pre-registered "route CLOSED → operator
+  discussion" consequence as VOID because its stated premise
+  ("correct teacher") is measurement-refuted, and launched the
+  defect-fix arm instead of waiting — `cw-stand-tiltcomp2` (one
+  variable: `train.bc_anchor_tilt_from_settle=1`, teacher
+  probe-verified to level a perfect student to 1.76° at +0.385/tick;
+  code default-off bit-exact, anchor suite + semantics bank green,
+  snapshot fdc48d4). If overruled, kill tiltcomp2 and restore the
+  escalation. Detail: hw/STATUS.md Now.
+- **Fleet update ~10:xx UTC 08-13: 1/12 pods training —
+  `cw-stand-tiltcomp2` (hw standing-lean teacher-defect fix, 2M
+  discovery) VERIFIED RUNNING on train-0; the other 11 idle slots
+  remain the named waits below.**
 - **Fleet at ~03:1x UTC 08-13: 0/12 pods training, backlog empty —
   every idle slot is a named wait, none an unattacked blocker.**
   `cw-gait-ease1` (the last run in flight) FINISHED and is verdicted
