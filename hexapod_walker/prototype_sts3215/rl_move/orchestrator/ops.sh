@@ -207,10 +207,18 @@ evalcmd)  # evalcmd <run> — print the exact-path harness eval command
   python3 - "$run" <<'EOF'
 import json, os, sys
 run = sys.argv[1]
+# 08-13 fix: prefer an entry that actually ran (wandb_id/pid) over a
+# later REFUSED re-launch stub with the same run name — a plain
+# last-match scan silently picked the thin stub's near-empty
+# extra_args (no --cfg-set), voiding the eval (obs-width mismatch).
 entry = None
+fallback = None
 for e in json.load(open(os.environ["LEDGER"])):
     if isinstance(e, dict) and e.get("run") == run and e.get("extra_args"):
-        entry = e
+        fallback = e
+        if e.get("wandb_id") or e.get("checks", {}).get("pid"):
+            entry = e
+entry = entry or fallback
 args = entry["extra_args"] if entry else []
 def val(flag, default=None):
     return args[args.index(flag) + 1] if flag in args else default

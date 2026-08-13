@@ -87,10 +87,22 @@ def main() -> int:
         print(__doc__)
         return 2
     run, suffix = sys.argv[1], (sys.argv[2] if len(sys.argv) > 2 else "")
+    # 08-13 fix: a run name can appear MULTIPLE times in the ledger (a
+    # REFUSED re-launch/respec attempt after the real run finished, e.g.
+    # "GPU pods host exactly one run") and a plain last-match-wins scan
+    # picks that REFUSED stub (thin extra_args, no --cfg-set) instead of
+    # the entry that actually trained — silently evaluating with the
+    # wrong reward/goal cfg (obs-width mismatches, voided verdicts).
+    # Prefer an entry that actually ran (has a wandb_id/pid), falling
+    # back to last-match only if none did.
     entry = None
+    fallback = None
     for e in json.loads(LEDGER.read_text()):
         if isinstance(e, dict) and e.get("run") == run and e.get("extra_args"):
-            entry = e
+            fallback = e
+            if e.get("wandb_id") or e.get("checks", {}).get("pid"):
+                entry = e
+    entry = entry or fallback
     if entry is None:
         print(f"no ledger entry with extra_args for {run}")
         return 1
