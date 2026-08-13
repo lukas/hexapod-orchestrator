@@ -21,13 +21,18 @@ anyone catching up. Facts here must agree with `CURRENT_TRUTHS.md`
 (which wins on conflict); the full checkpoint inventory with gate
 numbers lives in `rl_docs/SKILLS.md`.
 
-**Last updated: 2026-08-13 (~10:xx) — quad track spec cycle: the
-four-leg-WALK mode/reward/eval code is built and checked in
-(default-off, banks green), but the semantics bank surfaced a real
-physical finding — NO open-loop scripted quad gait walks in sim
-(static 4-leg feasibility does not extend to stepping), so quadwalk
-training stays correctly launch-blocked; see the quad WAITING-ON
-entry. Earlier (~08:xx) — the standing-lean fix attempt
+**Last updated: 2026-08-13 (~12:xx) — quad diag session: the
+open question "can any scripted gait walk on four legs?" is now
+ANSWERED, negatively and permanently — an instrumented probe
+session measured that a statically-stable open-loop quad crawl with
+both fronts lifted is geometrically infeasible on this robot (the
+mid-swing support triangle needs the CoM 5-7 cm further back than
+the ±35° hip-yaw workspace can ever place it). Four-leg walking is
+possible only with closed-loop balance, so the quadwalk bank's
+reference is now an operator-only ruling; quadwalk training stays
+correctly launch-blocked (see the quad WAITING-ON entry). Earlier
+(~10:xx) — quad spec cycle: the four-leg-WALK mode/reward/eval code
+is built and checked in (default-off, banks green). Earlier (~08:xx) — the standing-lean fix attempt
 failed: `cw-stand-tiltcomp1` (tilt-aware anchor teacher) reproduces
 the stay-tilted habit (~5.75° lean, 24/24 episodes) instead of
 leveling; tipped-exposure training is CLOSED with two teacher designs
@@ -452,18 +457,22 @@ never buried in a cycle log):**
   (08-13 second UPDATE, spec cycle DONE) the four-leg-walk spec+bank
   CODE is built and checked in (quadwalk mode, lift-leg reward/eval
   exemptions, k_quad_still, all default-off bit-exact, banks green)
-  but the QUADWALK bank is BLOCKED on a physical finding: no
-  open-loop scripted quad gait actually WALKS in sim (trot: zero
-  translation; 4-beat crawl: mid leg pinned, CoM outside the
-  mid-swing triangle; two-phase crawl: drifts backward — static
-  feasibility c57 does NOT extend to stepping; every scheme
-  reproducible via `rl_move/sim/probe_quad_crawl.py`). Quadwalk
-  training arms stay MDP_PREFLIGHT-blocked until the bank has an
-  honest reference. Next lever is AGENT-doable: a video-driven
-  probe session on a train pod (`probe_quad_crawl.py --video`) —
-  queued as the quad track's next dedicated cycle; the alternative
-  (accept a future RL policy as the bank reference) relaxes
-  MDP_PREFLIGHT and is operator-only; turn — MirrorPolicy deploy
+  but the QUADWALK bank is BLOCKED — and (08-13 THIRD update, diag
+  session done) the block is now PROVEN PERMANENT for scripted
+  references: the instrumented probe session (`probe_quad_crawl.py
+  --diag`, 14 configs, every physical lever incl. stance rotation,
+  pitch to the tilt limit, and a 2-D adaptive weight shift) measured
+  that a statically-stable open-loop quad crawl with both fronts
+  lifted is GEOMETRICALLY INFEASIBLE on this robot — the mid-swing
+  support triangle needs the CoM 5-7 cm further back than the ±35°
+  hip-yaw workspace can ever place it (margin −33..−70 mm in every
+  config; commanded body x-shifts don't physically realize). Only
+  closed-loop/dynamic balance can walk this robot on four legs, so
+  the ONLY remaining route is OPERATOR-ONLY: rule on accepting a
+  future RL/feedback policy with genuine rear-four stepping as the
+  bank reference (relaxes MDP_PREFLIGHT). Numbers + geometry in the
+  probe docstring; detail in quad/STATUS.md. No agent-doable quad
+  work remains; turn — MirrorPolicy deploy
   port is robot-runner work (operator-only by guardrail); dynrep —
   blocked on the operator pushing the local code (below).
 - **WAITING (since 08-13 ~03:1x): nobc's from-scratch gait line is
