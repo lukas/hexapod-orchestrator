@@ -161,6 +161,16 @@ def main() -> int:
     ep = val("--episode-seconds", "15" if task == "joint_walk" else None)
     dr = float(val("--dr-scale", "0") or 0)
     cfgs = [args[i + 1] for i, a in enumerate(args) if a == "--cfg-set"]
+    # 08-14 (cw-arch-modeseq1-r1 dig-in): NEVER carry the sequence-diet
+    # keys into the forced-single-mode harness eval. With
+    # goal.mode_seq>0 the env samples sequence episodes BEFORE the
+    # forced p_* mix applies, and a rise-first sequence still labels
+    # itself "rise" — so the "single-mode" retention numbers are
+    # silently measured on mislabeled multi-segment episodes. The
+    # sequence half of such runs' gates is eval_modeseq's job, not
+    # eval_checkpoint's.
+    cfgs = [c for c in cfgs
+            if not c.split("=", 1)[0].strip().startswith("goal.mode_seq")]
     # 08-11 (cw-uni-flag-a1-r1/h2 triage): a joint_walk task with an
     # explicit --goal-mix (e.g. "hold=0.2,rise=0.4,lower=0.4") may never
     # train walk at all — hardcoding "--modes walk" silently evals a mode

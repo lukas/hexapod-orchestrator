@@ -230,9 +230,27 @@ ORCHESTRATOR_PROMPT.md):**
   Waiting on: operator flips the two cfg keys on the runner's walk
   engage and re-runs takeoff reps (deploy is operator-only). No
   training arm until the bench adopts the entry sequence.
-- **FLEET (08-14 ~14:xx UTC): `cw-arch-modeseq1-r1` (the directive's
-  Arm 2, 10M) is QUEUED and draining to a free pod; the other 11
-  slots remain on the named operator waits in this block.** The
+- **FLEET (08-14 ~17:xx UTC): all 12 GPU slots idle on the named
+  waits in this block; train-0's CPUs run the `transdagger3` distill
+  (arch, agent-doable follow-up — see below).** `cw-arch-modeseq1-r1`
+  (the directive's Arm 2) canary-auto-stopped at 4.56M and is
+  VERDICTED FAIL this cycle: sequence det zero-fall 2/12 (bar 11/12),
+  the dual2 rise erosion reproduced exactly (rise12 5/12 crouch-only
+  vs init control 3/12 all-non-crouch) — warm-RL from the dagger1
+  init CLOSED per two-miss; a 75% sequence diet did not protect the
+  rise. Follow-up per the directive's pre-named fork: `transdagger3`
+  (transdagger2 recipe + bridge/flat-heavy demo start mix via the new
+  `distill_gru --cfg-set` passthrough, default-off) running on
+  train-0 CPUs; the operator option (b) below stays open. Detail:
+  arch/STATUS.md + TRANSITIONS_DIRECTIVE "ARM 2 RESULT". NOTE for
+  the watcher owner: pod_eval's pre-staged gate eval inherits the
+  run's full cfg INCLUDING `goal.mode_seq` — for mode_seq runs that
+  silently turns "single-mode" eval episodes into mislabeled
+  sequences; this cycle killed the contaminated eval, re-ran clean
+  (mode_seq stripped, 15s instrument), and LANDED the fix —
+  pod_eval.py now strips `goal.mode_seq*` keys from harness eval
+  cfgs (same snapshot as the distill_gru passthrough).
+  Prior entry (Arm 2 launch history, kept for context): the
   first launch (`cw-arch-modeseq1`) died ~1 min in — INFRA, not
   science: the goal.mode_seq canonical-frame mint existed only in
   the in-process MjxVecEnv, and training's sharded path
@@ -348,8 +366,16 @@ ORCHESTRATOR_PROMPT.md):**
   dagger1-init control, same seed/pod) — see
   `rl_docs/runs/cw-arch-gru-dual2.md`. Ledger left `status=RUNNING`,
   `triage=in-cycle` on purpose — the deep cycle finalizes it.
-- **NEW WAIT (08-13 ~23:xx UTC): arch → rise-only-DAgger VARIANT
-  DISTILL (operator/local lever).** `cw-arch-gru-dual2` (warm-RL
+- **WAIT (08-13 ~23:xx UTC) `[operator]`: arch → rise-only-DAgger
+  VARIANT DISTILL (operator/local lever). STRENGTHENED 08-14 ~17:xx:
+  `cw-arch-modeseq1-r1` is the SECOND independent warm-RL to erase
+  the dagger1 init's hard-start rise with the identical crouch-swap
+  profile (rise12 5/12 crouch-only), and it proves a 75%
+  sequence-training diet does not protect it — warm-RL from this
+  init is now CLOSED (two-miss). The agent-side sibling lever
+  (bridge/flat-heavy demo mix, transdagger3) is running on train-0
+  CPUs and does NOT supersede this option.** `cw-arch-gru-dual2`
+  (warm-RL
   from the DAgger-redistilled dual BC init, operator option (a))
   is verdicted FAIL per its own pre-registration: RL erased the
   init's hard-start stand-ups within 1M steps (canary auto-stop's
