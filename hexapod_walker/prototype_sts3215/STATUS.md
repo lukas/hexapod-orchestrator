@@ -21,9 +21,31 @@ anyone catching up. Facts here must agree with `CURRENT_TRUTHS.md`
 (which wins on conflict); the full checkpoint inventory with gate
 numbers lives in `rl_docs/SKILLS.md`.
 
-**Last updated: 2026-08-14 (~20:0x UTC — hw: the joystick SESSION now
-has a product gate in sim, and the current best specialist pair PASSES
-it: a new randomized ~60 s session eval (rise from flat/bridge/crouch
+**Last updated: 2026-08-14 (~21:4x UTC — hw: the joystick session
+story now rests on BULK, HELD-OUT numbers instead of 12 repeated
+cases, per the operator's evening directive: a new resumable sharded
+session evaluator ran 1,800 fresh ~60 s randomized joystick sessions
+(300 deterministic + 300 stochastic per candidate, matched schedules,
+never-before-used seeds, 11 idle pods' CPUs, ~3 minutes) comparing
+the hierarchical specialist pair against both single-model distills.
+THE HIERARCHY PASSES ITS PRE-REGISTERED PRODUCT GATE: 96.7% of 300
+deterministic sessions complete with zero falls (CI [94.0, 98.2]%,
+every segment type ≥98%, every cold-start stratum ≥95%), and it
+decisively beats both single models on stochastic sessions (85.3% vs
+65.3%/69.7%, confidence intervals non-overlapping). The hierarchical
+frozen-skill controller is now the measured PRODUCT BASELINE —
+one-policy consolidation officially stops blocking joystick
+usability. The one weak boundary, named for the next training arm:
+the POST-LOWER stand-up (100% of the hierarchy's deterministic
+failures; 80.1% stochastic, over-current dominated) — walking itself
+had ZERO falls in all 1,104 hierarchy drive segments. Also now a
+measured fact at scale: the walker NEVER settles at zero joystick
+command (0 of 2,773 segments below 0.02 m/s) — the runner's
+STOP→stance-hold switch is mandatory. Pre-registration + results:
+`rl_docs/tracks/hw/SESSION_BULK_GATE.md`; seed banks retired. Bench
+promotion calls unchanged, still [operator].** Earlier ~20:0x — hw:
+the joystick SESSION got its product gate in sim, and the current
+best specialist pair PASSES it: a new randomized ~60 s session eval (rise from flat/bridge/crouch
 → settle → walk engage with the staged entry-slew ramp → joystick
 driving with stops and direction flips → settle → sit → rise again →
 drive) runs the stance candidate `footlow2_hard1` + tall walker
