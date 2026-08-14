@@ -21,7 +21,22 @@ anyone catching up. Facts here must agree with `CURRENT_TRUTHS.md`
 (which wins on conflict); the full checkpoint inventory with gate
 numbers lives in `rl_docs/SKILLS.md`.
 
-**Last updated: 2026-08-13 (~2x:xx UTC — hw: the walk-takeoff
+**Last updated: 2026-08-14 (~20:0x UTC — hw: the joystick SESSION now
+has a product gate in sim, and the current best specialist pair PASSES
+it: a new randomized ~60 s session eval (rise from flat/bridge/crouch
+→ settle → walk engage with the staged entry-slew ramp → joystick
+driving with stops and direction flips → settle → sit → rise again →
+drive) runs the stance candidate `footlow2_hard1` + tall walker
+`bcgait1_hard1` through 12 deterministic sessions with ZERO falls and
+every segment clean — honest six-leg tall gait on video, no parked
+feet. Stochastic sessions expose the remaining weak link: the
+in-sequence stand-up (18-19/24; driving/sitting stay clean). New
+measured fact for the deploy runner: at zero joystick command the
+walk policy keeps creeping ~4 cm/s — the stop must remain a switch to
+the stance hold, never "walk policy at zero". Entry-slew ramp
+confirmed harmless and mildly quieter in-session. Evidence + flags:
+hw/STATUS.md "Now", rl_docs/EVALS.md. Bench promotion calls
+unchanged, still [operator].** Earlier 08-13 (~2x:xx UTC — hw: the walk-takeoff
 transient (the "learned walks fall half the time in the first two
 seconds" hardware blocker) is now INSTRUMENTED and has a bench-ready
 fix design: the roll excursion turns out to start the moment the
@@ -205,7 +220,7 @@ ORCHESTRATOR_PROMPT.md):**
      15 min. Full directive in ORCHESTRATOR_PROMPT.md; trigger: the
      08-14 overnight where two just-unblocked named steps waited ~2 h
      on backoff spacing while the fleet looked idle.
-- **NEW WAIT (08-13 ~19:xx UTC): quad → quadwalk needs an
+- **NEW WAIT (08-13 ~19:xx UTC) `[operator]`: quad → quadwalk needs an
   ARCHITECTURE/CURRICULUM design discussion (operator).**
   `cw-quadwalk7` (ent-coef 0.001→0.02, the exploration lever) STOP:
   identical [1,4] mid-leg-sacrifice shuffle as quadwalk5/6,
@@ -218,8 +233,8 @@ ORCHESTRATOR_PROMPT.md):**
   operator picks a direction (candidate options in quad/STATUS.md
   Now: staged swing curriculum, temporal policy, BC from a feedback
   stepping reference). Quad-hold retention stayed clean throughout.
-- **NEW WAIT (08-13 ~2x:xx UTC): hw takeoff staged gait-entry →
-  OPERATOR BENCH SESSION.** Ruling 2's agent-doable half is DONE this
+- **NEW WAIT (08-13 ~2x:xx UTC) `[operator]`: hw takeoff staged
+  gait-entry → OPERATOR BENCH SESSION.** Ruling 2's agent-doable half is DONE this
   cycle: transient instrumented (it is a drop-in posture snap at
   ZERO command — slew-saturated on all 18 joints from tick 0; half
   the tapes cross 5° roll before the velocity ramp starts), staged
@@ -230,9 +245,15 @@ ORCHESTRATOR_PROMPT.md):**
   Waiting on: operator flips the two cfg keys on the runner's walk
   engage and re-runs takeoff reps (deploy is operator-only). No
   training arm until the bench adopts the entry sequence.
-- **FLEET (08-14 ~17:xx UTC): all 12 GPU slots idle on the named
-  waits in this block; train-0's CPUs run the `transdagger3` distill
-  (arch, agent-doable follow-up — see below).** `cw-arch-modeseq1-r1`
+- **FLEET (08-14 ~20:0x UTC): all 12 GPU slots idle on the named
+  waits in this block (every one typed `[operator]` or an unmet
+  precondition); train-0's `transdagger3` distill FINISHED 19:24 and
+  was TRIAGED same cycle → FAIL, net regression vs transdagger2 on
+  the sequence clause (rise demo mix is zero-sum; transdagger2 stays
+  the winning distill artifact — see the arch wait below and
+  TRANSITIONS_DIRECTIVE "TRANSDAGGER3 RESULT"); train-10's CPUs run
+  the dynrep A/B/C transfer cohort (operator's Cursor session owns
+  it — hands off).** `cw-arch-modeseq1-r1`
   (the directive's Arm 2) canary-auto-stopped at 4.56M and is
   VERDICTED FAIL this cycle: sequence det zero-fall 2/12 (bar 11/12),
   the dual2 rise erosion reproduced exactly (rise12 5/12 crouch-only
@@ -274,9 +295,22 @@ ORCHESTRATOR_PROMPT.md):**
   Scorecard: TRANSITIONS_DIRECTIVE "ARM 1 RE-RUN RESULT";
   arch/STATUS.md Now. Fleet health: train-10 was found Failed at
   12:23 UTC, self-recovered on recreation (repo volume + 4Gi dshm
-  intact, torch+CUDA verified) — no action needed. The pre-existing
+  intact, torch+CUDA verified) — no action needed. ~~The pre-existing
   `test_sharded_bitwise_matches_inprocess` ~1e-5 pod-env drift on
-  train-1 remains flagged for the next MJX dig-in.
+  train-1 remains flagged for the next MJX dig-in.~~ **RESOLVED
+  08-14 ~17:xx (idle-kick dig-in): root cause = XLA PLATFORM
+  MISMATCH, not a sharded-env bug — on GPU pods bare jax compiles
+  the in-process device ticks for CUDA while the sharded workers'
+  halves run CPU fp32 math; measured drift 1e-4..6e-4 across the
+  WHOLE obs vector from the first reset, on train-1 AND train-2, DR
+  on or off; the identical run with `JAX_PLATFORMS=cpu` is bit-exact
+  0.0. Fix (test-only): the module — specified on CPU MJX by its own
+  docstring — now pins `JAX_PLATFORMS=cpu` (setdefault) and the
+  bitwise test skips with the explanation if jax already initialized
+  non-CPU. Both bitwise tests green on train-1 post-fix. Side
+  lesson: train-2's tree was a day stale (synced 08-13 12:48) and
+  throws unrelated TypeErrors on HEAD tests — check pod tree
+  freshness before reading a pod test FAIL as a code FAIL.**
   Prior entry (arm 1 history, kept for context): arm 1's first artifact
   `cw-arch-trans-dagger1` was triaged 08-14 → **FAIL on the sequence
   gate (0/12 zero-fall), root-caused by a matched-teacher control to
@@ -327,7 +361,9 @@ ORCHESTRATOR_PROMPT.md):**
   artifact triage (warm-start order re-judge). NOTE for the next
   dig-in: `test_sharded_bitwise_matches_inprocess` FAILS on
   train-1 at unmodified HEAD too (~1e-5 obs drift, sharded vs
-  in-process) — pre-existing pod-env issue, not the mint;
+  in-process) — pre-existing pod-env issue, not the mint
+  (**RESOLVED 08-14 ~17:xx — XLA platform mismatch, see the FLEET
+  entry above**);
   train-0 intentionally left at 8249df2 until its CPU job ends.
   Detail: arch/STATUS.md + TRANSITIONS_DIRECTIVE "ARM 1 RESULT".**
   Every OTHER idle slot maps to a named wait in this block.
@@ -346,26 +382,6 @@ ORCHESTRATOR_PROMPT.md):**
   tall-walk wall is BROKEN (bcgait1-hard1), contact/pinning + warp
   physics are audited clean, and the two open transients (takeoff
   roll, standing lean) are DECIDED per the rulings above.
-- **NEW WAIT [triage] (08-14 ~15:4x UTC): arch → `cw-arch-modeseq1-r1`
-  (Arm 2, warm from dagger1 BC) FINISHED via canary AUTO-STOP at
-  4,565,248/10,000,000 steps — protected skills `rise_bridge` +
-  `rise_flat` both failed 3 consecutive probes (streaks 3/3); this is
-  the same protected-skill-erosion catch that stopped `cw-arch-gru-
-  dual2` at 3.18M from the SAME dagger1-lineage init, now reproduced
-  under mode_seq training. Periodic-eval trail shows both canaries
-  live at 1M (flat_a=1/bridge_b=1) and both dead by 3–4M. NOT
-  verdicted — a canary auto-stop is a pre-registered DIG-IN trigger
-  (model tiering, RESEARCH_RULES step 3); this triage cycle is
-  flagging it for the deep model rather than digging in itself. The
-  watcher's pre-staged gate (DR0) + own-DR0.5 single-mode evals were
-  still running on train-0 at hand-off
-  (`logs/ckpt_eval/cw_arch_modeseq1_r1_{gate,owncfg}` when done); the
-  sequence-eval half of Arm 2's gate (`eval_modeseq --single`) still
-  needs to be run by the dig-in. Precedent for the dig-in to reuse:
-  dual2's matched-control recipe (n=12/seed=1 DR0 rise recheck vs the
-  dagger1-init control, same seed/pod) — see
-  `rl_docs/runs/cw-arch-gru-dual2.md`. Ledger left `status=RUNNING`,
-  `triage=in-cycle` on purpose — the deep cycle finalizes it.
 - **WAIT (08-13 ~23:xx UTC) `[operator]`: arch → rise-only-DAgger
   VARIANT DISTILL (operator/local lever). STRENGTHENED 08-14 ~17:xx:
   `cw-arch-modeseq1-r1` is the SECOND independent warm-RL to erase
@@ -373,8 +389,16 @@ ORCHESTRATOR_PROMPT.md):**
   profile (rise12 5/12 crouch-only), and it proves a 75%
   sequence-training diet does not protect it — warm-RL from this
   init is now CLOSED (two-miss). The agent-side sibling lever
-  (bridge/flat-heavy demo mix, transdagger3) is running on train-0
-  CPUs and does NOT supersede this option.** `cw-arch-gru-dual2`
+  (bridge/flat-heavy demo mix, transdagger3) RAN and FAILED (08-14
+  ~19:5x triage: seq det 9/12 vs td2's 12/12 — the mix fixed the
+  cold first rise 12/12 but starved the post-lower rise; rise12
+  2/12 all-crouch, worse than td2; second data-mix miss → mechanism
+  change per two-miss, no transdagger4). Option (b) — rise-only
+  DAgger variant distill — is now the ONLY open rise lever besides
+  the advisory anchor-on-rise Arm-2 retry mechanism, and its spec is
+  sharpened by this result: ADD rise coverage across ALL start kinds
+  (flat/bridge/crouch/post-lower), do not re-weight a fixed demo
+  budget. transdagger2 remains the winning init for any retry.** `cw-arch-gru-dual2`
   (warm-RL
   from the DAgger-redistilled dual BC init, operator option (a))
   is verdicted FAIL per its own pre-registration: RL erased the
@@ -392,14 +416,14 @@ ORCHESTRATOR_PROMPT.md):**
   (ruling 1 above): mechanical trim, outside RL.** The remaining
   work is a bench item (trim/zero-calibration/shimming), folded
   into the bench-session list below. Detail: hw/STATUS.md Now.
-- **hw — stance promotion is a BENCH call (since 08-12 eve).**
+- **hw `[operator]` — stance promotion is a BENCH call (since 08-12 eve).**
   `cw-stand-footlow2-hard1` passes the full stance gate incl. the
   interactive `eval_session` hard gates the deployed `holdbc1_hard1`
   fails (148mm vs 55mm belly rise under the interactive ramp);
   `footlow2-stable1` is a second passing candidate (real hold-drag
   tradeoff vs hard1, +75%). Blocked on: operator bench session +
   promotion decision. Detail: hw/STATUS.md, SKILLS.md.
-- **hw — tall-walk Gate 0 needs BENCH TAPE (since 08-12).**
+- **hw `[operator]` — tall-walk Gate 0 needs BENCH TAPE (since 08-12).**
   `cw-dep-bcgait1-hard1` (tall-walking champion: BC-INIT broke the
   crouch-splay wall, 10M hardening PASS, fric + groundtilt5 panel
   axes PASS, push-probe falls no worse than tip1 with zero push
@@ -412,17 +436,19 @@ ORCHESTRATOR_PROMPT.md):**
   (instrumentation of bench tapes + sim replays of the first
   ~1.5 s, then a deploy-side staged entry sequence prototype) —
   not a wait. Detail: hw/STATUS.md Now.
-- **multitask — PAUSED by operator (08-13 ~12:2x UTC), direction
-  call withdrawn.** Operator is prioritizing the dynrep
+- **multitask `[operator]` — PAUSED by operator (08-13 ~12:2x UTC),
+  direction call withdrawn.** Operator is prioritizing the dynrep
   (world-dynamics) line instead. Do not launch, queue, or plan
   further `cw-mt-` arms until the operator unpauses. The wave-1
   read stands as recorded (a2 pass; b2 acquisition shortfall; c2
   fail; capacity/staged-widening/history levers all closed);
   `eval_cmd_suite.py` remains available to other tracks. Detail:
   multitask/STATUS.md.
-- **arch — DAgger rise redistillation LANDED (08-13 ~13:00) and the
-  follow-up is QUEUED: `cw-arch-gru-dual2` in backlog (operator
-  ruling 08-13 ~20:0x UTC).** Rise is in the BC init for the first
+- ~~arch — DAgger rise redistillation LANDED; dual2 queued~~
+  **RESOLVED (08-14): `cw-arch-gru-dual2` ran and is verdicted FAIL
+  (canary auto-stop, rise erosion) — see the `[operator]` rise-only-
+  DAgger entry above for the live fork.** Original entry kept below
+  for lineage context only. Rise is in the BC init for the first
   time (`ppo_goal_cw_gru_dual_bc_dagger1.zip`: n=12 det 3/12 with
   non-crouch wins; hold 6/6; walk gait honest; lower collapsed 0/6).
   dual2 = exact dual1 recipe warm from the new init (ckpt on all 12
@@ -470,23 +496,21 @@ ORCHESTRATOR_PROMPT.md):**
   mirror.py in both deploy scripts, `tests/test_mirror_runner.py`.
   Remaining turn work is a bench session (below; re-deploy first).
   Detail: turn/STATUS.md.
-- **dynrep — G1 encoder-gate FAIL REPLICATED across two seeds
-  (retry finished 08-13 ~19:15 UTC); waiting on an OPERATOR-side
-  dataset fix (since 08-13 ~19:4x): push `noslip_gait.py` to the
-  pods or revise the v2 collection recipe.** The pre-registered
-  seed-retry (`pod_pilot_rep_retry.sh`, seed 1, tag
-  exp/dynrep-podrep-retry1) lost to the linear baseline at k=1
-  ONLY, same as seed 0 (0.1718 vs 0.1673, ~2.7%; all longer
-  horizons pass; checkpoints md5-distinct, so a seed-plumbing bug
-  is ruled out — genuine replication). Per pre-registration:
-  training variance is CLOSED as the explanation, the known
-  noslip→tripod dataset drift is the prime suspect, NO third seed
-  may run, and no PPO cohort / hold→walk pair can launch (both
-  hard-abort without a G1 PASS on record). Nothing dynrep is
-  agent-launchable until the operator ships the dataset fix.
-  Artifacts on train-11: `rl_move/dynamics/logs/
-  pod_pilot_rep_retry.log`, `eval_dyn_v2pod_obs_s1_*.json`.
-  Detail: dynrep/STATUS.md.
+- **dynrep `[precondition: A/B/C cohort finishes — the operator's
+  Cursor session owns it, not the orchestrator]` — RESOLVED FORWARD
+  (08-14 ~12:48 UTC, commit 4cde930): the G1-FAIL wait above is
+  CLEARED — the dataset-drift fix landed (champions pushed to the
+  pods, collect preflights hard-require them), the 12-cell scale
+  sweep RERUN passes the ORIGINAL G1 in 12/12 cells, and the A/B/C
+  PPO-transfer cohort auto-launched on `dyn_scale_M_h16_large`
+  (train-10 CPUs, `pod_chain_abc.sh`, walk-phase seeds live as of
+  ~17:xx).** No orchestrator launch is legal here until the cohort
+  reports; triage belongs to the owning session. Evidence hygiene
+  (08-14 ~17:xx, per external-feedback note fb_20260814T164907):
+  sweep gate JSONs + scale summary + the winning encoder ckpt were
+  pulled off-pod to the controller
+  (`/workspace/dynrep_backup/train-10_20260814/`) so a pod loss
+  cannot erase the sweep's only evidence. Detail: dynrep/STATUS.md.
 - **Bench session items (operator time, not GPU — nothing is
   deploy-blocked):** first hardware run of the learned stand-up
   (deploy re-push DONE + HTTP-verified 08-11 ~21:15, goal profile in
