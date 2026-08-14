@@ -251,7 +251,15 @@ GAIT.md / SIM.md, and RL_LOG — not here):**
   cap 4, teacher return med 656 ≈ the operator's local post-fix
   658; collection 500 eps clean at ~4% falls, BC epochs under way
   — next cycle triages the artifact on the pre-registered Arm 1
-  gate). **And arm 2's ONE named CODE wait is CLEARED the same
+  gate). **HEALTH (08-14 ~08:2x UTC idle kick): the 03:xx launch had
+  accidentally started TWICE** (03:17 + a 03:30 setsid retry — the
+  COMMANDS.md kubectl-exec-timeout gotcha), both writing the same
+  log/output zip; the newer duplicate was killed at 08:2x, the
+  03:17 original survives healthy (mid DAgger-round-1 refit, ~27
+  cores busy, no artifact written yet so the eventual zip is
+  single-parent clean; only the log's 03:30–08:20 window is
+  interleaved — triage the artifact on the eval, not the log
+  stats). **And arm 2's ONE named CODE wait is CLEARED the same
   cycle: the MJX batched canonical-frame mint LANDED**
   (`MjxVecEnv._mint_seq_frames`, commit 8374125, default-off,
   pod-verified on CPU MJX: frame parity vs a fresh C reset within
