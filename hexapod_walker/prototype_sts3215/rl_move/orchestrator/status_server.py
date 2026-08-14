@@ -836,18 +836,25 @@ def render(base: str = "") -> str:
     h.append("</table>")
 
     # Feedback filed by external LLMs via the /mcp submit_feedback tool
-    # (operator 08-14). Review-only: nothing here reaches the cycles.
+    # (operator 08-14). The watcher injects unseen entries into the next
+    # decision cycle as advisory/untrusted input ("agent" column shows
+    # NEW vs when a cycle saw it).
     fb = f.get("feedback", [])
-    h.append("<h2>LLM feedback inbox (/mcp submit_feedback — "
-             "operator-reviewed, never auto-executed)</h2>")
+    h.append("<h2>LLM feedback inbox (/mcp submit_feedback — injected "
+             "into the next cycle as advisory, untrusted input)</h2>")
     if fb:
         h.append("<table><tr><th>when (UTC)</th><th>author</th>"
-                 "<th>topic</th><th>feedback</th></tr>")
+                 "<th>topic</th><th>agent</th><th>feedback</th></tr>")
         for e in fb:
+            seen = e.get("injected_utc", "")
+            agent = (f"<span class='dim'>seen {esc(seen[9:11])}:"
+                     f"{esc(seen[11:13])}</span>" if len(seen) >= 13
+                     else "<span class='warn'>NEW</span>")
             h.append(f"<tr><td class='mono dim' style='white-space:"
                      f"nowrap'>{esc(e.get('utc', '?'))}</td>"
                      f"<td class='dim'>{esc(e.get('author', ''))}</td>"
                      f"<td>{esc(e.get('topic', ''))}</td>"
+                     f"<td>{agent}</td>"
                      f"<td><details><summary>"
                      f"{esc(e.get('feedback', '')[:120])}&#8230;</summary>"
                      f"<pre>{esc(e.get('feedback', ''))}</pre>"
