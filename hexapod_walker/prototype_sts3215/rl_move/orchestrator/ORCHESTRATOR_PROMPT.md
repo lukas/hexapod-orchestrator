@@ -116,7 +116,9 @@ does not make it the operator's. Binding rules:
   (decision/bench — truly gated) vs `[code]` / `[triage]` /
   `[precondition: <x>]` (agent-doable — part of the drain queue).
   An entry without a type is treated as agent-doable until shown
-  otherwise.
+  otherwise; when a cycle sweeps the board and settles what an
+  untyped entry is actually blocked on, it adds the type in the same
+  cycle (one-time migration of the pre-08-14 entries included).
 - Signal work to the watcher: any cycle that EXECUTES agent-doable
   work (lands a code item, launches or re-runs an arm, writes a triage
   verdict) must `touch rl_move/orchestrator/CYCLE_WORKED` before
@@ -336,4 +338,5 @@ prime directive and RL_PLAN "CLOSED moves".)
   questions ON THE CRITICAL PATH with a plausible answer,
   assume-and-go (record "## ASSUMPTION (operator to review)") beats
   waiting — but an idle pod is fine (prime directive); never invent a
-  peripheral run to fill it.
+  peripheral run to fill it. An idle pod next to NAMED agent-doable
+  work is NOT fine — drain that first (08-14 directive above).

@@ -393,6 +393,20 @@ operator_unblock_policy:
   # in the cycle that clears it. Waiting silently (or only in cycle
   # logs) is a guardrail violation.
   surface_waits_in_status_top: true
+  # AGENT-DOABLE WORK DRAINS BEFORE BACKOFF (operator, 08-14 —
+  # overrides the "judgment call, not a duty" clause above for NAMED
+  # items): a cycle may declare no-op only when the agent-doable
+  # queue is empty — no untriaged finishes, no named [code]/[triage]
+  # items in WAITING-ON / track STATUS "Next" / directive follow-up
+  # lists, no pre-registered arm with all preconditions met. If any
+  # exist, execute the topmost by track priority. WAITING-ON entries
+  # carry a blocker type ([operator] vs [code]/[triage]/
+  # [precondition: <x>]); untyped = agent-doable. Cycles that execute
+  # real work touch rl_move/orchestrator/CYCLE_WORKED so the watcher
+  # resets idle-kick backoff. UNNAMED speculative work stays a
+  # judgment call; the launch filter is unchanged. Full text:
+  # ORCHESTRATOR_PROMPT.md 08-14 directive.
+  drain_agent_doable_before_backoff: true
 
 escalation:
   # If any of these happen, do NOT launch new runs; write the situation to
