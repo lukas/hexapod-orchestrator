@@ -244,14 +244,26 @@ GAIT.md / SIM.md, and RL_LOG — not here):**
   fall 12/225 (5.3%, lower 5) vs 99/225 (44%, lower 73) — with a
   same-machine/seed pre-fix A/B replicating the pod number at
   92/225, so the fix alone moves 41%→5.3%; teacher return med 658
-  vs 287 — at the instrument's own band. The
-  transdagger2 recipe (CPU) is unblocked and is the orchestrator's
-  next arm-1 step; arm 2 (`cw-arch-modeseq1`, 10M) still waits on
-  ONE named CODE item — the MJX batched-reset path needs its own
-  canonical-frame mint (mode_seq there raises loudly until then).
+  vs 287 — at the instrument's own band. **EXECUTED (08-14 ~03:xx
+  UTC, orchestrator): the transdagger2 recipe is RUNNING on
+  train-0's idle CPUs** (log `/tmp/transdagger2.log`; in-context
+  teacher verify PASSED on the pod: 2 falls in 12 det sequences,
+  cap 4, teacher return med 656 ≈ the operator's local post-fix
+  658; collection 500 eps clean at ~4% falls, BC epochs under way
+  — next cycle triages the artifact on the pre-registered Arm 1
+  gate). **And arm 2's ONE named CODE wait is CLEARED the same
+  cycle: the MJX batched canonical-frame mint LANDED**
+  (`MjxVecEnv._mint_seq_frames`, commit 8374125, default-off,
+  pod-verified on CPU MJX: frame parity vs a fresh C reset within
+  0.03 rad / 6 mm, batched episodes cross switches; pre-mint the
+  vec path raised). Arm 2 now waits ONLY on the transdagger2
+  artifact triage (warm-start order re-judge). NOTE for the next
+  dig-in: `test_sharded_bitwise_matches_inprocess` FAILS on
+  train-1 at unmodified HEAD too (~1e-5 obs drift, sharded vs
+  in-process) — pre-existing pod-env issue, not the mint;
+  train-0 intentionally left at 8249df2 until its CPU job ends.
   Detail: arch/STATUS.md + TRANSITIONS_DIRECTIVE "ARM 1 RESULT".**
-  No CPU/GPU job is running;
-  every OTHER idle slot maps to a named wait in this block.
+  Every OTHER idle slot maps to a named wait in this block.
   ~~ASSUMPTION (operator to review, 08-13 ~12:0x)~~ **APPROVED by
   operator ruling above:** idle-kick BACKOFF stays — five deep-model
   idle-kick cycles in 80 min (10:37–11:58 UTC) each re-verified this
