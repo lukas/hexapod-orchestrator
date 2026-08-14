@@ -217,18 +217,29 @@ GAIT.md / SIM.md, and RL_LOG — not here):**
   Waiting on: operator flips the two cfg keys on the runner's walk
   engage and re-runs takeoff reps (deploy is operator-only). No
   training arm until the bench adopts the entry sequence.
-- **FLEET: 0/12 pods GPU-training (08-14 ~0x:xx UTC; backlog
-  empty), but the arch directive is UNBLOCKED and executing:**
-  TRANSITIONS_DIRECTIVE CODE item 2 (`distill_gru --transitions`)
-  LANDED this cycle (tests + bank green, smoke clean) and **arm 1
-  `cw-arch-trans-dagger1` is RUNNING as a CPU job on
-  hexapod-mjx-train-0's idle cores** (distillation, not a GPU/ledger
-  run — dynrep precedent; log `/tmp/transdagger1.log` on train-0,
-  artifact `ppo_goal_cw_gru_dual_bc_transdagger1.zip`, pre-registered
-  gate in TRANSITIONS_DIRECTIVE Arm 1). Next cycle: triage the
-  artifact (eval_modeseq + retention harness), then spec arm 2
-  `cw-arch-modeseq1` (GPU). Every OTHER idle slot maps to a named
-  wait in this block.
+- **FLEET: 0/12 pods GPU-training (08-14; backlog empty), but the
+  arch directive is UNBLOCKED and executing:** arm 1's first artifact
+  `cw-arch-trans-dagger1` was triaged 08-14 → **FAIL on the sequence
+  gate (0/12 zero-fall), root-caused by a matched-teacher control to
+  the DEFAULT stance teacher (`stance_dr10` itself scores 0/12
+  in-context with the identical fingerprint) — the `--transitions`
+  distill mechanism is exonerated (student = high-fidelity copy;
+  walk segments 12/12).** The one-flag fix `cw-arch-trans-dagger2`
+  (`--stance-teacher` → `footlow2_hard1`) was launched and then
+  KILLED mid-collection by the same cycle on its own evidence: that
+  baseline-proven teacher pair fell **99/225 demo sequences inside
+  the new `goal.mode_seq` TRAINING env** (lower-segment falls
+  dominate) while scoring 11/12 zero-fall on the eval instrument —
+  and the old teacher shows the inverted pattern. **CODE item 1's
+  in-env switch re-anchor is now the prime suspect; the named next
+  step (agent-doable, next cycle) is to diff the env's switch refs
+  against the proven `reanchor_to()` mechanics on the same physical
+  state, fix, re-verify the teacher composes in-env, then re-run
+  the transdagger2 recipe. Arm 2 (`cw-arch-modeseq1`, GPU 10M) is
+  HELD until that fix — it would train on the same defective switch
+  context (ASSUMPTION in RL_LOG: also not launching it from the
+  slot-3 dagger1-BC init meanwhile).** No CPU/GPU job is running;
+  every OTHER idle slot maps to a named wait in this block.
   ~~ASSUMPTION (operator to review, 08-13 ~12:0x)~~ **APPROVED by
   operator ruling above:** idle-kick BACKOFF stays — five deep-model
   idle-kick cycles in 80 min (10:37–11:58 UTC) each re-verified this
