@@ -167,7 +167,12 @@ sessions tonight (`rl_docs/BENCH_REPORT_2026-08-11.md`):
 waiting on goes HERE, at the top, the moment it starts waiting —
 named concretely, REMOVED in the cycle that clears it; resolution
 narratives live in the track STATUS docs, rl_docs/runs/, RISE.md /
-GAIT.md / SIM.md, and RL_LOG — not here):**
+GAIT.md / SIM.md, and RL_LOG — not here. Operator directive 08-14:
+every entry names its BLOCKER TYPE — `[operator]` for a true decision/
+bench gate vs `[code]`/`[triage]`/`[precondition: <x>]` for
+agent-doable work; untyped entries count as agent-doable, and idle
+cycles must DRAIN the agent-doable ones before declaring no-op — see
+ORCHESTRATOR_PROMPT.md):**
 
 - **OPERATOR RULINGS (08-13 ~12:4x UTC) — five waits DECIDED this
   cycle; full narratives live in the named track docs:**
@@ -192,6 +197,14 @@ GAIT.md / SIM.md, and RL_LOG — not here):**
      `cw-quadwalk1` is RUNNING (see FLEET line) — no longer a wait.
   5. **watcher idle-kick backoff → APPROVED** (15m→30→60→2h→4h
      no-op spacing, snap-back on real activity, stays live).
+     **SCOPE CUT 08-14 (operator):** backoff applies ONLY when the
+     agent-doable queue is empty — named `[code]`/`[triage]`/
+     precondition-met arms must be DRAINED by idle cycles first, and
+     a cycle that executes real work touches
+     `rl_move/orchestrator/CYCLE_WORKED` to snap the cadence back to
+     15 min. Full directive in ORCHESTRATOR_PROMPT.md; trigger: the
+     08-14 overnight where two just-unblocked named steps waited ~2 h
+     on backoff spacing while the fleet looked idle.
 - **NEW WAIT (08-13 ~19:xx UTC): quad → quadwalk needs an
   ARCHITECTURE/CURRICULUM design discussion (operator).**
   `cw-quadwalk7` (ent-coef 0.001→0.02, the exploration lever) STOP:

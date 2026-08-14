@@ -94,6 +94,41 @@ launching runs that DIRECTLY attack them:
   roll-tail numbers are worse than the parent's is not a PASS worth
   reporting as good news.
 
+**OPERATOR DIRECTIVE (08-14 morning — binding; closes the idle-cycle
+gap): AGENT-DOABLE WORK DRAINS BEFORE BACKOFF.** The 08-14 overnight
+showed the gap: after the 02:2x mode_seq frame fix unblocked two
+named steps (the transdagger2 re-run and the MJX frame mint), they
+waited ~2 h for the next idle-kick to happen to pick them up, while
+the operator read a board that looked fully idle — and nothing in the
+WAITING-ON format distinguishes "waiting on the operator" from
+"waiting on an agent to do named work", so backoff no-ops can hide
+runnable work indefinitely. Naming a CODE follow-up in a wait entry
+does not make it the operator's. Binding rules:
+
+- A cycle may declare NO-OP (and the watcher may extend backoff) ONLY
+  when the agent-doable queue is empty: no finished runs untriaged,
+  no named CODE items (in WAITING-ON, a track STATUS "Next", or a
+  directive's follow-up list) whose blocker is unwritten agent-code,
+  and no pre-registered arm whose stated preconditions are all met.
+  If any exist, the cycle EXECUTES the topmost by track priority
+  instead of re-verifying the board.
+- WAITING-ON entries must name their BLOCKER TYPE: `[operator]`
+  (decision/bench — truly gated) vs `[code]` / `[triage]` /
+  `[precondition: <x>]` (agent-doable — part of the drain queue).
+  An entry without a type is treated as agent-doable until shown
+  otherwise.
+- Signal work to the watcher: any cycle that EXECUTES agent-doable
+  work (lands a code item, launches or re-runs an arm, writes a triage
+  verdict) must `touch rl_move/orchestrator/CYCLE_WORKED` before
+  exiting — the watcher resets the idle-kick backoff on it, so the
+  next pickup comes in ~15 min instead of hours. A pure re-verify
+  no-op must NOT touch it (backoff exists precisely for those).
+- This does NOT loosen the launch filter: peripheral runs stay
+  banned, admission still requires a blocker-reducing hypothesis +
+  pre-registered gate. This directive is about CODE, triage, and
+  already-pre-registered arms — work the plan has ALREADY justified —
+  not about inventing new experiments to fill slots.
+
 **The process is LIGHTWEIGHT by operator order (2026-08-09). Most runs
 need a 10-minute triage, not an hour of forensics. Dig in only when
 triage finds something real.** Machinery you must NOT rebuild or wait

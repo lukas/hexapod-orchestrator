@@ -37,6 +37,14 @@ PAUSE = HERE / "PAUSE"
 # temporary overflow session so an operator ask never queues behind a
 # full triage board) and still counted in the rolling daily budget.
 KICK = HERE / "KICK"
+# Cycle-work sentinel (operator directive 08-14, "agent-doable work
+# drains before backoff"): a cycle that EXECUTES real work — lands a
+# named CODE item, launches/re-runs an arm, writes a triage verdict —
+# touches this file before exiting. The watcher then resets the
+# idle-kick backoff streak, because a board where work just happened
+# deserves the full 15-min cadence again. Pure re-verify no-ops must
+# NOT touch it; that is exactly the case backoff exists for.
+WORKED = HERE / "CYCLE_WORKED"
 LEDGER = HERE / "experiments.json"
 LOG = pathlib.Path("/workspace/orchestrator.log")
 STATE = pathlib.Path("/workspace/orchestrator_state.json")
@@ -94,17 +102,24 @@ RUN_PREFIX = "cw-"
 # polls, kick a cycle anyway so the campaign can't deadlock (e.g. after a
 # blocked launch or a watcher restart with idle pods).
 IDLE_KICK_POLLS = 3
-# Idle-kick BACKOFF (08-13 idle-kick cycle; ASSUMPTION, operator to
-# review — recorded in STATUS.md): when the whole fleet is parked on
+# Idle-kick BACKOFF (08-13 idle-kick cycle; RATIFIED by operator
+# 08-14 with a scope cut): when the whole fleet is parked on
 # operator-gated waits (STATUS.md WAITING-ON), consecutive no-op idle
 # kicks double the wait before the next one (15 min -> 30 -> 60 -> ...
 # capped below). Any real activity — a finished run, checkup findings,
-# a training run appearing, or an operator KICK — resets the cadence
-# to IDLE_KICK_POLLS. Trigger: five fable idle kicks re-verified an
-# UNCHANGED all-operator-gated fleet in 80 min on 08-13; at the
-# 96/day cap that is ~$1k+/day of no-op deliberation (operator cost
-# order, 08-09). The campaign still cannot deadlock: a kick fires at
-# least every IDLE_KICK_MAX_POLLS * POLL_S (~4 h).
+# a training run appearing, an operator KICK, or a cycle touching
+# WORKED after executing agent-doable work — resets the cadence to
+# IDLE_KICK_POLLS. Operator ruling 08-14: backoff applies ONLY to
+# boards whose agent-doable queue is empty (see the 08-14 directive in
+# ORCHESTRATOR_PROMPT.md); a cycle that finds named CODE items,
+# untriaged finishes, or precondition-met pre-registered arms must
+# execute them, and its WORKED touch keeps the cadence hot. Trigger
+# history: five idle kicks re-verified an UNCHANGED all-operator-gated
+# fleet in 80 min on 08-13 (~$1k+/day at cap of pure re-verification);
+# then on 08-14 the same backoff delayed pickup of two just-unblocked
+# named steps by ~2 h — hence the split. The campaign still cannot
+# deadlock: a kick fires at least every IDLE_KICK_MAX_POLLS * POLL_S
+# (~4 h).
 IDLE_KICK_MAX_POLLS = 48  # 48 * 300 s = 4 h floor on kick cadence
 
 
@@ -476,9 +491,18 @@ def spawn_cycle(newly_finished: set[str], still_running: set[str],
     else:
         trigger = (
             "No run just finished — this is an idle kick: pods are sitting "
-            "idle with no experiments training. Resume the campaign from "
-            "RL_LOG.md (a NEEDS OPERATOR section or planned-but-unlaunched "
-            "experiments); skip eval steps for runs already logged.\n"
+            "idle with no experiments training. Per the 08-14 operator "
+            "directive (AGENT-DOABLE WORK DRAINS BEFORE BACKOFF): first "
+            "DRAIN the agent-doable queue — untriaged finished runs, named "
+            "CODE items in WAITING-ON / track STATUS 'Next' / directive "
+            "follow-up lists, and pre-registered arms whose preconditions "
+            "are all met — executing the topmost by track priority, NOT "
+            "just re-verifying the board. If you executed any real work "
+            "(code landed, run launched, triage written), `touch "
+            "rl_move/orchestrator/CYCLE_WORKED` before exiting so the "
+            "watcher keeps the fast cadence. Only if that queue is truly "
+            "empty may you declare a no-op (do NOT touch CYCLE_WORKED "
+            "then). Skip eval steps for runs already logged.\n"
         )
     # Fresh read every spawn: prompt edits (e.g. the shutdown protocol)
     # take effect without a watcher restart.
@@ -680,6 +704,14 @@ def main() -> None:
                     idle_polls = 0
                 elif n_failed:
                     failed_cycles += n_failed
+
+            if WORKED.exists():
+                WORKED.unlink(missing_ok=True)
+                if idle_kick_streak:
+                    log("cycle reported real work (CYCLE_WORKED); "
+                        "resetting idle-kick backoff")
+                idle_kick_streak = 0
+                idle_polls = 0
 
             if PAUSE.exists():
                 log("PAUSE present; idling")
