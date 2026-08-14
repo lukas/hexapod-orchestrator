@@ -1,0 +1,530 @@
+#!/usr/bin/env python3
+"""MCP server for the RL campaign — LLMs investigate results as tools.
+
+Stdlib only, like status_server.py. Implements the MCP streamable-HTTP
+transport (JSON-RPC 2.0 over POST, plain application/json responses —
+no SSE stream) so any MCP client (Claude, Cursor, ChatGPT connectors,
+mcp-remote) can query the run ledger, campaign/track status, per-run
+stories, cached W&B metrics, eval reports, and every doc in the tree.
+
+Normally mounted INSIDE status_server.py at POST /mcp (public URL
+https://hexapod.cwd1f0-new-cluster.coreweave.app/mcp — Caddy proxies
+443 to :8090). Keyless by design, exactly like the /llm mirror: it
+serves what the public GitHub repo already shows. Spend/token numbers
+and pod names stay off it (same policy as /llm, operator 08-13).
+
+Standalone for development/testing only:
+    python3 rl_move/orchestrator/mcp_server.py   # port 8091
+"""
+from __future__ import annotations
+
+import csv
+import glob as _glob
+import io
+import json
+import os
+import pathlib
+import re
+import time
+
+HERE = pathlib.Path(__file__).resolve().parent
+PROTO = HERE.parent.parent
+
+PROTOCOL_VERSIONS = ("2025-06-18", "2025-03-26", "2024-11-05")
+SERVER_INFO = {"name": "hexapod-rl-results",
+               "title": "Hexapod RL campaign results",
+               "version": "1.0.0"}
+INSTRUCTIONS = """\
+Results of an autonomous RL training campaign teaching an 18-servo
+hexapod robot to stand, walk, and turn (MuJoCo/MJX PPO on a GPU fleet;
+an LLM watcher launches runs, evaluates checkpoints, writes verdicts).
+
+Suggested flow: campaign_status first (campaign digest + every research
+track's state), then list_runs to browse the launch ledger, get_run for
+one run's full story (hypothesis, gate, verdict), run_metrics /
+eval_report for its numbers. get_plan is the research plan; log_tail is
+the append-only decision-cycle log. Every design doc (rewards, gaits,
+evals, hardware, per-run stories) is reachable via list_docs /
+read_doc, and search_docs greps them all.
+"""
+
+# Ledger fields that are infra detail (pod names / pod-local paths) —
+# the keyless mirror policy excludes them (see status_server.py).
+LEDGER_PRIVATE = {"pod", "log"}
+
+# Same skip list as status_server.list_docs.
+DOC_SKIP_DIRS = {".git", "logs", "wandb", "policies", "node_modules",
+                 "__pycache__"}
+TEXT_CAP = 400_000  # bytes per tool result — keep well under context
+
+
+# ---------------------------------------------------------------- data
+def _clip(text: str, cap: int = TEXT_CAP, what: str = "output") -> str:
+    if len(text) <= cap:
+        return text
+    return (text[:cap]
+            + f"\n\n[... {what} truncated at {cap // 1000} kB ...]")
+
+
+def _ledger() -> list[dict]:
+    entries = json.loads((HERE / "experiments.json").read_text())
+    latest: dict[str, dict] = {}
+    for e in entries:
+        if isinstance(e, dict) and e.get("run"):
+            latest[e["run"]] = e
+    return sorted(latest.values(),
+                  key=lambda e: e.get("created") or "", reverse=True)
+
+
+def _track_of(e: dict) -> str:
+    if e.get("track"):
+        return e["track"]
+    try:
+        import tracks as _tracks
+        return _tracks.infer(e.get("run", ""))
+    except Exception:
+        return "?"
+
+
+def _public(e: dict) -> dict:
+    return {k: v for k, v in e.items() if k not in LEDGER_PRIVATE}
+
+
+def _doc_paths() -> list[str]:
+    out = []
+    for root, dirs, files in os.walk(PROTO):
+        dirs[:] = [d for d in dirs if d not in DOC_SKIP_DIRS]
+        rel = os.path.relpath(root, PROTO)
+        for name in files:
+            if name.endswith(".md"):
+                out.append(name if rel == "." else f"{rel}/{name}")
+    return sorted(out)
+
+
+def _read_doc(rel: str) -> str | None:
+    if not rel.endswith(".md") or ".." in rel:
+        return None
+    p = (PROTO / rel).resolve()
+    if not p.is_relative_to(PROTO.resolve()):
+        return None
+    try:
+        return p.read_text(errors="replace")
+    except OSError:
+        return None
+
+
+# --------------------------------------------------------------- tools
+def t_campaign_status() -> str:
+    parts = []
+    try:
+        parts.append("# Campaign digest (STATUS.md)\n\n"
+                     + (PROTO / "STATUS.md").read_text(errors="replace"))
+    except OSError as e:
+        parts.append(f"(STATUS.md unreadable: {e})")
+    for p in sorted((PROTO / "rl_docs" / "tracks").glob("*/STATUS.md")):
+        parts.append(f"# Track: {p.parent.name}\n\n"
+                     + p.read_text(errors="replace"))
+    return _clip("\n\n---\n\n".join(parts))
+
+
+def t_get_plan() -> str:
+    out = []
+    for name in ("RL_PLAN.md", "CURRENT_TRUTHS.md"):
+        try:
+            out.append(f"# {name}\n\n"
+                       + (PROTO / name).read_text(errors="replace"))
+        except OSError as e:
+            out.append(f"({name} unreadable: {e})")
+    return _clip("\n\n---\n\n".join(out))
+
+
+def t_log_tail(max_kb: int = 64) -> str:
+    max_kb = max(1, min(int(max_kb), 300))
+    try:
+        data = (PROTO / "RL_LOG.md").read_bytes()
+    except OSError as e:
+        return f"(RL_LOG.md unreadable: {e})"
+    cap = max_kb * 1000
+    if len(data) <= cap:
+        return data.decode(errors="replace")
+    tail = data[-cap:].decode(errors="replace").split("\n", 1)[-1]
+    return (f"(RL_LOG.md is {len(data) // 1000} kB, showing the newest "
+            f"{max_kb} kB — append-only, newest last; raise max_kb or "
+            f"use search_docs for older entries)\n\n{tail}")
+
+
+def t_list_runs(status: str = "", track: str = "", contains: str = "",
+                limit: int = 40) -> str:
+    limit = max(1, min(int(limit), 900))
+    rows, counts = [], {}
+    for e in _ledger():
+        counts[e.get("status", "?")] = counts.get(e.get("status", "?"), 0) + 1
+        if status and e.get("status", "").upper() != status.upper():
+            continue
+        if track and _track_of(e) != track:
+            continue
+        if contains:
+            blob = json.dumps(e).lower()
+            if contains.lower() not in blob:
+                continue
+        if len(rows) >= limit:
+            continue
+        r = {"run": e.get("run"), "status": e.get("status"),
+             "track": _track_of(e), "created": (e.get("created") or "")[:16]}
+        for k in ("phase", "steps", "parent"):
+            if e.get(k):
+                r[k] = e[k]
+        hyp = (e.get("hypothesis") or "").strip()
+        if hyp:
+            r["hypothesis"] = hyp[:280] + ("…" if len(hyp) > 280 else "")
+        v = str(e.get("verdict") or "").strip()
+        if v:
+            r["verdict"] = v[:280] + ("…" if len(v) > 280 else "")
+        elif e.get("triage"):
+            r["analysis_stage"] = e["triage"]
+        rows.append(r)
+    head = ("Latest ledger entry per run, newest first. Status meanings: "
+            "RUNNING = training now; FINISHED = training done AND a "
+            "verdict was written; FAILED/KILLED = died or stopped; "
+            "REFUSED = a launcher guardrail blocked it (no GPU time). "
+            "Use get_run for a run's full entry + story.\n"
+            f"Status counts (all runs): {json.dumps(counts)}\n"
+            f"Showing {len(rows)} runs.\n\n")
+    return _clip(head + json.dumps(rows, indent=1))
+
+
+def t_get_run(run: str) -> str:
+    entry = next((e for e in _ledger() if e.get("run") == run), None)
+    if entry is None:
+        near = [e["run"] for e in _ledger() if run.lower() in e["run"].lower()]
+        return (f"run {run!r} not in the ledger."
+                + (f" Near matches: {', '.join(near[:10])}" if near else ""))
+    out = ["# Ledger entry (latest)", json.dumps(_public(entry), indent=1)]
+    story = PROTO / "rl_docs" / "runs" / f"{run}.md"
+    if story.is_file():
+        out += ["", "# Run story (rl_docs/runs/%s.md)" % run,
+                story.read_text(errors="replace")]
+    out.append("\n(run_metrics gives cached W&B curves; eval_report the "
+               "gate-eval numbers, when present on this host.)")
+    return _clip("\n".join(out))
+
+
+def t_run_metrics(run: str, history_rows: int = 30) -> str:
+    history_rows = max(1, min(int(history_rows), 200))
+    d = PROTO / "logs" / "experiments" / run
+    if not d.is_dir():
+        return (f"no cached W&B data for {run!r} on this host "
+                f"(logs/experiments/{run}/ missing — it is written by "
+                f"`ops.sh wandbdump` when a run finishes).")
+    out = [f"# Cached W&B data for {run}"]
+    for name in ("wandb_summary.json", "wandb_config.json"):
+        p = d / name
+        if p.is_file():
+            out += ["", f"## {name}", p.read_text(errors="replace")[:60_000]]
+    hist = d / "wandb_history.csv"
+    if hist.is_file():
+        rows = list(csv.reader(io.StringIO(
+            hist.read_text(errors="replace"))))
+        if rows:
+            keep = [rows[0]] + rows[1:][-history_rows:]
+            out += ["", f"## wandb_history.csv (last {len(keep) - 1} of "
+                        f"{len(rows) - 1} rows)",
+                    "\n".join(",".join(r) for r in keep)]
+    other = [p.name for p in sorted(d.iterdir())
+             if p.name not in ("wandb_summary.json", "wandb_config.json",
+                               "wandb_history.csv")]
+    if other:
+        out += ["", "## other cached files: " + ", ".join(other)]
+    return _clip("\n".join(out))
+
+
+def t_eval_report(run: str) -> str:
+    snake = run.replace("-", "_")
+    paths = sorted(
+        _glob.glob(str(PROTO / "logs" / "ckpt_eval" / f"*{snake}*"
+                       / "report.json")),
+        key=os.path.getmtime, reverse=True)
+    if not paths:
+        return (f"no eval report matching {run!r} on this host "
+                f"(logs/ckpt_eval/*{snake}*/report.json — reports are "
+                f"copied back when the gate eval finishes).")
+    out = []
+    for p in paths[:3]:
+        rel = os.path.relpath(p, PROTO)
+        out += [f"# {rel}", pathlib.Path(p).read_text(errors="replace")]
+    if len(paths) > 3:
+        out.append(f"({len(paths) - 3} older matching reports not shown)")
+    return _clip("\n\n".join(out))
+
+
+def t_list_docs() -> str:
+    by_dir: dict[str, list[str]] = {}
+    n_runs = 0
+    for rel in _doc_paths():
+        if rel.startswith("rl_docs/runs/"):
+            n_runs += 1
+            continue
+        try:
+            size = (PROTO / rel).stat().st_size
+        except OSError:
+            size = 0
+        d = os.path.dirname(rel) or "(root)"
+        by_dir.setdefault(d, []).append(f"{rel} ({size // 1000} kB)")
+    out = ["Every markdown doc in the prototype tree; fetch any of them "
+           "with read_doc(path).", ""]
+    for d in sorted(by_dir):
+        out += [f"## {d}"] + [f"- {x}" for x in by_dir[d]] + [""]
+    out.append(f"## rl_docs/runs — {n_runs} per-run stories, one per "
+               f"launched run; read_doc('rl_docs/runs/<run>.md') or just "
+               f"get_run(run).")
+    return _clip("\n".join(out))
+
+
+def t_read_doc(path: str) -> str:
+    body = _read_doc(path)
+    if body is None:
+        return (f"{path!r} not found (must be a .md path relative to the "
+                f"prototype tree — see list_docs).")
+    return _clip(body, what=path)
+
+
+def t_search_docs(query: str, regex: bool = False,
+                  max_matches: int = 100) -> str:
+    max_matches = max(1, min(int(max_matches), 400))
+    try:
+        pat = re.compile(query if regex else re.escape(query), re.I)
+    except re.error as e:
+        return f"bad regex: {e}"
+    targets = _doc_paths()  # includes RL_LOG.md (root-level .md)
+    hits, n = [], 0
+    for rel in targets:
+        text = _read_doc(rel)
+        if text is None:
+            continue
+        for i, line in enumerate(text.splitlines(), 1):
+            if pat.search(line):
+                hits.append(f"{rel}:{i}: {line.strip()[:300]}")
+                n += 1
+                if n >= max_matches:
+                    hits.append(f"[stopped at {max_matches} matches — "
+                                f"narrow the query]")
+                    return _clip("\n".join(hits))
+    return _clip("\n".join(hits) if hits else f"no matches for {query!r}")
+
+
+TOOLS = [
+    {"name": "campaign_status",
+     "description": "Campaign digest (STATUS.md) plus every research "
+                    "track's STATUS doc — read this first for an overall "
+                    "assessment of results.",
+     "fn": t_campaign_status, "args": {}},
+    {"name": "get_plan",
+     "description": "The research plan (RL_PLAN.md) and CURRENT_TRUTHS.md "
+                    "(facts that win on conflict).",
+     "fn": t_get_plan, "args": {}},
+    {"name": "log_tail",
+     "description": "Tail of RL_LOG.md, the append-only decision-cycle "
+                    "log (one line per orchestrator cycle, newest last).",
+     "fn": t_log_tail,
+     "args": {"max_kb": {"type": "integer",
+                         "description": "kB of tail to return (1-300, "
+                                        "default 64)"}}},
+    {"name": "list_runs",
+     "description": "Browse the launch ledger (every training run with "
+                    "status, hypothesis, verdict). Filter by status, "
+                    "track, or substring; newest first.",
+     "fn": t_list_runs,
+     "args": {"status": {"type": "string",
+                         "description": "exact status filter, e.g. "
+                                        "FINISHED, RUNNING, FAILED, "
+                                        "REFUSED"},
+              "track": {"type": "string",
+                        "description": "research-track id, e.g. hw, arch, "
+                                       "nobc, quad, turn, multitask, "
+                                       "dynrep"},
+              "contains": {"type": "string",
+                           "description": "substring matched against the "
+                                          "whole ledger entry"},
+              "limit": {"type": "integer",
+                        "description": "max runs returned (default 40)"}}},
+    {"name": "get_run",
+     "description": "One run's full ledger entry (hypothesis, gate, "
+                    "verdict, lineage) plus its rendered story doc.",
+     "fn": t_get_run,
+     "args": {"run": {"type": "string",
+                      "description": "run name, e.g. cw-arch-modeseq1-rr1"}},
+     "required": ["run"]},
+    {"name": "run_metrics",
+     "description": "Cached W&B summary/config and the tail of the "
+                    "training-metrics history CSV for one run.",
+     "fn": t_run_metrics,
+     "args": {"run": {"type": "string", "description": "run name"},
+              "history_rows": {"type": "integer",
+                               "description": "history rows to return "
+                                              "(default 30)"}},
+     "required": ["run"]},
+    {"name": "eval_report",
+     "description": "Gate-eval report.json for a run or checkpoint "
+                    "(deterministic + stochastic episode metrics).",
+     "fn": t_eval_report,
+     "args": {"run": {"type": "string",
+                      "description": "run or checkpoint name"}},
+     "required": ["run"]},
+    {"name": "list_docs",
+     "description": "Index of every design/research doc (rewards, gait, "
+                    "evals, sim, hardware, per-run stories).",
+     "fn": t_list_docs, "args": {}},
+    {"name": "read_doc",
+     "description": "Read one doc by path relative to the prototype "
+                    "tree, e.g. rl_docs/REWARD.md or STATUS.md.",
+     "fn": t_read_doc,
+     "args": {"path": {"type": "string", "description": "doc path"}},
+     "required": ["path"]},
+    {"name": "search_docs",
+     "description": "Search every doc plus RL_LOG.md for a string or "
+                    "regex; returns path:line matches.",
+     "fn": t_search_docs,
+     "args": {"query": {"type": "string", "description": "search text"},
+              "regex": {"type": "boolean",
+                        "description": "treat query as a regex "
+                                       "(default false)"},
+              "max_matches": {"type": "integer",
+                              "description": "cap on matches "
+                                             "(default 100)"}},
+     "required": ["query"]},
+]
+
+
+def tool_specs() -> list[dict]:
+    return [{"name": t["name"], "description": t["description"],
+             "inputSchema": {"type": "object",
+                             "properties": t["args"],
+                             "required": t.get("required", [])}}
+            for t in TOOLS]
+
+
+def call_tool(name: str, args: dict) -> tuple[str, bool]:
+    """Returns (text, is_error). Raises KeyError for unknown tools."""
+    tool = next(t for t in TOOLS if t["name"] == name)
+    kwargs = {k: v for k, v in (args or {}).items() if k in tool["args"]}
+    try:
+        return tool["fn"](**kwargs), False
+    except Exception as e:  # tool errors go IN the result per MCP spec
+        return f"tool {name} failed: {e!r}", True
+
+
+# ------------------------------------------------------------- JSON-RPC
+SESSION_ID = f"hexapod-{int(time.time()):x}"  # stateless; any id accepted
+
+
+def _rpc_one(msg: dict) -> dict | None:
+    """One JSON-RPC message -> response dict (None for notifications)."""
+    rid, method = msg.get("id"), msg.get("method", "")
+    params = msg.get("params") or {}
+    if rid is None:  # notification (notifications/initialized etc.)
+        return None
+
+    def ok(result):
+        return {"jsonrpc": "2.0", "id": rid, "result": result}
+
+    def err(code, text):
+        return {"jsonrpc": "2.0", "id": rid,
+                "error": {"code": code, "message": text}}
+
+    if method == "initialize":
+        want = params.get("protocolVersion", "")
+        ver = want if want in PROTOCOL_VERSIONS else PROTOCOL_VERSIONS[0]
+        return ok({"protocolVersion": ver,
+                   "capabilities": {"tools": {"listChanged": False}},
+                   "serverInfo": SERVER_INFO,
+                   "instructions": INSTRUCTIONS})
+    if method == "ping":
+        return ok({})
+    if method == "tools/list":
+        return ok({"tools": tool_specs()})
+    if method == "tools/call":
+        name = params.get("name", "")
+        if not any(t["name"] == name for t in TOOLS):
+            return err(-32602, f"unknown tool: {name}")
+        text, is_err = call_tool(name, params.get("arguments") or {})
+        return ok({"content": [{"type": "text", "text": text}],
+                   "isError": is_err})
+    if method in ("resources/list", "resources/templates/list"):
+        key = "resourceTemplates" if "templates" in method else "resources"
+        return ok({key: []})
+    if method == "prompts/list":
+        return ok({"prompts": []})
+    return err(-32601, f"method not found: {method}")
+
+
+CORS = {"Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "POST, GET, OPTIONS, DELETE",
+        "Access-Control-Allow-Headers":
+            "Content-Type, Accept, Authorization, Mcp-Session-Id, "
+            "Mcp-Protocol-Version, Last-Event-ID",
+        "Access-Control-Expose-Headers": "Mcp-Session-Id"}
+
+
+def handle_http(method: str, body: bytes) -> tuple[int, dict, bytes]:
+    """Transport-agnostic entry: (status, headers, body) for /mcp."""
+    h = dict(CORS)
+    if method == "OPTIONS":
+        return 204, h, b""
+    if method == "DELETE":  # client ended its session — nothing to drop
+        return 200, h, b""
+    if method != "POST":
+        h["Allow"] = "POST, OPTIONS, DELETE"
+        return 405, h, b"MCP endpoint: POST JSON-RPC here (streamable " \
+                       b"HTTP, no server event stream)."
+    try:
+        msg = json.loads(body.decode())
+    except ValueError:
+        h["Content-Type"] = "application/json"
+        return 400, h, json.dumps(
+            {"jsonrpc": "2.0", "id": None,
+             "error": {"code": -32700, "message": "parse error"}}).encode()
+    msgs = msg if isinstance(msg, list) else [msg]
+    replies = [r for m in msgs if isinstance(m, dict)
+               for r in [_rpc_one(m)] if r is not None]
+    if any(isinstance(m, dict) and m.get("method") == "initialize"
+           for m in msgs):
+        h["Mcp-Session-Id"] = SESSION_ID
+    if not replies:  # notifications only
+        return 202, h, b""
+    out = replies if isinstance(msg, list) else replies[0]
+    h["Content-Type"] = "application/json"
+    return 200, h, json.dumps(out).encode()
+
+
+# ------------------------------------------------- standalone (dev only)
+def main() -> int:
+    import http.server
+
+    port = int(os.environ.get("MCP_PORT", "8091"))
+
+    class Handler(http.server.BaseHTTPRequestHandler):
+        def _serve(self):
+            n = int(self.headers.get("Content-Length") or 0)
+            body = self.rfile.read(n) if n else b""
+            status, headers, out = handle_http(self.command, body)
+            self.send_response(status)
+            for k, v in headers.items():
+                self.send_header(k, v)
+            self.send_header("Content-Length", str(len(out)))
+            self.end_headers()
+            self.wfile.write(out)
+
+        do_GET = do_POST = do_OPTIONS = do_DELETE = _serve
+
+        def log_message(self, *a):
+            pass
+
+    srv = http.server.ThreadingHTTPServer(("0.0.0.0", port), Handler)
+    print(f"MCP server (dev standalone) on :{port} — POST /mcp or /")
+    srv.serve_forever()
+    return 0
+
+
+if __name__ == "__main__":
+    import sys
+    sys.exit(main())
