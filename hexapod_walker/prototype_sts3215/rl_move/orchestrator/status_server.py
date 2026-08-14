@@ -518,6 +518,9 @@ padding:10px;font-size:11.5px;overflow-x:auto;white-space:pre-wrap}
 gap:10px}.card{background:#161b22;border:1px solid #21262d;border-radius:6px;
 padding:10px 14px}.card .n{font-size:22px;font-weight:700}
 .card .l{color:#8b949e;font-size:12px}
+.cpy{background:#21262d;color:#c9d1d9;border:1px solid #30363d;
+border-radius:6px;padding:2px 10px;font-size:12px;cursor:pointer}
+.cpy:hover{background:#30363d}
 """
 
 
@@ -533,7 +536,64 @@ def fmt_tok(n: int) -> str:
     return f"{n / 1e3:.0f}k"
 
 
-def render() -> str:
+def llm_url_groups(base: str) -> list[tuple[str, list[tuple[str, str]]]]:
+    """Labeled URL bundle for the dashboard's copy-paste section (the
+    curated list the operator hands to GPT/Claude, 08-14)."""
+    def docs(entries):
+        return [(label, f"{base}/llm/doc/{rel}")
+                for label, rel in entries if (PROTO / rel).is_file()]
+    groups = [
+        ("Start here (live index pages)", [
+            ("LLM index — hand an agent THIS one", f"{base}/llms.txt"),
+            ("Campaign + all per-track STATUS", f"{base}/llm/status.md"),
+            ("Research plan (RL_PLAN.md)", f"{base}/llm/plan.md"),
+            ("Cycle log (RL_LOG.md)", f"{base}/llm/log.md"),
+            ("Run ledger — hypotheses & verdicts", f"{base}/llm/runs.md"),
+            ("Index of every doc below + more", f"{base}/llm/docs.md"),
+        ]),
+        ("Core campaign docs", docs([
+            ("Campaign digest", "STATUS.md"),
+            ("Current truths", "CURRENT_TRUTHS.md"),
+            ("Goals", "RL_GOALS.md"),
+            ("Research rules", "RESEARCH_RULES.md"),
+            ("Run interpretation rules", "RUN_INTERPRETATION_RULES.md"),
+        ]) + [(f"Review bundle {p.stem.split('_')[-1]}",
+               f"{base}/llm/doc/{p.name}")
+              for p in sorted(PROTO.glob("RL_REVIEW_BUNDLE_*.md"))]),
+        ("Per-track STATUS", [
+            (p.parent.name, f"{base}/llm/doc/rl_docs/tracks/"
+                            f"{p.parent.name}/STATUS.md")
+            for p in sorted((PROTO / "rl_docs" / "tracks")
+                            .glob("*/STATUS.md"))]),
+        ("Deep-dive research docs", docs([
+            ("Skills table", "rl_docs/SKILLS.md"),
+            ("Reward design", "rl_docs/REWARD.md"),
+            ("Rise (stand-up)", "rl_docs/RISE.md"),
+            ("Gait", "rl_docs/GAIT.md"),
+            ("Turning", "rl_docs/TURN.md"),
+            ("Sim", "rl_docs/SIM.md"),
+            ("Evals", "rl_docs/EVALS.md"),
+            ("Hardware", "rl_docs/HARDWARE.md"),
+            ("Multitask design", "rl_docs/MULTITASK.md"),
+            ("Dynamics-representation design", "rl_docs/DYNREP.md"),
+            ("Takeoff", "rl_docs/TAKEOFF.md"),
+            ("W&B usage", "rl_docs/WANDB.md"),
+            ("Wishlist", "rl_docs/WISHLIST.md"),
+        ])),
+        ("Hardware / build / infra", docs([
+            ("Prototype build story", "PROTOTYPE.md"),
+            ("BOM", "docs/BOM.md"),
+            ("Wiring", "firmware/WIRING.md"),
+            ("Robot HTTP API", "rl_move/API.md"),
+            ("Orchestrator architecture", "rl_move/orchestrator/README.md"),
+            ("Orchestrator prompt", "rl_move/orchestrator/ORCHESTRATOR_PROMPT.md"),
+            ("Sysid", "sysid/README.md"),
+        ])),
+    ]
+    return [(g, items) for g, items in groups if items]
+
+
+def render(base: str = "") -> str:
     f, s = SNAP.get("fast", {}), SNAP.get("slow", {})
     w = f.get("watcher", {})
     if not w:
@@ -868,6 +928,39 @@ def render() -> str:
              + esc("\n".join(f.get("orch_tail", []))) + "</pre>")
     h.append("<h2>RL_LOG.md (tail)</h2><pre>"
              + esc("\n".join(f.get("rl_log_tail", []))) + "</pre>")
+
+    # LLM URL bundle (operator 08-14): the labeled links handed to
+    # GPT/Claude, each with a copy button, so the operator never has to
+    # remember or re-derive them. Keyless by design (see llm_body).
+    if base:
+        groups = llm_url_groups(base)
+        all_txt = "\n".join(f"{label}: {url}"
+                            for _, items in groups for label, url in items)
+        h.append("<h2>LLM-readable URLs (give these to GPT/Claude)</h2>"
+                 "<div class='dim'>Plain-text mirrors of everything above "
+                 "— no login, no key, crawlable. Hand an agent the LLM "
+                 "index and it can find the rest itself. "
+                 "<button class='cpy' onclick='cpy(ALLURLS,this)'>copy "
+                 "all</button></div>")
+        for gname, items in groups:
+            h.append(f"<h2 style='font-size:13px;border:none;margin:16px 0 "
+                     f"4px'>{esc(gname)}</h2><table>")
+            for label, url in items:
+                h.append(f"<tr><td class='dim' style='white-space:nowrap'>"
+                         f"{esc(label)}</td>"
+                         f"<td class='mono'><a href='{esc(url)}' "
+                         f"style='color:#58a6ff'>{esc(url)}</a></td>"
+                         f"<td><button class='cpy' data-u='{esc(url)}' "
+                         f"onclick='cpy(this.dataset.u,this)'>copy"
+                         f"</button></td></tr>")
+            h.append("</table>")
+        h.append(
+            "<script>var ALLURLS=" + json.dumps(all_txt) + ";"
+            "function cpy(t,b){navigator.clipboard.writeText(t).then("
+            "function(){var o=b.textContent;b.textContent='copied \u2713';"
+            "setTimeout(function(){b.textContent=o},1200)},"
+            "function(){b.textContent='copy failed'})}</script>")
+
     h.append("</body></html>")
     return "".join(h)
 
@@ -1223,11 +1316,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.send_header("Location", u.path or "/")
             self.end_headers()
             return
+        host = self.headers.get("Host") or f"127.0.0.1:{PORT}"
+        scheme = ("http" if host.split(":")[0] in
+                  ("127.0.0.1", "localhost") else "https")
+        base = f"{scheme}://{host}"
         if is_llm:
-            host = self.headers.get("Host") or f"127.0.0.1:{PORT}"
-            scheme = ("http" if host.split(":")[0] in
-                      ("127.0.0.1", "localhost") else "https")
-            out = llm_body(u.path, f"{scheme}://{host}")
+            out = llm_body(u.path, base)
             if out is None:
                 body = b"404: see /llms.txt for the LLM-readable index"
                 self.send_response(404)
@@ -1241,7 +1335,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             body = json.dumps(SNAP, default=str).encode()
             ctype = "application/json"
         else:
-            body = render().encode()
+            body = render(base).encode()
             ctype = "text/html; charset=utf-8"
         self.send_response(200)
         self.send_header("Content-Type", ctype)
