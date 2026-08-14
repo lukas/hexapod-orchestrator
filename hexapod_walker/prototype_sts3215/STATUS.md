@@ -758,11 +758,18 @@ ORCHESTRATOR_PROMPT.md):**
   spec calls for also landed: `rl_move/sim/eval_cmd_suite.py` (exact
   (vx,vy,wz) triples — `--cmd` repeatable / `--suite` JSON / default
   panel; per-command tracking/falls/progress/slip/current, det+sto,
-  JSON `--out`). NOTE: the landed version is MLP-only — a laptop
-  variant with GRU/dual-GRU checkpoint loading sits unmerged at
-  `eval_cmd_suite.laptop-20260812.py`; that port is needed before
-  the transplant's per-command gate can run on a dual-core
-  checkpoint. The operator call is otherwise a launch decision.
+  JSON `--out`). **GRU port LANDED 08-14 (worktree session):**
+  eval_cmd_suite now loads GRU/dual-GRU checkpoints via
+  `load_checkpoint_auto` with hidden state threaded across steps and
+  reset at episode boundaries; a checkpoint N_MODE_OBS wider than the
+  env auto-enables `obs.mode_onehot` + `obs.mode_onehot_cmd` (the
+  transplant's live-command routing; `--cfg-set obs.mode_onehot_cmd=0`
+  overrides for episode-mode-routed dual checkpoints). Smoked on
+  `walk_longdist_r2` (MLP, known shuffle numbers reproduce) and
+  `gru_dual_bc_dagger1` (auto-widen 78=72+6, walks clean). The
+  superseded `eval_cmd_suite.laptop-20260812.py` is deleted. The
+  transplant's per-command gate can now run on a dual-core
+  checkpoint; the operator call is purely a launch decision.
   Detail: `rl_docs/tracks/multitask/STATUS.md`.
 - **Fleet at ~01:3x UTC 08-13: 0/12 pods training** —
   `cw-gait-sched1` (nobc) FINISHED and FAILED (see the WAITING entry
