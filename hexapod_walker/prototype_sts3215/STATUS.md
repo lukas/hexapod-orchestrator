@@ -267,7 +267,23 @@ ORCHESTRATOR_PROMPT.md):**
   Waiting on: operator flips the two cfg keys on the runner's walk
   engage and re-runs takeoff reps (deploy is operator-only). No
   training arm until the bench adopts the entry sequence.
-- **FLEET (08-14 ~20:0x UTC): all 12 GPU slots idle on the named
+- **NEW NAMED NEXT STEP (08-14 ~21:5x UTC) `[code]` (agent-doable,
+  next cycle): hw post-lower-rise residual arm.** The bulk session
+  gate (SESSION_BULK_GATE.md, PASSED for the specialist pair) named
+  exactly one trainable boundary: the POST-LOWER rise (100% of the
+  hierarchy's det failures, sto 0.801, over_current-dominated;
+  first rises are 300/300 det). Next cycle specs + launches ONE arm:
+  warm from `footlow2_hard1`, rise-mode training with post-lower
+  start-state exposure (harvest lower-endpoint states; skills
+  otherwise frozen — no walk/hold diet changes), gate on a FRESH
+  bulk seed bank (the c1 banks are retired). Blocked only on agent
+  time, not the operator.
+- **FLEET (08-14 ~21:5x UTC): all 12 GPU slots idle; train-1/2/3
+  CPUs are finishing the c1 failure re-renders (this cycle's bulk
+  cohort, ~minutes), train-10's CPUs stay on the operator's dynrep
+  cohort (hands off). The bulk session cohort itself COMPLETED this
+  cycle (1,800/1,800 sessions, no shards lost).**
+- **FLEET (08-14 ~20:0x UTC, superseded by the entry above): all 12 GPU slots idle on the named
   waits in this block (every one typed `[operator]` or an unmet
   precondition); train-0's `transdagger3` distill FINISHED 19:24 and
   was TRIAGED same cycle → FAIL, net regression vs transdagger2 on
