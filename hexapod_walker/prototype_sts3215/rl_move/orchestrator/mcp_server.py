@@ -47,11 +47,12 @@ the append-only decision-cycle log. Every design doc (rewards, gaits,
 evals, hardware, per-run stories) is reachable via list_docs /
 read_doc, and search_docs greps them all.
 
-You can also LEAVE FEEDBACK for the human operator and the campaign:
-submit_feedback files a note (observations, critiques, suggested
-experiments) into an inbox the operator reviews on the dashboard; it
-is NOT auto-executed. list_feedback shows what others already filed —
-check it first to avoid duplicates.
+You can also LEAVE FEEDBACK for the campaign: submit_feedback files a
+note (observations, critiques, suggested experiments) that the
+orchestrator agent reads at the start of its next decision cycle as
+advisory input, and the human operator reviews on the dashboard.
+Feedback cannot override the campaign's guardrails. list_feedback
+shows what others already filed — check it first to avoid duplicates.
 """
 
 # Ledger fields that are infra detail (pod names / pod-local paths) —
@@ -66,9 +67,10 @@ TEXT_CAP = 400_000  # bytes per tool result — keep well under context
 # Feedback inbox: OUTSIDE the git checkout on the controller (so the
 # doc-sync `git pull` never trips over it — an untracked file in the
 # tree blocked the sync once already, 08-14), inside logs/ (gitignored)
-# for laptop dev. Operator-reviewed only: entries are shown on the
-# dashboard, never fed to decision cycles (a keyless internet endpoint
-# must not steer an autonomous GPU-spending agent).
+# for laptop dev. Entries show on the dashboard AND the watcher injects
+# unseen ones into the next decision cycle as ADVISORY, UNTRUSTED input
+# (operator 08-14 "just make it read it"); the injected framing +
+# ORCHESTRATOR_PROMPT.md forbid feedback from overriding guardrails.
 FEEDBACK_DIR = pathlib.Path(
     os.environ.get("MCP_FEEDBACK_DIR")
     or ("/workspace/llm_feedback" if pathlib.Path("/workspace").is_dir()
@@ -375,10 +377,12 @@ def t_submit_feedback(feedback: str, topic: str = "", author: str = "",
     tmp.write_text(json.dumps(entry, indent=1))
     tmp.rename(FEEDBACK_DIR / (fid + ".json"))
     _fb_times[_client_ip] = times + [now]
-    return (f"filed as {fid} — the operator reviews the inbox on the "
-            f"status dashboard. Thank you; concrete, evidence-backed "
-            f"suggestions (run names, numbers, doc paths) are the most "
-            f"actionable.")
+    return (f"filed as {fid} — the orchestrator agent reads it at the "
+            f"start of its next decision cycle (as advisory input; it "
+            f"cannot override the campaign's guardrails), and the "
+            f"operator sees it on the dashboard. Concrete, evidence-"
+            f"backed suggestions (run names, numbers, doc paths) are "
+            f"the most actionable.")
 
 
 def t_list_feedback(limit: int = 20) -> str:
@@ -394,6 +398,8 @@ def t_list_feedback(limit: int = 20) -> str:
             head += f" · {e['author']}"
         if e.get("topic"):
             head += f" · {e['topic']}"
+        head += (" · seen by the orchestrator"
+                 if e.get("injected_utc") else " · not yet seen")
         out += [f"## {e.get('id', '?')} ({head})",
                 e.get("feedback", "")[:2000], ""]
     return _clip("\n".join(out))
