@@ -20,7 +20,8 @@ campaign): /llms.txt is the index, /llm/{status,plan,log,runs,docs}.md
 are plain markdown, /llm/doc/<path> serves any .md in the prototype
 tree. Those paths need NO token: they mirror a public GitHub repo, and
 GPT's URL-safety wrapper refuses keyed URLs. The dashboard and /json
-(spend, infra) stay token-gated. On the controller, a background
+(spend, infra) stay token-gated. /mcp is the same data as MCP tools
+(mcp_server.py, streamable HTTP) — also keyless. On the controller, a background
 thread keeps the checkout synced to origin/main so pushed doc changes
 go live within ~1 min.
 
@@ -49,6 +50,7 @@ PROTO = HERE.parent.parent
 sys.path.insert(0, str(HERE))
 from launch_run import KUBECONFIG, load_guardrails, pod_trainers  # noqa: E402
 
+import mcp_server as _mcp  # noqa: E402  (MCP endpoint at /mcp)
 import tracks as _tracks  # noqa: E402  (research-track registry)
 
 PORT = int(os.environ.get("STATUS_PORT", "8090"))
@@ -545,6 +547,8 @@ def llm_url_groups(base: str) -> list[tuple[str, list[tuple[str, str]]]]:
     groups = [
         ("Start here (live index pages)", [
             ("LLM index — hand an agent THIS one", f"{base}/llms.txt"),
+            ("MCP endpoint (streamable HTTP — add as a remote MCP "
+             "server, tools for ledger/metrics/docs)", f"{base}/mcp"),
             ("Campaign + all per-track STATUS", f"{base}/llm/status.md"),
             ("Research plan (RL_PLAN.md)", f"{base}/llm/plan.md"),
             ("Cycle log (RL_LOG.md)", f"{base}/llm/log.md"),
@@ -1210,6 +1214,14 @@ All documentation — index of every other markdown doc in the tree
 (hardware, sim, rewards, evals, per-run stories, …), each fetchable
 at {base}/llm/doc/<path>{key}:
 {base}/llm/docs.md{key}
+
+## MCP server
+
+The same results are queryable as tools over the MCP streamable-HTTP
+transport (run ledger with filters, per-run stories, cached W&B
+metrics, eval reports, doc search). Add this URL as a remote MCP
+server (no auth):
+{base}/mcp
 """
 
 
@@ -1266,6 +1278,31 @@ TOKEN = _load_token()
 
 
 class Handler(http.server.BaseHTTPRequestHandler):
+    # MCP endpoint (mcp_server.py): keyless like the /llm mirror — it
+    # serves the same public-repo results, as tools for MCP clients.
+    def _is_mcp(self) -> bool:
+        return self.path.split("?")[0].rstrip("/") == "/mcp"
+
+    def _serve_mcp(self):
+        n = int(self.headers.get("Content-Length") or 0)
+        body = self.rfile.read(n) if n else b""
+        status, headers, out = _mcp.handle_http(self.command, body)
+        self.send_response(status)
+        for k, v in headers.items():
+            self.send_header(k, v)
+        self.send_header("Content-Length", str(len(out)))
+        self.end_headers()
+        self.wfile.write(out)
+
+    def do_POST(self):  # noqa: N802
+        if self._is_mcp():
+            return self._serve_mcp()
+        self.send_response(404)
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+
+    do_OPTIONS = do_DELETE = do_POST  # noqa: N815 — /mcp CORS + session end
+
     def _authed(self) -> bool:
         if not TOKEN:
             return True
@@ -1278,6 +1315,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
                    for c in cookies.split(";"))
 
     def do_GET(self):  # noqa: N802
+        if self._is_mcp():  # GET /mcp -> 405 hint (POST-only transport)
+            return self._serve_mcp()
         # robots.txt must bypass the token gate: LLM fetchers (ChatGPT
         # etc.) check it before any visit, and the gate's 403 there made
         # them treat the ENTIRE site as disallowed (operator 08-12).
