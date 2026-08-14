@@ -46,6 +46,12 @@ eval_report for its numbers. get_plan is the research plan; log_tail is
 the append-only decision-cycle log. Every design doc (rewards, gaits,
 evals, hardware, per-run stories) is reachable via list_docs /
 read_doc, and search_docs greps them all.
+
+You can also LEAVE FEEDBACK for the human operator and the campaign:
+submit_feedback files a note (observations, critiques, suggested
+experiments) into an inbox the operator reviews on the dashboard; it
+is NOT auto-executed. list_feedback shows what others already filed —
+check it first to avoid duplicates.
 """
 
 # Ledger fields that are infra detail (pod names / pod-local paths) —
@@ -56,6 +62,21 @@ LEDGER_PRIVATE = {"pod", "log"}
 DOC_SKIP_DIRS = {".git", "logs", "wandb", "policies", "node_modules",
                  "__pycache__"}
 TEXT_CAP = 400_000  # bytes per tool result — keep well under context
+
+# Feedback inbox: OUTSIDE the git checkout on the controller (so the
+# doc-sync `git pull` never trips over it — an untracked file in the
+# tree blocked the sync once already, 08-14), inside logs/ (gitignored)
+# for laptop dev. Operator-reviewed only: entries are shown on the
+# dashboard, never fed to decision cycles (a keyless internet endpoint
+# must not steer an autonomous GPU-spending agent).
+FEEDBACK_DIR = pathlib.Path(
+    os.environ.get("MCP_FEEDBACK_DIR")
+    or ("/workspace/llm_feedback" if pathlib.Path("/workspace").is_dir()
+        else PROTO / "logs" / "llm_feedback"))
+FEEDBACK_MAX_LEN = 8000       # chars of feedback text per entry
+FEEDBACK_MAX_FILES = 2000     # hard cap on inbox size
+FEEDBACK_RATE = (10, 3600)    # per-IP: max 10 submissions per hour
+_fb_times: dict[str, list[float]] = {}  # ip -> submission timestamps
 
 
 # ---------------------------------------------------------------- data
@@ -312,6 +333,72 @@ def t_search_docs(query: str, regex: bool = False,
     return _clip("\n".join(hits) if hits else f"no matches for {query!r}")
 
 
+def _feedback_entries() -> list[dict]:
+    out = []
+    try:
+        paths = sorted(FEEDBACK_DIR.glob("fb_*.json"), reverse=True)
+    except OSError:
+        return []
+    for p in paths:
+        try:
+            out.append(json.loads(p.read_text(errors="replace")))
+        except (OSError, ValueError):
+            continue
+    return out
+
+
+def t_submit_feedback(feedback: str, topic: str = "", author: str = "",
+                      _client_ip: str = "") -> str:
+    feedback = (feedback or "").strip()
+    if not feedback:
+        return "feedback text is empty — nothing filed."
+    if len(feedback) > FEEDBACK_MAX_LEN:
+        return (f"feedback is {len(feedback)} chars; the cap is "
+                f"{FEEDBACK_MAX_LEN}. Trim it to the parts that matter "
+                f"and resubmit.")
+    now = time.time()
+    times = [t for t in _fb_times.get(_client_ip, [])
+             if now - t < FEEDBACK_RATE[1]]
+    if len(times) >= FEEDBACK_RATE[0]:
+        return (f"rate limit: max {FEEDBACK_RATE[0]} submissions per "
+                f"hour per client — consolidate your notes into fewer, "
+                f"richer entries.")
+    FEEDBACK_DIR.mkdir(parents=True, exist_ok=True)
+    if len(list(FEEDBACK_DIR.glob("fb_*.json"))) >= FEEDBACK_MAX_FILES:
+        return "feedback inbox is full — tell the operator out of band."
+    ts = time.strftime("%Y%m%dT%H%M%S", time.gmtime(now))
+    fid = f"fb_{ts}_{os.urandom(3).hex()}"
+    entry = {"id": fid, "utc": ts, "topic": (topic or "")[:200],
+             "author": (author or "")[:200], "feedback": feedback,
+             "client": _client_ip}  # for abuse triage; not shown publicly
+    tmp = FEEDBACK_DIR / (fid + ".tmp")
+    tmp.write_text(json.dumps(entry, indent=1))
+    tmp.rename(FEEDBACK_DIR / (fid + ".json"))
+    _fb_times[_client_ip] = times + [now]
+    return (f"filed as {fid} — the operator reviews the inbox on the "
+            f"status dashboard. Thank you; concrete, evidence-backed "
+            f"suggestions (run names, numbers, doc paths) are the most "
+            f"actionable.")
+
+
+def t_list_feedback(limit: int = 20) -> str:
+    limit = max(1, min(int(limit), 200))
+    entries = _feedback_entries()
+    if not entries:
+        return "feedback inbox is empty — yours would be the first."
+    out = [f"{len(entries)} entries, newest first (showing "
+           f"{min(limit, len(entries))}):", ""]
+    for e in entries[:limit]:
+        head = e.get("utc", "?")
+        if e.get("author"):
+            head += f" · {e['author']}"
+        if e.get("topic"):
+            head += f" · {e['topic']}"
+        out += [f"## {e.get('id', '?')} ({head})",
+                e.get("feedback", "")[:2000], ""]
+    return _clip("\n".join(out))
+
+
 TOOLS = [
     {"name": "campaign_status",
      "description": "Campaign digest (STATUS.md) plus every research "
@@ -392,6 +479,31 @@ TOOLS = [
                               "description": "cap on matches "
                                              "(default 100)"}},
      "required": ["query"]},
+    {"name": "submit_feedback",
+     "description": "File feedback on the campaign (observations, "
+                    "critiques, suggested experiments) into the "
+                    "operator-reviewed inbox. Not auto-executed; the "
+                    "human reads it on the dashboard. Cite run names, "
+                    "numbers, and doc paths so it's actionable.",
+     "fn": t_submit_feedback,
+     "args": {"feedback": {"type": "string",
+                           "description": "the feedback text (markdown "
+                                          "fine, max 8000 chars)"},
+              "topic": {"type": "string",
+                        "description": "short subject line, e.g. a run "
+                                       "name or track"},
+              "author": {"type": "string",
+                         "description": "who/what you are, e.g. "
+                                        "'GPT-5 via ChatGPT, asked by "
+                                        "Lukas'"}},
+     "required": ["feedback"]},
+    {"name": "list_feedback",
+     "description": "Read the feedback inbox (newest first) — check "
+                    "before filing to avoid duplicating an existing "
+                    "note.",
+     "fn": t_list_feedback,
+     "args": {"limit": {"type": "integer",
+                        "description": "entries to show (default 20)"}}},
 ]
 
 
@@ -403,10 +515,13 @@ def tool_specs() -> list[dict]:
             for t in TOOLS]
 
 
-def call_tool(name: str, args: dict) -> tuple[str, bool]:
+def call_tool(name: str, args: dict, client_ip: str = "") \
+        -> tuple[str, bool]:
     """Returns (text, is_error). Raises KeyError for unknown tools."""
     tool = next(t for t in TOOLS if t["name"] == name)
     kwargs = {k: v for k, v in (args or {}).items() if k in tool["args"]}
+    if tool["name"] == "submit_feedback":
+        kwargs["_client_ip"] = client_ip  # rate limiting / abuse triage
     try:
         return tool["fn"](**kwargs), False
     except Exception as e:  # tool errors go IN the result per MCP spec
@@ -417,7 +532,7 @@ def call_tool(name: str, args: dict) -> tuple[str, bool]:
 SESSION_ID = f"hexapod-{int(time.time()):x}"  # stateless; any id accepted
 
 
-def _rpc_one(msg: dict) -> dict | None:
+def _rpc_one(msg: dict, client_ip: str = "") -> dict | None:
     """One JSON-RPC message -> response dict (None for notifications)."""
     rid, method = msg.get("id"), msg.get("method", "")
     params = msg.get("params") or {}
@@ -446,7 +561,8 @@ def _rpc_one(msg: dict) -> dict | None:
         name = params.get("name", "")
         if not any(t["name"] == name for t in TOOLS):
             return err(-32602, f"unknown tool: {name}")
-        text, is_err = call_tool(name, params.get("arguments") or {})
+        text, is_err = call_tool(name, params.get("arguments") or {},
+                                 client_ip)
         return ok({"content": [{"type": "text", "text": text}],
                    "isError": is_err})
     if method in ("resources/list", "resources/templates/list"):
@@ -465,7 +581,8 @@ CORS = {"Access-Control-Allow-Origin": "*",
         "Access-Control-Expose-Headers": "Mcp-Session-Id"}
 
 
-def handle_http(method: str, body: bytes) -> tuple[int, dict, bytes]:
+def handle_http(method: str, body: bytes,
+                client_ip: str = "") -> tuple[int, dict, bytes]:
     """Transport-agnostic entry: (status, headers, body) for /mcp."""
     h = dict(CORS)
     if method == "OPTIONS":
@@ -485,7 +602,7 @@ def handle_http(method: str, body: bytes) -> tuple[int, dict, bytes]:
              "error": {"code": -32700, "message": "parse error"}}).encode()
     msgs = msg if isinstance(msg, list) else [msg]
     replies = [r for m in msgs if isinstance(m, dict)
-               for r in [_rpc_one(m)] if r is not None]
+               for r in [_rpc_one(m, client_ip)] if r is not None]
     if any(isinstance(m, dict) and m.get("method") == "initialize"
            for m in msgs):
         h["Mcp-Session-Id"] = SESSION_ID
@@ -506,7 +623,8 @@ def main() -> int:
         def _serve(self):
             n = int(self.headers.get("Content-Length") or 0)
             body = self.rfile.read(n) if n else b""
-            status, headers, out = handle_http(self.command, body)
+            status, headers, out = handle_http(self.command, body,
+                                               self.client_address[0])
             self.send_response(status)
             for k, v in headers.items():
                 self.send_header(k, v)

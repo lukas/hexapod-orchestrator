@@ -424,6 +424,7 @@ def fast_worker() -> None:
                 "ledger": rows, "counts": counts,
                 "backlog": backlog_state(),
                 "cycle_budget": cycle_budget(),
+                "feedback": _mcp._feedback_entries()[:15],
                 "orch_tail": read_tail(ORCH_LOG, 14),
                 "rl_log_tail": read_tail(PROTO / "RL_LOG.md", 8),
                 "rl_plan": (PROTO / "RL_PLAN.md").read_text(errors="replace"),
@@ -834,6 +835,28 @@ def render(base: str = "") -> str:
                  f"<td class='dim'>{tail}</td></tr>")
     h.append("</table>")
 
+    # Feedback filed by external LLMs via the /mcp submit_feedback tool
+    # (operator 08-14). Review-only: nothing here reaches the cycles.
+    fb = f.get("feedback", [])
+    h.append("<h2>LLM feedback inbox (/mcp submit_feedback — "
+             "operator-reviewed, never auto-executed)</h2>")
+    if fb:
+        h.append("<table><tr><th>when (UTC)</th><th>author</th>"
+                 "<th>topic</th><th>feedback</th></tr>")
+        for e in fb:
+            h.append(f"<tr><td class='mono dim' style='white-space:"
+                     f"nowrap'>{esc(e.get('utc', '?'))}</td>"
+                     f"<td class='dim'>{esc(e.get('author', ''))}</td>"
+                     f"<td>{esc(e.get('topic', ''))}</td>"
+                     f"<td><details><summary>"
+                     f"{esc(e.get('feedback', '')[:120])}&#8230;</summary>"
+                     f"<pre>{esc(e.get('feedback', ''))}</pre>"
+                     f"</details></td></tr>")
+        h.append("</table>")
+    else:
+        h.append("<div class='dim'>empty — external LLMs can file notes "
+                 "via the MCP endpoint's submit_feedback tool</div>")
+
     h.append("<h2>Fleet</h2>")
     if not cen:
         h.append("<div class='warn'>no census data — see the warning box "
@@ -1219,8 +1242,9 @@ at {base}/llm/doc/<path>{key}:
 
 The same results are queryable as tools over the MCP streamable-HTTP
 transport (run ledger with filters, per-run stories, cached W&B
-metrics, eval reports, doc search). Add this URL as a remote MCP
-server (no auth):
+metrics, eval reports, doc search), and LLM readers can file feedback
+for the operator via its submit_feedback tool. Add this URL as a
+remote MCP server (no auth):
 {base}/mcp
 """
 
@@ -1286,7 +1310,11 @@ class Handler(http.server.BaseHTTPRequestHandler):
     def _serve_mcp(self):
         n = int(self.headers.get("Content-Length") or 0)
         body = self.rfile.read(n) if n else b""
-        status, headers, out = _mcp.handle_http(self.command, body)
+        # Caddy proxies from localhost; the real client is in
+        # X-Forwarded-For (first hop) — used only for rate limiting.
+        ip = (self.headers.get("X-Forwarded-For", "").split(",")[0].strip()
+              or self.client_address[0])
+        status, headers, out = _mcp.handle_http(self.command, body, ip)
         self.send_response(status)
         for k, v in headers.items():
             self.send_header(k, v)
