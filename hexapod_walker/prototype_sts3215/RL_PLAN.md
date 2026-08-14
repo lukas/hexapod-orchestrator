@@ -99,7 +99,13 @@ line: the POST-LOWER RISE (all det failures, sto 0.801,
 over_current-dominated) — train only that transition/residual with
 the skills frozen. Everything else on the joystick line is now
 bench-owned ([operator]: candidate-pair promotion, entry-slew flip,
-takeoff reps).
+takeoff reps). **FIRST ATTEMPT FAILED (`cw-stand-postlower1`,
+Cohort c2, n=600): 35% post-lower start-bank exposure REGRESSED sto
+post-lower rise 0.801→0.717 (plus small det/cold-rise/drag hits),
+no exploit — genuine over_current stall, just more of it.
+`cw-stand-postlower2` (discovery 2M, frac 0.15) running now to
+split dose vs a mis-priced rise_ref reference before any further
+hardening — `rl_docs/tracks/hw/SESSION_BULK_GATE.md` "Cohort c2".**
 
 **CURRENT GOAL:** joystick-controlled real robot. **BLOCKERS (as of
 08-11 late):** the intermittent RUNAWAY ROLL on real ground (RL walk

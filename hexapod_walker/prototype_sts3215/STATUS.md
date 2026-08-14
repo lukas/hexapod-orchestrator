@@ -21,7 +21,19 @@ anyone catching up. Facts here must agree with `CURRENT_TRUTHS.md`
 (which wins on conflict); the full checkpoint inventory with gate
 numbers lives in `rl_docs/SKILLS.md`.
 
-**Last updated: 2026-08-14 (~21:4x UTC — hw: the joystick session
+**Last updated: 2026-08-14 (~22:5x UTC — hw: the first fix attempt on
+that named POST-LOWER boundary (`cw-stand-postlower1`, training the
+stance policy on 35% harvested post-lower start poses) FAILED, and
+FAILED backwards: a full 600-session bulk re-read shows stochastic
+post-lower rise got WORSE (0.801→0.717, a real regression, not
+noise), plus small hits to det session zero-fall and cold-start rise.
+No exploit — video shows a genuine over-current stall from the deep
+bank pose, the same failure mode as before, just more often. A
+cheaper 2M-step follow-up (`cw-stand-postlower2`, exposure cut to
+15%) is running now to tell dose from mechanism before any reward
+change. The product baseline is UNCHANGED (still the hierarchy
+below); full story: `rl_docs/tracks/hw/SESSION_BULK_GATE.md` "Cohort
+c2".** Earlier ~21:4x UTC — hw: the joystick session
 story now rests on BULK, HELD-OUT numbers instead of 12 repeated
 cases, per the operator's evening directive: a new resumable sharded
 session evaluator ran 1,800 fresh ~60 s randomized joystick sessions
@@ -267,19 +279,20 @@ ORCHESTRATOR_PROMPT.md):**
   Waiting on: operator flips the two cfg keys on the runner's walk
   engage and re-runs takeoff reps (deploy is operator-only). No
   training arm until the bench adopts the entry sequence.
-- **FLEET (08-14 ~22:3x UTC): `cw-stand-postlower1` TRAINING on
-  train-0 (hw, hardening 6M, ~19.7k fps) — the bulk gate's named
-  post-lower-rise `[code]` arm, EXECUTED this cycle (wait cleared):
-  new default-off `goal.rise_start_bank` mechanism landed
-  (bit-exact off, semantics bank 91 green + 5 new tests, snapshot
-  950e496), 300 settled lower-endpoint poses harvested from
-  footlow2_hard1's own lower skill on train-1 CPUs (300/300, 0
-  falls, seed 5000 — knees ~+113° off the flat-zero pose rise
-  training had ever seen), gate pre-registered on FRESH c2 seed
-  banks det 920000../sto 930000.. (SESSION_BULK_GATE.md "Cohort
-  c2", snapshot f3a4e97). Other 11 GPU slots idle on the typed
-  [operator] waits below; train-10's CPUs stay on the operator's
-  dynrep cohort (hands off).**
+- **FLEET (08-14 ~22:5x UTC): `cw-stand-postlower1` DONE — FAIL
+  (regression).** The bulk gate's named post-lower-rise `[code]`
+  arm (rise_start_bank mechanism, frac 0.35, landed + tested +
+  snapshotted 950e496/f3a4e97) trained, and its pre-registered
+  Cohort c2 read (n=600, fresh banks) came back a clean miss on all
+  3 numeric clauses — sto post-lower rise WORSE (0.801→0.717),
+  det session zero-fall and cold first-rise both ticked down too.
+  No exploit (video-confirmed genuine over-current stall). Verdict
+  + evidence: `rl_docs/tracks/hw/SESSION_BULK_GATE.md` "Cohort c2
+  RESULTS". `cw-stand-postlower2` (discovery, 2M, frac 0.15, same
+  recipe) is now TRAINING on train-0 to separate dose from
+  mechanism before any further hardening or reward change. Other 11
+  GPU slots idle on the typed [operator] waits below; train-10's
+  CPUs stay on the operator's dynrep cohort (hands off).**
 - **FLEET (08-14 ~20:0x UTC, superseded by the entry above): all 12 GPU slots idle on the named
   waits in this block (every one typed `[operator]` or an unmet
   precondition); train-0's `transdagger3` distill FINISHED 19:24 and
