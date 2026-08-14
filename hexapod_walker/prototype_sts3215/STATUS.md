@@ -230,15 +230,27 @@ GAIT.md / SIM.md, and RL_LOG — not here):**
   baseline-proven teacher pair fell **99/225 demo sequences inside
   the new `goal.mode_seq` TRAINING env** (lower-segment falls
   dominate) while scoring 11/12 zero-fall on the eval instrument —
-  and the old teacher shows the inverted pattern. **CODE item 1's
-  in-env switch re-anchor is now the prime suspect; the named next
-  step (agent-doable, next cycle) is to diff the env's switch refs
-  against the proven `reanchor_to()` mechanics on the same physical
-  state, fix, re-verify the teacher composes in-env, then re-run
-  the transdagger2 recipe. Arm 2 (`cw-arch-modeseq1`, GPU 10M) is
-  HELD until that fix — it would train on the same defective switch
-  context (ASSUMPTION in RL_LOG: also not launching it from the
-  slot-3 dagger1-BC init meanwhile).** No CPU/GPU job is running;
+  and the old teacher shows the inverted pattern. **RESOLVED (08-14
+  ~02:xx UTC, operator session, local Mac): the in-env switch
+  re-anchor WAS the defect — it carried the episode-reset `q_nom`
+  across segments (settled belly vs plant q_nom differ by ~79° at
+  the knees; obs joints are q−q_nom) instead of installing the
+  target mode's canonical settled frame the way `reanchor_to()`
+  does. Fixed in `sim_env.py` (reset-time settle probe mints
+  canonical plant/belly frames; every switch installs the target
+  family's frame; parity with fresh-reset frames locked as a
+  regression test; full local bank green) and RE-VERIFIED in the
+  exact collection context: footlow2_hard1+walk_longdist_r2 now
+  fall 12/225 (5.3%, lower 5) vs 99/225 (44%, lower 73) — with a
+  same-machine/seed pre-fix A/B replicating the pod number at
+  92/225, so the fix alone moves 41%→5.3%; teacher return med 658
+  vs 287 — at the instrument's own band. The
+  transdagger2 recipe (CPU) is unblocked and is the orchestrator's
+  next arm-1 step; arm 2 (`cw-arch-modeseq1`, 10M) still waits on
+  ONE named CODE item — the MJX batched-reset path needs its own
+  canonical-frame mint (mode_seq there raises loudly until then).
+  Detail: arch/STATUS.md + TRANSITIONS_DIRECTIVE "ARM 1 RESULT".**
+  No CPU/GPU job is running;
   every OTHER idle slot maps to a named wait in this block.
   ~~ASSUMPTION (operator to review, 08-13 ~12:0x)~~ **APPROVED by
   operator ruling above:** idle-kick BACKOFF stays — five deep-model
