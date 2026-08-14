@@ -59,6 +59,11 @@ the drain requires before treating a pod as a slot.
   operator Mac) writes `KICK` here; the watcher spawns one deep-model
   session on its next poll (≤5 min), allowed one slot past the
   concurrency cap (temporary 5th session), counted in the daily budget.
+- **Kick via MCP:** the public `/mcp` endpoint's `kick_orchestrator`
+  tool files `/workspace/llm_kick.json` (rate-limited, one pending at
+  a time); the watcher spawns one triage-model session on its next
+  poll — no overflow slot, focus note injected as untrusted advisory
+  text, counted in the daily budget.
 - **Restart the watcher:** ONLY via `restart_watcher.sh` (nohup'd on
   the controller). Hard-killing the tmux session murders in-flight
   cycles, which only write their output at exit.
