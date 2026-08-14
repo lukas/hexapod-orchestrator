@@ -230,8 +230,28 @@ ORCHESTRATOR_PROMPT.md):**
   Waiting on: operator flips the two cfg keys on the runner's walk
   engage and re-runs takeoff reps (deploy is operator-only). No
   training arm until the bench adopts the entry sequence.
-- **FLEET: 0/12 pods GPU-training (08-14; backlog empty), but the
-  arch directive is UNBLOCKED and executing:** arm 1's first artifact
+- **FLEET (08-14 ~13:xx UTC): `cw-arch-modeseq1` (the directive's
+  Arm 2, 10M) is QUEUED to the backlog and draining to a free pod;
+  the other 11 slots remain on the named operator waits in this
+  block.** The transdagger2 CPU job on train-0 FINISHED and was
+  TRIAGED this cycle — **FAIL by the letter of the Arm 1 gate (two
+  rise clauses: cold first rise 5/12 det, rise12 retention 3/12 all
+  crouch), but 12/12 det zero-fall sequences (above the specialist
+  baseline's 11/12), lower rebuilt 6/6 det+sto worst_clear 0mm, walk
+  24/24 gait_valid — the first ONE-MODEL zero-fall
+  rise→walk→lower→rise→walk artifact.** Arm 2's pre-registered
+  no-discretion warm-start order therefore lands on init (3), the
+  dagger1 BC zip. The recipe's "25% single-mode retention diet"
+  needed one missing cfg hook: `goal.mode_seq` is now a
+  sequence-episode probability (0/1 endpoints bit-exact, tests +
+  semantics bank green, snapshot 2ef85f7 tag exp/cw-arch-modeseq1).
+  Scorecard: TRANSITIONS_DIRECTIVE "ARM 1 RE-RUN RESULT";
+  arch/STATUS.md Now. Fleet health: train-10 was found Failed at
+  12:23 UTC, self-recovered on recreation (repo volume + 4Gi dshm
+  intact, torch+CUDA verified) — no action needed. The pre-existing
+  `test_sharded_bitwise_matches_inprocess` ~1e-5 pod-env drift on
+  train-1 remains flagged for the next MJX dig-in.
+  Prior entry (arm 1 history, kept for context): arm 1's first artifact
   `cw-arch-trans-dagger1` was triaged 08-14 → **FAIL on the sequence
   gate (0/12 zero-fall), root-caused by a matched-teacher control to
   the DEFAULT stance teacher (`stance_dr10` itself scores 0/12
