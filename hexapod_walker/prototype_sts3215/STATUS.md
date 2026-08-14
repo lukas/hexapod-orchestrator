@@ -21,7 +21,22 @@ anyone catching up. Facts here must agree with `CURRENT_TRUTHS.md`
 (which wins on conflict); the full checkpoint inventory with gate
 numbers lives in `rl_docs/SKILLS.md`.
 
-**Last updated: 2026-08-13 (~2x:xx UTC — hw: the walk-takeoff
+**Last updated: 2026-08-14 (~20:0x UTC — hw: the joystick SESSION now
+has a product gate in sim, and the current best specialist pair PASSES
+it: a new randomized ~60 s session eval (rise from flat/bridge/crouch
+→ settle → walk engage with the staged entry-slew ramp → joystick
+driving with stops and direction flips → settle → sit → rise again →
+drive) runs the stance candidate `footlow2_hard1` + tall walker
+`bcgait1_hard1` through 12 deterministic sessions with ZERO falls and
+every segment clean — honest six-leg tall gait on video, no parked
+feet. Stochastic sessions expose the remaining weak link: the
+in-sequence stand-up (18-19/24; driving/sitting stay clean). New
+measured fact for the deploy runner: at zero joystick command the
+walk policy keeps creeping ~4 cm/s — the stop must remain a switch to
+the stance hold, never "walk policy at zero". Entry-slew ramp
+confirmed harmless and mildly quieter in-session. Evidence + flags:
+hw/STATUS.md "Now", rl_docs/EVALS.md. Bench promotion calls
+unchanged, still [operator].** Earlier 08-13 (~2x:xx UTC — hw: the walk-takeoff
 transient (the "learned walks fall half the time in the first two
 seconds" hardware blocker) is now INSTRUMENTED and has a bench-ready
 fix design: the roll excursion turns out to start the moment the
