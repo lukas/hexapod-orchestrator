@@ -328,6 +328,26 @@ ORCHESTRATOR_PROMPT.md):**
   tall-walk wall is BROKEN (bcgait1-hard1), contact/pinning + warp
   physics are audited clean, and the two open transients (takeoff
   roll, standing lean) are DECIDED per the rulings above.
+- **NEW WAIT [triage] (08-14 ~15:4x UTC): arch → `cw-arch-modeseq1-r1`
+  (Arm 2, warm from dagger1 BC) FINISHED via canary AUTO-STOP at
+  4,565,248/10,000,000 steps — protected skills `rise_bridge` +
+  `rise_flat` both failed 3 consecutive probes (streaks 3/3); this is
+  the same protected-skill-erosion catch that stopped `cw-arch-gru-
+  dual2` at 3.18M from the SAME dagger1-lineage init, now reproduced
+  under mode_seq training. Periodic-eval trail shows both canaries
+  live at 1M (flat_a=1/bridge_b=1) and both dead by 3–4M. NOT
+  verdicted — a canary auto-stop is a pre-registered DIG-IN trigger
+  (model tiering, RESEARCH_RULES step 3); this triage cycle is
+  flagging it for the deep model rather than digging in itself. The
+  watcher's pre-staged gate (DR0) + own-DR0.5 single-mode evals were
+  still running on train-0 at hand-off
+  (`logs/ckpt_eval/cw_arch_modeseq1_r1_{gate,owncfg}` when done); the
+  sequence-eval half of Arm 2's gate (`eval_modeseq --single`) still
+  needs to be run by the dig-in. Precedent for the dig-in to reuse:
+  dual2's matched-control recipe (n=12/seed=1 DR0 rise recheck vs the
+  dagger1-init control, same seed/pod) — see
+  `rl_docs/runs/cw-arch-gru-dual2.md`. Ledger left `status=RUNNING`,
+  `triage=in-cycle` on purpose — the deep cycle finalizes it.
 - **NEW WAIT (08-13 ~23:xx UTC): arch → rise-only-DAgger VARIANT
   DISTILL (operator/local lever).** `cw-arch-gru-dual2` (warm-RL
   from the DAgger-redistilled dual BC init, operator option (a))
