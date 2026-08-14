@@ -230,10 +230,18 @@ ORCHESTRATOR_PROMPT.md):**
   Waiting on: operator flips the two cfg keys on the runner's walk
   engage and re-runs takeoff reps (deploy is operator-only). No
   training arm until the bench adopts the entry sequence.
-- **FLEET (08-14 ~13:xx UTC): `cw-arch-modeseq1` (the directive's
-  Arm 2, 10M) is QUEUED to the backlog and draining to a free pod;
-  the other 11 slots remain on the named operator waits in this
-  block.** The transdagger2 CPU job on train-0 FINISHED and was
+- **FLEET (08-14 ~14:xx UTC): `cw-arch-modeseq1-r1` (the directive's
+  Arm 2, 10M) is QUEUED and draining to a free pod; the other 11
+  slots remain on the named operator waits in this block.** The
+  first launch (`cw-arch-modeseq1`) died ~1 min in — INFRA, not
+  science: the goal.mode_seq canonical-frame mint existed only in
+  the in-process MjxVecEnv, and training's sharded path
+  (--host-workers 24) raised the invariant error at the first
+  switch. The sharded mint twin was written, pod-verified the same
+  cycle (new `test_mode_seq_sharded_bitwise_matches_inprocess`:
+  sharded == in-process bit-identical across a switch, 3/3 green on
+  train-1), and snapshot dab1165 (tag exp/cw-arch-modeseq1-r1). The
+  transdagger2 CPU job on train-0 FINISHED and was
   TRIAGED this cycle — **FAIL by the letter of the Arm 1 gate (two
   rise clauses: cold first rise 5/12 det, rise12 retention 3/12 all
   crouch), but 12/12 det zero-fall sequences (above the specialist
