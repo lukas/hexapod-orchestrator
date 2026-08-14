@@ -230,12 +230,15 @@ ORCHESTRATOR_PROMPT.md):**
   Waiting on: operator flips the two cfg keys on the runner's walk
   engage and re-runs takeoff reps (deploy is operator-only). No
   training arm until the bench adopts the entry sequence.
-- **FLEET (08-14 ~17:xx UTC): all 12 GPU slots idle on the named
-  waits in this block; train-0's CPUs run the `transdagger3` distill
-  (arch, agent-doable follow-up — see below; health-checked ~17:xx:
-  PID live, ~28 cores busy, log write-buffered — a 0-byte log is
-  NOT a dead job); train-10's CPUs run the dynrep A/B/C transfer
-  cohort (operator's Cursor session owns it — hands off).** `cw-arch-modeseq1-r1`
+- **FLEET (08-14 ~20:0x UTC): all 12 GPU slots idle on the named
+  waits in this block (every one typed `[operator]` or an unmet
+  precondition); train-0's `transdagger3` distill FINISHED 19:24 and
+  was TRIAGED same cycle → FAIL, net regression vs transdagger2 on
+  the sequence clause (rise demo mix is zero-sum; transdagger2 stays
+  the winning distill artifact — see the arch wait below and
+  TRANSITIONS_DIRECTIVE "TRANSDAGGER3 RESULT"); train-10's CPUs run
+  the dynrep A/B/C transfer cohort (operator's Cursor session owns
+  it — hands off).** `cw-arch-modeseq1-r1`
   (the directive's Arm 2) canary-auto-stopped at 4.56M and is
   VERDICTED FAIL this cycle: sequence det zero-fall 2/12 (bar 11/12),
   the dual2 rise erosion reproduced exactly (rise12 5/12 crouch-only
@@ -371,8 +374,16 @@ ORCHESTRATOR_PROMPT.md):**
   profile (rise12 5/12 crouch-only), and it proves a 75%
   sequence-training diet does not protect it — warm-RL from this
   init is now CLOSED (two-miss). The agent-side sibling lever
-  (bridge/flat-heavy demo mix, transdagger3) is running on train-0
-  CPUs and does NOT supersede this option.** `cw-arch-gru-dual2`
+  (bridge/flat-heavy demo mix, transdagger3) RAN and FAILED (08-14
+  ~19:5x triage: seq det 9/12 vs td2's 12/12 — the mix fixed the
+  cold first rise 12/12 but starved the post-lower rise; rise12
+  2/12 all-crouch, worse than td2; second data-mix miss → mechanism
+  change per two-miss, no transdagger4). Option (b) — rise-only
+  DAgger variant distill — is now the ONLY open rise lever besides
+  the advisory anchor-on-rise Arm-2 retry mechanism, and its spec is
+  sharpened by this result: ADD rise coverage across ALL start kinds
+  (flat/bridge/crouch/post-lower), do not re-weight a fixed demo
+  budget. transdagger2 remains the winning init for any retry.** `cw-arch-gru-dual2`
   (warm-RL
   from the DAgger-redistilled dual BC init, operator option (a))
   is verdicted FAIL per its own pre-registration: RL erased the
