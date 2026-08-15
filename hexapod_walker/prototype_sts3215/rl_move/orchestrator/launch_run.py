@@ -534,6 +534,29 @@ def _launch_locked(g: dict, a: argparse.Namespace,
             return refuse(entry, f"{a.pod}: nvidia-smi failed ({e}) — GPU "
                                  "not visible; pod may need recreation")
         checks["gpu"] = gpus.splitlines()[0]
+        # CUDA-torch capability gate (08-15 wait, closed this cycle):
+        # --device cuda only pays off (~120x on the PPO update for
+        # attention/GRU trunks) on a pod whose torch stack was
+        # installed+recorded (pod_torch_capability.py) — every
+        # mjx-train pod otherwise ships stock CPU-torch, so an
+        # unrecorded --device cuda would silently run the ~18x-slower
+        # CPU path on GPU-priced hardware, invisible until someone reads
+        # the fps. Does NOT touch --device auto (the trainer's default):
+        # auto degrades safely by letting the process detect cuda
+        # itself, so ordinary flatten-MLP launches are unaffected.
+        # is_dynrep is exempt: it already runs its own live
+        # cuda_torch_runtime probe above (kexec, this call) which is at
+        # least as strict.
+        if not is_dynrep and "--device" in extra:
+            dev = extra[extra.index("--device") + 1]
+            if dev == "cuda" and not _torch_cap.is_capable(a.pod):
+                return refuse(
+                    entry,
+                    f"{a.pod}: --device cuda requested but has no "
+                    "recorded CUDA-torch capability (pod_torch_capability.py "
+                    "install/verify + record first, or drop --device cuda "
+                    "to keep the pod's default CPU-torch)")
+            checks["torch_device"] = dev
     else:
         free = limit - CORES_PER_RUN * len(trainers)
         checks["free_cores_estimate"] = free
