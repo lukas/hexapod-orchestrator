@@ -294,6 +294,18 @@ ORCHESTRATOR_PROMPT.md):**
      15 min. Full directive in ORCHESTRATOR_PROMPT.md; trigger: the
      08-14 overnight where two just-unblocked named steps waited ~2 h
      on backoff spacing while the fleet looked idle.
+- **NEW WAIT (08-15 ~12:1x UTC) `[code]` (arch): the pre-registered
+  40M transformer hardening twin (follow-up to `cw-arch-tf-r1` if its
+  2M behavioral clauses pass) is blocked on policy-net throughput —
+  torch on all mjx-train pods is the CPU-only build (2.13.0+cpu), so
+  policy nets train on CPU; fine for MLPs (~5k fps) but the
+  transformer runs ~260 fps (40M ≈ 37 h, non-viable). Agent-doable
+  code item: an OPT-IN CUDA-torch path (separate venv on one pod +
+  launcher opt-in, parity/coexistence smoke vs warp; shared default
+  untouched). The 2M rung itself is healthy and finishes ~13:45 UTC
+  today — its checkup SUSPECT (fps floor) is resolved as this build
+  issue, not starvation. Detail: arch/STATUS.md Now + the run's
+  ledger checkup_note.**
 - **NEW WAIT (08-15 ~11:5x UTC) `[precondition: the 11:45 operator-kick
   cycle launches the joystick-translation arm]`: multitask → verify
   the naming correction LANDED on the launched artifact.** The active
@@ -307,12 +319,23 @@ ORCHESTRATOR_PROMPT.md):**
   containing "fullcircle" on all three paths (launch/backlog/respec,
   smoke-tested) with a message naming the corrected name, and the
   correction is bannered in `rl_docs/MULTITASK.md` +
-  `rl_docs/tracks/multitask/STATUS.md`. Follow-up cycle: once the arm
+  `rl_docs/tracks/multitask/STATUS.md`. **UPDATE 08-15 ~12:1x UTC:
+  the operator's metric SIMPLIFICATION fb_20260815T115650_47010c is
+  APPLIED pre-launch by the 12:00 kick cycle** — per-heading
+  `v_along_hbin*` training series REMOVED from env info keys + MJX
+  trainer (headline now `joystick/v_along_m_s` + `_cumulative` +
+  `joystick/active_ticks`; cross/wrong-way/ratio secondary under
+  `train/`; direction panels are held-out EVAL only; unit tests
+  green, trainer imports, default-off bit-exact), and the launcher
+  now also REFUSES any joystick launch while binned training series
+  exist in the sim tree (`_joystick_metric_block`, self-clearing,
+  both branches smoke-tested). Follow-up cycle: once the arm
   exists, verify it is named `cw-joystick-translate1` in ledger + W&B
-  (track tag `multitask` despite the non-`cw-mt-` prefix), rename any
-  fullcircle-named artifact that slipped a non-launcher path (NO
-  duplicate launch — update/respec under ledger locks per the
-  correction), then REMOVE this entry. Arm B 2M mechanism canary
+  (track tag `multitask` despite the non-`cw-mt-` prefix), that its
+  W&B carries `joystick/v_along_m_s` and NO `v_along_hbin*` series,
+  rename any fullcircle-named artifact that slipped a non-launcher
+  path (NO duplicate launch — update/respec under ledger locks per
+  the correction), then REMOVE this entry. Arm B 2M mechanism canary
   `cw-arch-modeexperts-scratch1-r1` TRIAGED PASS (finished 2.03M
   clean, no NaN/crash; all four experts active within 0.09 of the
   commanded mix at final read — better than the 1.05M mid-run
