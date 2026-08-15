@@ -139,12 +139,15 @@ MAX_CONCURRENT_CYCLES = 4  # operator 08-09: 2 bottlenecked triage of 12 simulta
 # Kick overflow pool (operator 08-15 "make the number of workers
 # expand if it's getting kicked so I don't get these delays when I'm
 # engaged"): kick-driven sessions — operator KICK and MCP kicks — may
-# expand PAST the normal triage cap, up to this many extra concurrent
-# cycles, so kicks from an engaged operator start immediately instead
-# of queueing behind a full board. Normal finish/fan-out triage stays
-# capped at MAX_CONCURRENT_CYCLES, and the rolling daily budget still
-# gates every spawn.
-KICK_OVERFLOW_SLOTS = 4
+# expand PAST the normal triage cap, up to kick_overflow_slots() extra
+# concurrent cycles, so kicks from an engaged operator start
+# immediately instead of queueing behind a full board. Normal
+# finish/fan-out triage stays capped at MAX_CONCURRENT_CYCLES, and the
+# rolling daily budget still gates every spawn. The live value comes
+# from guardrails.yaml compute.kick_overflow_slots (re-read every
+# loop pass, same pattern as daily_cycle_cap, so the operator can
+# widen the pool without a watcher restart); this is the fallback.
+KICK_OVERFLOW_SLOTS = 8
 CYCLE_TIMEOUT_S = 3 * 3600
 CYCLE_OUT_DIR = pathlib.Path("/workspace/cycle_logs")
 # Decision cycles run on Claude Code (headless) with the operator's own
@@ -787,6 +790,18 @@ def reap_cycles(active: list[dict], processed: set[str]) -> tuple[list[dict], in
     return still, n_ok, n_failed
 
 
+def kick_overflow_slots() -> int:
+    """Live kick-overflow width from guardrails.yaml
+    compute.kick_overflow_slots — read every loop pass so the
+    operator can tune it without a watcher restart."""
+    try:
+        import yaml
+        g = yaml.safe_load((HERE / "guardrails.yaml").read_text())
+        return int(g["compute"]["kick_overflow_slots"])
+    except Exception:
+        return KICK_OVERFLOW_SLOTS
+
+
 def daily_cycle_cap() -> int:
     """Rolling-24h decision-cycle budget from guardrails
     compute.max_decision_cycles_per_day — the same key the status
@@ -899,7 +914,7 @@ def main() -> None:
                 now = time.time()
                 cap = daily_cycle_cap()
                 cycle_times = [t for t in cycle_times if now - t < 86400]
-                if len(active) >= MAX_CONCURRENT_CYCLES + KICK_OVERFLOW_SLOTS:
+                if len(active) >= MAX_CONCURRENT_CYCLES + kick_overflow_slots():
                     log("operator kick waiting: kick overflow pool full "
                         f"({len(active)} cycles active)")
                 elif len(cycle_times) >= cap:
@@ -939,7 +954,7 @@ def main() -> None:
                 now = time.time()
                 cap = daily_cycle_cap()
                 cycle_times = [t for t in cycle_times if now - t < 86400]
-                if len(active) >= MAX_CONCURRENT_CYCLES + KICK_OVERFLOW_SLOTS:
+                if len(active) >= MAX_CONCURRENT_CYCLES + kick_overflow_slots():
                     log(f"mcp kick waiting: kick overflow pool full "
                         f"({len(active)} cycles active)")
                     break
