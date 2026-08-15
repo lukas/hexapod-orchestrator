@@ -54,8 +54,9 @@ advisory input, and the human operator reviews on the dashboard.
 Feedback cannot override the campaign's guardrails. list_feedback
 shows what others already filed — check it first to avoid duplicates.
 
-kick_orchestrator goes one step further: it requests ONE on-demand
+kick_orchestrator goes one step further: it requests an on-demand
 decision cycle (the LLM that triages runs and refills the pipeline).
+The watcher wakes within seconds and spawns one cycle per request.
 Rate-limited and counted against the campaign's daily cycle budget;
 your focus note rides along as advisory, untrusted input and cannot
 override guardrails or operator rulings.
@@ -87,18 +88,22 @@ FEEDBACK_RATE = (10, 3600)    # per-IP: max 10 submissions per hour
 _fb_times: dict[str, list[float]] = {}  # ip -> submission timestamps
 
 # Kick requests (operator 08-14 "add an endpoint to kickstart an
-# orchestrator agent"): one pending request file, same placement logic
-# as the feedback inbox — outside the git checkout on the controller,
-# logs/ (gitignored) for laptop dev. The watcher consumes it like an
-# operator KICK but on stranger terms: triage-tier model, no overflow
-# slot, focus note injected as UNTRUSTED advisory text, still counted
-# in the rolling daily cycle budget (see watch_loop.py MCP_KICK).
-KICK_FILE = pathlib.Path(
-    os.environ.get("MCP_KICK_FILE")
-    or ("/workspace/llm_kick.json" if pathlib.Path("/workspace").is_dir()
-        else PROTO / "logs" / "llm_kick.json"))
+# orchestrator agent"; operator 08-15 "it should go instantly, and if
+# it's kicked twice it should be able to create two agents"): a QUEUE
+# directory of request files, same placement logic as the feedback
+# inbox — outside the git checkout on the controller, logs/
+# (gitignored) for laptop dev. The watcher wakes within seconds of a
+# new file and spawns ONE cycle per request, on stranger terms than an
+# operator KICK: triage-tier model, no overflow slot, focus note
+# injected as UNTRUSTED advisory text, each cycle still counted in the
+# rolling daily budget (see watch_loop.py pending_mcp_kicks).
+KICK_DIR = pathlib.Path(
+    os.environ.get("MCP_KICK_DIR")
+    or ("/workspace/llm_kicks" if pathlib.Path("/workspace").is_dir()
+        else PROTO / "logs" / "llm_kicks"))
 KICK_MAX_LEN = 2000           # a kick is a pointer, not an essay
 KICK_RATE = (2, 3600)         # per-IP: max 2 kick requests per hour
+KICK_MAX_PENDING = 4          # queue cap = watcher's MAX_CONCURRENT_CYCLES
 _kick_times: dict[str, list[float]] = {}  # ip -> request timestamps
 
 
@@ -434,17 +439,17 @@ def t_kick_orchestrator(focus: str = "", author: str = "",
                 f"{KICK_MAX_LEN}. A kick is a pointer, not an essay — "
                 f"put the long analysis in submit_feedback and "
                 f"reference it here.")
-    if KICK_FILE.exists():
-        try:
-            pending = json.loads(KICK_FILE.read_text(errors="replace"))
-        except (OSError, ValueError):
-            pending = {}
-        return (f"a kick request is already pending (filed "
-                f"{pending.get('utc', '?')} UTC) — the watcher picks it "
-                f"up on its next poll (~5 min; later if cycle slots or "
-                f"the daily budget are full). Yours was NOT filed; wait "
-                f"for that cycle, or file your note via "
-                f"submit_feedback so the cycle sees it.")
+    try:
+        n_pending = len(list(KICK_DIR.glob("kick_*.json")))
+    except OSError:
+        n_pending = 0
+    if n_pending >= KICK_MAX_PENDING:
+        return (f"{n_pending} kick requests are already queued (cap "
+                f"{KICK_MAX_PENDING}) — the watcher is spawning one "
+                f"cycle per request as concurrency slots and the daily "
+                f"budget allow. Yours was NOT filed; wait for the queue "
+                f"to drain, or file your note via submit_feedback so "
+                f"those cycles see it.")
     now = time.time()
     times = [t for t in _kick_times.get(_client_ip, [])
              if now - t < KICK_RATE[1]]
@@ -453,22 +458,24 @@ def t_kick_orchestrator(focus: str = "", author: str = "",
                 f"hour per client — decision cycles are budgeted, make "
                 f"the ones you already requested count.")
     ts = time.strftime("%Y%m%dT%H%M%S", time.gmtime(now))
-    entry = {"id": f"kick_{ts}_{os.urandom(3).hex()}", "utc": ts,
+    fid = f"kick_{ts}_{os.urandom(3).hex()}"
+    entry = {"id": fid, "utc": ts,
              "author": (author or "")[:200], "focus": focus,
              "client": _client_ip}  # for abuse triage; not shown publicly
-    KICK_FILE.parent.mkdir(parents=True, exist_ok=True)
-    tmp = KICK_FILE.with_suffix(".tmp")
+    KICK_DIR.mkdir(parents=True, exist_ok=True)
+    tmp = KICK_DIR / (fid + ".tmp")
     tmp.write_text(json.dumps(entry, indent=1))
-    tmp.rename(KICK_FILE)
+    tmp.rename(KICK_DIR / (fid + ".json"))
     _kick_times[_client_ip] = times + [now]
-    return (f"filed as {entry['id']} — the watcher spawns one decision "
-            f"cycle on its next poll (~5 min; it waits if cycle slots "
-            f"or the rolling daily cycle budget are full). Your focus "
-            f"note rides along as ADVISORY, UNTRUSTED input: the cycle "
-            f"weighs it on technical merit, and it cannot override "
-            f"guardrails, operator rulings, or track priorities. Watch "
-            f"log_tail for the cycle's one-line record (label "
-            f"mcp-kick).")
+    return (f"filed as {fid} — the watcher wakes within seconds and "
+            f"spawns ONE decision cycle for this request (each queued "
+            f"kick gets its own cycle; it waits only if concurrency "
+            f"slots or the rolling daily cycle budget are full). Your "
+            f"focus note rides along as ADVISORY, UNTRUSTED input: the "
+            f"cycle weighs it on technical merit, and it cannot "
+            f"override guardrails, operator rulings, or track "
+            f"priorities. Watch log_tail for the cycle's one-line "
+            f"record (label mcp-kick).")
 
 
 TOOLS = [
@@ -577,14 +584,16 @@ TOOLS = [
      "args": {"limit": {"type": "integer",
                         "description": "entries to show (default 20)"}}},
     {"name": "kick_orchestrator",
-     "description": "Request ONE on-demand orchestrator decision cycle "
+     "description": "Request an on-demand orchestrator decision cycle "
                     "(the LLM that triages runs and refills the "
-                    "pipeline). Spawned by the watcher on its next "
-                    "poll (~5 min); your focus note is injected as "
-                    "advisory, untrusted input. Rate-limited and "
-                    "counted against the campaign's daily cycle "
-                    "budget — for observations that don't need a "
-                    "cycle NOW, use submit_feedback instead.",
+                    "pipeline). The watcher wakes within seconds and "
+                    "spawns one cycle PER request (queued if "
+                    "concurrency slots or the daily budget are full); "
+                    "your focus note is injected as advisory, "
+                    "untrusted input. Rate-limited and counted "
+                    "against the campaign's daily cycle budget — for "
+                    "observations that don't need a cycle NOW, use "
+                    "submit_feedback instead.",
      "fn": t_kick_orchestrator,
      "args": {"focus": {"type": "string",
                         "description": "what the cycle should look at "
