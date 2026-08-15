@@ -836,20 +836,18 @@ def _launch_locked(g: dict, a: argparse.Namespace,
         # trainer pid via /proc scan and continue verification; only fail
         # if no process exists.
         print("kubectl exec timed out; recovering trainer pid via /proc scan")
-        scan = ("for p in /proc/[0-9]*/cmdline; do "
-                "c=$(tr '\\0' ' ' < \"$p\" 2>/dev/null); "
-                'case "$c" in python*"--run-name ' + a.run + ' "*|'
-                '*/python*"--name ' + a.run + ' "*) '
-                'basename "${p%/cmdline}";; esac; done')
-        pids = kexec(a.pod, scan).split()
-        if not pids:
+        # Reuse the anchored scanner used by checkup. The old inline
+        # pattern embedded `--name <run>` in its own bash command line,
+        # matched that wrapper, and returned the short-lived scan PID
+        # instead of the live dynrep trainer.
+        pid = _pod_trainer_pid(a.pod, a.run)
+        if not pid:
             entry["status"] = "FAILED"
             entry["failed_reason"] = ("launch kexec timed out and no "
                                       "trainer process found on pod")
             upsert_entry(entry)
             print("VERIFICATION FAILED: kexec timeout and no trainer process")
             return 1
-        pid = pids[0]
     checks["pid"] = pid
     print(f"launched pid {pid}; verifying...")
     return {"entry": entry, "checks": checks, "pid": pid,
