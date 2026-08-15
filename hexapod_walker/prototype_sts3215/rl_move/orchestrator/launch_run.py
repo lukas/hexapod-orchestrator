@@ -1036,7 +1036,12 @@ def _verify_started(g: dict, a: argparse.Namespace, ctx: dict) -> int:
         # global_step has not advanced AND CPU time has gone flat for two
         # consecutive samples, or an outer safety cap (20 min) elapses.
         n_steps = _extra_int(entry.get("extra_args", []), "--n-steps", 64)
-        base_wait = min(600, max(90, int(90 * n_steps / 64)))
+        # The fresh dynrep parent waits while a child process compiles the
+        # 2k-world MJX/Warp collector. Its own /proc CPU clock can stay flat
+        # even though the child and H200 are busy, so allow the full compile
+        # window before applying the parent-CPU stall heuristic.
+        base_wait = (900 if is_dynrep_fresh else
+                     min(600, max(90, int(90 * n_steps / 64))))
         poll = 30
         outer_cap = 1200.0  # absolute safety net regardless of CPU signal
         elapsed = 0.0
