@@ -21,7 +21,9 @@ are plain markdown, /llm/doc/<path> serves any .md in the prototype
 tree. Those paths need NO token: they mirror a public GitHub repo, and
 GPT's URL-safety wrapper refuses keyed URLs. The dashboard and /json
 (spend, infra) stay token-gated. /mcp is the same data as MCP tools
-(mcp_server.py, streamable HTTP) — also keyless. On the controller, a background
+(mcp_server.py, streamable HTTP) — gated by the operator's MCP key
+(MCP_AUTH_KEY / /workspace/.mcp_key, separate from STATUS_TOKEN;
+operator 08-15). On the controller, a background
 thread keeps the checkout synced to origin/main so pushed doc changes
 go live within ~1 min.
 
@@ -550,7 +552,8 @@ def llm_url_groups(base: str) -> list[tuple[str, list[tuple[str, str]]]]:
         ("Start here (live index pages)", [
             ("LLM index — hand an agent THIS one", f"{base}/llms.txt"),
             ("MCP endpoint (streamable HTTP — add as a remote MCP "
-             "server, tools for ledger/metrics/docs)", f"{base}/mcp"),
+             "server WITH the operator MCP key; tools for "
+             "ledger/metrics/docs)", f"{base}/mcp"),
             ("Campaign + all per-track STATUS", f"{base}/llm/status.md"),
             ("Research plan (RL_PLAN.md)", f"{base}/llm/plan.md"),
             ("Cycle log (RL_LOG.md)", f"{base}/llm/log.md"),
@@ -836,13 +839,13 @@ def render(base: str = "") -> str:
                  f"<td class='dim'>{tail}</td></tr>")
     h.append("</table>")
 
-    # Feedback filed by external LLMs via the /mcp submit_feedback tool
-    # (operator 08-14). The watcher injects unseen entries into the next
-    # decision cycle as advisory/untrusted input ("agent" column shows
-    # NEW vs when a cycle saw it).
+    # Feedback filed via the keyed /mcp submit_feedback tool (operator
+    # 08-14; key-gated 08-15 so entries come from the operator's own
+    # clients). The watcher injects unseen entries into the next
+    # decision cycle ("agent" column shows NEW vs when a cycle saw it).
     fb = f.get("feedback", [])
-    h.append("<h2>LLM feedback inbox (/mcp submit_feedback — injected "
-             "into the next cycle as advisory, untrusted input)</h2>")
+    h.append("<h2>LLM feedback inbox (/mcp submit_feedback, "
+             "operator-keyed — injected into the next cycle)</h2>")
     if fb:
         h.append("<table><tr><th>when (UTC)</th><th>author</th>"
                  "<th>topic</th><th>agent</th><th>feedback</th></tr>")
@@ -1250,10 +1253,10 @@ at {base}/llm/doc/<path>{key}:
 
 The same results are queryable as tools over the MCP streamable-HTTP
 transport (run ledger with filters, per-run stories, cached W&B
-metrics, eval reports, doc search), and LLM readers can file feedback
-for the operator via its submit_feedback tool. Add this URL as a
-remote MCP server (no auth):
-{base}/mcp
+metrics, eval reports, doc search) at {base}/mcp — but that endpoint
+is private: it requires the operator's MCP key (Authorization: Bearer
+<key>, X-Api-Key, or ?key=<key>). The keyless /llm pages above carry
+the same public data.
 """
 
 
@@ -1310,14 +1313,14 @@ TOKEN = _load_token()
 
 
 class Handler(http.server.BaseHTTPRequestHandler):
-    # MCP endpoint (mcp_server.py): keyless like the /llm mirror — it
-    # serves the same public-repo results, as tools for MCP clients.
-    # OPERATOR LANE (operator 08-15): a request that presents the
-    # dashboard access token (?key=<token>, Authorization: Bearer, or
-    # X-API-Key) is treated as the operator — kick_orchestrator files
-    # a TRUSTED operator KICK (deep model) instead of the advisory
-    # queue, and submit_feedback stamps the entry operator:true.
-    # Wrong/absent credential = the keyless advisory path, unchanged.
+    # MCP endpoint (mcp_server.py): PRIVATE since 08-15 — every
+    # request must present the operator's MCP key (MCP_AUTH_KEY /
+    # /workspace/.mcp_key; checked inside mcp_server.handle_http) or
+    # the dashboard STATUS_TOKEN (checked here, _mcp_operator).
+    # Authenticated requests run the trusted operator lane:
+    # kick_orchestrator files the operator KICK (deep model) and
+    # submit_feedback stamps entries operator:true. No valid
+    # credential = 401; no key configured on the host = 503.
     def _is_mcp(self) -> bool:
         return self.path.split("?")[0].rstrip("/") == "/mcp"
 
@@ -1340,8 +1343,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
         # X-Forwarded-For (first hop) — used only for rate limiting.
         ip = (self.headers.get("X-Forwarded-For", "").split(",")[0].strip()
               or self.client_address[0])
+        query = (self.path.split("?", 1) + [""])[1]
         status, headers, out = _mcp.handle_http(
-            self.command, body, ip, operator=self._mcp_operator())
+            self.command, body, ip, operator=self._mcp_operator(),
+            headers=self.headers, query=query)
         self.send_response(status)
         for k, v in headers.items():
             self.send_header(k, v)

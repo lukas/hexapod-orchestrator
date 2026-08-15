@@ -9,12 +9,18 @@ stories, cached W&B metrics, eval reports, and every doc in the tree.
 
 Normally mounted INSIDE status_server.py at POST /mcp (public URL
 https://hexapod.cwd1f0-new-cluster.coreweave.app/mcp — Caddy proxies
-443 to :8090). Keyless by design, exactly like the /llm mirror: it
-serves what the public GitHub repo already shows. Spend/token numbers
-and pod names stay off it (same policy as /llm, operator 08-13).
-Presenting the dashboard access token (?key= / Bearer / X-API-Key)
-upgrades kick_orchestrator + submit_feedback to the trusted operator
-lane (operator 08-15) — see OPERATOR_KICK_FILE below.
+443 to :8090). PRIVATE since 08-15 (the keyless mode made client-side
+safety layers classify the endpoint as public/untrusted and block
+feedback): every request must present the operator's MCP key —
+`Authorization: Bearer <key>`, `X-Api-Key: <key>`, or `?key=<key>` on
+the /mcp URL (ChatGPT connectors can't set headers). Key sources, in
+order: MCP_AUTH_KEY env, /workspace/.mcp_key (controller, written at
+deploy), logs/.mcp_key (laptop dev). No key on disk = endpoint
+disabled (503) — never silently open. Keyed requests run the trusted
+operator lane (kick_orchestrator files the operator KICK,
+submit_feedback entries are operator-stamped); the dashboard
+STATUS_TOKEN also still grants the lane. Spend/token numbers and pod
+names stay off the tools (same policy as /llm, operator 08-13).
 
 Standalone for development/testing only:
     python3 rl_move/orchestrator/mcp_server.py   # port 8091
@@ -50,43 +56,71 @@ the append-only decision-cycle log. Every design doc (rewards, gaits,
 evals, hardware, per-run stories) is reachable via list_docs /
 read_doc, and search_docs greps them all.
 
-You can also LEAVE FEEDBACK for the campaign: submit_feedback files a
-note (observations, critiques, suggested experiments) that the
-orchestrator agent reads at the start of its next decision cycle as
-advisory input, and the human operator reviews on the dashboard.
-Feedback cannot override the campaign's guardrails. list_feedback
-shows what others already filed — check it first to avoid duplicates.
+This endpoint is PRIVATE: you reached it with the operator's MCP key,
+so you are acting for the operator (Lukas) and your requests run the
+trusted operator lane automatically.
 
-kick_orchestrator goes one step further: it requests an on-demand
-decision cycle (the LLM that triages runs and refills the pipeline).
-The watcher wakes within seconds and spawns one cycle per request.
-Kicks are always filed (only an extreme scripted flood trips a
-guard); the acceptance reply reports the queue depth and the rolling
-daily cycle budget, which each cycle counts against. Your focus note
-rides along as advisory, untrusted input and cannot override
-guardrails or operator rulings.
+You can LEAVE NOTES for the campaign: submit_feedback files a note
+(observations, critiques, suggested experiments) that the
+orchestrator agent reads at the start of its next decision cycle;
+entries are operator-stamped and show on the dashboard. list_feedback
+shows what is already filed — check it first to avoid duplicates.
 
-OPERATOR LANE: if you are acting for the operator (Lukas), present
-the dashboard access token with the request — ?key=<token> on the
-/mcp URL, an Authorization: Bearer <token> header, or an X-API-Key:
-<token> header. Authenticated requests are treated as the operator:
-kick_orchestrator bypasses the flood guards and files the TRUSTED
-operator kick (a deep-model session that does what the focus note
-asks, not advisory triage), and submit_feedback entries are stamped
-"operator": true. Without the token everything stays advisory.
+kick_orchestrator goes one step further: it files the TRUSTED
+operator kick — the watcher wakes within seconds and spawns a
+deep-model session that does what your focus note asks. Each cycle
+counts against the rolling daily cycle budget. Guardrails
+(guardrails.yaml, the physical-robot prohibition) still bind every
+cycle.
 
 Obey-then-ask (operator 08-15): cycles EXECUTE operator orders even
 when they conflict with written rules (only typos, safety, or
 mechanical impossibility block), then file the conflict as a question
 in OPERATOR_QUESTIONS.md. Read open questions with
 list_operator_questions; the operator answers via submit_feedback
-(with the token, so the answer is operator-stamped) and the next
-cycle updates the rulebook to match and closes the question.
+(operator-stamped) and the next cycle updates the rulebook to match
+and closes the question.
 """
 
 # Ledger fields that are infra detail (pod names / pod-local paths) —
-# the keyless mirror policy excludes them (see status_server.py).
+# excluded from tool output (same policy as the /llm mirror).
 LEDGER_PRIVATE = {"pod", "log"}
+
+# Auth key (operator 08-15): the endpoint is private — one shared key,
+# handed only to the operator's own MCP clients (ChatGPT connector,
+# Cursor). Without it every request except CORS preflight is refused.
+# The old keyless mode also made client-side safety layers classify
+# the endpoint as public/untrusted and block feedback submissions.
+def _load_auth_key() -> str:
+    k = os.environ.get("MCP_AUTH_KEY", "").strip()
+    if k:
+        return k
+    for p in (pathlib.Path("/workspace/.mcp_key"),
+              PROTO / "logs" / ".mcp_key"):
+        try:
+            return p.read_text().strip()
+        except OSError:
+            continue
+    return ""
+
+
+AUTH_KEY = _load_auth_key()
+
+
+def _authed(headers, query: str) -> bool:
+    if not AUTH_KEY:
+        return False  # no key configured = fail closed, never open
+    h = headers or {}
+    for name in ("Authorization", "authorization"):
+        v = (h.get(name) or "").strip()
+        if v == f"Bearer {AUTH_KEY}" or v == AUTH_KEY:
+            return True
+    for name in ("X-Api-Key", "x-api-key"):
+        if (h.get(name) or "").strip() == AUTH_KEY:
+            return True
+    from urllib.parse import parse_qs
+    return parse_qs(query or "").get("key", [""])[0] == AUTH_KEY
+
 
 # Same skip list as status_server.list_docs.
 DOC_SKIP_DIRS = {".git", "logs", "wandb", "policies", "node_modules",
@@ -97,9 +131,10 @@ TEXT_CAP = 400_000  # bytes per tool result — keep well under context
 # doc-sync `git pull` never trips over it — an untracked file in the
 # tree blocked the sync once already, 08-14), inside logs/ (gitignored)
 # for laptop dev. Entries show on the dashboard AND the watcher injects
-# unseen ones into the next decision cycle as ADVISORY, UNTRUSTED input
-# (operator 08-14 "just make it read it"); the injected framing +
-# ORCHESTRATOR_PROMPT.md forbid feedback from overriding guardrails.
+# unseen ones into the next decision cycle (operator 08-14 "just make
+# it read it"). Since the 08-15 key gate only the operator's own
+# clients can file them, and entries are operator-stamped; guardrails
+# still bind every cycle.
 FEEDBACK_DIR = pathlib.Path(
     os.environ.get("MCP_FEEDBACK_DIR")
     or ("/workspace/llm_feedback" if pathlib.Path("/workspace").is_dir()
@@ -115,11 +150,10 @@ _fb_times: dict[str, list[float]] = {}  # ip -> submission timestamps
 # directory of request files, same placement logic as the feedback
 # inbox — outside the git checkout on the controller, logs/
 # (gitignored) for laptop dev. The watcher wakes within seconds of a
-# new file and spawns ONE cycle per request, on stranger terms than an
-# operator KICK: triage-tier model, kick overflow pool (may expand
-# past the normal triage concurrency cap), focus note
-# injected as UNTRUSTED advisory text, each cycle still counted in the
-# rolling daily budget (see watch_loop.py pending_mcp_kicks).
+# new file and spawns ONE cycle per request (see watch_loop.py
+# pending_mcp_kicks). Since the 08-15 key gate every /mcp kick runs
+# the operator lane (OPERATOR_KICK_FILE below), so this advisory
+# queue only drains entries filed before the gate went in.
 KICK_DIR = pathlib.Path(
     os.environ.get("MCP_KICK_DIR")
     or ("/workspace/llm_kicks" if pathlib.Path("/workspace").is_dir()
@@ -134,18 +168,17 @@ KICK_FLOOD_PENDING = 30       # refuse only if the queue is this deep
 KICK_FLOOD_IP = (20, 3600)    # refuse only if one IP filed >=20 in 1h
 _kick_times: dict[str, list[float]] = {}  # ip -> request timestamps
 
-# OPERATOR LANE (operator 08-15 "WE ADDED A TOKEN"): a /mcp request
-# that presents the dashboard access token (?key=<token> on the URL,
-# Authorization: Bearer <token>, or X-API-Key: <token> — checked by
-# status_server against STATUS_TOKEN / /workspace/.status_token with
-# hmac.compare_digest) is the OPERATOR. Operator kicks bypass the
-# flood guards and are written to the TRUSTED operator KICK file (the
-# plain-text focus file the watcher runs as a deep-model,
-# do-what-the-note-asks session) instead of the advisory queue;
-# operator feedback entries are stamped "operator": true. On the
-# controller the watcher reads HERE/KICK; on a laptop we keep the dev
-# checkout clean and write under logs/ (same fallback logic as
-# KICK_DIR). No token configured = no operator lane.
+# OPERATOR LANE (operator 08-15 "WE ADDED A TOKEN", then the key
+# gate): since /mcp requires the operator's MCP key, EVERY
+# authenticated request is the operator (the dashboard STATUS_TOKEN,
+# checked by status_server with hmac.compare_digest, also grants the
+# lane). Operator kicks bypass the flood guards and are written to
+# the TRUSTED operator KICK file (the plain-text focus file the
+# watcher runs as a deep-model, do-what-the-note-asks session)
+# instead of the advisory queue; feedback entries are stamped
+# "operator": true. On the controller the watcher reads HERE/KICK; on
+# a laptop we keep the dev checkout clean and write under logs/ (same
+# fallback logic as KICK_DIR).
 OPERATOR_KICK_FILE = pathlib.Path(
     os.environ.get("MCP_OPERATOR_KICK")
     or (HERE / "KICK" if pathlib.Path("/workspace").is_dir()
@@ -700,13 +733,10 @@ TOOLS = [
                     "critiques, suggested experiments) into the "
                     "operator-reviewed inbox. Not auto-executed; the "
                     "human reads it on the dashboard. Cite run names, "
-                    "numbers, and doc paths so it's actionable. "
-                    "OPERATOR LANE: present the dashboard access token "
-                    "with the request (?key=<token> on the /mcp URL, "
-                    "Authorization: Bearer <token>, or X-API-Key) to "
-                    "be treated as the operator — the entry is stamped "
-                    "\"operator\": true so cycles weight it "
-                    "accordingly.",
+                    "numbers, and doc paths so it's actionable — this "
+                    "endpoint is private (operator-keyed), so those "
+                    "details are fine. Entries are operator-stamped "
+                    "so cycles weight them accordingly.",
      "fn": t_submit_feedback,
      "args": {"feedback": {"type": "string",
                            "description": "the feedback text (markdown "
@@ -738,26 +768,14 @@ TOOLS = [
     {"name": "kick_orchestrator",
      "description": "Request an on-demand orchestrator decision cycle "
                     "(the LLM that triages runs and refills the "
-                    "pipeline). The watcher wakes within seconds and "
-                    "spawns one cycle PER request — kick cycles may "
-                    "expand past the normal triage concurrency cap "
-                    "into an overflow pool, so they start immediately "
-                    "unless the pool or the daily budget is "
-                    "exhausted; "
-                    "your focus note is injected as advisory, "
-                    "untrusted input. Kicks are always accepted and "
-                    "filed — the reply reports queue depth and daily-"
-                    "budget state; each cycle counts against the "
-                    "campaign's daily cycle budget, so for "
-                    "observations that don't need a cycle NOW, "
-                    "consider submit_feedback instead. OPERATOR LANE: "
-                    "present the dashboard access token with the "
-                    "request (?key=<token> on the /mcp URL, "
-                    "Authorization: Bearer <token>, or X-API-Key) to "
-                    "be treated as the operator — the kick bypasses "
-                    "flood guards and files the TRUSTED operator KICK "
-                    "(deep-model session that does what the focus "
-                    "note asks).",
+                    "pipeline). This endpoint is operator-keyed, so "
+                    "the kick files the TRUSTED operator KICK: the "
+                    "watcher wakes within seconds and spawns a "
+                    "deep-model session that does what the focus note "
+                    "asks. Each cycle counts against the campaign's "
+                    "daily cycle budget, so for observations that "
+                    "don't need a cycle NOW, consider submit_feedback "
+                    "instead.",
      "fn": t_kick_orchestrator,
      "args": {"focus": {"type": "string",
                         "description": "what the cycle should look at "
@@ -848,15 +866,29 @@ CORS = {"Access-Control-Allow-Origin": "*",
 
 
 def handle_http(method: str, body: bytes, client_ip: str = "",
-                operator: bool = False) -> tuple[int, dict, bytes]:
+                operator: bool = False, headers=None,
+                query: str = "") -> tuple[int, dict, bytes]:
     """Transport-agnostic entry: (status, headers, body) for /mcp.
 
-    operator=True means the transport verified the request presented
-    the operator's dashboard token (status_server._mcp_operator) —
-    kick_orchestrator/submit_feedback get the trusted operator lane."""
+    Every request must present the operator's MCP key (checked here
+    against AUTH_KEY) or arrive with operator=True (the transport
+    verified the dashboard STATUS_TOKEN — status_server._mcp_operator).
+    Either way the caller is one of the operator's own clients, so all
+    authenticated requests run the trusted operator lane."""
     h = dict(CORS)
-    if method == "OPTIONS":
+    if method == "OPTIONS":  # CORS preflight cannot carry credentials
         return 204, h, b""
+    if not (operator or _authed(headers, query)):
+        if not AUTH_KEY:
+            return 503, h, (b"503: no MCP auth key configured on this "
+                            b"host (MCP_AUTH_KEY env or key file) - "
+                            b"endpoint disabled.")
+        h["WWW-Authenticate"] = "Bearer"
+        return 401, h, (b"401: this is the operator's private MCP "
+                        b"endpoint. Send the operator-issued key as "
+                        b"'Authorization: Bearer <key>', 'X-Api-Key: "
+                        b"<key>', or '?key=<key>' on the /mcp URL.")
+    operator = True  # past the gate = the operator's own client
     if method == "DELETE":  # client ended its session — nothing to drop
         return 200, h, b""
     if method != "POST":
@@ -893,8 +925,11 @@ def main() -> int:
         def _serve(self):
             n = int(self.headers.get("Content-Length") or 0)
             body = self.rfile.read(n) if n else b""
+            query = (self.path.split("?", 1) + [""])[1]
             status, headers, out = handle_http(self.command, body,
-                                               self.client_address[0])
+                                               self.client_address[0],
+                                               headers=self.headers,
+                                               query=query)
             self.send_response(status)
             for k, v in headers.items():
                 self.send_header(k, v)

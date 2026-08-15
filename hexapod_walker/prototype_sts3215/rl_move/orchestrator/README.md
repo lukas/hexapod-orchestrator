@@ -61,14 +61,15 @@ the drain requires before treating a pod as a slot.
   triage concurrency cap into the kick overflow pool (up to
   KICK_OVERFLOW_SLOTS extra sessions, operator 08-15), counted in the
   daily budget.
-- **Kick via MCP:** the public `/mcp` endpoint's `kick_orchestrator`
-  tool queues a request file in `/workspace/llm_kicks/` (always
-  accepted — only an extreme flood guard refuses; the reply reports
-  queue depth and rolling-24h budget state, operator 08-15); the
-  watcher wakes within seconds and spawns one triage-model session PER
-  request, expanding into the same kick overflow pool when the normal
-  triage slots are busy — focus note injected as untrusted advisory
-  text, each counted in the daily budget.
+- **Kick via MCP:** `/mcp` requires the operator's MCP key since
+  08-15 (`MCP_AUTH_KEY` env or `/workspace/.mcp_key`; sent as
+  `Authorization: Bearer`, `X-Api-Key`, or `?key=` — the old keyless
+  mode made client-side safety layers block feedback), so
+  `kick_orchestrator` files the TRUSTED operator `KICK` (deep-model
+  session that does what the focus note asks, same as `ops.sh
+  cycle`). The `/workspace/llm_kicks/` advisory queue remains only to
+  drain pre-gate entries: one triage-model session per request in the
+  kick overflow pool, each counted in the daily budget.
 - **Restart the watcher:** ONLY via `restart_watcher.sh` (nohup'd on
   the controller). Hard-killing the tmux session murders in-flight
   cycles, which only write their output at exit.
