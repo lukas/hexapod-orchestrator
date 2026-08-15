@@ -300,20 +300,28 @@ ORCHESTRATOR_PROMPT.md):**
      15 min. Full directive in ORCHESTRATOR_PROMPT.md; trigger: the
      08-14 overnight where two just-unblocked named steps waited ~2 h
      on backoff spacing while the fleet looked idle.
-- **WAIT (08-15 ~12:1x UTC) `[code]` (arch), UPDATED ~15:0x UTC: the
-  DURABLE fix (launcher-level opt-in CUDA-torch path: recorded pod
-  capability, parity/coexistence smoke vs warp, reproducible install)
-  is STILL OPEN** — the ad hoc CUDA-torch install on train-1
-  (pip-installed, not code, not snapshot-tracked, lost on pod
-  restart) carried TWO runs to completion: `cw-arch-tf-r1b` (2M
-  discovery, TRIAGED PASS) and its 40M hardening twin
-  `cw-arch-tf-r1-hard1` — **now also TRIAGED PASS this cycle: the
-  transformer trunk walks cleanly at budget parity with the MLP
-  champion (gv 6/6/6/6, 0 falls, roll clean; arch/STATUS.md Now)**.
-  Until the durable launcher-level version lands, any FUTURE
-  transformer/attention arm still needs the same manual one-pod
-  exception; the ad hoc install itself is retired now that both its
-  runs are triaged (no job currently depends on it).
+- **WAIT (08-15 ~12:1x UTC) `[code]` (arch), UPDATED ~17:2x UTC: the
+  DURABLE fix is PARTLY LANDED, launcher gate STILL OPEN.** The
+  recording half is built + tested this cycle:
+  `rl_move/orchestrator/pod_torch_capability.py` (reproducible
+  `install`/`verify`/`status`/`record` CLI + `is_capable(pod)` API,
+  6 tests green, `exp/cuda-torch-durable1`) records a per-pod CUDA-
+  torch capability that only counts as capable after a coexistence
+  smoke (torch CUDA available AND jax still imports — half-verified
+  does not gate anything open); train-1 recorded retroactively from
+  its 3-run evidence (`cw-arch-tf-r1b`/`-hard1`/`-hard2-r1`), no live
+  probe run against it this cycle (mid-training, left alone).
+  **STILL MISSING (the actual gate): `launch_run.py` does not yet
+  refuse a `--device cuda` launch on an unrecorded pod** — the
+  module is imported (`import pod_torch_capability as _torch_cap`)
+  but the `_launch_locked` GPU-checks block needs the `is_capable()`
+  call + `refuse()` wired in (next to the existing `nvidia-smi`
+  check); deferred THIS cycle only because `launch_run.py` was
+  mid-edit by a concurrent cycle when this one reached it (avoided a
+  same-file collision on a shared launch-path file, not a science or
+  sizing reason) — next cycle finishes the gate, not a re-design.
+  Until then any FUTURE transformer/attention arm still needs the
+  manual `install`/`record` step read by a human, same as before.
   Detail: arch/STATUS.md Now + both runs' ledger entries.
 - Arm B 2M mechanism canary
   `cw-arch-modeexperts-scratch1-r1` TRIAGED PASS (finished 2.03M
