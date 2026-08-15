@@ -21,7 +21,22 @@ anyone catching up. Facts here must agree with `CURRENT_TRUTHS.md`
 (which wins on conflict); the full checkpoint inventory with gate
 numbers lives in `rl_docs/SKILLS.md`.
 
-**Last updated: 2026-08-14 (~22:5x UTC — hw: the first fix attempt on
+**Last updated: 2026-08-14 (late — hw: the post-lower stand-up saga
+took a decisive turn: `cw-stand-postlower2` (the low-dose retry)
+FAILED, and the dig-in proved the whole bank-exposure family was
+training the robot to chase a MECHANICALLY IMPOSSIBLE height — the
+harvested sitting poses rest ~5cm higher than the flat belly the rise
+target is calibrated against, so the goal asked for a stand ~5cm
+TALLER than the robot can be; straining at max current was the
+correct answer to a wrong question, which is why postlower1 got
+WORSE. The goal-anchoring fix is written, tested and snapshotted
+(default-off), and with it the champion gets its first-ever real
+stand-ups from harvested poses — but a cold spawn still can't
+reproduce the in-session context (the champion collapses to belly
+deterministically), so the next arm (`cw-stand-postlower3`, to spec
+next cycle) trains the transition IN CONTEXT with lower→rise
+sequence episodes instead of cold teleported starts. Product
+baseline unchanged. Chain: hw/STATUS.md.) Earlier ~22:5x UTC — hw: the first fix attempt on
 that named POST-LOWER boundary (`cw-stand-postlower1`, training the
 stance policy on 35% harvested post-lower start poses) FAILED, and
 FAILED backwards: a full 600-session bulk re-read shows stochastic
@@ -279,20 +294,33 @@ ORCHESTRATOR_PROMPT.md):**
   Waiting on: operator flips the two cfg keys on the runner's walk
   engage and re-runs takeoff reps (deploy is operator-only). No
   training arm until the bench adopts the entry sequence.
-- **FLEET (08-14 ~22:5x UTC): `cw-stand-postlower1` DONE — FAIL
-  (regression).** The bulk gate's named post-lower-rise `[code]`
-  arm (rise_start_bank mechanism, frac 0.35, landed + tested +
-  snapshotted 950e496/f3a4e97) trained, and its pre-registered
-  Cohort c2 read (n=600, fresh banks) came back a clean miss on all
-  3 numeric clauses — sto post-lower rise WORSE (0.801→0.717),
-  det session zero-fall and cold first-rise both ticked down too.
-  No exploit (video-confirmed genuine over-current stall). Verdict
-  + evidence: `rl_docs/tracks/hw/SESSION_BULK_GATE.md` "Cohort c2
-  RESULTS". `cw-stand-postlower2` (discovery, 2M, frac 0.15, same
-  recipe) is now TRAINING on train-0 to separate dose from
-  mechanism before any further hardening or reward change. Other 11
-  GPU slots idle on the typed [operator] waits below; train-10's
-  CPUs stay on the operator's dynrep cohort (hands off).**
+- **FLEET (08-14 late): `cw-stand-postlower2` DONE — FAIL, and the
+  dig-in found the postlower family's REAL bug: both arms trained
+  on mechanically IMPOSSIBLE rise targets.** The rise band is
+  belly-anchored (z0-relative) but bank spawns settle ~50mm above
+  the belly, so bank episodes commanded ~190-213mm chassis height —
+  above standing; max-current straining was the optimal policy,
+  which is exactly the c2 regression. Proven by matched-parent
+  controls (parent 0/12 from bank spawns vs 0.801/0.967 from real
+  in-session states; still 0/12 under a new exact full-state
+  restore, so reconstruction is exonerated). Fixes LANDED same
+  cycle (opt-in, default-off, tests green, snapshots
+  exp/postlower-bank-exact + exp/postlower-anchor-fix): full-state
+  harvest + `goal.rise_start_bank_exact` + per-row `z_stand` anchor
+  + `goal.rise_start_bank_anchor_stand` + v2 bank. With the fixed
+  instrument the parent gets its first real bank completions (sto
+  2/6) but det collapses to belly from the COLD spawn — cold
+  single-mode spawns cannot reproduce the in-session transition
+  context where the parent scores 0.967. Full chain:
+  `rl_docs/tracks/hw/STATUS.md` 08-14 (late). **NAMED NEXT
+  `[precondition: spec + preflight + c3 pre-registration]`:
+  `cw-stand-postlower3` — in-context lower→rise SEQUENCE training
+  via `goal.mode_seq` (machinery landed + pod-proven 08-14);
+  next idle cycle specs the stance-only grammar, runs the mode
+  bank, pre-registers Cohort c3 on fresh banks (940000../950000..),
+  then launches (discovery ≤2M).** All 12 GPU slots idle otherwise
+  on the typed [operator] waits below; train-10's CPUs stay on the
+  operator's dynrep cohort (hands off).**
 - **FLEET (08-14 ~20:0x UTC, superseded by the entry above): all 12 GPU slots idle on the named
   waits in this block (every one typed `[operator]` or an unmet
   precondition); train-0's `transdagger3` distill FINISHED 19:24 and
