@@ -1247,7 +1247,22 @@ def cmd_checkup(g: dict, a: argparse.Namespace) -> int:
             # 30-core pod runs slower but should beat 60.
             limit = pod_cpu_limit(pod)
             solo = len(trainers) == 1
-            if pod in g["compute"].get("gpu_pods", []):
+            is_dynrep_trainer = entry.get("trainer") in ("dynrep", "dynrep-fresh")
+            if is_dynrep_trainer and pod in g["compute"].get("gpu_pods", []):
+                # dynrep/dynrep-fresh's "global_step" is a GRADIENT step
+                # over pre-collected windows, not a PPO physics env-step —
+                # a completely different unit from the ~19-20k fps floor
+                # below, which is calibrated for MJX rollout throughput.
+                # Two independent healthy runs (cw-dynrep-tf-state1,
+                # cw-dynrep-tf-state2-recovered1 — both the same 13.6M
+                # CUDA transformer) steady-state at ~41-42 step/s and both
+                # false-SUSPECTed against the 5000 floor (found 08-15,
+                # recovered1 checkup). Floor calibrated well below that
+                # steady-state so a genuine stall/starvation (CPU-flat or
+                # near-zero step/s) still catches, healthy training doesn't.
+                floor = 5.0
+                facts["placement"] = "solo on GPU-MJX pod (dynrep trainer)"
+            elif pod in g["compute"].get("gpu_pods", []):
                 floor = 5000.0
                 facts["placement"] = "solo on GPU-MJX pod"
                 # Scale the floor for configs that are legitimately
