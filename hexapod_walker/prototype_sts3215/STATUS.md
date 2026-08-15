@@ -21,8 +21,17 @@ anyone catching up. Facts here must agree with `CURRENT_TRUTHS.md`
 (which wins on conflict); the full checkpoint inventory with gate
 numbers lives in `rl_docs/SKILLS.md`.
 
-**Last updated: 2026-08-15 (hw: the named next arm is no longer "to
-spec" — `cw-stand-postlower3` is RUNNING: an idle-kick cycle built the
+**Last updated: 2026-08-15 (arch: operator directive
+fb_20260815T013349_488ffd executed — the four-expert fully isolated
+one-checkpoint architecture (per-expert actor/critic GRUs, heads,
+log_std; zero-init transition adapter) is built, tested and
+snapshotted; Arm A teacher-distill is running on train-1 CPUs and
+Arm B's from-scratch 2M mechanism canary is training on train-0;
+staged full-budget follow-ups pre-registered in
+`rl_docs/tracks/arch/MODE_EXPERTS_DIRECTIVE.md`. Multitask pause
+lifted BY THE OPERATOR for these two arms only; the hierarchy stays
+the product baseline.) Earlier (hw: the named next arm is no longer
+"to spec" — `cw-stand-postlower3` is RUNNING: an idle-kick cycle built the
 stance-only in-context sequence trainer (`goal.mode_seq_stance`,
 default-off, tested, snapshotted), pre-registered its bulk gate
 (Cohort c3, fresh banks) and launched the 2M discovery arm on train-0.
@@ -275,6 +284,20 @@ ORCHESTRATOR_PROMPT.md):**
      15 min. Full directive in ORCHESTRATOR_PROMPT.md; trigger: the
      08-14 overnight where two just-unblocked named steps waited ~2 h
      on backoff spacing while the fleet looked idle.
+- **NEW WAITS (08-15, operator-KICK cycle) — arch mode-experts
+  directive (fb_20260815T013349_488ffd) EXECUTED: architecture built
+  + tested + snapshotted, Arm B 2M mechanism canary launched
+  (train-0), Arm A distill running (train-1 CPUs). Spec:
+  `rl_docs/tracks/arch/MODE_EXPERTS_DIRECTIVE.md`. Two named
+  follow-ups:**
+  1. `[precondition: modeexperts_bc1 distill finishes + verifies vs
+     both teachers]` — launch Arm A stage 1 `cw-arch-modeexperts1`
+     (2M discovery, frozen experts + transition adapter; spec in the
+     directive doc). Verification recipe named there.
+  2. `[precondition: scratch1 canary PASS on mechanism health]` —
+     launch Arm B stage 2 `cw-arch-modeexperts-scratch2` (40M, warm
+     chain toward ~20M active ticks/skill; phase mechanics recorded
+     as an ASSUMPTION in the directive doc).
 - **NEW WAIT (08-13 ~19:xx UTC) `[operator]`: quad → quadwalk needs an
   ARCHITECTURE/CURRICULUM design discussion (operator).**
   `cw-quadwalk7` (ent-coef 0.001→0.02, the exploration lever) STOP:
