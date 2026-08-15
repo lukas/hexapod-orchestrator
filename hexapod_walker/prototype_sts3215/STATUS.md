@@ -286,8 +286,12 @@ ORCHESTRATOR_PROMPT.md):**
      on backoff spacing while the fleet looked idle.
 - **NEW WAITS (08-15, operator-KICK cycle) — arch mode-experts
   directive (fb_20260815T013349_488ffd) EXECUTED: architecture built
-  + tested + snapshotted, Arm B 2M mechanism canary launched
-  (train-0), Arm A distill running (train-1 CPUs). Spec:
+  + tested + snapshotted, Arm B 2M mechanism canary
+  `cw-arch-modeexperts-scratch1-r1` RUNNING on train-2 (first launch
+  died silently on train-0, INFRA — no traceback/no OOM — verdicted;
+  retry verified, ~168 fps), Arm A distill running (train-1 CPUs,
+  log block-buffered so /tmp/distill_modeexperts_bc1.log fills
+  late). Spec:
   `rl_docs/tracks/arch/MODE_EXPERTS_DIRECTIVE.md`. Two named
   follow-ups:**
   1. `[precondition: modeexperts_bc1 distill finishes + verifies vs
