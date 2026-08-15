@@ -690,6 +690,24 @@ def _launch_locked(g: dict, a: argparse.Namespace,
             "log": log, "is_gpu": is_gpu}
 
 
+def _pod_trainer_pid(pod: str, run: str) -> str | None:
+    """PID of the main trainer process for --run-name <run> on a pod
+    (None if absent). Same /proc scan + anchoring rules as
+    pod_trainers(); run names are [a-z0-9-] so direct interpolation
+    into the case pattern is safe."""
+    script = (
+        "for p in /proc/[0-9]*; do c=$(tr '\\0' ' ' < $p/cmdline "
+        "2>/dev/null); case \"$c\" in *' -m rl_move.sim.train_ppo_'*"
+        f"'--run-name {run} '*) case \"$c\" in *' -c '*) ;; *) "
+        "echo ${p#/proc/};; esac;; esac; done"
+    )
+    try:
+        out = kexec(pod, script).strip().splitlines()
+        return out[0] if out else None
+    except subprocess.CalledProcessError:
+        return None
+
+
 def _pod_pid_cputime(pod: str, pid: str) -> int | None:
     """Cumulative CPU-centiseconds (utime+stime, /proc/<pid>/stat fields
     14+15) for a process on a remote pod, or None if it's gone/unreadable.
@@ -938,9 +956,34 @@ def cmd_checkup(g: dict, a: argparse.Namespace) -> int:
             if log_stalled:
                 problems.append("log stopped growing")
         elif s2 <= s1:
-            problems.append(f"W&B global_step stalled at {s2}")
-            if log_stalled:
-                problems.append("log stopped growing")
+            # W&B logs once per PPO iteration, and an iteration's wall
+            # time is floored by its rollout (n_envs * n_steps). Small-
+            # env configs legitimately exceed the 45 s sample window
+            # (false SUSPECT on healthy cw-arch-modeexperts-scratch1-r1,
+            # 2026-08-15: 256 envs x 256 n_steps at ~225 fps = ~380 s
+            # per iteration; both W&B and the log were between writes).
+            # Before calling a stall, require the same proof-of-no-work
+            # signal the launch verifier uses (_verify_started, the
+            # 08-11 cw-arch-gru-r4 fix): cumulative CPU time flat across
+            # two 30 s samples. A genuinely hung/starved process goes
+            # CPU-flat; a slow-cadence healthy one keeps burning cores.
+            pid = _pod_trainer_pid(pod, a.run)
+            cpu = [_pod_pid_cputime(pod, pid) if pid else None]
+            for _ in range(2):
+                time.sleep(30)
+                cpu.append(_pod_pid_cputime(pod, pid) if pid else None)
+            deltas = [b - a2 for a2, b in zip(cpu, cpu[1:])
+                      if a2 is not None and b is not None]
+            computing = bool(deltas) and all(d > 50 for d in deltas)
+            facts["cpu_centisec_deltas"] = deltas
+            if computing:
+                facts["note"] = ("global_step flat in 45s window but "
+                                 "trainer CPU busy — long-rollout "
+                                 "iteration cadence, not a stall")
+            else:
+                problems.append(f"W&B global_step stalled at {s2}")
+                if log_stalled:
+                    problems.append("log stopped growing")
         else:
             fps = (s2 - s1) / 45.0
             facts["fps"] = round(fps, 1)
