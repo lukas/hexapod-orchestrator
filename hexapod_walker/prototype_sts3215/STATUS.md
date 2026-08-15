@@ -21,7 +21,13 @@ anyone catching up. Facts here must agree with `CURRENT_TRUTHS.md`
 (which wins on conflict); the full checkpoint inventory with gate
 numbers lives in `rl_docs/SKILLS.md`.
 
-**Last updated: 2026-08-15 (hw: the post-lower stand-up mystery is
+**Last updated: 2026-08-15 (arch: a small causal-transformer policy
+trunk now WALKS as well as the flatten-MLP champion at the same 40M
+step budget — zero falls, clean six-leg gait, no roll-fall — the
+first architecture-line proof that attention-based trunks aren't a
+dead end for this robot, walk-only, not deployment-contract-ready.
+`cw-arch-tf-r1-hard1`; detail: arch/STATUS.md.) Earlier (hw: the
+post-lower stand-up mystery is
 SOLVED — the c3 collapse was a taught behavior, not a learning
 failure. The in-context sequence trainer's rise reference starts at
 belly height, so it paid the robot to flop back onto its belly and
@@ -294,20 +300,21 @@ ORCHESTRATOR_PROMPT.md):**
      15 min. Full directive in ORCHESTRATOR_PROMPT.md; trigger: the
      08-14 overnight where two just-unblocked named steps waited ~2 h
      on backoff spacing while the fleet looked idle.
-- **WAIT (08-15 ~12:1x UTC) `[code]` (arch), UPDATED ~13:4x UTC: the
+- **WAIT (08-15 ~12:1x UTC) `[code]` (arch), UPDATED ~15:0x UTC: the
   DURABLE fix (launcher-level opt-in CUDA-torch path: recorded pod
   capability, parity/coexistence smoke vs warp, reproducible install)
   is STILL OPEN** — the ad hoc CUDA-torch install on train-1
   (pip-installed, not code, not snapshot-tracked, lost on pod
-  restart) has now carried TWO runs: `cw-arch-tf-r1b` (2M discovery,
-  TRIAGED PASS — clean boot/train, det gait_valid 6/6 no leg
-  sacrifice, falls only via the universal takeoff-roll transient,
-  not gated at 2M) and its pre-registered 40M hardening twin
-  `cw-arch-tf-r1-hard1`, launched + VERIFIED this cycle on train-1,
-  fps estimate 8192 at launch (vs the CPU build's ~260 fps / ~37h
-  projection). Until the durable version lands, train-1's torch
-  build stays a manual one-pod exception the launcher does not know
-  about. Detail: arch/STATUS.md Now + both runs' ledger entries.
+  restart) carried TWO runs to completion: `cw-arch-tf-r1b` (2M
+  discovery, TRIAGED PASS) and its 40M hardening twin
+  `cw-arch-tf-r1-hard1` — **now also TRIAGED PASS this cycle: the
+  transformer trunk walks cleanly at budget parity with the MLP
+  champion (gv 6/6/6/6, 0 falls, roll clean; arch/STATUS.md Now)**.
+  Until the durable launcher-level version lands, any FUTURE
+  transformer/attention arm still needs the same manual one-pod
+  exception; the ad hoc install itself is retired now that both its
+  runs are triaged (no job currently depends on it).
+  Detail: arch/STATUS.md Now + both runs' ledger entries.
 - Arm B 2M mechanism canary
   `cw-arch-modeexperts-scratch1-r1` TRIAGED PASS (finished 2.03M
   clean, no NaN/crash; all four experts active within 0.09 of the
@@ -319,14 +326,34 @@ ORCHESTRATOR_PROMPT.md):**
   on train-2, per the pre-registered order
   (fb_20260815T035147_dd2af0)** — no longer a wait; ETA ~2.3 days.
   Remaining follow-up:
-  1. `[precondition: modeexperts_bc1 distill finishes + verifies vs
-     both teachers]` — Arm A distill still RUNNING on train-1 CPUs
-     (verified alive: PID busy, high CPU-time accumulation, log
-     stays 0 bytes because Python block-buffers to a redirected
-     file — not a stall). When it finishes, launch Arm A stage 1
-     `cw-arch-modeexperts1` (2M discovery, frozen experts +
-     transition adapter; spec in
-     `rl_docs/tracks/arch/MODE_EXPERTS_DIRECTIVE.md`).
+  1. **RESOLVED 08-15 ~15:2x UTC (this cycle) — Arm A stage-0 distill
+     FINISHED and the pre-registered VERIFY ran; result is FAIL, per
+     the pre-registered infrastructure branch, NOT a science
+     verdict.** `ppo_goal_cw_arch_modeexperts_bc1.zip` does not match
+     its teachers cold: det single-mode rise 0/6 (bridge 0/3, flat
+     0/3), stalling 40–80mm short of full stand (footlow2_hard1's own
+     cold rises: 0.5–3.4mm) — a genuine miss, not noise; det walk
+     prog_ratio med 0.53 (bar/teacher's own 1.05–1.10) with 2/6
+     episodes collapsing to prog 0.02/0.12 and slip/m 26.2/7.7 (vs
+     bcgait1_hard1's 1.3–1.5) — an intermittent near-total stall, not
+     present in the teacher. hold/lower det clean (6/6 each,
+     matching teacher bars). Sequence eval (`--single`, grammar
+     rise,walk,lower,rise,walk): det 10/12 zero-fall (bar 11/12, just
+     under), sto 3/12 (collapses badly). **New `[code]`/
+     `[precondition: distill recipe fix]` WAIT opened: per the
+     pre-registered FAIL branch ("stage-0 distill can't match
+     teachers → infrastructure, fix distill, no PPO"), Arm A stage 1
+     (`cw-arch-modeexperts1`) does NOT launch this cycle** — the
+     training-time probes already hinted at this (rise probe returns
+     ['-217','125'], DAgger correction budget went mostly to lower's
+     falls {'lower':6,'rise':1,'walk':3,'hold':1}/300, rise
+     under-corrected). Next step is a distill-recipe redesign (more
+     rise-targeted DAgger coverage, matching the operator's
+     fb_20260814T164337_d7f11b insight for a different arm: add a
+     rise BC-anchor term, not just re-weight the diet) — a design
+     call, left for the next arch cycle rather than attempted here.
+     Evidence: `logs/ckpt_eval/arch_modeexperts_bc1_verify`,
+     `logs/ckpt_eval/arch_modeexperts_bc1_seq_{det,sto}.json`.
 - **NEW WAIT (08-13 ~19:xx UTC) `[operator]`: quad → quadwalk needs an
   ARCHITECTURE/CURRICULUM design discussion (operator).**
   `cw-quadwalk7` (ent-coef 0.001→0.02, the exploration lever) STOP:
