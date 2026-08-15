@@ -61,6 +61,7 @@ WORKDIR = "/workspace/prototype_sts3215"
 TRAIN_MODULE = "rl_move.sim.train_ppo_sim"      # CPU sweep pods (legacy)
 TRAIN_MODULE_GPU = "rl_move.sim.train_ppo_mjx"  # GPU-MJX pods (default)
 TRAIN_MODULE_DYNREP = "rl_move.dynamics.train"
+TRAIN_MODULE_DYNREP_FRESH = "rl_move.dynamics.fresh_pipeline"
 GPU_TORCH_PYTHON = "/workspace/venv_torchgpu/bin/python"
 WANDB_PROJECT = "l2k2/hexapod-balance"
 # Research tracks (operator, 08-11): every launch belongs to one of
@@ -174,7 +175,9 @@ def pod_trainers(pod: str) -> list[str]:
         "2>/dev/null); case \"$c\" in python*' -m rl_move.sim.train_ppo_'*|"
         "*/python*' -m rl_move.sim.train_ppo_'*|"
         "python*' -m rl_move.dynamics.train '*|"
-        "*/python*' -m rl_move.dynamics.train '*) case \"$c\" in *' -c '*) ;; *) "
+        "*/python*' -m rl_move.dynamics.train '*|"
+        "python*' -m rl_move.dynamics.fresh_pipeline '*|"
+        "*/python*' -m rl_move.dynamics.fresh_pipeline '*) case \"$c\" in *' -c '*) ;; *) "
         "echo \"$c\";; esac;; esac; done | sort -u"
     )
     names = []
@@ -423,7 +426,8 @@ def _launch_locked(g: dict, a: argparse.Namespace,
     gpu = comp.get("gpu", {})
     is_gpu = a.pod in gpu_pods
     trainer = getattr(a, "trainer", "ppo")
-    is_dynrep = trainer == "dynrep"
+    is_dynrep = trainer in ("dynrep", "dynrep-fresh")
+    is_dynrep_fresh = trainer == "dynrep-fresh"
     track = getattr(a, "track", "") or _tracks.infer(a.run)
     entry = {
         "run": a.run, "pod": a.pod, "steps": a.steps, "smoke": a.smoke,
@@ -431,7 +435,8 @@ def _launch_locked(g: dict, a: argparse.Namespace,
         "track": track,
         "extra_args": extra, "created": now(), "status": "INTENT",
         "checks": {}, "trainer": trainer,
-        "stack": "gpu-transformer" if is_dynrep else (
+        "stack": ("gpu-transformer-fresh-data" if is_dynrep_fresh else
+                  "gpu-transformer") if is_dynrep else (
             "gpu-mjx" if is_gpu else "cpu"),
     }
     if LAUNCH_HOLD.exists():
@@ -684,6 +689,10 @@ def _launch_locked(g: dict, a: argparse.Namespace,
         if wandb_name_exists(a.run):
             return refuse(entry, f"W&B already has a run named {a.run} "
                                  "(names are append-only; pick a new one)")
+        if is_dynrep_fresh and wandb_name_exists(f"{a.run}-data"):
+            return refuse(entry, f"W&B already has a run named "
+                                 f"{a.run}-data (fresh-pipeline data runs "
+                                 "are append-only; pick a new run name)")
         n_running = sum(1 for n in wandb_running_runs() if n.startswith("cw-"))
         if n_running >= comp["max_concurrent_runs"]:
             return refuse(entry, f"{n_running} experiments already running "
@@ -836,7 +845,8 @@ def _launch_locked(g: dict, a: argparse.Namespace,
             return refuse(entry, "production dynrep launches may not bypass "
                                  "CUDA or full-label dataset requirements")
         entry["extra_args"] = extra
-        module = TRAIN_MODULE_DYNREP
+        module = (TRAIN_MODULE_DYNREP_FRESH if is_dynrep_fresh
+                  else TRAIN_MODULE_DYNREP)
         name_flag = "--name"
     else:
         module = TRAIN_MODULE_GPU if is_gpu else TRAIN_MODULE
@@ -908,6 +918,7 @@ def _pod_trainer_pid(pod: str, run: str) -> str | None:
         "for p in /proc/[0-9]*; do c=$(tr '\\0' ' ' < $p/cmdline "
         "2>/dev/null); case \"$c\" in *' -m rl_move.sim.train_ppo_'*"
         f"'--run-name {run} '*|*' -m rl_move.dynamics.train '*"
+        f"'--name {run} '*|*' -m rl_move.dynamics.fresh_pipeline '*"
         f"'--name {run} '*) case \"$c\" in *' -c '*) ;; *) "
         "echo ${p#/proc/};; esac;; esac; done"
     )
@@ -949,7 +960,9 @@ def _verify_started(g: dict, a: argparse.Namespace, ctx: dict) -> int:
     verify simultaneously instead of queueing ~5 min each."""
     entry, checks = ctx["entry"], ctx["checks"]
     pid, log, is_gpu = ctx["pid"], ctx["log"], ctx["is_gpu"]
-    is_dynrep = entry.get("trainer") == "dynrep"
+    is_dynrep = entry.get("trainer") in ("dynrep", "dynrep-fresh")
+    is_dynrep_fresh = entry.get("trainer") == "dynrep-fresh"
+    wb_name = f"{a.run}-data" if is_dynrep_fresh else a.run
 
     def fail(reason: str) -> int:
         print(f"VERIFICATION FAILED: {reason}")
@@ -959,7 +972,8 @@ def _verify_started(g: dict, a: argparse.Namespace, ctx: dict) -> int:
         # the "failure" bubbled up as a crashed launch attempt (2026-08-09:
         # cw-walk-highgait burned 2 backlog attempts on cleanup suicide).
         try:
-            pattern = (f"rl_move[.]dynamics[.]train.*--name {a.run} "
+            pattern = (f"rl_move[.]dynamics[.](train|fresh_pipeline).*"
+                       f"--name {a.run} "
                        if is_dynrep else
                        f"rl_move[.]sim[.]train_ppo.*--run-name {a.run} ")
             kexec(a.pod, f"kill {pid} 2>/dev/null; "
@@ -994,7 +1008,8 @@ def _verify_started(g: dict, a: argparse.Namespace, ctx: dict) -> int:
         deadline = time.time() + (480 if is_gpu else 240)
         wb = None
         while time.time() < deadline:
-            wb = wandb_running_runs().get(a.run)
+            running = wandb_running_runs()
+            wb = running.get(a.run) or running.get(wb_name)
             if wb:
                 break
             time.sleep(20)
@@ -1002,6 +1017,7 @@ def _verify_started(g: dict, a: argparse.Namespace, ctx: dict) -> int:
             return fail("run never appeared as 'running' in W&B within 240s")
         checks["wandb_id"] = wb["id"]
         entry["wandb_id"] = wb["id"]
+        active_wb_id = wb["id"]
         s1 = wb.get("global_step") or 0
         # A single PPO iteration's wall time is floored by its rollout
         # (n_envs * n_steps). A fixed 90s window false-killed
@@ -1030,7 +1046,20 @@ def _verify_started(g: dict, a: argparse.Namespace, ctx: dict) -> int:
         while elapsed < outer_cap:
             time.sleep(poll)
             elapsed += poll
-            s2 = (wandb_running_runs().get(a.run) or {}).get("global_step") or 0
+            running = wandb_running_runs()
+            current_wb = running.get(a.run) or running.get(wb_name) or {}
+            if current_wb.get("id") not in (None, active_wb_id):
+                checks.setdefault("wandb_stage_transitions", []).append(
+                    [active_wb_id, current_wb["id"]])
+                active_wb_id = current_wb["id"]
+                checks["wandb_id"] = active_wb_id
+                entry["wandb_id"] = active_wb_id
+                s1 = current_wb.get("global_step") or 0
+                s2 = s1
+                prev_cpu = _pod_pid_cputime(a.pod, pid)
+                flat_streak = 0
+                continue
+            s2 = current_wb.get("global_step") or 0
             if s2 > s1:
                 break
             cur_cpu = _pod_pid_cputime(a.pod, pid)
@@ -1092,6 +1121,14 @@ def cmd_checkup(g: dict, a: argparse.Namespace) -> int:
     # fall back to the guardrails pattern instead of crashing the
     # watcher (KeyError 'log' on cw-walk-step0-c2, 2026-08-09).
     pod = entry["pod"]
+    wb_names = ([a.run, f"{a.run}-data"]
+                if entry.get("trainer") == "dynrep-fresh" else [a.run])
+
+    def live_wandb() -> dict:
+        running = wandb_running_runs()
+        return next((running[name] for name in wb_names if name in running),
+                    {})
+
     log = entry.get("log") or f"/tmp/train_{a.run}.log"
     created = entry.get("created")
     problems, facts = [], {"time": now()}
@@ -1148,11 +1185,11 @@ def cmd_checkup(g: dict, a: argparse.Namespace) -> int:
                         "recent log — read the log before trusting this run")
 
     size1 = int(kexec(pod, f"stat -c %s {log}").strip())
-    wb1 = wandb_running_runs().get(a.run) or {}
+    wb1 = live_wandb()
     s1 = wb1.get("global_step") or 0
     time.sleep(45)
     size2 = int(kexec(pod, f"stat -c %s {log}").strip())
-    wb2 = wandb_running_runs().get(a.run) or {}
+    wb2 = live_wandb()
     s2 = wb2.get("global_step") or 0
     facts["log_growth_bytes"] = size2 - size1
     log_stalled = size2 <= size1
@@ -1858,8 +1895,11 @@ def main() -> int:
                          "(containment rule) — override only for an "
                          "escalated cross-track insight")
     lp = sub.add_parser("launch")
-    lp.add_argument("--trainer", choices=("ppo", "dynrep"), default="ppo",
-                    help="trainer family; dynrep is CUDA Transformer "
+    lp.add_argument("--trainer",
+                    choices=("ppo", "dynrep", "dynrep-fresh"),
+                    default="ppo",
+                    help="trainer family; dynrep-fresh generates a "
+                         "reuse-budgeted GPU dataset before CUDA Transformer "
                          "phase-1 pretraining")
     lp.add_argument("--pod", required=True)
     lp.add_argument("--run", required=True)
