@@ -269,12 +269,21 @@ agent-doable work; untyped entries count as agent-doable, and idle
 cycles must DRAIN the agent-doable ones before declaring no-op — see
 ORCHESTRATOR_PROMPT.md):**
 
-- **NEW WAIT (08-15 ~20:4x UTC) `[operator]`: hw RECOVERY LINE PAUSED
-  by superseding operator directive fb_20260815T201712_39279d** —
-  waiting on the operator's bucket-0 curriculum implementation
-  (plant-catch / micro-onefoot progressive rungs, tripod park moved
-  later, forced per-bucket SCORE metrics), a NEW exact main SHA, and
-  the final launch directive. Executed this cycle: cw-recover-any2
+- ~~NEW WAIT (08-15 ~20:4x UTC) `[operator]`: hw RECOVERY LINE PAUSED
+  by superseding operator directive fb_20260815T201712_39279d~~ —
+  **CLEARED 08-15 ~22:0x UTC:** the operator's bucket-0 curriculum
+  landed on main (c60c7ac, B0 plant_catch → B7 flip zero-indexed
+  ladder + forced per-bucket SCORE metrics) with the final launch
+  directive (fb_20260815T214555_008f42); executed same cycle —
+  **cw-recover-any4-b0scratch1 launched FROM SCRATCH on train-1**
+  (no init-from / no obs-pad-transplant, any2b's MDP/PPO settings
+  otherwise, W&B brjnwcnb), preflight bank green (recover 17/17,
+  full 113 pass), mechanically verified live: frontier at B0 only
+  (start/frontier bucket 0, active_families 1), BC anchor filling
+  (131k, loss nonzero), first forced eval emitted
+  SCORE/recover_bucket_0..7_success with explicit denominators.
+  Historical record of the pause below: executed that cycle —
+  cw-recover-any2
   verdicted (eval-blind FALSE START — missing sb3-contrib killed its
   eval sidecar; preserved as the warm-start diagnostic per
   fb_20260815T201417_5f7f0e), cw-recover-any2b (a concurrent cycle's
