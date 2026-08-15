@@ -300,29 +300,26 @@ ORCHESTRATOR_PROMPT.md):**
      15 min. Full directive in ORCHESTRATOR_PROMPT.md; trigger: the
      08-14 overnight where two just-unblocked named steps waited ~2 h
      on backoff spacing while the fleet looked idle.
-- **WAIT (08-15 ~12:1x UTC) `[code]` (arch), UPDATED ~17:2x UTC: the
-  DURABLE fix is PARTLY LANDED, launcher gate STILL OPEN.** The
-  recording half is built + tested this cycle:
-  `rl_move/orchestrator/pod_torch_capability.py` (reproducible
-  `install`/`verify`/`status`/`record` CLI + `is_capable(pod)` API,
-  6 tests green, `exp/cuda-torch-durable1`) records a per-pod CUDA-
-  torch capability that only counts as capable after a coexistence
-  smoke (torch CUDA available AND jax still imports — half-verified
-  does not gate anything open); train-1 recorded retroactively from
-  its 3-run evidence (`cw-arch-tf-r1b`/`-hard1`/`-hard2-r1`), no live
-  probe run against it this cycle (mid-training, left alone).
-  **STILL MISSING (the actual gate): `launch_run.py` does not yet
-  refuse a `--device cuda` launch on an unrecorded pod** — the
-  module is imported (`import pod_torch_capability as _torch_cap`)
-  but the `_launch_locked` GPU-checks block needs the `is_capable()`
-  call + `refuse()` wired in (next to the existing `nvidia-smi`
-  check); deferred THIS cycle only because `launch_run.py` was
-  mid-edit by a concurrent cycle when this one reached it (avoided a
-  same-file collision on a shared launch-path file, not a science or
-  sizing reason) — next cycle finishes the gate, not a re-design.
-  Until then any FUTURE transformer/attention arm still needs the
-  manual `install`/`record` step read by a human, same as before.
-  Detail: arch/STATUS.md Now + both runs' ledger entries.
+- ~~WAIT (08-15 ~12:1x UTC) `[code]` (arch): the DURABLE CUDA-torch
+  capability fix — recording + launcher gate.~~ **RESOLVED 08-15
+  ~17:3x UTC: both halves are now LANDED.** The recording half
+  (`rl_move/orchestrator/pod_torch_capability.py` — `install`/
+  `verify`/`status`/`record` CLI + `is_capable(pod)` API, 6 tests
+  green, `exp/cuda-torch-durable1`) landed last cycle; train-1 is
+  recorded retroactively from its 3-run evidence
+  (`cw-arch-tf-r1b`/`-hard1`/`-hard2-r1`). **This cycle wired the
+  actual gate:** `_launch_locked`'s GPU-checks block now refuses an
+  explicit `--device cuda` launch on any pod without a recorded
+  capability (`pod_torch_capability.is_capable()`, right next to the
+  existing `nvidia-smi` check); `--device auto` (the trainer default)
+  and dynrep launches (which already run their own live
+  `cuda_torch_runtime` probe) are untouched by design. 4 new tests
+  (`test_launch_run_torch_gate.py`, monkeypatched — no live pod
+  touched) green alongside the existing 6 capability tests, 10/10.
+  Snapshot `exp/cuda-torch-launcher-gate`. Any future transformer/
+  attention arm on an unrecorded pod now gets a clean, immediate
+  REFUSED instead of a silent slow-CPU-torch run. Detail:
+  arch/STATUS.md Now + both runs' ledger entries.
 - Arm B 2M mechanism canary
   `cw-arch-modeexperts-scratch1-r1` TRIAGED PASS (finished 2.03M
   clean, no NaN/crash; all four experts active within 0.09 of the
