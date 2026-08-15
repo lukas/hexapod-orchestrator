@@ -269,6 +269,21 @@ agent-doable work; untyped entries count as agent-doable, and idle
 cycles must DRAIN the agent-doable ones before declaring no-op — see
 ORCHESTRATOR_PROMPT.md):**
 
+- **NEW WAIT (08-15 ~22:5x UTC) `[precondition: dynrep-tfwalk-gpu1
+  A/B/C cohort finishes ~1M steps]`: the operator's CORRECTED
+  GPU-only Transformer transfer cohort is TRAINING** — the 22:2x
+  cohort was a GPU compliance failure (all three arms CPU-hard-coded,
+  fb_20260815T222316_26b670; old attempts `11zsrpl9`/`f086dlfd`/
+  `9e4eimd8` ABORTED/NON-EVIDENCE, the stale old-B trainer found
+  still alive on train-7 was killed). Relaunched per order
+  20260815T224355Z on the CUDA-required trainer:
+  `dynrep-tfwalk-gpu1-A-s5` train-8 (`h9yy9fll`), `-B-s5` train-7
+  (`dg5oj5hs`), `-C-s5` train-11 (`dx4yw04i`); every log prints
+  "CUDA required and active" before W&B init, C anchor tensors on
+  CUDA, steps verified advancing. Saved G1/G1.1 PASS gate record
+  verified readable on-pod (no rerun, per order). Triage when the
+  matched triple reports at 1M. Detail: dynrep/STATUS.md.
+
 - ~~NEW WAIT (08-15 ~20:4x UTC) `[operator]`: hw RECOVERY LINE PAUSED
   by superseding operator directive fb_20260815T201712_39279d~~ —
   **CLEARED 08-15 ~22:0x UTC, then superseded again ~22:3x UTC (no
