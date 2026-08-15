@@ -939,6 +939,7 @@ def _pod_trainer_pid(pod: str, run: str) -> str | None:
         "2>/dev/null); case \"$c\" in *' -m rl_move.sim.train_ppo_'*"
         f"'--run-name {run} '*|*' -m rl_move.dynamics.train '*"
         f"'--name {run} '*|*' -m rl_move.dynamics.fresh_pipeline '*"
+        f"'--name {run} '*|*' -m rl_move.dynamics.train_ppo_transfer '*"
         f"'--name {run} '*) case \"$c\" in *' -c '*) ;; *) "
         "echo ${p#/proc/};; esac;; esac; done"
     )
@@ -1151,6 +1152,18 @@ def cmd_checkup(g: dict, a: argparse.Namespace) -> int:
 
     def live_wandb() -> dict:
         running = wandb_running_runs()
+        # Script-owned cohorts (pod_tfwalk.sh / pod_risewalk.sh, 08-15):
+        # their W&B run names carry per-attempt/per-phase suffixes that
+        # never equal the ledger run name (dynrep-tfwalk-A-s5.0815-2221Z,
+        # rw_rise_C_s5) — three false checkup alarms 08-15 22:37. An
+        # optional `wandb_match` regex on the entry matches any running
+        # W&B name; absent field = old exact-name behavior, bit-exact.
+        wm = entry.get("wandb_match")
+        if wm:
+            for name in running:
+                if re.search(wm, name):
+                    return running[name]
+            return {}
         return next((running[name] for name in wb_names if name in running),
                     {})
 
@@ -1177,7 +1190,14 @@ def cmd_checkup(g: dict, a: argparse.Namespace) -> int:
             save_ledger(led)
 
     trainers = pod_trainers(pod)
-    facts["process_alive"] = a.run in trainers
+    # Optional `proc_match` regex (script-owned cohorts whose trainer
+    # --name is per-phase, e.g. rw_rise_C_s5 for ledger run
+    # risewalk-single2-s5 — false DEAD x3 on 08-15). Absent field =
+    # old exact-membership behavior, bit-exact.
+    pm = entry.get("proc_match")
+    live_names = ([t for t in trainers if re.search(pm, t)] if pm
+                  else [t for t in trainers if t == a.run])
+    facts["process_alive"] = bool(live_names)
     if not facts["process_alive"]:
         tail = kexec(pod, f"tail -c 2000 {log} 2>/dev/null || true")
         # A missing process is NOT necessarily a death: short runs and
@@ -1242,7 +1262,8 @@ def cmd_checkup(g: dict, a: argparse.Namespace) -> int:
             # 08-11 cw-arch-gru-r4 fix): cumulative CPU time flat across
             # two 30 s samples. A genuinely hung/starved process goes
             # CPU-flat; a slow-cadence healthy one keeps burning cores.
-            pid = _pod_trainer_pid(pod, a.run)
+            pid = _pod_trainer_pid(
+                pod, live_names[0] if live_names else a.run)
             cpu = [_pod_pid_cputime(pod, pid) if pid else None]
             for _ in range(2):
                 time.sleep(30)
