@@ -8,6 +8,28 @@ continuation budget) on a run the first failing question already
 classifies. Complements `RESEARCH_RULES.md` "Judging runs" (known-
 exploit one-line STOP, matched-parent control, impossibility kills).
 
+## 0. What is this checkpoint allowed to answer?
+
+Read the ledger `phase` and `assessment_scope` before looking at behavior.
+
+- `canary` / `mechanism_health`: judge only boot/runtime, finite learning,
+  routing/exposure, and required telemetry. The only legal verdict prefixes
+  are `CANARY PASS`, `CANARY FAIL - INFRASTRUCTURE`, and `CANARY FAIL -
+  MECHANISM`. Immature gait, falls, or a known exploit do **not** close the
+  behavior/reward class at a canary checkpoint.
+- `discovery` / `short_behavior_discovery`: use the behavioral checklist
+  below at the short budget.
+- `acquisition` / `full_budget_skill_acquisition`: this is still learning.
+  Read checkpoint trends, but do not issue the final skill verdict before
+  the pre-registered acquisition budget unless its explicit kill condition
+  fires.
+- `hardening`, `composition`, `transfer`: use the full checklist and their
+  registered gates.
+
+This phase precheck overrides every generic known-exploit STOP rule below.
+It prevents a mechanism canary from being mistaken for a completed learning
+experiment.
+
 ## 1. Did learning happen?
 - Check BOTH training return and the pre-registered task metric.
 - If neither improves meaningfully: **FAIL — hypothesis did not produce learning.**
@@ -22,7 +44,7 @@ exploit one-line STOP, matched-parent control, impossibility kills).
 - Possible causes: overfitting, train/eval distribution mismatch, curriculum mismatch, or variance.
 - Do not call it a pass.
 
-## 4. Does the video look physically correct?
+## 4. Does the video look physically correct? (behavioral phases only)
 - Metrics improve + video shows flag-leg, tripod, dragging, jitter, freeze, march-in-place, or another known exploit:
   **EVAL / REWARD BUG.**
 - Video overrides scalar success.
@@ -46,7 +68,7 @@ Inspect early / middle / final checkpoints.
 - Correct behavior exists and keeps improving -> continuation may be justified.
 
 ## 8. When is more training justified?
-Continue ONLY when:
+For behavioral DISCOVERY/HARDENING, continue ONLY when:
 - qualitatively correct behavior already exists, AND
 - task/eval metrics are still improving or clearly budget-limited.
 
@@ -55,6 +77,10 @@ Never continue because:
 - behavior is wrong,
 - known exploit dominates,
 - “maybe another 20M steps will fix it.”
+
+CANARY-to-ACQUISITION is not a speculative behavioral continuation: it is
+the pre-registered transition from a machinery check to the honest learning
+budget. Do not apply this section to block it.
 
 ## Classification Table
 

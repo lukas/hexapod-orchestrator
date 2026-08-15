@@ -182,9 +182,13 @@ phases:
   # Experiment phase system (operator, 08-10, binding — see
   # RESEARCH_RULES.md). Every non-smoke launch declares --phase; the
   # launcher enforces:
+  #   canary       <= discovery_max_steps; MECHANISM HEALTH ONLY. A mature
+  #                behavior verdict or reward-class closure is invalid.
   #   discovery    <= discovery_max_steps; the question is binary — did
   #                qualitatively correct behavior emerge? Aggressive
   #                early video; kill on a known exploit.
+  #   acquisition  full honest learning budget after a healthy canary;
+  #                evidence names the canary + comparable budget precedent.
   #   hardening / composition / transfer  require --evidence naming
   #                where the correct behavior was already seen (run /
   #                video / test_task_semantics PASS).

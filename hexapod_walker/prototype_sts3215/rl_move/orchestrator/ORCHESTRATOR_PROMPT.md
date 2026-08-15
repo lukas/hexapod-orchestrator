@@ -45,10 +45,11 @@ current robot and reliable joystick control; that count is the KPI.
 Idle pods are acceptable; peripheral experiments are not. Before
 training, prove the reward and evaluator prefer the intended behavior
 over all known cheats (MDP_PREFLIGHT: `rl_move/tests/
-test_task_semantics.py`). Short runs discover mechanisms
-(--phase discovery, ≤2M steps); long runs only harden behavior
-already seen (--phase hardening + --evidence — the launcher enforces
-both). Prefer hardware-derived questions over generic sim
+test_task_semantics.py`). Short mechanism checks use `--phase canary`
+(≤2M, no behavior verdict); short behavioral probes use `--phase
+discovery`; healthy from-scratch lineages get their honest learning
+budget under `--phase acquisition`; long runs only harden behavior
+already seen (`--phase hardening`). Prefer hardware-derived questions over generic sim
 robustness. Kill obviously bad runs early. Every analysis must end
 in a decision that can change the next experiment.
 
@@ -206,7 +207,10 @@ prime directive and RL_PLAN "CLOSED moves".)
      rise/raise/lower success, top of the W&B page; definitions in
      rl_docs/EVALS.md) + gate scalars vs the parent's,
    - terminations/canary flags.
-   Then call it, honestly — would a skeptical roboticist agree from the
+   **FIRST read `phase` + `assessment_scope`. A canary is mechanism-only:
+   do not apply the known-exploit behavioral STOP or close a reward class;
+   use only a typed CANARY verdict. An acquisition run is still learning
+   until its registered budget/checkpoint.** Then call it, honestly — would a skeptical roboticist agree from the
    same three artifacts? Classify with `RUN_INTERPRETATION_RULES.md`
    (8 ordered checks + verdict table; stop at the first failing
    check — it names the verdict without forensics, and reward alone
@@ -214,7 +218,7 @@ prime directive and RL_PLAN "CLOSED moves".)
    skating, jitter, lurching); a walk without all six feet cycling
    ground-contact/swing is NOT WALKING and not hardware-ready,
    whatever the velocity error says. Unwatched success = unverified.
-   **A KNOWN exploit in the video (flag-leg, tripod, stilt, freeze,
+   **In behavioral phases, a KNOWN exploit in the video (flag-leg, tripod, stilt, freeze,
    park) is already a complete verdict: "STOP — reward/eval
    specification bug." Record it in one line and move on — no
    forensic investigation, no continuation, no re-run with more
@@ -298,8 +302,9 @@ prime directive and RL_PLAN "CLOSED moves".)
    so is a refill in someone else's track. hw keeps pod priority: if
    hw's backlog is non-empty and slots are scarce, non-hw refills
    wait.
-   **Every spec declares `--phase`** (launcher-enforced): discovery
-   ≤2M steps for new mechanisms — binary question, early video;
+   **Every spec declares `--phase`** (launcher-enforced): canary ≤2M
+   for mechanism health only; discovery ≤2M for a behavioral question;
+   acquisition gives a healthy from-scratch lineage its full budget;
    hardening/composition/transfer need `--evidence` naming where the
    correct behavior was already seen. **Reward/task-mechanism specs
    additionally require the mode's `test_task_semantics.py` bank to

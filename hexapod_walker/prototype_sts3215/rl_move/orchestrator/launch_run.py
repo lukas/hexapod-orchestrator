@@ -75,12 +75,50 @@ CORES_PER_RUN = 55
 MIN_FREE_FULL = 40   # full experiment below this = refused (--allow-slow overrides)
 MIN_FREE_SMOKE = 8
 SMOKE_MAX_STEPS = 1_000_000
-# Experiment phase system (operator, 08-10, binding): long training is
-# for HARDENING behavior already seen, never for discovering whether a
-# mechanism works. SPECIFICATION work (reward/eval design, preflights)
-# never trains, so it is not a launch phase.
-PHASES = ("discovery", "hardening", "composition", "transfer")
+# CANARY and DISCOVERY are intentionally distinct: a canary asks only
+# whether training machinery is healthy, while discovery asks whether
+# correct behavior appears in a short budget. ACQUISITION gives a healthy
+# from-scratch lineage its honest learning budget before hardening.
+PHASES = ("canary", "discovery", "acquisition", "hardening",
+          "composition", "transfer")
+SHORT_PHASES = ("canary", "discovery")
 DISCOVERY_MAX_STEPS_DEFAULT = 2_000_000
+
+PHASE_SCOPES = {
+    "canary": "mechanism_health",
+    "discovery": "short_behavior_discovery",
+    "acquisition": "full_budget_skill_acquisition",
+    "hardening": "behavior_hardening",
+    "composition": "skill_composition",
+    "transfer": "deployment_transfer",
+}
+
+CANARY_GATE_PREFIX = (
+    "MECHANISM-HEALTH CANARY ONLY: do not judge skill acquisition, close a "
+    "behavior/reward class, or require mature gait at this checkpoint. "
+)
+
+
+def canary_update_error(entry: dict) -> str:
+    """Reject category-error verdicts for mechanism-only canaries."""
+    if entry.get("phase") != "canary":
+        return ""
+    if entry.get("hardware_ready") is True:
+        return "canary runs cannot be marked hardware_ready"
+    verdict = str(entry.get("verdict", "")).strip().upper()
+    if not verdict:
+        return ""
+    allowed = (
+        verdict.startswith("CANARY PASS"),
+        verdict.startswith("CANARY FAIL - INFRASTRUCTURE"),
+        verdict.startswith("CANARY FAIL - MECHANISM"),
+    )
+    if not any(allowed):
+        return ("canary verdict must begin CANARY PASS, CANARY FAIL - "
+                "INFRASTRUCTURE, or CANARY FAIL - MECHANISM; behavioral "
+                "FAIL/exploit/reward-closure verdicts are invalid at "
+                "mechanism-health scope")
+    return ""
 
 
 def sh(cmd: list[str], timeout: int = 60) -> str:
@@ -451,11 +489,9 @@ def _launch_locked(g: dict, a: argparse.Namespace,
         if not a.hypothesis or not a.gate:
             return refuse(entry, "experiments require --hypothesis and "
                                  "--gate (guardrails)")
-        # Phase gate (operator, 08-10): DISCOVERY runs answer "does the
-        # mechanism produce qualitatively correct behavior?" on a tiny
-        # budget; HARDENING/COMPOSITION/TRANSFER budgets are earned by
-        # naming where the correct behavior was already seen. PPO is
-        # never the unit-test framework for the MDP.
+        # CANARY checks machinery only; DISCOVERY asks whether behavior
+        # appears cheaply; ACQUISITION gives a healthy from-scratch lineage
+        # its comparable full budget. Later phases require evidence.
         phase = getattr(a, "phase", "") or _lineage_field(a.parent, "phase")
         if not phase and a.hypothesis.startswith("AUTO-CONTINUE"):
             # Pre-phase-system lineage being segment-stitched by the
@@ -471,25 +507,34 @@ def _launch_locked(g: dict, a: argparse.Namespace,
                                  "continues an existing lineage, pass "
                                  "--parent and the phase is inherited.")
         entry["phase"] = phase
-        if phase == "discovery":
+        entry["assessment_scope"] = PHASE_SCOPES[phase]
+        if phase == "canary":
+            entry["gate"] = CANARY_GATE_PREFIX + a.gate
+        if phase in SHORT_PHASES:
             cap = int(g.get("phases", {}).get("discovery_max_steps",
                                               DISCOVERY_MAX_STEPS_DEFAULT))
             if a.steps > cap:
-                return refuse(entry, f"discovery runs cap at {cap} steps "
+                question = ("is the training mechanism healthy?"
+                            if phase == "canary" else
+                            "did qualitatively correct behavior emerge?")
+                next_phase = ("acquisition" if phase == "canary" else
+                              "hardening")
+                return refuse(entry, f"{phase} runs cap at {cap} steps "
                                      f"(asked {a.steps}): the question is "
-                                     "'did qualitatively correct behavior "
-                                     "emerge?' — if it already did, relaunch "
-                                     "as --phase hardening with --evidence.")
+                                     f"'{question}' - continue as --phase "
+                                     f"{next_phase} with --evidence.")
         else:
             evidence = (entry.get("evidence")
                         or getattr(a, "evidence", "")
                         or _lineage_field(a.parent, "evidence"))
             if not evidence:
+                required = (
+                    "name the healthy canary and a comparable full-budget "
+                    "learning precedent" if phase == "acquisition" else
+                    "name the run/video where intended behavior was already "
+                    "seen, or the test_task_semantics/preflight PASS")
                 return refuse(entry, f"{phase} runs require --evidence: "
-                                     "name the run/video where the intended "
-                                     "behavior was already seen, or the "
-                                     "test_task_semantics/preflight PASS "
-                                     "that licenses this budget.")
+                                     f"{required}.")
             entry["evidence"] = evidence
     owned_name_flag = "--name" if is_dynrep else "--run-name"
     for flag in (owned_name_flag, "--steps"):
@@ -1239,8 +1284,8 @@ def cmd_backlog(a: argparse.Namespace, extra: list[str]) -> int:
     # Fail fast at queue time: a phase-less, parent-less item would only
     # refuse at drain time (3 retries, then parked — noise for nothing).
     if not getattr(a, "phase", "") and not a.parent:
-        print("backlog add needs --phase (discovery|hardening|composition|"
-              "transfer) — or --parent, to inherit the lineage's phase at "
+        print(f"backlog add needs --phase ({'|'.join(PHASES)}) - or "
+              "--parent, to inherit the lineage's phase at "
               "launch (operator 08-10; see RESEARCH_RULES.md)")
         return 1
     with file_lock(BACKLOG_LOCK):
@@ -1657,6 +1702,10 @@ def cmd_update(a: argparse.Namespace) -> int:
                 entry[key] = json.loads(val)
             except (json.JSONDecodeError, ValueError):
                 entry[key] = val
+        err = canary_update_error(entry)
+        if err:
+            print(f"REFUSED: {err}")
+            return 1
         if entry.get("verdict"):
             # a verdict closes the analysis pipeline for this run
             entry["triage"] = "done"
@@ -1762,7 +1811,7 @@ def main() -> int:
     bp.add_argument("--gate", default="")
     bp.add_argument("--parent", default="")
     bp.add_argument("--phase", default="", choices=(*PHASES, ""),
-                    help="experiment phase (operator 08-10, binding); "
+                    help="experiment phase; "
                          "inherited from --parent's ledger entry if empty")
     bp.add_argument("--evidence", default="",
                     help="hardening/composition/transfer: where the "
@@ -1819,12 +1868,12 @@ def main() -> int:
     lp.add_argument("--gate", default="")
     lp.add_argument("--parent", default="")
     lp.add_argument("--phase", default="", choices=(*PHASES, ""),
-                    help="experiment phase (operator 08-10, binding): "
-                         "discovery caps steps; hardening/composition/"
-                         "transfer require --evidence; inherited from "
+                    help="experiment phase: canary/discovery cap steps; "
+                         "acquisition and later phases require --evidence; "
+                         "inherited from "
                          "--parent's ledger entry if empty")
     lp.add_argument("--evidence", default="",
-                    help="hardening/composition/transfer: where the "
+                    help="acquisition and later phases: where the "
                          "qualitatively correct behavior was already seen "
                          "(run/video) or the preflight PASS that licenses "
                          "this run")

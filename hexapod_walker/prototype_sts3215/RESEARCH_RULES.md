@@ -61,10 +61,20 @@ inferable run-name prefix); the launcher tags the W&B run
 - **SPECIFICATION** — no PPO. Validate reward ordering, evaluator
   correctness, command semantics, state/action maps, known cheats
   (trajectory banks, preflights, smokes). Never trains.
+- **CANARY** — 0.5–2M steps (cap: guardrails
+  `phases.discovery_max_steps`), **mechanism health only**: boot, finite
+  optimization, routing/exposure, telemetry, and an improving learnable
+  signal. Mature behavior is explicitly not judged. A visible immature
+  exploit is an observation, not a behavioral/reward closure.
 - **DISCOVERY** — 0.5–2M steps (cap: guardrails
   `phases.discovery_max_steps`), aggressive early video/eval. The
   question is binary: did qualitatively correct behavior emerge?
   Stop quickly on a known exploit.
+- **ACQUISITION** — 10–40M from-scratch learning after a healthy canary,
+  with evidence naming the canary and a comparable full-budget precedent.
+  Judge skill at the pre-registered full-budget checkpoints, not at the
+  canary. This phase exists because canary and behavioral discovery are
+  different questions.
 - **HARDENING** — 10–40M + seeds/DR/endurance/promotion panels, only
   after the mechanism works visibly; requires `--evidence` naming
   where (run/video/preflight PASS).
@@ -139,7 +149,13 @@ caveats.
   leg, dragging, skating, jitter, march-in-place). A checkpoint that
   scores well but looks wrong means the METRIC is the bug. ≥12
   episodes (det+sto), at DR 0 AND the run's own DR, 15 s horizon.
-- **A KNOWN exploit in video is a complete verdict**: "STOP —
+- **Phase scope wins before this checklist.** A CANARY can only receive
+  `CANARY PASS`, `CANARY FAIL - INFRASTRUCTURE`, or `CANARY FAIL -
+  MECHANISM`; it cannot close a skill, behavior, architecture, or reward
+  recipe. ACQUISITION is judged at its registered budget unless a separate
+  early-kill condition was pre-registered.
+- **For DISCOVERY and later behavioral verdicts, a KNOWN exploit in video
+  is a complete verdict**: "STOP —
   reward/eval specification bug", one line, no forensic essay, no
   continuation, no re-run with more steps.
 - **Matched-parent control**: any eval with an injected physics/
