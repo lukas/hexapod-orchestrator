@@ -294,18 +294,19 @@ ORCHESTRATOR_PROMPT.md):**
      15 min. Full directive in ORCHESTRATOR_PROMPT.md; trigger: the
      08-14 overnight where two just-unblocked named steps waited ~2 h
      on backoff spacing while the fleet looked idle.
-- **NEW WAIT (08-15 ~12:1x UTC) `[code]` (arch): the pre-registered
-  40M transformer hardening twin (follow-up to `cw-arch-tf-r1` if its
-  2M behavioral clauses pass) is blocked on policy-net throughput —
-  torch on all mjx-train pods is the CPU-only build (2.13.0+cpu), so
-  policy nets train on CPU; fine for MLPs (~5k fps) but the
-  transformer runs ~260 fps (40M ≈ 37 h, non-viable). Agent-doable
-  code item: an OPT-IN CUDA-torch path (separate venv on one pod +
-  launcher opt-in, parity/coexistence smoke vs warp; shared default
-  untouched). The 2M rung itself is healthy and finishes ~13:45 UTC
-  today — its checkup SUSPECT (fps floor) is resolved as this build
-  issue, not starvation. Detail: arch/STATUS.md Now + the run's
-  ledger checkup_note.**
+- **WAIT (08-15 ~12:1x UTC) `[code]` (arch), UPDATED ~12:2x UTC: the
+  DURABLE fix (launcher-level opt-in CUDA-torch path: recorded pod
+  capability, parity/coexistence smoke vs warp, reproducible install)
+  is STILL OPEN, but the immediate discovery rung is no longer
+  stuck.** `cw-arch-tf-r1` (torch CPU-only build, ~260 fps, 40M twin
+  would be ~37h) was KILLED (no science read, env-only) and
+  relaunched as `cw-arch-tf-r1b` on train-1 with an AD HOC
+  (pip-installed, not code, not snapshot-tracked — ephemeral, lost on
+  pod restart) CUDA torch build + `--device cuda`: ~120x faster per
+  update, verified RUNNING, fps climbing 993→1457 and still rising.
+  Until the durable version lands, train-1's torch build is a manual
+  one-pod exception the launcher does not know about. Detail:
+  arch/STATUS.md Now + the run's ledger checkup_note/verdict.
 - Arm B 2M mechanism canary
   `cw-arch-modeexperts-scratch1-r1` TRIAGED PASS (finished 2.03M
   clean, no NaN/crash; all four experts active within 0.09 of the
