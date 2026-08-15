@@ -269,6 +269,25 @@ agent-doable work; untyped entries count as agent-doable, and idle
 cycles must DRAIN the agent-doable ones before declaring no-op — see
 ORCHESTRATOR_PROMPT.md):**
 
+- **NEW WAIT (08-15 ~20:4x UTC) `[operator]`: hw RECOVERY LINE PAUSED
+  by superseding operator directive fb_20260815T201712_39279d** —
+  waiting on the operator's bucket-0 curriculum implementation
+  (plant-catch / micro-onefoot progressive rungs, tripod park moved
+  later, forced per-bucket SCORE metrics), a NEW exact main SHA, and
+  the final launch directive. Executed this cycle: cw-recover-any2
+  verdicted (eval-blind FALSE START — missing sb3-contrib killed its
+  eval sidecar; preserved as the warm-start diagnostic per
+  fb_20260815T201417_5f7f0e), cw-recover-any2b (a concurrent cycle's
+  env-fixed relaunch of the stopped warm arm) KILLED at 2.75M under
+  the same stop order, cw-recover-any3-scratch1 NEVER LAUNCHED
+  (ledger stub SUPERSEDED, do not drain/retry). **EVIDENCE THE
+  OPERATOR SHOULD SEE before finalizing bucket-0: any2b had already
+  produced the line's FIRST real recovery successes — split det eval
+  onefoot success=1 (1.58 s) AND park success=1 (2.36 s) — the
+  "warm-start flatlined at zero" premise came from any2's blind
+  evaluator. Checkpoint preserved (train-1 + W&B u9sp8dki),
+  resumable. Decision asked: OPERATOR_QUESTIONS q_20260815T2050Z.**
+
 - ~~NEW WAIT (08-15 ~18:0x UTC) `[operator]`: dynrep → train-10
   OOMKilled a second time, its A/B/C cohort unrecorded, "NOT fixed
   this cycle: hands off for the orchestrator."~~ **REPAIRED 08-15
