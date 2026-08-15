@@ -189,24 +189,37 @@ def load_processed() -> set[str] | None:
 
 
 def ledger_verdicted() -> set[str]:
-    """Runs whose experiments.json entry already carries a final status.
+    """Runs whose experiments.json entry is already fully handled.
 
     Dedupe keys on the structured ledger, not on the watcher's own state
     file alone (external review 8b): the state file misses runs when a
     cycle is interrupted or the watcher restarts mid-cycle — that re-fired
     cw-walk-flag-s1/cw-walk-nv three times (rounds 8.5, 9). Exception-safe:
     a missing/corrupt ledger never blocks the loop.
+
+    FINISHED only dedupes WITH a recorded verdict (2026-08-15,
+    cw-stand-postlower3): a sub-5-min run finishes before the watcher's
+    post-launch checkup, whose FINISHED_BEFORE_CHECKUP path stamps
+    status=FINISHED in the ledger — the old status-only dedupe then ate
+    the later W&B finish event, so the run never got a triage cycle and
+    its pre-registered Cohort c3 eval never ran. FAILED stays
+    status-only: launcher-recorded infra failures never carry verdicts
+    and must not re-fire cycles forever.
     """
     try:
         entries = json.loads((HERE / "experiments.json").read_text())
         # Key on the LATEST entry per run: a stale FAILED launch attempt
         # that precedes a successful relaunch must not mark the run
         # verdicted forever (orphaned cw-stance-endpost-c1, cycle 22).
-        latest: dict[str, str] = {}
+        latest: dict[str, dict] = {}
         for e in entries:  # ledger is append-ordered
             if e.get("run"):
-                latest[e["run"]] = e.get("status", "")
-        return {r for r, s in latest.items() if s in ("FINISHED", "FAILED")}
+                latest[e["run"]] = e
+        return {
+            r for r, e in latest.items()
+            if e.get("status") == "FAILED"
+            or (e.get("status") == "FINISHED" and e.get("verdict"))
+        }
     except Exception:
         return set()
 

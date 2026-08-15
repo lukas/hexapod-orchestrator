@@ -284,34 +284,27 @@ ORCHESTRATOR_PROMPT.md):**
      15 min. Full directive in ORCHESTRATOR_PROMPT.md; trigger: the
      08-14 overnight where two just-unblocked named steps waited ~2 h
      on backoff spacing while the fleet looked idle.
-- **NEW WAITS (08-15, operator-KICK cycle) — arch mode-experts
-  directive (fb_20260815T013349_488ffd) EXECUTED: architecture built
-  + tested + snapshotted, Arm B 2M mechanism canary
-  `cw-arch-modeexperts-scratch1-r1` RUNNING on train-2 (first launch
-  died silently on train-0, INFRA — no traceback/no OOM — verdicted;
-  retry verified, ~168 fps), Arm A distill running (train-1 CPUs,
-  log block-buffered so /tmp/distill_modeexperts_bc1.log fills
-  late). Spec:
-  `rl_docs/tracks/arch/MODE_EXPERTS_DIRECTIVE.md`. Two named
-  follow-ups:**
+- **NEW WAIT (08-15, arch mode-experts directive
+  fb_20260815T013349_488ffd) — one of two named follow-ups CLEARED
+  this cycle:** Arm B 2M mechanism canary
+  `cw-arch-modeexperts-scratch1-r1` TRIAGED PASS (finished 2.03M
+  clean, no NaN/crash; all four experts active within 0.09 of the
+  commanded mix at final read — better than the 1.05M mid-run
+  snapshot, self-corrected as predicted; per-expert stds diverging
+  independently; reward −331→−2.4) → **Arm B stage 2
+  `cw-arch-modeexperts-scratch2` (40M, corrected skill diet
+  walk/rise/lower≈.30 each, hold≤.03) LAUNCHED + VERIFIED this cycle
+  on train-2, per the pre-registered order
+  (fb_20260815T035147_dd2af0)** — no longer a wait; ETA ~2.3 days.
+  Remaining follow-up:
   1. `[precondition: modeexperts_bc1 distill finishes + verifies vs
-     both teachers]` — launch Arm A stage 1 `cw-arch-modeexperts1`
-     (2M discovery, frozen experts + transition adapter; spec in the
-     directive doc). Verification recipe named there.
-  2. `[precondition: scratch1-r1 finishes 2M (ETA ~05:2x UTC 08-15) +
-     mechanism triage]` — the clearing cycle LAUNCHES Arm B stage 2
-     `cw-arch-modeexperts-scratch2` (40M, warm from the canary ckpt,
-     SAME cycle — overnight operator order fb_20260815T035147_dd2af0).
-     Everything is pre-staged (08-15 ~04:1x cycle): canary read
-     healthy at 1.05M but its realized skill diet is off (hold 25%
-     of ticks vs 10% ordered, walking 23% vs 35% — sequence grammar
-     + early falls, measured attribution) — pre-classified by the
-     operator as a curriculum spec defect, NOT an architecture
-     verdict; corrected mix is solved from measured tick fractions,
-     preflighted, and the exact launch command + gate + scratch3
-     continuation are pre-registered in
-     `rl_docs/tracks/arch/MODE_EXPERTS_DIRECTIVE.md` "SCRATCH2".
-     Wall clock ~2.3 days on train-2 (recurrent PPO, ~195 fps).
+     both teachers]` — Arm A distill still RUNNING on train-1 CPUs
+     (verified alive: PID busy, high CPU-time accumulation, log
+     stays 0 bytes because Python block-buffers to a redirected
+     file — not a stall). When it finishes, launch Arm A stage 1
+     `cw-arch-modeexperts1` (2M discovery, frozen experts +
+     transition adapter; spec in
+     `rl_docs/tracks/arch/MODE_EXPERTS_DIRECTIVE.md`).
 - **NEW WAIT (08-13 ~19:xx UTC) `[operator]`: quad → quadwalk needs an
   ARCHITECTURE/CURRICULUM design discussion (operator).**
   `cw-quadwalk7` (ent-coef 0.001→0.02, the exploration lever) STOP:
