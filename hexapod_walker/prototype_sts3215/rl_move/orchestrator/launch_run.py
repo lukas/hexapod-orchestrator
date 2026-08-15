@@ -746,16 +746,32 @@ def _launch_locked(g: dict, a: argparse.Namespace,
         extra = [*extra, "--notes", human.strip()]
         entry["extra_args"] = extra
     if is_dynrep:
-        try:
-            runtime = kexec(
-                a.pod,
-                f"test -x {GPU_TORCH_PYTHON} && {GPU_TORCH_PYTHON} -c "
-                "'import torch; assert torch.cuda.is_available(); "
-                "print(torch.__version__, torch.cuda.get_device_name())'"
-            ).strip()
-        except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
-            return refuse(entry, f"{a.pod} lacks a working CUDA PyTorch "
-                                 f"runtime at {GPU_TORCH_PYTHON}: {e}")
+        python = GPU_TORCH_PYTHON
+        if not _torch_cap.is_capable(a.pod):
+            runtime_candidates = [GPU_TORCH_PYTHON]
+        else:
+            runtime_candidates = [GPU_TORCH_PYTHON, "python3"]
+        runtime = ""
+        runtime_error = None
+        for candidate in runtime_candidates:
+            try:
+                info = kexec(
+                    a.pod,
+                    f"test -x $(command -v {candidate} 2>/dev/null || "
+                    f"echo {candidate}) && {candidate} -c "
+                    "'import torch; assert torch.cuda.is_available(); "
+                    "print(torch.__version__, torch.cuda.get_device_name())'"
+                ).strip()
+                if info:
+                    python, runtime = candidate, f"{candidate}: {info}"
+                    break
+            except (subprocess.CalledProcessError,
+                    subprocess.TimeoutExpired) as e:
+                runtime_error = e
+        if not runtime:
+            return refuse(entry, f"{a.pod} lacks a working recorded CUDA "
+                                 f"PyTorch runtime ({runtime_candidates}): "
+                                 f"{runtime_error}")
         checks["cuda_torch_runtime"] = runtime
         if "--data" not in extra:
             return refuse(entry, "dynrep launches require --data DATASET")
@@ -776,7 +792,6 @@ def _launch_locked(g: dict, a: argparse.Namespace,
                                  "CUDA or full-label dataset requirements")
         entry["extra_args"] = extra
         module = TRAIN_MODULE_DYNREP
-        python = GPU_TORCH_PYTHON
         name_flag = "--name"
     else:
         module = TRAIN_MODULE_GPU if is_gpu else TRAIN_MODULE
