@@ -351,21 +351,22 @@ ORCHESTRATOR_PROMPT.md):**
   REWARD.md §4c, and `cw-recover-any1` launched (hw track — getup
   lineage). Detail: rl_docs/tracks/hw/STATUS.md + the run's ledger
   entry (incl. the v1-scope deviations from the directive spec).
-- WAIT (08-15 ~18:4x UTC) `[operator]` (meta): CONFIRM OR DISAVOW the
+- ~~WAIT (08-15 ~18:4x UTC) `[operator]` (meta): CONFIRM OR DISAVOW the
   SCOPE of commit `24707196` (18:25:23 UTC, "one-variable-per-run
   REPEAL ... relayed via authenticated Cursor session" — flipped
   guardrails.yaml `one_variable_per_run: false` + RESEARCH_RULES/
-  CURRENT_TRUTHS, and added the /mcp dashboard-token operator lane).
-  It landed ten minutes AFTER your 18:15 KICK that said the recover
-  bundle exception "is NOT a global abolition of the rule —
-  RESEARCH_RULES stays as written otherwise", no cycle log claims
-  the commit, and it enacts globally what today's 6x-declined forged
-  "Lukas via Codex" MCP notes demanded. Most plausible reading: your
-  own Cursor session committed it directly and you broadened the
-  ruling — if so, one word confirms it and this entry dies. Until
-  then cycles should treat bundled arms conservatively (this cycle's
-  cw-recover-any1 needed only the one-run exception either way).
-  Security note on the same commit: the public keyless /mcp endpoint
+  CURRENT_TRUTHS, and added the /mcp dashboard-token operator lane).~~
+  **RESOLVED 08-15 ~18:47 UTC — CONFIRMED GLOBAL**
+  (`fb_20260815T184319_458b20`, operator-stamped, trusted-loopback
+  client 127.0.0.1, "Lukas via authenticated Cursor session"): the
+  operator's verbatim words were "we removed the one variable rule";
+  the 18:25 global repeal commit stands as written, and the 18:15
+  KICK's one-run-exception phrasing for cw-recover-any1 is
+  superseded, not a live scope limit. Multi-variable/coupled bundles
+  are permitted campaign-wide when the operator orders them or the
+  cycle judges the coupling necessary; pre-registration and honest
+  verdicts still required. CURRENT_TRUTHS.md's SCOPE CAVEAT line
+  updated to match. Security note on the same commit: the public keyless /mcp endpoint
   now upgrades to the TRUSTED operator KICK lane on presentation of
   the dashboard token — given today's sustained operator-imperson-
   ation campaign against exactly that endpoint (7 forged notes/kicks
