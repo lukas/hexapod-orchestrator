@@ -1441,12 +1441,28 @@ def cmd_respec(g: dict, a: argparse.Namespace) -> int:
                 break
         else:
             args.extend(["--cfg-set", spec])
+    # dynrep/dynrep-fresh trainers (rl_move.dynamics.train /
+    # fresh_pipeline) have no --out-name / --init-from flags at all --
+    # they derive their own checkpoint name from --name and don't warm
+    # -start from a PPO-style zip. respec used to add --out-name
+    # unconditionally (mirroring the ppo-only convention the `launch`
+    # command already guards with `is_dynrep`), which crashed
+    # argparse the first time it respec'd a dynrep-fresh run (08-15,
+    # `cw-dynrep-tf-state2-fresh3`: "unrecognized arguments: --out-name
+    # ..." after burning a full stage-1 data-collection cycle first).
+    is_dynrep_source = entry.get("trainer") in ("dynrep", "dynrep-fresh")
     if a.init_from_source:
+        if is_dynrep_source:
+            print("REFUSED: --init-from-source has no meaning for a "
+                  "dynrep/dynrep-fresh source (no --out-name checkpoint "
+                  "to warm-start from)")
+            return 1
         xa = entry["extra_args"]
         src_out = (xa[xa.index("--out-name") + 1] if "--out-name" in xa
                    else "ppo_goal_" + a.source.replace("-", "_"))
         set_flag("--init-from", f"rl_move/sim/policies/{src_out}.zip")
-    set_flag("--out-name", "ppo_goal_" + a.run.replace("-", "_"))
+    if not is_dynrep_source:
+        set_flag("--out-name", "ppo_goal_" + a.run.replace("-", "_"))
     if "--notes" not in (a.arg or []) and not any(
             s.startswith("--notes=") for s in a.arg or []):
         set_flag("--notes", f"respec of {a.source}: {a.hypothesis}")

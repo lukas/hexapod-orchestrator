@@ -11,7 +11,12 @@ KC="${KUBECONFIG:-$HOME/.kube/coreweave.yaml}"
 
 PKGS="numpy==2.4.6 mujoco==3.11.0 mujoco-mjx==3.11.0 mujoco-warp==3.11.0 \
 warp-lang==1.16.0 jax[cuda12]==0.10.2 stable-baselines3==2.9.0 \
-wandb==0.28.1 tensorboard imageio imageio-ffmpeg pyyaml"
+sb3-contrib==2.9.0 wandb==0.28.1 tensorboard imageio imageio-ffmpeg pyyaml"
+# sb3-contrib: train_ppo_sim's background eval/video/canary child imports
+# gru_policy -> sb3_contrib unconditionally; without it the child dies at
+# first import and the trainer runs eval/video/canary-BLIND for its whole
+# life (busy flag never clears — bit cw-recover-any2 on a freshly
+# re-bootstrapped train-1, 2026-08-15).
 # tensorboard: wandb.init() monkeypatches it and hard-fails if missing
 # (killed the first credentialed launches on train-4..11, 2026-08-09).
 
@@ -59,8 +64,8 @@ for POD in "$@"; do
   # pod can't receive launches while pip is still installing.
   kubectl --kubeconfig "$KC" exec "$POD" -- bash -c '
     cd /workspace/prototype_sts3215 && \
-    python -c "import mujoco, warp, jax, stable_baselines3, wandb; \
-import mujoco.mjx; print(\"imports OK\", jax.devices())" && \
+    python -c "import mujoco, warp, jax, stable_baselines3, sb3_contrib, \
+wandb; import mujoco.mjx; print(\"imports OK\", jax.devices())" && \
     touch /workspace/prototype_sts3215/.bootstrapped' \
     && echo "$POD READY" || echo "$POD smoke FAILED"
 done
