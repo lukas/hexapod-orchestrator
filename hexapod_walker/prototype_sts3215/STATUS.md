@@ -362,7 +362,27 @@ ORCHESTRATOR_PROMPT.md):**
   (discovery 2M, train-0)** — no longer a wait; triage lands on the
   c3 read. Other 11 GPU slots idle on the typed [operator] waits
   below; train-10's CPUs stay on the operator's dynrep cohort
-  (hands off).**
+  (hands off).** **SUPERSEDED 08-15 (triage cycle) — c3 read IS IN:**
+- **NEW WAIT (08-15 triage cycle) `[triage]`: hw → `cw-stand-postlower3`
+  needs a DIG-IN read, not a triage verdict.** The pre-registered
+  Cohort c3 bulk gate ran (n=600, fresh banks 940000../950000..,
+  now retired; artifacts in `logs/bulk_session/c3/`, no re-run
+  needed) and is a clean FAIL by the letter (det session zero-fall
+  0.413 vs parent 0.967, det post-lower rise 0.419 vs parent 0.967,
+  sto post-lower rise 0.631 vs parent 0.801) — but the MAGNITUDE
+  (worse than the parent AND worse than both prior postlower misses)
+  and DIRECTION (det doing worse than sto; disagreeing with this
+  arm's own training-time telemetry, which read the in-context
+  sequence as succeeding) is a generalization-failure signature, not
+  a plain "needs more exposure" story. Left UNVERDICTED per the
+  model-tiering rule (triage cycles don't dig in). Full numbers +
+  a first (unconfirmed) hypothesis: `SESSION_BULK_GATE.md` "Cohort
+  c3 RESULTS"; hw/STATUS.md Now. This is the THIRD miss on
+  post-lower-rise (postlower1/2/3) — per two-miss discipline, the
+  next arm is a new mechanism, not a resweep, and needs the dig-in's
+  root cause to be named correctly. Other 11 GPU slots idle on the
+  typed [operator] waits below; train-10's CPUs stay on the
+  operator's dynrep cohort (hands off).
 - **FLEET (08-14 ~20:0x UTC, superseded by the entry above): all 12 GPU slots idle on the named
   waits in this block (every one typed `[operator]` or an unmet
   precondition); train-0's `transdagger3` distill FINISHED 19:24 and
