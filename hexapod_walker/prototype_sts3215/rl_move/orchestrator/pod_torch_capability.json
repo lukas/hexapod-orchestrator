@@ -1,0 +1,12 @@
+{
+  "hexapod-mjx-train-1": {
+    "note": "retroactive record: ad hoc pip install torch==2.11.0+cu128 --no-deps applied 08-15 ~12:2x UTC (cw-arch-tf-r1-cudakill logline), evidence of coexistence = 3 live PPO runs since (cw-arch-tf-r1b PASS, cw-arch-tf-r1-hard1 PASS, cw-arch-tf-r1-hard2-r1 currently RUNNING) with jax/warp physics on the same pod throughout -- no live probe run against this pod this cycle (mid-training, leave alone per this cycle's charter)",
+    "smoke": {
+      "jax_import_ok": true,
+      "torch_cuda_available": true,
+      "torch_version": "2.11.0+cu128"
+    },
+    "torch_version": "2.11.0+cu128",
+    "verified_utc": "2026-08-15T17:17:23.976266+00:00"
+  }
+}

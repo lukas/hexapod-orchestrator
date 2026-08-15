@@ -67,6 +67,7 @@ WANDB_PROJECT = "l2k2/hexapod-balance"
 # tracks.json's tracks; the run gets W&B tag `track:<id>` and the
 # ledger entry a "track" field. tracks.py is the single accessor.
 import tracks as _tracks
+import pod_torch_capability as _torch_cap
 
 # One 48-env run wants ~50-60 cores. Assumed footprint per already-running
 # trainer when computing free capacity, and minimum free cores required.
