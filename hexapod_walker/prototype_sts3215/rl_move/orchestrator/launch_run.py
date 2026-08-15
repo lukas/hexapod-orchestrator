@@ -1293,8 +1293,21 @@ def cmd_checkup(g: dict, a: argparse.Namespace) -> int:
             # ~560 fps tfwalk-A) — nothing like MJX's 19-20k rollout fps;
             # the 5000 floor false-SUSPECTed healthy risewalk-single2-s5.
             # A genuine stall still lands near zero, under the 5.0 floor.
-            is_dynrep_trainer = entry.get("trainer") in (
-                "dynrep", "dynrep-fresh", "train_ppo_transfer")
+            # 08-15 23:xx: the gpu1 tfwalk relaunch entries were
+            # registered without the `trainer` field, so all three
+            # healthy CUDA runs (fps 228-401, steps advancing) fell
+            # through to the 5000 MJX floor — false SUSPECT x3 at
+            # 22:59. Fall back to the entry's command/args/log blob so
+            # a script-owned dynamics-track entry missing the field
+            # still classifies; entries WITH the field are unchanged.
+            _tblob = (" ".join(str(x) for x in entry.get("extra_args", []))
+                      + " " + str(entry.get("command", ""))
+                      + " " + str(entry.get("log", "")))
+            is_dynrep_trainer = (
+                entry.get("trainer") in (
+                    "dynrep", "dynrep-fresh", "train_ppo_transfer")
+                or "train_ppo_transfer" in _tblob
+                or "rl_move/dynamics/logs/" in _tblob)
             if is_dynrep_trainer and pod in g["compute"].get("gpu_pods", []):
                 # dynrep/dynrep-fresh's "global_step" is a GRADIENT step
                 # over pre-collected windows, not a PPO physics env-step —
