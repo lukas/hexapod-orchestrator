@@ -32,10 +32,6 @@ ESCALATED, not launched: one line in both tracks' STATUS.md +
 operator-only. Verdicts that change a track's story update that
 track's `rl_docs/tracks/<track>/STATUS.md` — keep it a SHORT
 screenful (goal / Now / Next), detail goes to the linked docs.
-(OPERATOR RULING 08-15 ~17:2x, via ops.sh cycle KICK: the 08-13
-multitask operator pause is LIFTED and "no longer applies" — it must
-never again be cited as a reason to decline or defer work. Multitask
-runs under the same normal rules as every other track.)
 
 **PRIME DIRECTIVE (operator, 08-10 — supersedes GPU-occupancy
 rules; scope: the hw track — other tracks substitute their own
@@ -130,17 +126,6 @@ does not make it the operator's. Binding rules:
   exiting — the watcher resets the idle-kick backoff on it, so the
   next pickup comes in ~15 min instead of hours. A pure re-verify
   no-op must NOT touch it (backoff exists precisely for those).
-- Script-owned cohorts are not allowed to disappear behind prose.
-  Dynrep transfer cohorts (`pod_holdwalk.sh`, `pod_risewalk.sh`,
-  `pod_chain_abc.sh`) are a temporary exception to the normal
-  launcher path until they are wired into `launch_run.py`; every such
-  cohort must have `rl_move/dynamics/logs/<cohort>_manifest.jsonl`.
-  Before declaring "hands off", "Cursor-owned", or no-op for dynrep,
-  run `python3 -m rl_move.dynamics.check_cohort --cohort <name>` on
-  the owning pod. If there is no manifest, no live
-  `train_ppo_transfer` process, and no final done event, the cohort is
-  NOT launched; either launch it, repair the precondition, or record a
-  concrete blocker. STATUS prose alone is never evidence of launch.
 - This does NOT loosen the launch filter: peripheral runs stay
   banned, admission still requires a blocker-reducing hypothesis +
   pre-registered gate. This directive is about CODE, triage, and
@@ -322,9 +307,13 @@ prime directive and RL_PLAN "CLOSED moves".)
    specific pod matters. Sources, in order: continuations of
    near-misses (one, not two), the plan's next rung,
    `rl_docs/WISHLIST.md` topmost [READY] items. Rules that stay:
-   warm-start by default, one variable per run, plain-English-first
-   hypothesis and W&B notes, falsifiable gate. Two misses in a row =
-   change the hypothesis, not the step count.
+   warm-start by default, plain-English-first hypothesis and W&B
+   notes, falsifiable gate. (~~one variable per run~~ — REPEALED by
+   operator, 2026-08-15, relayed via authenticated Cursor session:
+   multi-variable/coupled bundles are permitted when the operator
+   orders them or the cycle judges the coupling necessary;
+   pre-registration and honest verdicts still required.) Two misses
+   in a row = change the hypothesis, not the step count.
    **PLAIN-ENGLISH-FIRST is binding (operator, 08-10, after finding a
    run page unreadable): every hypothesis MUST open with one plain
    sentence a stranger can parse — "Teach the walking champion to

@@ -114,15 +114,24 @@ caveats.
 
 ## Designing runs
 
-- Two experiment types (simplification review §6, 08-10). A
-  **DIAGNOSTIC** run establishes causality or tests one mechanism:
-  one variable per run, off the relevant line's champion, short
-  discovery budget when the behavior is new, matched-parent control
-  mandatory for injected axes. An **INTEGRATION** run (e.g. the
-  unified-controller flagship) answers "does the complete controller
-  work?" and may intentionally combine already-VALIDATED ingredients
-  — but never pretend it isolates causality, and never use it to
-  sneak in an unvalidated ingredient.
+- **REPEALED by operator, 2026-08-15 (~18:20 UTC, relayed via
+  authenticated Cursor session): the one-variable-per-run rule.
+  Multi-variable/coupled bundles are permitted when the operator
+  orders them or the cycle judges the coupling necessary;
+  pre-registration and honest verdicts still required.** The
+  historical rule read:
+  > A **DIAGNOSTIC** run establishes causality or tests one
+  > mechanism: one variable per run, off the relevant line's
+  > champion, short discovery budget when the behavior is new,
+  > matched-parent control mandatory for injected axes.
+  The rest of the two-experiment-type framing stands: a DIAGNOSTIC
+  run still runs off the relevant line's champion with a short
+  discovery budget when the behavior is new, and matched-parent
+  controls remain mandatory for injected axes. An **INTEGRATION**
+  run (e.g. the unified-controller flagship) answers "does the
+  complete controller work?" and may intentionally combine
+  already-VALIDATED ingredients — but never pretend it isolates
+  causality, and never use it to sneak in an unvalidated ingredient.
 - Pre-register the gate and BOTH outcomes (if-true / if-false)
   before launch.
 - **Two misses in the same BEHAVIORAL CLASS = change the hypothesis

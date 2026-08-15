@@ -250,9 +250,14 @@ experiments:
   # Deltas inside the calibrated eval-noise band are "no evidence of
   # change". Unbacked improvement language is a guardrail violation.
   progress_claims_require_baseline_delta: true
-  # One variable per run wherever possible; twins only with distinct seeds
-  # (the model.seed overwrite fix must stay in place).
-  one_variable_per_run: true
+  # REPEALED by operator, 2026-08-15 (relayed via authenticated Cursor
+  # session): multi-variable/coupled bundles are permitted when the
+  # operator orders them or the cycle judges the coupling necessary;
+  # pre-registration and honest verdicts still required. Historical
+  # text: "One variable per run wherever possible; twins only with
+  # distinct seeds (the model.seed overwrite fix must stay in place)."
+  # The seed-overwrite fix and distinct-seed twins requirement stand.
+  one_variable_per_run: false
   # Champions are append-only: never overwrite ppo_goal_<name>.zip of a
   # previous run; new runs get new names.
   never_overwrite_checkpoints: true
