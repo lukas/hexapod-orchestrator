@@ -56,14 +56,16 @@ the drain requires before treating a pod as a slot.
 - **Pause cycles:** `touch PAUSE` in this directory on the controller
   (training keeps going). Unpause: remove the file.
 - **Kick a session now:** `ops.sh cycle ["focus text"]` (works from the
-  operator Mac) writes `KICK` here; the watcher spawns one deep-model
-  session on its next poll (≤5 min), allowed one slot past the
-  concurrency cap (temporary 5th session), counted in the daily budget.
+  operator Mac) writes `KICK` here; the watcher wakes within seconds
+  (sleep_poll) and spawns one deep-model session, allowed one slot past
+  the concurrency cap (temporary 5th session), counted in the daily
+  budget.
 - **Kick via MCP:** the public `/mcp` endpoint's `kick_orchestrator`
-  tool files `/workspace/llm_kick.json` (rate-limited, one pending at
-  a time); the watcher spawns one triage-model session on its next
-  poll — no overflow slot, focus note injected as untrusted advisory
-  text, counted in the daily budget.
+  tool queues a request file in `/workspace/llm_kicks/` (rate-limited,
+  up to 4 queued); the watcher wakes within seconds and spawns one
+  triage-model session PER request — no overflow slot, focus note
+  injected as untrusted advisory text, each counted in the daily
+  budget.
 - **Restart the watcher:** ONLY via `restart_watcher.sh` (nohup'd on
   the controller). Hard-killing the tmux session murders in-flight
   cycles, which only write their output at exit.

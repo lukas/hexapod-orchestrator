@@ -37,19 +37,36 @@ PAUSE = HERE / "PAUSE"
 # temporary overflow session so an operator ask never queues behind a
 # full triage board) and still counted in the rolling daily budget.
 KICK = HERE / "KICK"
-# External kick (mcp_server.py kick_orchestrator, operator 08-14 "add
-# an endpoint for mcp to kickstart an orchestrator agent"): an outside
-# LLM may request ONE on-demand cycle through the public keyless MCP
-# endpoint. Stranger terms vs the operator KICK above: triage-tier
-# model (1/5 the $/tok), NO overflow slot (waits for a normal
-# concurrency slot), no idle-backoff reset, and the focus note is
-# injected as ADVISORY, UNTRUSTED input (same rules as MCP feedback).
-# Still counted in the rolling daily cycle budget. The feedback
-# ride-along rule below ("feedback never TRIGGERS a cycle") stands —
-# this is a separate, explicit, rate-limited request channel the
-# operator opted into.
+# External kicks (mcp_server.py kick_orchestrator, operator 08-14 "add
+# an endpoint for mcp to kickstart an orchestrator agent"; 08-15 "it
+# should go instantly, and if it's kicked twice it should be able to
+# create two agents"): outside LLMs request on-demand cycles through
+# the public keyless MCP endpoint. Requests queue as files in
+# MCP_KICK_DIR; the watcher wakes within seconds of a new one
+# (sleep_poll below) and spawns ONE cycle PER request. Stranger terms
+# vs the operator KICK above: triage-tier model (1/5 the $/tok), NO
+# overflow slot (waits for a normal concurrency slot), no idle-backoff
+# reset, and the focus note is injected as ADVISORY, UNTRUSTED input
+# (same rules as MCP feedback). Each cycle still counted in the
+# rolling daily budget. The feedback ride-along rule below ("feedback
+# never TRIGGERS a cycle") stands — this is a separate, explicit,
+# rate-limited request channel the operator opted into.
+MCP_KICK_DIR = pathlib.Path(os.environ.get("MCP_KICK_DIR")
+                            or "/workspace/llm_kicks")
+# Legacy single-file path (pre-queue): still honored so a kick filed
+# before a server upgrade isn't dropped.
 MCP_KICK = pathlib.Path(os.environ.get("MCP_KICK_FILE")
                         or "/workspace/llm_kick.json")
+
+
+def pending_mcp_kicks() -> list[pathlib.Path]:
+    """Queued external kick requests, oldest first."""
+    out = [MCP_KICK] if MCP_KICK.exists() else []
+    try:
+        out += sorted(MCP_KICK_DIR.glob("kick_*.json"))
+    except OSError:
+        pass
+    return out
 # Cycle-work sentinel (operator directive 08-14, "agent-doable work
 # drains before backoff"): a cycle that EXECUTES real work — lands a
 # named CODE item, launches/re-runs an arm, writes a triage verdict —
@@ -79,6 +96,32 @@ FEEDBACK_MAX_PER_CYCLE = 8
 FEEDBACK_MAX_CHARS = 12_000
 
 POLL_S = 300
+# Kick latency (operator 08-15 "it should go instantly"): the main
+# loop sleeps through sleep_poll(), which checks the kick channels
+# every KICK_WAKE_S and cuts the sleep short when a NEW kick appears.
+# Kicks that stay queued because slots/budget are full do not change
+# the signature, so a blocked kick cannot busy-loop the watcher.
+KICK_WAKE_S = 2
+
+
+def _kick_signature() -> tuple:
+    return (KICK.exists(), tuple(p.name for p in pending_mcp_kicks()))
+
+
+def sleep_poll(seconds: float = POLL_S) -> None:
+    """Sleep up to `seconds`, waking early if a new kick request lands
+    (operator KICK file or a new entry in the MCP kick queue)."""
+    base = _kick_signature()
+    deadline = time.time() + seconds
+    while True:
+        left = deadline - time.time()
+        if left <= 0:
+            return
+        time.sleep(min(KICK_WAKE_S, left))
+        if _kick_signature() != base:
+            return
+
+
 # Fallback only — the live cap comes from guardrails.yaml
 # compute.max_decision_cycles_per_day (read every loop pass, so the
 # operator can tune it without a watcher restart). The old hardcoded
@@ -802,11 +845,11 @@ def main() -> None:
 
             if PAUSE.exists():
                 log("PAUSE present; idling")
-                time.sleep(POLL_S)
+                sleep_poll()
                 continue
             if not os.environ.get("ANTHROPIC_API_KEY"):
                 log("ANTHROPIC_API_KEY not set; cannot run agent cycles. idling")
-                time.sleep(POLL_S)
+                sleep_poll()
                 continue
 
             running, finished = runs_by_state()
@@ -814,7 +857,7 @@ def main() -> None:
                 # First start: don't reprocess pre-existing history.
                 save_processed(finished)
                 log(f"state initialized; {len(finished)} historical runs marked handled")
-                time.sleep(POLL_S)
+                sleep_poll()
                 continue
 
             # Runs a live cycle is already handling must not fire a second one.
@@ -873,26 +916,29 @@ def main() -> None:
                             + "\n"))
                     active.append(handle)
 
-            # External LLM kick (mcp_server.py kick_orchestrator): like
-            # an operator kick but on stranger terms — see the MCP_KICK
-            # comment up top. Consumed only when the session actually
-            # spawns; while it waits (slots full / daily cap) it
-            # survives polls, same as KICK.
-            if MCP_KICK.exists():
+            # External LLM kicks (mcp_server.py kick_orchestrator): like
+            # operator kicks but on stranger terms — see the
+            # MCP_KICK_DIR comment up top. ONE cycle per queued request
+            # (operator 08-15). Each is consumed only when its session
+            # actually spawns; while it waits (slots full / daily cap)
+            # it survives polls, same as KICK.
+            for kick_path in pending_mcp_kicks():
                 now = time.time()
                 cap = daily_cycle_cap()
                 cycle_times = [t for t in cycle_times if now - t < 86400]
                 if len(active) >= MAX_CONCURRENT_CYCLES:
                     log(f"mcp kick waiting: {len(active)} cycles active")
+                    break
                 elif len(cycle_times) >= cap:
                     log(f"mcp kick waiting: daily cycle cap "
                         f"({len(cycle_times)}/{cap})")
+                    break
                 else:
                     try:
-                        req = json.loads(MCP_KICK.read_text())
+                        req = json.loads(kick_path.read_text())
                     except (OSError, ValueError):
                         req = {}
-                    MCP_KICK.unlink(missing_ok=True)
+                    kick_path.unlink(missing_ok=True)
                     cycle_times.append(now)
                     kid = req.get("id", "?")
                     head = req.get("utc", "?")
@@ -944,7 +990,7 @@ def main() -> None:
                         f"{len(running)} training, {len(active)} cycle(s) "
                         f"active; nothing new finished"
                     )
-                    time.sleep(POLL_S)
+                    sleep_poll()
                     continue
                 idle_polls += 1
                 threshold = idle_kick_threshold(idle_kick_streak)
@@ -955,7 +1001,7 @@ def main() -> None:
                         + (f", kick streak {idle_kick_streak})"
                            if idle_kick_streak else ")")
                     )
-                    time.sleep(POLL_S)
+                    sleep_poll()
                     continue
                 log("pods idle too long — kicking a cycle to resume the campaign"
                     + (f" (idle-kick streak {idle_kick_streak + 1}, next "
@@ -974,7 +1020,7 @@ def main() -> None:
                     f"{MAX_CONCURRENT_CYCLES}); waiting to handle: "
                     f"{', '.join(sorted(newly)) or 'findings/kick'}"
                 )
-                time.sleep(POLL_S)
+                sleep_poll()
                 continue
             now = time.time()
             cap = daily_cycle_cap()
@@ -1031,12 +1077,12 @@ def main() -> None:
             deferred = queue[3 * min(len(batches), slots):]
             if deferred:
                 log(f"fan-out deferred (next poll): {', '.join(deferred)}")
-            time.sleep(POLL_S)
+            sleep_poll()
         except KeyboardInterrupt:
             raise
         except Exception as e:  # survive transient W&B/network errors
             log(f"watcher error: {e!r}; retrying in {POLL_S}s")
-            time.sleep(POLL_S)
+            sleep_poll()
 
 
 if __name__ == "__main__":
