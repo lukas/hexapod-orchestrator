@@ -26,6 +26,11 @@ if [ "${1:-}" = "--sync" ]; then
       --exclude='prototype_sts3215/rl_move/dynamics/datasets' \
       --exclude='prototype_sts3215/rl_move/dynamics/models' \
       --exclude='prototype_sts3215/rl_move/dynamics/logs' \
+      --exclude='prototype_sts3215/rl_move/hardware_traces' \
+      --exclude='prototype_sts3215/rl_move/sim/logs' \
+      --exclude='prototype_sts3215/video_state' \
+      --exclude='prototype_sts3215/artifacts' \
+      --exclude='*/__pycache__' \
       --exclude='*.stl' --exclude='*.mp4' \
       prototype_sts3215
   kubectl --kubeconfig="$KC" cp "$TGZ" "$POD":"$TGZ"
