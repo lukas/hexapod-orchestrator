@@ -339,21 +339,22 @@ ORCHESTRATOR_PROMPT.md):**
      present in the teacher. hold/lower det clean (6/6 each,
      matching teacher bars). Sequence eval (`--single`, grammar
      rise,walk,lower,rise,walk): det 10/12 zero-fall (bar 11/12, just
-     under), sto 3/12 (collapses badly). **New `[code]`/
-     `[precondition: distill recipe fix]` WAIT opened: per the
-     pre-registered FAIL branch ("stage-0 distill can't match
-     teachers → infrastructure, fix distill, no PPO"), Arm A stage 1
-     (`cw-arch-modeexperts1`) does NOT launch this cycle** — the
-     training-time probes already hinted at this (rise probe returns
-     ['-217','125'], DAgger correction budget went mostly to lower's
-     falls {'lower':6,'rise':1,'walk':3,'hold':1}/300, rise
-     under-corrected). Next step is a distill-recipe redesign (more
-     rise-targeted DAgger coverage, matching the operator's
-     fb_20260814T164337_d7f11b insight for a different arm: add a
-     rise BC-anchor term, not just re-weight the diet) — a design
-     call, left for the next arch cycle rather than attempted here.
+     under), sto 3/12 (collapses badly). Next step is a distill-recipe
+     redesign (more rise-targeted DAgger coverage, matching the
+     operator's fb_20260814T164337_d7f11b insight for a different arm:
+     add a rise-targeted coverage term, not just re-weight the diet).
      Evidence: `logs/ckpt_eval/arch_modeexperts_bc1_verify`,
      `logs/ckpt_eval/arch_modeexperts_bc1_seq_{det,sto}.json`.
+     **RESOLVED 08-15 ~17:0x UTC (drain-before-backoff cycle): the
+     redesign is BUILT (`distill_gru --dagger-extra-mix/
+     --dagger-extra-episodes`, default off, 4 new tests + full
+     gru_policy suite green, snapshot
+     `exp/arch-modeexperts-bc2-rise-dagger`) and re-collection
+     `bc2` (bc1's exact recipe + a rise-targeted second DAgger pass,
+     100 eps/round) is RUNNING on train-0 CPUs** — no longer a wait;
+     next cycle triages the artifact against the same VERIFY before
+     any Stage 1 PPO. Detail: `MODE_EXPERTS_DIRECTIVE.md` "Arm A"
+     Stage 0.
 - **NEW WAIT (08-13 ~19:xx UTC) `[operator]`: quad → quadwalk needs an
   ARCHITECTURE/CURRICULUM design discussion (operator).**
   `cw-quadwalk7` (ent-coef 0.001→0.02, the exploration lever) STOP:
