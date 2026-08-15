@@ -60,11 +60,15 @@ KUBECONFIG = str(Path.home() / ".kube" / "coreweave.yaml")
 WORKDIR = "/workspace/prototype_sts3215"
 TRAIN_MODULE = "rl_move.sim.train_ppo_sim"      # CPU sweep pods (legacy)
 TRAIN_MODULE_GPU = "rl_move.sim.train_ppo_mjx"  # GPU-MJX pods (default)
+TRAIN_MODULE_DYNREP = "rl_move.dynamics.train"
+TRAIN_MODULE_DYNREP_FRESH = "rl_move.dynamics.fresh_pipeline"
+GPU_TORCH_PYTHON = "/workspace/venv_torchgpu/bin/python"
 WANDB_PROJECT = "l2k2/hexapod-balance"
 # Research tracks (operator, 08-11): every launch belongs to one of
 # tracks.json's tracks; the run gets W&B tag `track:<id>` and the
 # ledger entry a "track" field. tracks.py is the single accessor.
 import tracks as _tracks
+import pod_torch_capability as _torch_cap
 
 # One 48-env run wants ~50-60 cores. Assumed footprint per already-running
 # trainer when computing free capacity, and minimum free cores required.
@@ -72,12 +76,50 @@ CORES_PER_RUN = 55
 MIN_FREE_FULL = 40   # full experiment below this = refused (--allow-slow overrides)
 MIN_FREE_SMOKE = 8
 SMOKE_MAX_STEPS = 1_000_000
-# Experiment phase system (operator, 08-10, binding): long training is
-# for HARDENING behavior already seen, never for discovering whether a
-# mechanism works. SPECIFICATION work (reward/eval design, preflights)
-# never trains, so it is not a launch phase.
-PHASES = ("discovery", "hardening", "composition", "transfer")
+# CANARY and DISCOVERY are intentionally distinct: a canary asks only
+# whether training machinery is healthy, while discovery asks whether
+# correct behavior appears in a short budget. ACQUISITION gives a healthy
+# from-scratch lineage its honest learning budget before hardening.
+PHASES = ("canary", "discovery", "acquisition", "hardening",
+          "composition", "transfer")
+SHORT_PHASES = ("canary", "discovery")
 DISCOVERY_MAX_STEPS_DEFAULT = 2_000_000
+
+PHASE_SCOPES = {
+    "canary": "mechanism_health",
+    "discovery": "short_behavior_discovery",
+    "acquisition": "full_budget_skill_acquisition",
+    "hardening": "behavior_hardening",
+    "composition": "skill_composition",
+    "transfer": "deployment_transfer",
+}
+
+CANARY_GATE_PREFIX = (
+    "MECHANISM-HEALTH CANARY ONLY: do not judge skill acquisition, close a "
+    "behavior/reward class, or require mature gait at this checkpoint. "
+)
+
+
+def canary_update_error(entry: dict) -> str:
+    """Reject category-error verdicts for mechanism-only canaries."""
+    if entry.get("phase") != "canary":
+        return ""
+    if entry.get("hardware_ready") is True:
+        return "canary runs cannot be marked hardware_ready"
+    verdict = str(entry.get("verdict", "")).strip().upper()
+    if not verdict:
+        return ""
+    allowed = (
+        verdict.startswith("CANARY PASS"),
+        verdict.startswith("CANARY FAIL - INFRASTRUCTURE"),
+        verdict.startswith("CANARY FAIL - MECHANISM"),
+    )
+    if not any(allowed):
+        return ("canary verdict must begin CANARY PASS, CANARY FAIL - "
+                "INFRASTRUCTURE, or CANARY FAIL - MECHANISM; behavioral "
+                "FAIL/exploit/reward-closure verdicts are invalid at "
+                "mechanism-health scope")
+    return ""
 
 
 def sh(cmd: list[str], timeout: int = 60) -> str:
@@ -131,7 +173,11 @@ def pod_trainers(pod: str) -> list[str]:
     script = (
         "for p in /proc/[0-9]*; do c=$(tr '\\0' ' ' < $p/cmdline "
         "2>/dev/null); case \"$c\" in python*' -m rl_move.sim.train_ppo_'*|"
-        "*/python*' -m rl_move.sim.train_ppo_'*) case \"$c\" in *' -c '*) ;; *) "
+        "*/python*' -m rl_move.sim.train_ppo_'*|"
+        "python*' -m rl_move.dynamics.train '*|"
+        "*/python*' -m rl_move.dynamics.train '*|"
+        "python*' -m rl_move.dynamics.fresh_pipeline '*|"
+        "*/python*' -m rl_move.dynamics.fresh_pipeline '*) case \"$c\" in *' -c '*) ;; *) "
         "echo \"$c\";; esac;; esac; done | sort -u"
     )
     names = []
@@ -140,6 +186,8 @@ def pod_trainers(pod: str) -> list[str]:
         name = "unnamed"
         for i, t in enumerate(toks):
             if t == "--run-name" and i + 1 < len(toks):
+                name = toks[i + 1]
+            if t == "--name" and i + 1 < len(toks):
                 name = toks[i + 1]
         names.append(name)
     return names
@@ -267,6 +315,79 @@ def cmd_status(g: dict) -> int:
     return 0
 
 
+# Operator naming corrections (08-15, fb_20260815T114937_f9078d): run
+# names must name the operator-visible BEHAVIOR (joystick translate,
+# stop, rise, lower), never the internal mechanism/sampler geometry.
+# Enforced here because cycle prompts are frozen at spawn: a cycle
+# started before a correction landed would otherwise launch under the
+# superseded name, and the launcher is the one mechanical interception
+# point every launch/queue/respec path shares. Map: banned name (or
+# substring rule below) -> (required name, correction id).
+RENAMED_RUNS = {
+    "cw-mt-c2-fullcircle1": ("cw-joystick-translate1",
+                             "fb_20260815T114937_f9078d"),
+}
+BANNED_NAME_SUBSTRINGS = {
+    # "fullcircle" is a misleading implementation-centric label for
+    # joystick-commanded translation (uniform [-pi,pi] heading is just
+    # sampler coverage, not the behavior, and must not suggest yaw).
+    "fullcircle": ("cw-joystick-translate1", "fb_20260815T114937_f9078d"),
+}
+
+
+def _joystick_metric_block(run: str) -> str | None:
+    """Operator metric simplification (08-15, fb_20260815T115650_47010c):
+    the joystick-translation TRAINING contract is only raw signed
+    joystick/v_along_m_s (+ _cumulative + active_ticks; cross/wrong-way
+    may stay as secondary train/ diagnostics). Per-heading binned
+    training series are REMOVED — uniform [-pi,pi] heading sampling plus
+    the signed average already zeroes out command-ignorant motion, and
+    fixed 8/12-direction panels belong in held-out EVAL only. Enforced
+    at the launcher for the same reason as the naming table above: the
+    executing cycle's prompt was frozen before the simplification
+    landed. Self-clearing — refuses only while the sim tree still emits
+    the binned series."""
+    if "joystick" not in run:
+        return None
+    marker = "v_along_" + "hbin"   # split so this file never self-matches
+    sim = Path(__file__).resolve().parent.parent / "sim"
+    for fn in ("walk_task.py", "train_ppo_mjx.py"):
+        try:
+            src = (sim / fn).read_text(encoding="utf-8")
+        except OSError:
+            continue
+        if marker in src:
+            return (f"operator metric simplification "
+                    f"fb_20260815T115650_47010c not applied: sim/{fn} "
+                    f"still emits per-heading '{marker}*' training "
+                    "series. Training headline is ONLY "
+                    "joystick/v_along_m_s + joystick/v_along_m_s_"
+                    "cumulative + joystick/active_ticks (raw signed m/s "
+                    "along the requested direction, active ticks only); "
+                    "remove the bins — fixed-direction panels are "
+                    "held-out EVAL tools — then relaunch. See "
+                    "/workspace/llm_feedback/"
+                    "fb_20260815T115650_47010c.json")
+    return None
+
+
+def naming_correction(run: str) -> str | None:
+    """Refusal message if this run name was renamed by the operator."""
+    hit = RENAMED_RUNS.get(run)
+    if not hit:
+        for sub, h in BANNED_NAME_SUBSTRINGS.items():
+            if sub in run:
+                hit = h
+                break
+    if not hit:
+        return _joystick_metric_block(run)
+    new, ref = hit
+    return (f"run name '{run}' superseded by operator naming correction "
+            f"{ref} — use --run {new} (same spec otherwise; name the "
+            f"operator-visible behavior, keep mechanism/sampler details "
+            f"in config/tags/notes; see /workspace/llm_feedback/{ref}.json)")
+
+
 def refuse(entry: dict, reason: str) -> int:
     print(f"REFUSED: {reason}")
     entry["status"] = "REFUSED"
@@ -304,13 +425,19 @@ def _launch_locked(g: dict, a: argparse.Namespace,
     gpu_pods = comp.get("gpu_pods", [])
     gpu = comp.get("gpu", {})
     is_gpu = a.pod in gpu_pods
+    trainer = getattr(a, "trainer", "ppo")
+    is_dynrep = trainer in ("dynrep", "dynrep-fresh")
+    is_dynrep_fresh = trainer == "dynrep-fresh"
     track = getattr(a, "track", "") or _tracks.infer(a.run)
     entry = {
         "run": a.run, "pod": a.pod, "steps": a.steps, "smoke": a.smoke,
         "hypothesis": a.hypothesis, "gate": a.gate, "parent": a.parent,
         "track": track,
         "extra_args": extra, "created": now(), "status": "INTENT",
-        "checks": {}, "stack": "gpu-mjx" if is_gpu else "cpu",
+        "checks": {}, "trainer": trainer,
+        "stack": ("gpu-transformer-fresh-data" if is_dynrep_fresh else
+                  "gpu-transformer") if is_dynrep else (
+            "gpu-mjx" if is_gpu else "cpu"),
     }
     if LAUNCH_HOLD.exists():
         # Operator-ordered single launch during a hold. Before this flag
@@ -331,8 +458,14 @@ def _launch_locked(g: dict, a: argparse.Namespace,
     checks = entry["checks"]
 
     # --- static checks -----------------------------------------------------
+    nc = naming_correction(a.run)
+    if nc:
+        return refuse(entry, nc)
     if a.pod not in comp["pods"] and not is_gpu:
         return refuse(entry, f"pod {a.pod} not in guardrails pod list")
+    if is_dynrep and not is_gpu:
+        return refuse(entry, "dynrep pretraining is CUDA-only and must run "
+                             "on a gpu_pods entry")
     # STACK SWITCH-OVER (operator, 2026-08-09): every training run
     # (anything with W&B, i.e. non-smoke) runs on the GPU-MJX stack.
     # CPU pods keep serving the controller, eval harness work, and
@@ -361,11 +494,9 @@ def _launch_locked(g: dict, a: argparse.Namespace,
         if not a.hypothesis or not a.gate:
             return refuse(entry, "experiments require --hypothesis and "
                                  "--gate (guardrails)")
-        # Phase gate (operator, 08-10): DISCOVERY runs answer "does the
-        # mechanism produce qualitatively correct behavior?" on a tiny
-        # budget; HARDENING/COMPOSITION/TRANSFER budgets are earned by
-        # naming where the correct behavior was already seen. PPO is
-        # never the unit-test framework for the MDP.
+        # CANARY checks machinery only; DISCOVERY asks whether behavior
+        # appears cheaply; ACQUISITION gives a healthy from-scratch lineage
+        # its comparable full budget. Later phases require evidence.
         phase = getattr(a, "phase", "") or _lineage_field(a.parent, "phase")
         if not phase and a.hypothesis.startswith("AUTO-CONTINUE"):
             # Pre-phase-system lineage being segment-stitched by the
@@ -381,27 +512,37 @@ def _launch_locked(g: dict, a: argparse.Namespace,
                                  "continues an existing lineage, pass "
                                  "--parent and the phase is inherited.")
         entry["phase"] = phase
-        if phase == "discovery":
+        entry["assessment_scope"] = PHASE_SCOPES[phase]
+        if phase == "canary":
+            entry["gate"] = CANARY_GATE_PREFIX + a.gate
+        if phase in SHORT_PHASES:
             cap = int(g.get("phases", {}).get("discovery_max_steps",
                                               DISCOVERY_MAX_STEPS_DEFAULT))
             if a.steps > cap:
-                return refuse(entry, f"discovery runs cap at {cap} steps "
+                question = ("is the training mechanism healthy?"
+                            if phase == "canary" else
+                            "did qualitatively correct behavior emerge?")
+                next_phase = ("acquisition" if phase == "canary" else
+                              "hardening")
+                return refuse(entry, f"{phase} runs cap at {cap} steps "
                                      f"(asked {a.steps}): the question is "
-                                     "'did qualitatively correct behavior "
-                                     "emerge?' — if it already did, relaunch "
-                                     "as --phase hardening with --evidence.")
+                                     f"'{question}' - continue as --phase "
+                                     f"{next_phase} with --evidence.")
         else:
             evidence = (entry.get("evidence")
                         or getattr(a, "evidence", "")
                         or _lineage_field(a.parent, "evidence"))
             if not evidence:
+                required = (
+                    "name the healthy canary and a comparable full-budget "
+                    "learning precedent" if phase == "acquisition" else
+                    "name the run/video where intended behavior was already "
+                    "seen, or the test_task_semantics/preflight PASS")
                 return refuse(entry, f"{phase} runs require --evidence: "
-                                     "name the run/video where the intended "
-                                     "behavior was already seen, or the "
-                                     "test_task_semantics/preflight PASS "
-                                     "that licenses this budget.")
+                                     f"{required}.")
             entry["evidence"] = evidence
-    for flag in ("--run-name", "--steps"):
+    owned_name_flag = "--name" if is_dynrep else "--run-name"
+    for flag in (owned_name_flag, "--steps"):
         if flag in extra:
             return refuse(entry, f"{flag} belongs to the launcher, not the "
                                  "passthrough args")
@@ -413,7 +554,7 @@ def _launch_locked(g: dict, a: argparse.Namespace,
             if v < mins[key]:
                 return refuse(entry, f"{flag} {v} < guardrails {key} "
                                      f"{mins[key]}")
-    if "--n-envs" not in extra:
+    if not is_dynrep and "--n-envs" not in extra:
         n_envs = gpu["n_envs"] if is_gpu else comp["n_envs"]
         extra = [*extra, "--n-envs", str(n_envs)]
         entry["extra_args"] = extra
@@ -443,6 +584,29 @@ def _launch_locked(g: dict, a: argparse.Namespace,
             return refuse(entry, f"{a.pod}: nvidia-smi failed ({e}) — GPU "
                                  "not visible; pod may need recreation")
         checks["gpu"] = gpus.splitlines()[0]
+        # CUDA-torch capability gate (08-15 wait, closed this cycle):
+        # --device cuda only pays off (~120x on the PPO update for
+        # attention/GRU trunks) on a pod whose torch stack was
+        # installed+recorded (pod_torch_capability.py) — every
+        # mjx-train pod otherwise ships stock CPU-torch, so an
+        # unrecorded --device cuda would silently run the ~18x-slower
+        # CPU path on GPU-priced hardware, invisible until someone reads
+        # the fps. Does NOT touch --device auto (the trainer's default):
+        # auto degrades safely by letting the process detect cuda
+        # itself, so ordinary flatten-MLP launches are unaffected.
+        # is_dynrep is exempt: it already runs its own live
+        # cuda_torch_runtime probe above (kexec, this call) which is at
+        # least as strict.
+        if not is_dynrep and "--device" in extra:
+            dev = extra[extra.index("--device") + 1]
+            if dev == "cuda" and not _torch_cap.is_capable(a.pod):
+                return refuse(
+                    entry,
+                    f"{a.pod}: --device cuda requested but has no "
+                    "recorded CUDA-torch capability (pod_torch_capability.py "
+                    "install/verify + record first, or drop --device cuda "
+                    "to keep the pod's default CPU-torch)")
+            checks["torch_device"] = dev
     else:
         free = limit - CORES_PER_RUN * len(trainers)
         checks["free_cores_estimate"] = free
@@ -525,6 +689,10 @@ def _launch_locked(g: dict, a: argparse.Namespace,
         if wandb_name_exists(a.run):
             return refuse(entry, f"W&B already has a run named {a.run} "
                                  "(names are append-only; pick a new one)")
+        if is_dynrep_fresh and wandb_name_exists(f"{a.run}-data"):
+            return refuse(entry, f"W&B already has a run named "
+                                 f"{a.run}-data (fresh-pipeline data runs "
+                                 "are append-only; pick a new run name)")
         n_running = sum(1 for n in wandb_running_runs() if n.startswith("cw-"))
         if n_running >= comp["max_concurrent_runs"]:
             return refuse(entry, f"{n_running} experiments already running "
@@ -602,11 +770,11 @@ def _launch_locked(g: dict, a: argparse.Namespace,
     # cw-walk-wander60-dr05-s1 (silent, caught by a later cycle) and
     # cw-stance-riseproof1 (this cycle: pullckpt rc=1, no such file — pulled
     # manually under its real trainer-default name once diagnosed).
-    if "--out-name" not in extra:
+    if not is_dynrep and "--out-name" not in extra:
         extra = [*extra, "--out-name", "ppo_goal_" + a.run.replace("-", "_")]
         entry["extra_args"] = extra
     log = f"/tmp/train_{a.run}.log"
-    if is_gpu:
+    if is_gpu and not is_dynrep:
         # train_ppo_mjx owns its parallelism (sharded host workers), and
         # --subproc does not exist there.
         if "--impl" not in extra:
@@ -615,7 +783,7 @@ def _launch_locked(g: dict, a: argparse.Namespace,
             extra = [*extra, "--host-workers",
                      str(gpu.get("host_workers", 24))]
         entry["extra_args"] = extra
-    elif "--subproc" not in extra:
+    elif not is_dynrep and "--subproc" not in extra:
         extra = [*extra, "--subproc"]
         entry["extra_args"] = extra
     # Operator directive 08-09: a run's W&B notes must LEAD with a human
@@ -631,13 +799,65 @@ def _launch_locked(g: dict, a: argparse.Namespace,
             human += f" Gate: {a.gate}"
         extra = [*extra, "--notes", human.strip()]
         entry["extra_args"] = extra
-    module = TRAIN_MODULE_GPU if is_gpu else TRAIN_MODULE
+    if is_dynrep:
+        python = GPU_TORCH_PYTHON
+        if not _torch_cap.is_capable(a.pod):
+            runtime_candidates = [GPU_TORCH_PYTHON]
+        else:
+            runtime_candidates = [GPU_TORCH_PYTHON, "python3"]
+        runtime = ""
+        runtime_error = None
+        for candidate in runtime_candidates:
+            try:
+                info = kexec(
+                    a.pod,
+                    f"test -x $(command -v {candidate} 2>/dev/null || "
+                    f"echo {candidate}) && {candidate} -c "
+                    "'import torch; assert torch.cuda.is_available(); "
+                    "print(torch.__version__, torch.cuda.get_device_name())'"
+                ).strip()
+                if info:
+                    python, runtime = candidate, f"{candidate}: {info}"
+                    break
+            except (subprocess.CalledProcessError,
+                    subprocess.TimeoutExpired) as e:
+                runtime_error = e
+        if not runtime:
+            return refuse(entry, f"{a.pod} lacks a working recorded CUDA "
+                                 f"PyTorch runtime ({runtime_candidates}): "
+                                 f"{runtime_error}")
+        checks["cuda_torch_runtime"] = runtime
+        if "--data" not in extra:
+            return refuse(entry, "dynrep launches require --data DATASET")
+        if "--arch" in extra and extra[extra.index("--arch") + 1] != "transformer":
+            return refuse(entry, "orchestrated dynrep pretraining requires "
+                                 "--arch transformer")
+        if "--arch" not in extra:
+            extra = [*extra, "--arch", "transformer"]
+        if "--device" in extra and extra[extra.index("--device") + 1] != "cuda":
+            return refuse(entry, "orchestrated dynrep pretraining requires "
+                                 "--device cuda")
+        if "--device" not in extra:
+            extra = [*extra, "--device", "cuda"]
+        if "--input-set" not in extra:
+            extra = [*extra, "--input-set", "obs"]
+        if "--allow-cpu" in extra or "--allow-legacy-priv" in extra:
+            return refuse(entry, "production dynrep launches may not bypass "
+                                 "CUDA or full-label dataset requirements")
+        entry["extra_args"] = extra
+        module = (TRAIN_MODULE_DYNREP_FRESH if is_dynrep_fresh
+                  else TRAIN_MODULE_DYNREP)
+        name_flag = "--name"
+    else:
+        module = TRAIN_MODULE_GPU if is_gpu else TRAIN_MODULE
+        python = "python"
+        name_flag = "--run-name"
     # shlex.quote every passthrough token: notes/cfg values with shell
     # metacharacters (parens, semicolons) used to splice raw into the
     # remote bash -c and kill the launch (2026-08-09: cw-walk-parkstart
     # and cw-stance-bellyrest each burned a FAILED attempt on this).
-    train = (f"python -m {module} "
-             f"--run-name {a.run} --steps {a.steps} "
+    train = (f"{python} -m {module} "
+             f"{name_flag} {a.run} --steps {a.steps} "
              + " ".join(shlex.quote(t) for t in extra))
     envp = "WANDB_MODE=disabled " if a.smoke else ""
     # Track tagging (operator, 08-11: tags, not separate projects —
@@ -671,23 +891,42 @@ def _launch_locked(g: dict, a: argparse.Namespace,
         # trainer pid via /proc scan and continue verification; only fail
         # if no process exists.
         print("kubectl exec timed out; recovering trainer pid via /proc scan")
-        scan = ("for p in /proc/[0-9]*/cmdline; do "
-                "c=$(tr '\\0' ' ' < \"$p\" 2>/dev/null); "
-                'case "$c" in python*"--run-name ' + a.run + ' "*) '
-                'basename "${p%/cmdline}";; esac; done')
-        pids = kexec(a.pod, scan).split()
-        if not pids:
+        # Reuse the anchored scanner used by checkup. The old inline
+        # pattern embedded `--name <run>` in its own bash command line,
+        # matched that wrapper, and returned the short-lived scan PID
+        # instead of the live dynrep trainer.
+        pid = _pod_trainer_pid(a.pod, a.run)
+        if not pid:
             entry["status"] = "FAILED"
             entry["failed_reason"] = ("launch kexec timed out and no "
                                       "trainer process found on pod")
             upsert_entry(entry)
             print("VERIFICATION FAILED: kexec timeout and no trainer process")
             return 1
-        pid = pids[0]
     checks["pid"] = pid
     print(f"launched pid {pid}; verifying...")
     return {"entry": entry, "checks": checks, "pid": pid,
             "log": log, "is_gpu": is_gpu}
+
+
+def _pod_trainer_pid(pod: str, run: str) -> str | None:
+    """PID of the main trainer process for --run-name <run> on a pod
+    (None if absent). Same /proc scan + anchoring rules as
+    pod_trainers(); run names are [a-z0-9-] so direct interpolation
+    into the case pattern is safe."""
+    script = (
+        "for p in /proc/[0-9]*; do c=$(tr '\\0' ' ' < $p/cmdline "
+        "2>/dev/null); case \"$c\" in *' -m rl_move.sim.train_ppo_'*"
+        f"'--run-name {run} '*|*' -m rl_move.dynamics.train '*"
+        f"'--name {run} '*|*' -m rl_move.dynamics.fresh_pipeline '*"
+        f"'--name {run} '*) case \"$c\" in *' -c '*) ;; *) "
+        "echo ${p#/proc/};; esac;; esac; done"
+    )
+    try:
+        out = kexec(pod, script).strip().splitlines()
+        return out[0] if out else None
+    except subprocess.CalledProcessError:
+        return None
 
 
 def _pod_pid_cputime(pod: str, pid: str) -> int | None:
@@ -721,6 +960,9 @@ def _verify_started(g: dict, a: argparse.Namespace, ctx: dict) -> int:
     verify simultaneously instead of queueing ~5 min each."""
     entry, checks = ctx["entry"], ctx["checks"]
     pid, log, is_gpu = ctx["pid"], ctx["log"], ctx["is_gpu"]
+    is_dynrep = entry.get("trainer") in ("dynrep", "dynrep-fresh")
+    is_dynrep_fresh = entry.get("trainer") == "dynrep-fresh"
+    wb_name = f"{a.run}-data" if is_dynrep_fresh else a.run
 
     def fail(reason: str) -> int:
         print(f"VERIFICATION FAILED: {reason}")
@@ -730,9 +972,12 @@ def _verify_started(g: dict, a: argparse.Namespace, ctx: dict) -> int:
         # the "failure" bubbled up as a crashed launch attempt (2026-08-09:
         # cw-walk-highgait burned 2 backlog attempts on cleanup suicide).
         try:
+            pattern = (f"rl_move[.]dynamics[.](train|fresh_pipeline).*"
+                       f"--name {a.run} "
+                       if is_dynrep else
+                       f"rl_move[.]sim[.]train_ppo.*--run-name {a.run} ")
             kexec(a.pod, f"kill {pid} 2>/dev/null; "
-                         f"pkill -f '^python -m rl_move[.]sim[.]train_ppo.*"
-                         f"--run-name {a.run} ' 2>/dev/null; true")
+                         f"pkill -f '{pattern}' 2>/dev/null; true")
         except subprocess.CalledProcessError:
             pass  # cleanup best-effort; the verdict below is what matters
         entry["status"] = "FAILED"
@@ -763,7 +1008,8 @@ def _verify_started(g: dict, a: argparse.Namespace, ctx: dict) -> int:
         deadline = time.time() + (480 if is_gpu else 240)
         wb = None
         while time.time() < deadline:
-            wb = wandb_running_runs().get(a.run)
+            running = wandb_running_runs()
+            wb = running.get(a.run) or running.get(wb_name)
             if wb:
                 break
             time.sleep(20)
@@ -771,6 +1017,7 @@ def _verify_started(g: dict, a: argparse.Namespace, ctx: dict) -> int:
             return fail("run never appeared as 'running' in W&B within 240s")
         checks["wandb_id"] = wb["id"]
         entry["wandb_id"] = wb["id"]
+        active_wb_id = wb["id"]
         s1 = wb.get("global_step") or 0
         # A single PPO iteration's wall time is floored by its rollout
         # (n_envs * n_steps). A fixed 90s window false-killed
@@ -789,7 +1036,12 @@ def _verify_started(g: dict, a: argparse.Namespace, ctx: dict) -> int:
         # global_step has not advanced AND CPU time has gone flat for two
         # consecutive samples, or an outer safety cap (20 min) elapses.
         n_steps = _extra_int(entry.get("extra_args", []), "--n-steps", 64)
-        base_wait = min(600, max(90, int(90 * n_steps / 64)))
+        # The fresh dynrep parent waits while a child process compiles the
+        # 2k-world MJX/Warp collector. Its own /proc CPU clock can stay flat
+        # even though the child and H200 are busy, so allow the full compile
+        # window before applying the parent-CPU stall heuristic.
+        base_wait = (900 if is_dynrep_fresh else
+                     min(600, max(90, int(90 * n_steps / 64))))
         poll = 30
         outer_cap = 1200.0  # absolute safety net regardless of CPU signal
         elapsed = 0.0
@@ -799,7 +1051,20 @@ def _verify_started(g: dict, a: argparse.Namespace, ctx: dict) -> int:
         while elapsed < outer_cap:
             time.sleep(poll)
             elapsed += poll
-            s2 = (wandb_running_runs().get(a.run) or {}).get("global_step") or 0
+            running = wandb_running_runs()
+            current_wb = running.get(a.run) or running.get(wb_name) or {}
+            if current_wb.get("id") not in (None, active_wb_id):
+                checks.setdefault("wandb_stage_transitions", []).append(
+                    [active_wb_id, current_wb["id"]])
+                active_wb_id = current_wb["id"]
+                checks["wandb_id"] = active_wb_id
+                entry["wandb_id"] = active_wb_id
+                s1 = current_wb.get("global_step") or 0
+                s2 = s1
+                prev_cpu = _pod_pid_cputime(a.pod, pid)
+                flat_streak = 0
+                continue
+            s2 = current_wb.get("global_step") or 0
             if s2 > s1:
                 break
             cur_cpu = _pod_pid_cputime(a.pod, pid)
@@ -861,6 +1126,14 @@ def cmd_checkup(g: dict, a: argparse.Namespace) -> int:
     # fall back to the guardrails pattern instead of crashing the
     # watcher (KeyError 'log' on cw-walk-step0-c2, 2026-08-09).
     pod = entry["pod"]
+    wb_names = ([a.run, f"{a.run}-data"]
+                if entry.get("trainer") == "dynrep-fresh" else [a.run])
+
+    def live_wandb() -> dict:
+        running = wandb_running_runs()
+        return next((running[name] for name in wb_names if name in running),
+                    {})
+
     log = entry.get("log") or f"/tmp/train_{a.run}.log"
     created = entry.get("created")
     problems, facts = [], {"time": now()}
@@ -917,11 +1190,11 @@ def cmd_checkup(g: dict, a: argparse.Namespace) -> int:
                         "recent log — read the log before trusting this run")
 
     size1 = int(kexec(pod, f"stat -c %s {log}").strip())
-    wb1 = wandb_running_runs().get(a.run) or {}
+    wb1 = live_wandb()
     s1 = wb1.get("global_step") or 0
     time.sleep(45)
     size2 = int(kexec(pod, f"stat -c %s {log}").strip())
-    wb2 = wandb_running_runs().get(a.run) or {}
+    wb2 = live_wandb()
     s2 = wb2.get("global_step") or 0
     facts["log_growth_bytes"] = size2 - size1
     log_stalled = size2 <= size1
@@ -938,9 +1211,34 @@ def cmd_checkup(g: dict, a: argparse.Namespace) -> int:
             if log_stalled:
                 problems.append("log stopped growing")
         elif s2 <= s1:
-            problems.append(f"W&B global_step stalled at {s2}")
-            if log_stalled:
-                problems.append("log stopped growing")
+            # W&B logs once per PPO iteration, and an iteration's wall
+            # time is floored by its rollout (n_envs * n_steps). Small-
+            # env configs legitimately exceed the 45 s sample window
+            # (false SUSPECT on healthy cw-arch-modeexperts-scratch1-r1,
+            # 2026-08-15: 256 envs x 256 n_steps at ~225 fps = ~380 s
+            # per iteration; both W&B and the log were between writes).
+            # Before calling a stall, require the same proof-of-no-work
+            # signal the launch verifier uses (_verify_started, the
+            # 08-11 cw-arch-gru-r4 fix): cumulative CPU time flat across
+            # two 30 s samples. A genuinely hung/starved process goes
+            # CPU-flat; a slow-cadence healthy one keeps burning cores.
+            pid = _pod_trainer_pid(pod, a.run)
+            cpu = [_pod_pid_cputime(pod, pid) if pid else None]
+            for _ in range(2):
+                time.sleep(30)
+                cpu.append(_pod_pid_cputime(pod, pid) if pid else None)
+            deltas = [b - a2 for a2, b in zip(cpu, cpu[1:])
+                      if a2 is not None and b is not None]
+            computing = bool(deltas) and all(d > 50 for d in deltas)
+            facts["cpu_centisec_deltas"] = deltas
+            if computing:
+                facts["note"] = ("global_step flat in 45s window but "
+                                 "trainer CPU busy — long-rollout "
+                                 "iteration cadence, not a stall")
+            else:
+                problems.append(f"W&B global_step stalled at {s2}")
+                if log_stalled:
+                    problems.append("log stopped growing")
         else:
             fps = (s2 - s1) / 45.0
             facts["fps"] = round(fps, 1)
@@ -1021,11 +1319,15 @@ def cmd_backlog(a: argparse.Namespace, extra: list[str]) -> int:
     if not (a.run and a.steps and a.hypothesis and a.gate):
         print("backlog add needs --run --steps --hypothesis --gate -- <args>")
         return 1
+    nc = naming_correction(a.run)
+    if nc:
+        print(f"REFUSED: {nc}")
+        return 1
     # Fail fast at queue time: a phase-less, parent-less item would only
     # refuse at drain time (3 retries, then parked — noise for nothing).
     if not getattr(a, "phase", "") and not a.parent:
-        print("backlog add needs --phase (discovery|hardening|composition|"
-              "transfer) — or --parent, to inherit the lineage's phase at "
+        print(f"backlog add needs --phase ({'|'.join(PHASES)}) - or "
+              "--parent, to inherit the lineage's phase at "
               "launch (operator 08-10; see RESEARCH_RULES.md)")
         return 1
     with file_lock(BACKLOG_LOCK):
@@ -1092,6 +1394,10 @@ def cmd_respec(g: dict, a: argparse.Namespace) -> int:
     if a.operator_override and not a.now:
         print("--operator-override requires --now (a queued item would be "
               "launched later by drain, which never bypasses the hold)")
+        return 1
+    nc = naming_correction(a.run)
+    if nc:
+        print(f"REFUSED: {nc}")
         return 1
     src = [e for e in load_ledger() if isinstance(e, dict)
            and e.get("run") == a.source and e.get("extra_args")]
@@ -1438,6 +1744,10 @@ def cmd_update(a: argparse.Namespace) -> int:
                 entry[key] = json.loads(val)
             except (json.JSONDecodeError, ValueError):
                 entry[key] = val
+        err = canary_update_error(entry)
+        if err:
+            print(f"REFUSED: {err}")
+            return 1
         if entry.get("verdict"):
             # a verdict closes the analysis pipeline for this run
             entry["triage"] = "done"
@@ -1543,7 +1853,7 @@ def main() -> int:
     bp.add_argument("--gate", default="")
     bp.add_argument("--parent", default="")
     bp.add_argument("--phase", default="", choices=(*PHASES, ""),
-                    help="experiment phase (operator 08-10, binding); "
+                    help="experiment phase; "
                          "inherited from --parent's ledger entry if empty")
     bp.add_argument("--evidence", default="",
                     help="hardening/composition/transfer: where the "
@@ -1590,6 +1900,12 @@ def main() -> int:
                          "(containment rule) — override only for an "
                          "escalated cross-track insight")
     lp = sub.add_parser("launch")
+    lp.add_argument("--trainer",
+                    choices=("ppo", "dynrep", "dynrep-fresh"),
+                    default="ppo",
+                    help="trainer family; dynrep-fresh generates a "
+                         "reuse-budgeted GPU dataset before CUDA Transformer "
+                         "phase-1 pretraining")
     lp.add_argument("--pod", required=True)
     lp.add_argument("--run", required=True)
     lp.add_argument("--steps", type=int, required=True)
@@ -1597,12 +1913,12 @@ def main() -> int:
     lp.add_argument("--gate", default="")
     lp.add_argument("--parent", default="")
     lp.add_argument("--phase", default="", choices=(*PHASES, ""),
-                    help="experiment phase (operator 08-10, binding): "
-                         "discovery caps steps; hardening/composition/"
-                         "transfer require --evidence; inherited from "
+                    help="experiment phase: canary/discovery cap steps; "
+                         "acquisition and later phases require --evidence; "
+                         "inherited from "
                          "--parent's ledger entry if empty")
     lp.add_argument("--evidence", default="",
-                    help="hardening/composition/transfer: where the "
+                    help="acquisition and later phases: where the "
                          "qualitatively correct behavior was already seen "
                          "(run/video) or the preflight PASS that licenses "
                          "this run")

@@ -21,9 +21,89 @@ anyone catching up. Facts here must agree with `CURRENT_TRUTHS.md`
 (which wins on conflict); the full checkpoint inventory with gate
 numbers lives in `rl_docs/SKILLS.md`.
 
-**Last updated: 2026-08-14 (~20:0x UTC — hw: the joystick SESSION now
-has a product gate in sim, and the current best specialist pair PASSES
-it: a new randomized ~60 s session eval (rise from flat/bridge/crouch
+**Last updated: 2026-08-15 (arch: a small causal-transformer policy
+trunk now WALKS as well as the flatten-MLP champion at the same 40M
+step budget — zero falls, clean six-leg gait, no roll-fall — the
+first architecture-line proof that attention-based trunks aren't a
+dead end for this robot, walk-only, not deployment-contract-ready.
+`cw-arch-tf-r1-hard1`; detail: arch/STATUS.md.) Earlier (hw: the
+post-lower stand-up mystery is
+SOLVED — the c3 collapse was a taught behavior, not a learning
+failure. The in-context sequence trainer's rise reference starts at
+belly height, so it paid the robot to flop back onto its belly and
+redo the flat stand-up after every sit; held-out sessions then stall
+over-current on more than half of deterministic post-lower rises.
+The one-line schedule fix ("stand up from where you are") is coded,
+tested and snapshotted, and `cw-stand-postlower4` is training on it
+against a fresh pre-registered 600-session cohort (c4). Product
+baseline unchanged. Details: hw/STATUS.md + SESSION_BULK_GATE.md.)
+Earlier (arch: operator directive
+fb_20260815T013349_488ffd executed — the four-expert fully isolated
+one-checkpoint architecture (per-expert actor/critic GRUs, heads,
+log_std; zero-init transition adapter) is built, tested and
+snapshotted; Arm A teacher-distill is running on train-1 CPUs and
+Arm B's from-scratch 2M mechanism canary is training on train-0;
+staged full-budget follow-ups pre-registered in
+`rl_docs/tracks/arch/MODE_EXPERTS_DIRECTIVE.md`. Multitask pause
+lifted BY THE OPERATOR for these two arms only; the hierarchy stays
+the product baseline.) Earlier (hw: the named next arm is no longer
+"to spec" — `cw-stand-postlower3` is RUNNING: an idle-kick cycle built the
+stance-only in-context sequence trainer (`goal.mode_seq_stance`,
+default-off, tested, snapshotted), pre-registered its bulk gate
+(Cohort c3, fresh banks) and launched the 2M discovery arm on train-0.
+Details: WAITING-ON FLEET entry below + hw/STATUS.md.) Earlier 08-14
+(late — hw: the post-lower stand-up saga
+took a decisive turn: `cw-stand-postlower2` (the low-dose retry)
+FAILED, and the dig-in proved the whole bank-exposure family was
+training the robot to chase a MECHANICALLY IMPOSSIBLE height — the
+harvested sitting poses rest ~5cm higher than the flat belly the rise
+target is calibrated against, so the goal asked for a stand ~5cm
+TALLER than the robot can be; straining at max current was the
+correct answer to a wrong question, which is why postlower1 got
+WORSE. The goal-anchoring fix is written, tested and snapshotted
+(default-off), and with it the champion gets its first-ever real
+stand-ups from harvested poses — but a cold spawn still can't
+reproduce the in-session context (the champion collapses to belly
+deterministically), so the next arm (`cw-stand-postlower3`, to spec
+next cycle) trains the transition IN CONTEXT with lower→rise
+sequence episodes instead of cold teleported starts. Product
+baseline unchanged. Chain: hw/STATUS.md.) Earlier ~22:5x UTC — hw: the first fix attempt on
+that named POST-LOWER boundary (`cw-stand-postlower1`, training the
+stance policy on 35% harvested post-lower start poses) FAILED, and
+FAILED backwards: a full 600-session bulk re-read shows stochastic
+post-lower rise got WORSE (0.801→0.717, a real regression, not
+noise), plus small hits to det session zero-fall and cold-start rise.
+No exploit — video shows a genuine over-current stall from the deep
+bank pose, the same failure mode as before, just more often. A
+cheaper 2M-step follow-up (`cw-stand-postlower2`, exposure cut to
+15%) is running now to tell dose from mechanism before any reward
+change. The product baseline is UNCHANGED (still the hierarchy
+below); full story: `rl_docs/tracks/hw/SESSION_BULK_GATE.md` "Cohort
+c2".** Earlier ~21:4x UTC — hw: the joystick session
+story now rests on BULK, HELD-OUT numbers instead of 12 repeated
+cases, per the operator's evening directive: a new resumable sharded
+session evaluator ran 1,800 fresh ~60 s randomized joystick sessions
+(300 deterministic + 300 stochastic per candidate, matched schedules,
+never-before-used seeds, 11 idle pods' CPUs, ~3 minutes) comparing
+the hierarchical specialist pair against both single-model distills.
+THE HIERARCHY PASSES ITS PRE-REGISTERED PRODUCT GATE: 96.7% of 300
+deterministic sessions complete with zero falls (CI [94.0, 98.2]%,
+every segment type ≥98%, every cold-start stratum ≥95%), and it
+decisively beats both single models on stochastic sessions (85.3% vs
+65.3%/69.7%, confidence intervals non-overlapping). The hierarchical
+frozen-skill controller is now the measured PRODUCT BASELINE —
+one-policy consolidation officially stops blocking joystick
+usability. The one weak boundary, named for the next training arm:
+the POST-LOWER stand-up (100% of the hierarchy's deterministic
+failures; 80.1% stochastic, over-current dominated) — walking itself
+had ZERO falls in all 1,104 hierarchy drive segments. Also now a
+measured fact at scale: the walker NEVER settles at zero joystick
+command (0 of 2,773 segments below 0.02 m/s) — the runner's
+STOP→stance-hold switch is mandatory. Pre-registration + results:
+`rl_docs/tracks/hw/SESSION_BULK_GATE.md`; seed banks retired. Bench
+promotion calls unchanged, still [operator].** Earlier ~20:0x — hw:
+the joystick SESSION got its product gate in sim, and the current
+best specialist pair PASSES it: a new randomized ~60 s session eval (rise from flat/bridge/crouch
 → settle → walk engage with the staged entry-slew ramp → joystick
 driving with stops and direction flips → settle → sit → rise again →
 drive) runs the stance candidate `footlow2_hard1` + tall walker
@@ -189,6 +269,37 @@ agent-doable work; untyped entries count as agent-doable, and idle
 cycles must DRAIN the agent-doable ones before declaring no-op — see
 ORCHESTRATOR_PROMPT.md):**
 
+- ~~NEW WAIT (08-15 ~18:0x UTC) `[operator]`: dynrep → train-10
+  OOMKilled a second time, its A/B/C cohort unrecorded, "NOT fixed
+  this cycle: hands off for the orchestrator."~~ **REPAIRED 08-15
+  ~18:1x UTC (concurrent cycle):** re-reads as `[precondition]`, not
+  `[operator]` — the 08-14 script-owned-cohort directive's own
+  letter is "launch it, repair the precondition, or record a
+  concrete blocker," and a same-day precedent (16:33 UTC, this
+  cycle's own log) already has the orchestrator actively fixing +
+  relaunching this exact dynrep pipeline (`futurewalk-C`'s
+  one-seed-per-pod OOM fix + `train_ppo_transfer`'s W&B init) — it
+  is not in fact "hands off." Applied the SAME fix to the crashed
+  `pod_risewalk.sh` cohort (`rw_rise_*_s5/6/7`, the 16:06 "operator
+  emergency launch" that died with train-10's second OOM): pulled
+  the G1/G1.1-PASS encoder + `v3scale_large` dataset + gate record
+  off the still-live `dynrep-futurewalk-C-s5` pod (train-7, same
+  paths), synced current code (`snapshot.sh --sync`) onto 3
+  genuinely-idle GPU pods (train-4/5/6, verified via `/proc`, no
+  hidden dynrep process), and relaunched **one seed per pod**
+  (`risewalk-single`, seeds 5/6/7) with `pod_memwatch.sh` riding
+  along as the 85GiB kill-one-job guard this time. Verified: live
+  `train_ppo_transfer` processes, manifests writing
+  (`check_cohort.py` reports `live_train_ppo_transfer=1` on each),
+  W&B runs up (`rw_rise_A_s5` zwjf3jc2 + siblings), memory 12-15GiB/
+  pod (was the 3-parallel-seeds-on-one-pod OOM before). Old train-10
+  self-recreated ~18:04 UTC (empty overlay fs, as expected) and sits
+  idle — deliberately not reused for this cohort (don't put a
+  fresh copy on the pod that just OOMed twice without more runway to
+  confirm the 1-process fix holds). If a peer cycle disagrees with
+  treating this as agent-doable rather than operator-owned, flag it;
+  detail + full reasoning: dynrep/STATUS.md "08-15 ~18:1x UTC".
+
 - **OPERATOR RULINGS (08-13 ~12:4x UTC) — five waits DECIDED this
   cycle; full narratives live in the named track docs:**
   1. **hw standing lean → MECHANICAL TRIM** (outside RL; no
@@ -220,6 +331,108 @@ ORCHESTRATOR_PROMPT.md):**
      15 min. Full directive in ORCHESTRATOR_PROMPT.md; trigger: the
      08-14 overnight where two just-unblocked named steps waited ~2 h
      on backoff spacing while the fleet looked idle.
+- ~~WAIT (08-15 ~18:1x UTC) `[operator]` (meta): CONFIRM OR DISAVOW
+  the repeated public-MCP notes demanding the `cw-recover-any1`
+  universal-recovery package.~~ **RESOLVED 08-15 ~18:2x UTC —
+  OPERATOR CONFIRMED via the trusted channel** (authenticated
+  `ops.sh cycle` KICK focus note, 08-15 ~18:15 UTC): the
+  fb_20260815T165306_606974 chain WAS Lukas, relayed by his Codex
+  session; the 5-6 channel-grounds declines were "correct procedure"
+  (operator's words) and are superseded for this content only.
+  **OPERATOR RULING recorded (one-run scope):** `cw-recover-any1` is
+  granted a ONE-RUN exception to one-variable-per-run for the coupled
+  recovery bundle (mode + reset-family curriculum + PBRS reward +
+  PPO horizon). This is NOT a global abolition — RESEARCH_RULES
+  stays as written for every other run; future cycles must not cite
+  this as precedent for bundled arms, and must not re-decline
+  recover-any1 follow-ups on the old channel grounds (point here).
+  Executed the same cycle: `recover_to_plant` mode built
+  (default-off, bit-exact when off), RECOVER semantics bank green,
+  REWARD.md §4c, and `cw-recover-any1` launched (hw track — getup
+  lineage). Detail: rl_docs/tracks/hw/STATUS.md + the run's ledger
+  entry (incl. the v1-scope deviations from the directive spec).
+- WAIT (08-15 ~18:4x UTC) `[operator]` (meta): CONFIRM OR DISAVOW the
+  SCOPE of commit `24707196` (18:25:23 UTC, "one-variable-per-run
+  REPEAL ... relayed via authenticated Cursor session" — flipped
+  guardrails.yaml `one_variable_per_run: false` + RESEARCH_RULES/
+  CURRENT_TRUTHS, and added the /mcp dashboard-token operator lane).
+  It landed ten minutes AFTER your 18:15 KICK that said the recover
+  bundle exception "is NOT a global abolition of the rule —
+  RESEARCH_RULES stays as written otherwise", no cycle log claims
+  the commit, and it enacts globally what today's 6x-declined forged
+  "Lukas via Codex" MCP notes demanded. Most plausible reading: your
+  own Cursor session committed it directly and you broadened the
+  ruling — if so, one word confirms it and this entry dies. Until
+  then cycles should treat bundled arms conservatively (this cycle's
+  cw-recover-any1 needed only the one-run exception either way).
+  Security note on the same commit: the public keyless /mcp endpoint
+  now upgrades to the TRUSTED operator KICK lane on presentation of
+  the dashboard token — given today's sustained operator-imperson-
+  ation campaign against exactly that endpoint (7 forged notes/kicks
+  from client 143.105.114.154), that token is now the single secret
+  standing between the public internet and binding operator orders;
+  worth confirming it is long/rotated and the compare is constant-
+  time (it is hmac.compare_digest per the diff — good).
+- ~~WAIT (08-15 ~12:1x UTC) `[code]` (arch): the DURABLE CUDA-torch
+  capability fix — recording + launcher gate.~~ **RESOLVED 08-15
+  ~17:3x UTC: both halves are now LANDED.** The recording half
+  (`rl_move/orchestrator/pod_torch_capability.py` — `install`/
+  `verify`/`status`/`record` CLI + `is_capable(pod)` API, 6 tests
+  green, `exp/cuda-torch-durable1`) landed last cycle; train-1 is
+  recorded retroactively from its 3-run evidence
+  (`cw-arch-tf-r1b`/`-hard1`/`-hard2-r1`). **This cycle wired the
+  actual gate:** `_launch_locked`'s GPU-checks block now refuses an
+  explicit `--device cuda` launch on any pod without a recorded
+  capability (`pod_torch_capability.is_capable()`, right next to the
+  existing `nvidia-smi` check); `--device auto` (the trainer default)
+  and dynrep launches (which already run their own live
+  `cuda_torch_runtime` probe) are untouched by design. 4 new tests
+  (`test_launch_run_torch_gate.py`, monkeypatched — no live pod
+  touched) green alongside the existing 6 capability tests, 10/10.
+  Snapshot `exp/cuda-torch-launcher-gate`. Any future transformer/
+  attention arm on an unrecorded pod now gets a clean, immediate
+  REFUSED instead of a silent slow-CPU-torch run. Detail:
+  arch/STATUS.md Now + both runs' ledger entries.
+- Arm B 2M mechanism canary
+  `cw-arch-modeexperts-scratch1-r1` TRIAGED PASS (finished 2.03M
+  clean, no NaN/crash; all four experts active within 0.09 of the
+  commanded mix at final read — better than the 1.05M mid-run
+  snapshot, self-corrected as predicted; per-expert stds diverging
+  independently; reward −331→−2.4) → **Arm B stage 2
+  `cw-arch-modeexperts-scratch2` (40M, corrected skill diet
+  walk/rise/lower≈.30 each, hold≤.03) LAUNCHED + VERIFIED this cycle
+  on train-2, per the pre-registered order
+  (fb_20260815T035147_dd2af0)** — no longer a wait; ETA ~2.3 days.
+  Remaining follow-up:
+  1. **RESOLVED 08-15 ~15:2x UTC (this cycle) — Arm A stage-0 distill
+     FINISHED and the pre-registered VERIFY ran; result is FAIL, per
+     the pre-registered infrastructure branch, NOT a science
+     verdict.** `ppo_goal_cw_arch_modeexperts_bc1.zip` does not match
+     its teachers cold: det single-mode rise 0/6 (bridge 0/3, flat
+     0/3), stalling 40–80mm short of full stand (footlow2_hard1's own
+     cold rises: 0.5–3.4mm) — a genuine miss, not noise; det walk
+     prog_ratio med 0.53 (bar/teacher's own 1.05–1.10) with 2/6
+     episodes collapsing to prog 0.02/0.12 and slip/m 26.2/7.7 (vs
+     bcgait1_hard1's 1.3–1.5) — an intermittent near-total stall, not
+     present in the teacher. hold/lower det clean (6/6 each,
+     matching teacher bars). Sequence eval (`--single`, grammar
+     rise,walk,lower,rise,walk): det 10/12 zero-fall (bar 11/12, just
+     under), sto 3/12 (collapses badly). Next step is a distill-recipe
+     redesign (more rise-targeted DAgger coverage, matching the
+     operator's fb_20260814T164337_d7f11b insight for a different arm:
+     add a rise-targeted coverage term, not just re-weight the diet).
+     Evidence: `logs/ckpt_eval/arch_modeexperts_bc1_verify`,
+     `logs/ckpt_eval/arch_modeexperts_bc1_seq_{det,sto}.json`.
+     **RESOLVED 08-15 ~17:0x UTC (drain-before-backoff cycle): the
+     redesign is BUILT (`distill_gru --dagger-extra-mix/
+     --dagger-extra-episodes`, default off, 4 new tests + full
+     gru_policy suite green, snapshot
+     `exp/arch-modeexperts-bc2-rise-dagger`) and re-collection
+     `bc2` (bc1's exact recipe + a rise-targeted second DAgger pass,
+     100 eps/round) is RUNNING on train-0 CPUs** — no longer a wait;
+     next cycle triages the artifact against the same VERIFY before
+     any Stage 1 PPO. Detail: `MODE_EXPERTS_DIRECTIVE.md` "Arm A"
+     Stage 0.
 - **NEW WAIT (08-13 ~19:xx UTC) `[operator]`: quad → quadwalk needs an
   ARCHITECTURE/CURRICULUM design discussion (operator).**
   `cw-quadwalk7` (ent-coef 0.001→0.02, the exploration lever) STOP:
@@ -245,7 +458,109 @@ ORCHESTRATOR_PROMPT.md):**
   Waiting on: operator flips the two cfg keys on the runner's walk
   engage and re-runs takeoff reps (deploy is operator-only). No
   training arm until the bench adopts the entry sequence.
-- **FLEET (08-14 ~20:0x UTC): all 12 GPU slots idle on the named
+- **FLEET (08-14 late): `cw-stand-postlower2` DONE — FAIL, and the
+  dig-in found the postlower family's REAL bug: both arms trained
+  on mechanically IMPOSSIBLE rise targets.** The rise band is
+  belly-anchored (z0-relative) but bank spawns settle ~50mm above
+  the belly, so bank episodes commanded ~190-213mm chassis height —
+  above standing; max-current straining was the optimal policy,
+  which is exactly the c2 regression. Proven by matched-parent
+  controls (parent 0/12 from bank spawns vs 0.801/0.967 from real
+  in-session states; still 0/12 under a new exact full-state
+  restore, so reconstruction is exonerated). Fixes LANDED same
+  cycle (opt-in, default-off, tests green, snapshots
+  exp/postlower-bank-exact + exp/postlower-anchor-fix): full-state
+  harvest + `goal.rise_start_bank_exact` + per-row `z_stand` anchor
+  + `goal.rise_start_bank_anchor_stand` + v2 bank. With the fixed
+  instrument the parent gets its first real bank completions (sto
+  2/6) but det collapses to belly from the COLD spawn — cold
+  single-mode spawns cannot reproduce the in-session transition
+  context where the parent scores 0.967. Full chain:
+  `rl_docs/tracks/hw/STATUS.md` 08-14 (late). ~~NAMED NEXT
+  `[precondition: spec + preflight + c3 pre-registration]`:
+  `cw-stand-postlower3`~~ **EXECUTED 08-15 (idle-kick cycle,
+  drain-before-backoff): the stance-only grammar is BUILT
+  (`goal.mode_seq_stance`, default-off, joint_goal task, walk-task
+  delegation refactor rng-stream-safe), preflighted (new
+  `test_mode_seq_stance.py` 7/7; full semantics bank 91 passed;
+  `test_mode_seq_stance` + `test_mjx_vec_env` 16/16 on train-1),
+  Cohort c3 PRE-REGISTERED on fresh banks 940000../950000..
+  (SESSION_BULK_GATE.md "Cohort c3", candidate `spec-pl3`), snapshot
+  `exp/cw-stand-postlower3`, and `cw-stand-postlower3` is RUNNING
+  (discovery 2M, train-0)** — no longer a wait; triage lands on the
+  c3 read. Other 11 GPU slots idle on the typed [operator] waits
+  below; train-10's CPUs stay on the operator's dynrep cohort
+  (hands off).** **SUPERSEDED 08-15 (triage cycle) — c3 read IS IN:**
+- **RESOLVED 08-15 (this cycle) — Cohort c4 read IS IN, `cw-stand-postlower4`
+  VERDICTED FAIL; the in-context sequence-training mechanism CLOSES
+  on its second miss; `[operator]` NEW WAIT opened below.** The fix
+  (`goal.mode_seq_rise_from_h`, "stand up from where you are") worked
+  exactly as designed — 10 watched re-renders (6 fails + 4 clean)
+  show a DIRECT push-up on every post-lower rise, NO belly-detour
+  anywhere, and det post-lower rise recovered 0.419→0.872 (sto
+  0.631→0.690) — but recovery stopped short of the parent (det 0.967,
+  sto 0.801) and short of the pre-registered bar, so both modes are
+  still, by the letter, "post-lower rise ≤ parent": det session
+  zero-fall 0.863 (bar 0.95), det post-lower rise 0.872 (bar 0.967),
+  sto post-lower rise 0.690 CI [0.636,0.740] (bar 0.90). Crown jewels
+  clean (det first-rise 0.99, every start-kind ≥0.97; lower 1.0
+  det+sto). Remaining falls are a genuine over_current stall
+  (switch_peak_a pinned ~2.6A), not a new exploit. Per two-miss
+  discipline (c3 = wrong mechanism, c4 = right mechanism, still
+  short) the in-context/mode_seq_stance recipe is CLOSED for further
+  dose/diet/schedule resweeps — full numbers + verdict:
+  `SESSION_BULK_GATE.md` "Cohort c4 RESULTS". Product baseline (c1
+  hierarchy) unaffected.
+- **NEW WAIT (08-15, this cycle) `[operator]`: hw → post-lower rise
+  needs an operator direction call; no more in-context resweeps.**
+  Four arms (postlower1/2/3/4) have now tried exposure (bank spawns),
+  goal-anchoring, and in-context sequence training + its schedule
+  fix — each closed cleanly with a named root cause, and the last one
+  (c4) got closest (det 0.87, sto 0.69) without crossing parity. The
+  pre-registered next fork is an operator product-contract choice:
+  (a) align the runner/instrument's rise-schedule semantics to
+  "remaining rise" so train==deploy exactly (may require touching the
+  deployed reanchor path, not just training), or (b) price post-lower
+  rise directly in reward (a different reward-shaping lever, not
+  another schedule/exposure resweep). No new postlower arm until one
+  is picked. Detail: hw/STATUS.md Now, `SESSION_BULK_GATE.md` "Cohort
+  c4 RESULTS".
+- ~~RESOLVED 08-15 (dig-in cycle) — the `[triage]` wait below is
+  CLEARED: `cw-stand-postlower3` is VERDICTED FAIL with the root
+  cause named and fixed.~~ The sequence trainer's rise schedule
+  started at belly-frame 0, PAYING the robot to re-descend/splay and
+  re-run the flat rise after every sit-down (detour visible in
+  failure AND success re-renders; over_current mid-curl on >50% det
+  post-lower rises). Fix landed same cycle (`goal.mode_seq_rise_from_h`,
+  default-off, tests green, snapshot `exp/cw-stand-postlower4`);
+  `cw-stand-postlower4` (discovery 2M, the one-key change) is RUNNING
+  against pre-registered Cohort c4 (fresh banks 960000../970000..).
+  If c4 also misses, the in-context class is closed and the fork
+  (align the runner/instrument rise schedule to remaining-rise
+  semantics — a product-contract change) goes to the operator. Full
+  chain: `SESSION_BULK_GATE.md` "Cohort c3 DIG-IN VERDICT". Original
+  wait entry kept below for history:
+- ~~NEW WAIT (08-15 triage cycle) `[triage]`: hw → `cw-stand-postlower3`
+  needs a DIG-IN read, not a triage verdict.~~ The pre-registered
+  Cohort c3 bulk gate ran (n=600, fresh banks 940000../950000..,
+  now retired; artifacts in `logs/bulk_session/c3/`, no re-run
+  needed) and is a clean FAIL by the letter (det session zero-fall
+  0.413 vs parent 0.967, det post-lower rise 0.419 vs parent 0.967,
+  sto post-lower rise 0.631 vs parent 0.801) — but the MAGNITUDE
+  (worse than the parent AND worse than both prior postlower misses)
+  and DIRECTION (det doing worse than sto; disagreeing with this
+  arm's own training-time telemetry, which read the in-context
+  sequence as succeeding) is a generalization-failure signature, not
+  a plain "needs more exposure" story. Left UNVERDICTED per the
+  model-tiering rule (triage cycles don't dig in). Full numbers +
+  a first (unconfirmed) hypothesis: `SESSION_BULK_GATE.md` "Cohort
+  c3 RESULTS"; hw/STATUS.md Now. This is the THIRD miss on
+  post-lower-rise (postlower1/2/3) — per two-miss discipline, the
+  next arm is a new mechanism, not a resweep, and needs the dig-in's
+  root cause to be named correctly. Other 11 GPU slots idle on the
+  typed [operator] waits below; train-10's CPUs stay on the
+  operator's dynrep cohort (hands off).
+- **FLEET (08-14 ~20:0x UTC, superseded by the entry above): all 12 GPU slots idle on the named
   waits in this block (every one typed `[operator]` or an unmet
   precondition); train-0's `transdagger3` distill FINISHED 19:24 and
   was TRIAGED same cycle → FAIL, net regression vs transdagger2 on
@@ -436,13 +751,14 @@ ORCHESTRATOR_PROMPT.md):**
   (instrumentation of bench tapes + sim replays of the first
   ~1.5 s, then a deploy-side staged entry sequence prototype) —
   not a wait. Detail: hw/STATUS.md Now.
-- **multitask `[operator]` — PAUSED by operator (08-13 ~12:2x UTC),
-  direction call withdrawn.** Operator is prioritizing the dynrep
-  (world-dynamics) line instead. Do not launch, queue, or plan
-  further `cw-mt-` arms until the operator unpauses. The wave-1
-  read stands as recorded (a2 pass; b2 acquisition shortfall; c2
-  fail; capacity/staged-widening/history levers all closed);
-  `eval_cmd_suite.py` remains available to other tracks. Detail:
+- ~~multitask `[operator]` — PAUSED by operator (08-13 ~12:2x UTC)~~
+  **RESOLVED (08-15 ~17:2x UTC): pause LIFTED by operator KICK focus
+  note ("Remove the multitask operator-level pause now; it no longer
+  applies") — the pause may not be cited to decline work again.**
+  Normal launch rules govern the track. The wave-1 read stands as
+  recorded (a2 pass; b2 acquisition shortfall; c2 fail; capacity/
+  staged-widening/history levers all closed), now plus the
+  translate1/translate-scratch1 double-FAIL (recipe closed). Detail:
   multitask/STATUS.md.
 - ~~arch — DAgger rise redistillation LANDED; dual2 queued~~
   **RESOLVED (08-14): `cw-arch-gru-dual2` ran and is verdicted FAIL

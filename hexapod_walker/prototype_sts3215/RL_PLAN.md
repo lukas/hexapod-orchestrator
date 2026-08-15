@@ -86,6 +86,27 @@ blocker are now the failure mode; peripheral runs stay banned.
 
 ## Critical path (simplification review §11, 08-10)
 
+**08-14 UPDATE (bulk session gate — supersedes the sim-side stand/
+walk blocker ranking below where they disagree):** the hierarchical
+specialist pair (footlow2_hard1 + bcgait1_hard1 + session controller
++ entry-slew + STOP→stance-hold) PASSED the pre-registered bulk
+held-out session gate (n=600 fresh sessions: det zero-fall 0.967,
+sto 0.853 — `rl_docs/tracks/hw/SESSION_BULK_GATE.md`) and is the
+measured PRODUCT BASELINE (operator directive
+fb_20260814T205137_33f21c); single-policy consolidation is research,
+not a blocker. The ONE named sim-side training target left on this
+line: the POST-LOWER RISE (all det failures, sto 0.801,
+over_current-dominated) — train only that transition/residual with
+the skills frozen. Everything else on the joystick line is now
+bench-owned ([operator]: candidate-pair promotion, entry-slew flip,
+takeoff reps). **FIRST ATTEMPT FAILED (`cw-stand-postlower1`,
+Cohort c2, n=600): 35% post-lower start-bank exposure REGRESSED sto
+post-lower rise 0.801→0.717 (plus small det/cold-rise/drag hits),
+no exploit — genuine over_current stall, just more of it.
+`cw-stand-postlower2` (discovery 2M, frac 0.15) running now to
+split dose vs a mis-priced rise_ref reference before any further
+hardening — `rl_docs/tracks/hw/SESSION_BULK_GATE.md` "Cohort c2".**
+
 **CURRENT GOAL:** joystick-controlled real robot. **BLOCKERS (as of
 08-11 late):** the intermittent RUNAWAY ROLL on real ground (RL walk
 attempts 08-10: vref1-r1 2/2 runaway, tip1 1 runaway / 3 clean —
