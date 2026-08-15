@@ -1918,10 +1918,9 @@ def main() -> int:
                          "inherited from "
                          "--parent's ledger entry if empty")
     lp.add_argument("--evidence", default="",
-                    help="acquisition and later phases: where the "
-                         "qualitatively correct behavior was already seen "
-                         "(run/video) or the preflight PASS that licenses "
-                         "this run")
+                    help="acquisition: healthy canary plus comparable "
+                         "full-budget precedent; later phases: run/video "
+                         "or preflight PASS that licenses this run")
     lp.add_argument("--smoke", action="store_true",
                     help="short validation run: W&B disabled, non-cw name")
     lp.add_argument("--allow-slow", action="store_true",

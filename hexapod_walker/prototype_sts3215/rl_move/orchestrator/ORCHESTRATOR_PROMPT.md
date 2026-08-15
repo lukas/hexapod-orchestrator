@@ -41,10 +41,10 @@ current robot and reliable joystick control; that count is the KPI.
 Idle pods are acceptable; peripheral experiments are not. Before
 training, prove the reward and evaluator prefer the intended behavior
 over all known cheats (MDP_PREFLIGHT: `rl_move/tests/
-test_task_semantics.py`). Short runs discover mechanisms
-(--phase discovery, ≤2M steps); long runs only harden behavior
-already seen (--phase hardening + --evidence — the launcher enforces
-both). Prefer hardware-derived questions over generic sim
+test_task_semantics.py`). **The single authoritative phase contract is
+`RESEARCH_RULES.md` "Phases and budgets"; checkpoint verdict scope is
+`RUN_INTERPRETATION_RULES.md` question 0. Apply both before launch or
+triage.** Prefer hardware-derived questions over generic sim
 robustness. Kill obviously bad runs early. Every analysis must end
 in a decision that can change the next experiment.
 
@@ -191,16 +191,19 @@ prime directive and RL_PLAN "CLOSED moves".)
      rise/raise/lower success, top of the W&B page; definitions in
      rl_docs/EVALS.md) + gate scalars vs the parent's,
    - terminations/canary flags.
-   Then call it, honestly — would a skeptical roboticist agree from the
-   same three artifacts? Classify with `RUN_INTERPRETATION_RULES.md`
+   **FIRST read the ledger `phase` + `assessment_scope` and apply the
+   authoritative phase contract above; it overrides generic behavioral
+   STOP rules.** Then call it, honestly — would a skeptical roboticist
+   agree from the same three artifacts? Classify with
+   `RUN_INTERPRETATION_RULES.md`
    (8 ordered checks + verdict table; stop at the first failing
    check — it names the verdict without forensics, and reward alone
    is never evidence). Name pathologies bluntly (flag legs, dragging,
    skating, jitter, lurching); a walk without all six feet cycling
    ground-contact/swing is NOT WALKING and not hardware-ready,
    whatever the velocity error says. Unwatched success = unverified.
-   **A KNOWN exploit in the video (flag-leg, tripod, stilt, freeze,
-   park) is already a complete verdict: "STOP — reward/eval
+   **In behavioral phases, a KNOWN exploit in the video (flag-leg,
+   tripod, stilt, freeze, park) is already a complete verdict: "STOP — reward/eval
    specification bug." Record it in one line and move on — no
    forensic investigation, no continuation, no re-run with more
    steps.** For any run whose eval injected a physics/sensor axis:
@@ -254,8 +257,9 @@ prime directive and RL_PLAN "CLOSED moves".)
    anomalous vs parent beyond eval noise; a protected skill (rise/
    lower >= 5/6) eroded; canary auto-stop fired; the result decides a
    fork in the plan; or you're about to change reward/env code.
-   A KNOWN exploit is NOT a trigger (see step 1 — it is a one-line
-   STOP verdict); dig-ins are for genuinely discriminative cases:
+   In a behavioral phase, a KNOWN exploit is NOT a trigger (see step 1
+   — it is a one-line STOP verdict); dig-ins are for genuinely
+   discriminative cases:
    sim/real disagreement, unexpected regression on a correctly
    specified task, or two causal hypotheses implying different next
    actions.
@@ -283,10 +287,9 @@ prime directive and RL_PLAN "CLOSED moves".)
    so is a refill in someone else's track. hw keeps pod priority: if
    hw's backlog is non-empty and slots are scarce, non-hw refills
    wait.
-   **Every spec declares `--phase`** (launcher-enforced): discovery
-   ≤2M steps for new mechanisms — binary question, early video;
-   hardening/composition/transfer need `--evidence` naming where the
-   correct behavior was already seen. **Reward/task-mechanism specs
+   **Every spec declares `--phase` according to the authoritative
+   phase contract above** (launcher-enforced), including its required
+   budget and evidence. **Reward/task-mechanism specs
    additionally require the mode's `test_task_semantics.py` bank to
    PASS first** (a skipped bank = build the bank first — that is
    SPECIFICATION work and it never trains). **For any follow-up that
