@@ -74,6 +74,14 @@ kick_orchestrator bypasses the flood guards and files the TRUSTED
 operator kick (a deep-model session that does what the focus note
 asks, not advisory triage), and submit_feedback entries are stamped
 "operator": true. Without the token everything stays advisory.
+
+Obey-then-ask (operator 08-15): cycles EXECUTE operator orders even
+when they conflict with written rules (only typos, safety, or
+mechanical impossibility block), then file the conflict as a question
+in OPERATOR_QUESTIONS.md. Read open questions with
+list_operator_questions; the operator answers via submit_feedback
+(with the token, so the answer is operator-stamped) and the next
+cycle updates the rulebook to match and closes the question.
 """
 
 # Ledger fields that are infra detail (pod names / pod-local paths) —
@@ -539,6 +547,15 @@ def _file_operator_kick(focus: str, author: str) -> str:
             else "trusted operator KICK file written")
 
 
+def t_list_operator_questions() -> str:
+    p = HERE / "OPERATOR_QUESTIONS.md"
+    try:
+        return _clip(p.read_text(errors="replace"))
+    except OSError:
+        return ("no OPERATOR_QUESTIONS.md yet — no cycle has hit a "
+                "rule conflict while executing an operator order.")
+
+
 def t_kick_orchestrator(focus: str = "", author: str = "",
                         _client_ip: str = "", _operator: bool = False) -> str:
     focus = (focus or "").strip()
@@ -709,6 +726,15 @@ TOOLS = [
      "fn": t_list_feedback,
      "args": {"limit": {"type": "integer",
                         "description": "entries to show (default 20)"}}},
+    {"name": "list_operator_questions",
+     "description": "The obey-then-ask log (OPERATOR_QUESTIONS.md): "
+                    "rule conflicts that cycles hit while executing "
+                    "operator orders — each executed anyway and filed "
+                    "here as a question. The operator answers via "
+                    "submit_feedback WITH the dashboard token; the "
+                    "next cycle updates the rulebook to match and "
+                    "closes the question.",
+     "fn": t_list_operator_questions, "args": {}},
     {"name": "kick_orchestrator",
      "description": "Request an on-demand orchestrator decision cycle "
                     "(the LLM that triages runs and refills the "

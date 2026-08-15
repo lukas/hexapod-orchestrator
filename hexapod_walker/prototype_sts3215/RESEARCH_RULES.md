@@ -8,6 +8,21 @@ queue, architecture, closed moves, Gate 0). Startup reading order:
 `rl_docs/SIM.md`; `rl_docs/SKILLS.md` and `rl_docs/runs/<run>.md`
 only for a concrete decision; archive/ only for historical questions.
 
+## Operator orders: obey first, ask after (operator, 08-15 — binding)
+
+An operator-AUTHENTICATED order (operator KICK session, MCP request
+carrying the dashboard token, or a repo ruling) outranks every rule in
+this file. If it conflicts with a rule, a prior verdict, or the
+cycle's judgment, the cycle EXECUTES IT ANYWAY — only typo-level
+mistakes, genuine safety violations, unrepairable failing
+tests/preflight, or mechanical impossibility block execution, and the
+block must name the exact mechanical blocker. The conflict is then
+filed as a question in `rl_move/orchestrator/OPERATOR_QUESTIONS.md`;
+when the operator answers (operator-stamped feedback or a repo edit),
+the next cycle updates this file / CURRENT_TRUTHS.md to encode the
+operator's reasoning and closes the question. Full procedure:
+ORCHESTRATOR_PROMPT.md "Operator orders: obey first, ask after".
+
 ## Prime directive
 
 Your job is to minimize the number of unresolved blockers between
@@ -61,20 +76,10 @@ inferable run-name prefix); the launcher tags the W&B run
 - **SPECIFICATION** — no PPO. Validate reward ordering, evaluator
   correctness, command semantics, state/action maps, known cheats
   (trajectory banks, preflights, smokes). Never trains.
-- **CANARY** — 0.5–2M steps (cap: guardrails
-  `phases.discovery_max_steps`), **mechanism health only**: boot, finite
-  optimization, routing/exposure, telemetry, and an improving learnable
-  signal. Mature behavior is explicitly not judged. A visible immature
-  exploit is an observation, not a behavioral/reward closure.
 - **DISCOVERY** — 0.5–2M steps (cap: guardrails
   `phases.discovery_max_steps`), aggressive early video/eval. The
   question is binary: did qualitatively correct behavior emerge?
   Stop quickly on a known exploit.
-- **ACQUISITION** — 10–40M from-scratch learning after a healthy canary,
-  with evidence naming the canary and a comparable full-budget precedent.
-  Judge skill at the pre-registered full-budget checkpoints, not at the
-  canary. This phase exists because canary and behavioral discovery are
-  different questions.
 - **HARDENING** — 10–40M + seeds/DR/endurance/promotion panels, only
   after the mechanism works visibly; requires `--evidence` naming
   where (run/video/preflight PASS).
@@ -158,13 +163,7 @@ caveats.
   leg, dragging, skating, jitter, march-in-place). A checkpoint that
   scores well but looks wrong means the METRIC is the bug. ≥12
   episodes (det+sto), at DR 0 AND the run's own DR, 15 s horizon.
-- **Phase scope wins before this checklist.** A CANARY can only receive
-  `CANARY PASS`, `CANARY FAIL - INFRASTRUCTURE`, or `CANARY FAIL -
-  MECHANISM`; it cannot close a skill, behavior, architecture, or reward
-  recipe. ACQUISITION is judged at its registered budget unless a separate
-  early-kill condition was pre-registered.
-- **For DISCOVERY and later behavioral verdicts, a KNOWN exploit in video
-  is a complete verdict**: "STOP —
+- **A KNOWN exploit in video is a complete verdict**: "STOP —
   reward/eval specification bug", one line, no forensic essay, no
   continuation, no re-run with more steps.
 - **Matched-parent control**: any eval with an injected physics/

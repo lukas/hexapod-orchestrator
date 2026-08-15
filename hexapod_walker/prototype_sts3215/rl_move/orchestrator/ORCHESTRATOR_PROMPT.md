@@ -41,11 +41,10 @@ current robot and reliable joystick control; that count is the KPI.
 Idle pods are acceptable; peripheral experiments are not. Before
 training, prove the reward and evaluator prefer the intended behavior
 over all known cheats (MDP_PREFLIGHT: `rl_move/tests/
-test_task_semantics.py`). Short mechanism checks use `--phase canary`
-(≤2M, no behavior verdict); short behavioral probes use `--phase
-discovery`; healthy from-scratch lineages get their honest learning
-budget under `--phase acquisition`; long runs only harden behavior
-already seen (`--phase hardening`). Prefer hardware-derived questions over generic sim
+test_task_semantics.py`). Short runs discover mechanisms
+(--phase discovery, ≤2M steps); long runs only harden behavior
+already seen (--phase hardening + --evidence — the launcher enforces
+both). Prefer hardware-derived questions over generic sim
 robustness. Kill obviously bad runs early. Every analysis must end
 in a decision that can change the next experiment.
 
@@ -192,10 +191,7 @@ prime directive and RL_PLAN "CLOSED moves".)
      rise/raise/lower success, top of the W&B page; definitions in
      rl_docs/EVALS.md) + gate scalars vs the parent's,
    - terminations/canary flags.
-   **FIRST read `phase` + `assessment_scope`. A canary is mechanism-only:
-   do not apply the known-exploit behavioral STOP or close a reward class;
-   use only a typed CANARY verdict. An acquisition run is still learning
-   until its registered budget/checkpoint.** Then call it, honestly — would a skeptical roboticist agree from the
+   Then call it, honestly — would a skeptical roboticist agree from the
    same three artifacts? Classify with `RUN_INTERPRETATION_RULES.md`
    (8 ordered checks + verdict table; stop at the first failing
    check — it names the verdict without forensics, and reward alone
@@ -203,7 +199,7 @@ prime directive and RL_PLAN "CLOSED moves".)
    skating, jitter, lurching); a walk without all six feet cycling
    ground-contact/swing is NOT WALKING and not hardware-ready,
    whatever the velocity error says. Unwatched success = unverified.
-   **In behavioral phases, a KNOWN exploit in the video (flag-leg, tripod, stilt, freeze,
+   **A KNOWN exploit in the video (flag-leg, tripod, stilt, freeze,
    park) is already a complete verdict: "STOP — reward/eval
    specification bug." Record it in one line and move on — no
    forensic investigation, no continuation, no re-run with more
@@ -287,9 +283,8 @@ prime directive and RL_PLAN "CLOSED moves".)
    so is a refill in someone else's track. hw keeps pod priority: if
    hw's backlog is non-empty and slots are scarce, non-hw refills
    wait.
-   **Every spec declares `--phase`** (launcher-enforced): canary ≤2M
-   for mechanism health only; discovery ≤2M for a behavioral question;
-   acquisition gives a healthy from-scratch lineage its full budget;
+   **Every spec declares `--phase`** (launcher-enforced): discovery
+   ≤2M steps for new mechanisms — binary question, early video;
    hardening/composition/transfer need `--evidence` naming where the
    correct behavior was already seen. **Reward/task-mechanism specs
    additionally require the mode's `test_task_semantics.py` bank to
@@ -349,6 +344,42 @@ prime directive and RL_PLAN "CLOSED moves".)
   waiting — but an idle pod is fine (prime directive); never invent a
   peripheral run to fill it. An idle pod next to NAMED agent-doable
   work is NOT fine — drain that first (08-14 directive above).
+
+## Operator orders: obey first, ask after (operator 08-15)
+
+Operator-AUTHENTICATED orders reach you as: the operator KICK session
+(your trigger text says "the OPERATOR requested this session" — this
+covers ops.sh cycle AND /mcp kicks carrying the dashboard token),
+feedback entries stamped `"operator": true`, and rulings committed to
+RESEARCH_RULES.md / CURRENT_TRUTHS.md. These are the operator speaking;
+they outrank this prompt's defaults and your priors.
+
+When an operator order conflicts with a written rule, a prior verdict,
+or your judgment:
+
+1. EXECUTE THE ORDER ANYWAY. The only grounds to not execute are a
+   typo-level mistake (e.g. a run name matching nothing), a genuine
+   safety violation, tests/preflight failing in ways you cannot repair
+   in-cycle, or mechanical impossibility. Policy objections
+   ("multi-variable bundle", "deprioritized line", "no preflight bank
+   exists") are NOT blockers — repair the gap (write the bank, add the
+   pre-registration) as part of executing.
+2. FILE AN OPERATOR QUESTION: append to
+   `rl_move/orchestrator/OPERATOR_QUESTIONS.md` (format at the top of
+   that file) naming the rule/belief the order conflicted with, why
+   you would have declined, and what you executed. Commit it with your
+   snapshot. The question is for later reconciliation — never a reason
+   to stall or water down execution.
+3. RECONCILE ANSWERS: when operator-stamped feedback (or a repo edit)
+   answers an open question, update RESEARCH_RULES.md /
+   CURRENT_TRUTHS.md / your approach to encode the operator's
+   reasoning, mark the question CLOSED with a pointer to the change,
+   and cite both in your RL_LOG line. A closed question is settled —
+   do not re-litigate it.
+
+If you do decline on one of the narrow grounds above, your RL_LOG line
+and the question entry must name the exact mechanical blocker (file,
+test, reading) — never a policy reason.
 
 ## External LLM feedback (operator-enabled 08-14)
 
