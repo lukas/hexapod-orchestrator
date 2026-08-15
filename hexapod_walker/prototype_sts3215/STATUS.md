@@ -21,7 +21,17 @@ anyone catching up. Facts here must agree with `CURRENT_TRUTHS.md`
 (which wins on conflict); the full checkpoint inventory with gate
 numbers lives in `rl_docs/SKILLS.md`.
 
-**Last updated: 2026-08-15 (arch: operator directive
+**Last updated: 2026-08-15 (hw: the post-lower stand-up mystery is
+SOLVED — the c3 collapse was a taught behavior, not a learning
+failure. The in-context sequence trainer's rise reference starts at
+belly height, so it paid the robot to flop back onto its belly and
+redo the flat stand-up after every sit; held-out sessions then stall
+over-current on more than half of deterministic post-lower rises.
+The one-line schedule fix ("stand up from where you are") is coded,
+tested and snapshotted, and `cw-stand-postlower4` is training on it
+against a fresh pre-registered 600-session cohort (c4). Product
+baseline unchanged. Details: hw/STATUS.md + SESSION_BULK_GATE.md.)
+Earlier (arch: operator directive
 fb_20260815T013349_488ffd executed — the four-expert fully isolated
 one-checkpoint architecture (per-expert actor/critic GRUs, heads,
 log_std; zero-init transition adapter) is built, tested and
@@ -363,8 +373,23 @@ ORCHESTRATOR_PROMPT.md):**
   c3 read. Other 11 GPU slots idle on the typed [operator] waits
   below; train-10's CPUs stay on the operator's dynrep cohort
   (hands off).** **SUPERSEDED 08-15 (triage cycle) — c3 read IS IN:**
-- **NEW WAIT (08-15 triage cycle) `[triage]`: hw → `cw-stand-postlower3`
-  needs a DIG-IN read, not a triage verdict.** The pre-registered
+- **RESOLVED 08-15 (dig-in cycle) — the `[triage]` wait below is
+  CLEARED: `cw-stand-postlower3` is VERDICTED FAIL with the root
+  cause named and fixed.** The sequence trainer's rise schedule
+  started at belly-frame 0, PAYING the robot to re-descend/splay and
+  re-run the flat rise after every sit-down (detour visible in
+  failure AND success re-renders; over_current mid-curl on >50% det
+  post-lower rises). Fix landed same cycle (`goal.mode_seq_rise_from_h`,
+  default-off, tests green, snapshot `exp/cw-stand-postlower4`);
+  `cw-stand-postlower4` (discovery 2M, the one-key change) is RUNNING
+  against pre-registered Cohort c4 (fresh banks 960000../970000..).
+  If c4 also misses, the in-context class is closed and the fork
+  (align the runner/instrument rise schedule to remaining-rise
+  semantics — a product-contract change) goes to the operator. Full
+  chain: `SESSION_BULK_GATE.md` "Cohort c3 DIG-IN VERDICT". Original
+  wait entry kept below for history:
+- ~~NEW WAIT (08-15 triage cycle) `[triage]`: hw → `cw-stand-postlower3`
+  needs a DIG-IN read, not a triage verdict.~~ The pre-registered
   Cohort c3 bulk gate ran (n=600, fresh banks 940000../950000..,
   now retired; artifacts in `logs/bulk_session/c3/`, no re-run
   needed) and is a clean FAIL by the letter (det session zero-fall
