@@ -294,19 +294,20 @@ ORCHESTRATOR_PROMPT.md):**
      15 min. Full directive in ORCHESTRATOR_PROMPT.md; trigger: the
      08-14 overnight where two just-unblocked named steps waited ~2 h
      on backoff spacing while the fleet looked idle.
-- **WAIT (08-15 ~12:1x UTC) `[code]` (arch), UPDATED ~12:2x UTC: the
+- **WAIT (08-15 ~12:1x UTC) `[code]` (arch), UPDATED ~13:4x UTC: the
   DURABLE fix (launcher-level opt-in CUDA-torch path: recorded pod
   capability, parity/coexistence smoke vs warp, reproducible install)
-  is STILL OPEN, but the immediate discovery rung is no longer
-  stuck.** `cw-arch-tf-r1` (torch CPU-only build, ~260 fps, 40M twin
-  would be ~37h) was KILLED (no science read, env-only) and
-  relaunched as `cw-arch-tf-r1b` on train-1 with an AD HOC
-  (pip-installed, not code, not snapshot-tracked — ephemeral, lost on
-  pod restart) CUDA torch build + `--device cuda`: ~120x faster per
-  update, verified RUNNING, fps climbing 993→1457 and still rising.
-  Until the durable version lands, train-1's torch build is a manual
-  one-pod exception the launcher does not know about. Detail:
-  arch/STATUS.md Now + the run's ledger checkup_note/verdict.
+  is STILL OPEN** — the ad hoc CUDA-torch install on train-1
+  (pip-installed, not code, not snapshot-tracked, lost on pod
+  restart) has now carried TWO runs: `cw-arch-tf-r1b` (2M discovery,
+  TRIAGED PASS — clean boot/train, det gait_valid 6/6 no leg
+  sacrifice, falls only via the universal takeoff-roll transient,
+  not gated at 2M) and its pre-registered 40M hardening twin
+  `cw-arch-tf-r1-hard1`, launched + VERIFIED this cycle on train-1,
+  fps estimate 8192 at launch (vs the CPU build's ~260 fps / ~37h
+  projection). Until the durable version lands, train-1's torch
+  build stays a manual one-pod exception the launcher does not know
+  about. Detail: arch/STATUS.md Now + both runs' ledger entries.
 - Arm B 2M mechanism canary
   `cw-arch-modeexperts-scratch1-r1` TRIAGED PASS (finished 2.03M
   clean, no NaN/crash; all four experts active within 0.09 of the
