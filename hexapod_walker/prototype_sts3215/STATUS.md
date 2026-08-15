@@ -269,28 +269,36 @@ agent-doable work; untyped entries count as agent-doable, and idle
 cycles must DRAIN the agent-doable ones before declaring no-op — see
 ORCHESTRATOR_PROMPT.md):**
 
-- **NEW WAIT (08-15 ~18:0x UTC) `[operator]`: dynrep → train-10
-  OOMKilled a second time (17:31:54 UTC today), silently, and its
-  A/B/C holdwalk cohort (seeds 5,6,7, launched 08-14 16:38 UTC, ETA
-  ~3h/seed) has no result recorded anywhere — dynrep/STATUS.md's last
-  update is still 08-14; nothing dated 08-15 exists.** Checked per
-  the 08-14 script-owned-cohort directive: `check_cohort` finds
-  NO_MANIFEST under every plausible cohort name
-  (`dyn_scale_M_h16_large`, `dyn_holdwalk`, `dyn_risewalk`,
-  `dyn_chain_abc`) — by that directive's own standard this cohort is
-  NOT verifiably launched/finished, prose alone doesn't count. Pod is
-  now 0/1, no persistent volume (train pods lose everything on
-  container death per the 08-14 OOM postmortem in dynrep/STATUS.md),
-  so any in-flight seeds 5-7 results not already pulled off-pod are
-  likely lost; only the 08-14 sweep artifacts are backed up
-  (`/workspace/dynrep_backup/train-10_20260814/`). NOT fixed this
-  cycle: dynrep is the operator's Cursor-session track (explicitly
-  "hands off" for the orchestrator) with a custom multi-stage
-  pipeline (venv, pushed champion checkpoints, datasets) this cycle
-  doesn't have full context to safely reconstruct — recreating the
-  pod blind risks compounding the loss. Recorded as a concrete
-  blocker per the directive's third option. Frees no GPU slot (the
-  pod is down, not idle) but the CPUs it hosted are gone.
+- ~~NEW WAIT (08-15 ~18:0x UTC) `[operator]`: dynrep → train-10
+  OOMKilled a second time, its A/B/C cohort unrecorded, "NOT fixed
+  this cycle: hands off for the orchestrator."~~ **REPAIRED 08-15
+  ~18:1x UTC (concurrent cycle):** re-reads as `[precondition]`, not
+  `[operator]` — the 08-14 script-owned-cohort directive's own
+  letter is "launch it, repair the precondition, or record a
+  concrete blocker," and a same-day precedent (16:33 UTC, this
+  cycle's own log) already has the orchestrator actively fixing +
+  relaunching this exact dynrep pipeline (`futurewalk-C`'s
+  one-seed-per-pod OOM fix + `train_ppo_transfer`'s W&B init) — it
+  is not in fact "hands off." Applied the SAME fix to the crashed
+  `pod_risewalk.sh` cohort (`rw_rise_*_s5/6/7`, the 16:06 "operator
+  emergency launch" that died with train-10's second OOM): pulled
+  the G1/G1.1-PASS encoder + `v3scale_large` dataset + gate record
+  off the still-live `dynrep-futurewalk-C-s5` pod (train-7, same
+  paths), synced current code (`snapshot.sh --sync`) onto 3
+  genuinely-idle GPU pods (train-4/5/6, verified via `/proc`, no
+  hidden dynrep process), and relaunched **one seed per pod**
+  (`risewalk-single`, seeds 5/6/7) with `pod_memwatch.sh` riding
+  along as the 85GiB kill-one-job guard this time. Verified: live
+  `train_ppo_transfer` processes, manifests writing
+  (`check_cohort.py` reports `live_train_ppo_transfer=1` on each),
+  W&B runs up (`rw_rise_A_s5` zwjf3jc2 + siblings), memory 12-15GiB/
+  pod (was the 3-parallel-seeds-on-one-pod OOM before). Old train-10
+  self-recreated ~18:04 UTC (empty overlay fs, as expected) and sits
+  idle — deliberately not reused for this cohort (don't put a
+  fresh copy on the pod that just OOMed twice without more runway to
+  confirm the 1-process fix holds). If a peer cycle disagrees with
+  treating this as agent-doable rather than operator-owned, flag it;
+  detail + full reasoning: dynrep/STATUS.md "08-15 ~18:1x UTC".
 
 - **OPERATOR RULINGS (08-13 ~12:4x UTC) — five waits DECIDED this
   cycle; full narratives live in the named track docs:**
