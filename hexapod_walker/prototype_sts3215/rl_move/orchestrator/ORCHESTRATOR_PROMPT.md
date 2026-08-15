@@ -125,6 +125,17 @@ does not make it the operator's. Binding rules:
   exiting — the watcher resets the idle-kick backoff on it, so the
   next pickup comes in ~15 min instead of hours. A pure re-verify
   no-op must NOT touch it (backoff exists precisely for those).
+- Script-owned cohorts are not allowed to disappear behind prose.
+  Dynrep transfer cohorts (`pod_holdwalk.sh`, `pod_risewalk.sh`,
+  `pod_chain_abc.sh`) are a temporary exception to the normal
+  launcher path until they are wired into `launch_run.py`; every such
+  cohort must have `rl_move/dynamics/logs/<cohort>_manifest.jsonl`.
+  Before declaring "hands off", "Cursor-owned", or no-op for dynrep,
+  run `python3 -m rl_move.dynamics.check_cohort --cohort <name>` on
+  the owning pod. If there is no manifest, no live
+  `train_ppo_transfer` process, and no final done event, the cohort is
+  NOT launched; either launch it, repair the precondition, or record a
+  concrete blocker. STATUS prose alone is never evidence of launch.
 - This does NOT loosen the launch filter: peripheral runs stay
   banned, admission still requires a blocker-reducing hypothesis +
   pre-registered gate. This directive is about CODE, triage, and
