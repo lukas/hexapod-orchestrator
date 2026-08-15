@@ -298,10 +298,20 @@ ORCHESTRATOR_PROMPT.md):**
      both teachers]` — launch Arm A stage 1 `cw-arch-modeexperts1`
      (2M discovery, frozen experts + transition adapter; spec in the
      directive doc). Verification recipe named there.
-  2. `[precondition: scratch1 canary PASS on mechanism health]` —
-     launch Arm B stage 2 `cw-arch-modeexperts-scratch2` (40M, warm
-     chain toward ~20M active ticks/skill; phase mechanics recorded
-     as an ASSUMPTION in the directive doc).
+  2. `[precondition: scratch1-r1 finishes 2M (ETA ~05:2x UTC 08-15) +
+     mechanism triage]` — the clearing cycle LAUNCHES Arm B stage 2
+     `cw-arch-modeexperts-scratch2` (40M, warm from the canary ckpt,
+     SAME cycle — overnight operator order fb_20260815T035147_dd2af0).
+     Everything is pre-staged (08-15 ~04:1x cycle): canary read
+     healthy at 1.05M but its realized skill diet is off (hold 25%
+     of ticks vs 10% ordered, walking 23% vs 35% — sequence grammar
+     + early falls, measured attribution) — pre-classified by the
+     operator as a curriculum spec defect, NOT an architecture
+     verdict; corrected mix is solved from measured tick fractions,
+     preflighted, and the exact launch command + gate + scratch3
+     continuation are pre-registered in
+     `rl_docs/tracks/arch/MODE_EXPERTS_DIRECTIVE.md` "SCRATCH2".
+     Wall clock ~2.3 days on train-2 (recurrent PPO, ~195 fps).
 - **NEW WAIT (08-13 ~19:xx UTC) `[operator]`: quad → quadwalk needs an
   ARCHITECTURE/CURRICULUM design discussion (operator).**
   `cw-quadwalk7` (ent-coef 0.001→0.02, the exploration lever) STOP:

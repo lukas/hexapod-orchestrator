@@ -340,6 +340,14 @@ prime directive and RL_PLAN "CLOSED moves".)
   waiting — but an idle pod is fine (prime directive); never invent a
   peripheral run to fill it. An idle pod next to NAMED agent-doable
   work is NOT fine — drain that first (08-14 directive above).
+- **Bulk cohorts are the verdict standard (operator standing rule,
+  08-15, fb_20260815T033634_7d750e):** any verdict-bearing candidate
+  gets a `bulk_session_eval` cohort (n≥300/pass det+sto, fresh
+  pre-registered seed banks, Wilson CIs, failure-only re-renders
+  WATCHED) before its ledger verdict; 12-ep harness/eval_modeseq
+  reads are cheap canaries, never verdict evidence. Mechanism-health
+  canaries and non-fork milestones are exempt. Full rules:
+  rl_docs/EVALS.md §4.
 
 ## External LLM feedback (operator-enabled 08-14)
 
