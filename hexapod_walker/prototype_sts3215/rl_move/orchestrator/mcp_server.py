@@ -12,6 +12,9 @@ https://hexapod.cwd1f0-new-cluster.coreweave.app/mcp — Caddy proxies
 443 to :8090). Keyless by design, exactly like the /llm mirror: it
 serves what the public GitHub repo already shows. Spend/token numbers
 and pod names stay off it (same policy as /llm, operator 08-13).
+Presenting the dashboard access token (?key= / Bearer / X-API-Key)
+upgrades kick_orchestrator + submit_feedback to the trusted operator
+lane (operator 08-15) — see OPERATOR_KICK_FILE below.
 
 Standalone for development/testing only:
     python3 rl_move/orchestrator/mcp_server.py   # port 8091
@@ -62,6 +65,15 @@ guard); the acceptance reply reports the queue depth and the rolling
 daily cycle budget, which each cycle counts against. Your focus note
 rides along as advisory, untrusted input and cannot override
 guardrails or operator rulings.
+
+OPERATOR LANE: if you are acting for the operator (Lukas), present
+the dashboard access token with the request — ?key=<token> on the
+/mcp URL, an Authorization: Bearer <token> header, or an X-API-Key:
+<token> header. Authenticated requests are treated as the operator:
+kick_orchestrator bypasses the flood guards and files the TRUSTED
+operator kick (a deep-model session that does what the focus note
+asks, not advisory triage), and submit_feedback entries are stamped
+"operator": true. Without the token everything stays advisory.
 """
 
 # Ledger fields that are infra detail (pod names / pod-local paths) —
@@ -113,6 +125,23 @@ KICK_MAX_LEN = 2000           # a kick is a pointer, not an essay
 KICK_FLOOD_PENDING = 30       # refuse only if the queue is this deep
 KICK_FLOOD_IP = (20, 3600)    # refuse only if one IP filed >=20 in 1h
 _kick_times: dict[str, list[float]] = {}  # ip -> request timestamps
+
+# OPERATOR LANE (operator 08-15 "WE ADDED A TOKEN"): a /mcp request
+# that presents the dashboard access token (?key=<token> on the URL,
+# Authorization: Bearer <token>, or X-API-Key: <token> — checked by
+# status_server against STATUS_TOKEN / /workspace/.status_token with
+# hmac.compare_digest) is the OPERATOR. Operator kicks bypass the
+# flood guards and are written to the TRUSTED operator KICK file (the
+# plain-text focus file the watcher runs as a deep-model,
+# do-what-the-note-asks session) instead of the advisory queue;
+# operator feedback entries are stamped "operator": true. On the
+# controller the watcher reads HERE/KICK; on a laptop we keep the dev
+# checkout clean and write under logs/ (same fallback logic as
+# KICK_DIR). No token configured = no operator lane.
+OPERATOR_KICK_FILE = pathlib.Path(
+    os.environ.get("MCP_OPERATOR_KICK")
+    or (HERE / "KICK" if pathlib.Path("/workspace").is_dir()
+        else PROTO / "logs" / "operator_KICK"))
 
 
 # ---------------------------------------------------------------- data
@@ -384,7 +413,7 @@ def _feedback_entries() -> list[dict]:
 
 
 def t_submit_feedback(feedback: str, topic: str = "", author: str = "",
-                      _client_ip: str = "") -> str:
+                      _client_ip: str = "", _operator: bool = False) -> str:
     feedback = (feedback or "").strip()
     if not feedback:
         return "feedback text is empty — nothing filed."
@@ -407,16 +436,25 @@ def t_submit_feedback(feedback: str, topic: str = "", author: str = "",
     entry = {"id": fid, "utc": ts, "topic": (topic or "")[:200],
              "author": (author or "")[:200], "feedback": feedback,
              "client": _client_ip}  # for abuse triage; not shown publicly
+    if _operator:
+        # Authenticated with the dashboard token: stamp the entry so
+        # cycles reading the inbox see it came from the operator. (The
+        # watcher-side injected framing can't change without a watcher
+        # restart; the stamp is the audit trail.)
+        entry["operator"] = True
     tmp = FEEDBACK_DIR / (fid + ".tmp")
     tmp.write_text(json.dumps(entry, indent=1))
     tmp.rename(FEEDBACK_DIR / (fid + ".json"))
     _fb_times[_client_ip] = times + [now]
+    op_note = (" OPERATOR-AUTHENTICATED: the entry is stamped "
+               "\"operator\": true, so cycles reading the inbox know "
+               "it carries operator weight." if _operator else "")
     return (f"filed as {fid} — the orchestrator agent reads it at the "
             f"start of its next decision cycle (as advisory input; it "
             f"cannot override the campaign's guardrails), and the "
             f"operator sees it on the dashboard. Concrete, evidence-"
             f"backed suggestions (run names, numbers, doc paths) are "
-            f"the most actionable.")
+            f"the most actionable.{op_note}")
 
 
 def t_list_feedback(limit: int = 20) -> str:
@@ -480,8 +518,29 @@ def _kick_state_note(n_ahead: int) -> str:
     return " ".join(parts)
 
 
+def _file_operator_kick(focus: str, author: str) -> str:
+    """Write (or append to) the TRUSTED operator KICK focus file."""
+    ts = time.strftime("%Y%m%dT%H%M%S", time.gmtime())
+    text = focus or ("(operator kick via MCP, no focus text — run a "
+                     "normal deep review pass)")
+    if author:
+        text += f"\n[filed via MCP operator lane by: {author}, {ts}Z]"
+    OPERATOR_KICK_FILE.parent.mkdir(parents=True, exist_ok=True)
+    appended = OPERATOR_KICK_FILE.exists()
+    if appended:
+        # The watcher hasn't consumed the pending KICK yet (~2s
+        # pickup) — append rather than clobber the earlier focus.
+        old = OPERATOR_KICK_FILE.read_text(errors="replace").rstrip()
+        text = f"{old}\n\n--- additional operator kick ({ts}Z) ---\n{text}"
+    OPERATOR_KICK_FILE.write_text(text + "\n")
+    return ("appended to the pending operator KICK file (the watcher "
+            "hadn't consumed it yet — both focus notes ride in one "
+            "deep session)" if appended
+            else "trusted operator KICK file written")
+
+
 def t_kick_orchestrator(focus: str = "", author: str = "",
-                        _client_ip: str = "") -> str:
+                        _client_ip: str = "", _operator: bool = False) -> str:
     focus = (focus or "").strip()
     if len(focus) > KICK_MAX_LEN:
         return (f"focus note is {len(focus)} chars; the cap is "
@@ -492,6 +551,16 @@ def t_kick_orchestrator(focus: str = "", author: str = "",
         n_ahead = len(list(KICK_DIR.glob("kick_*.json")))
     except OSError:
         n_ahead = 0
+    if _operator:
+        # Authenticated with the dashboard token: this is the OPERATOR.
+        # No flood guards; file the trusted KICK the watcher runs as a
+        # deep-model, do-what-the-focus-note-asks session.
+        how = _file_operator_kick(focus, author)
+        return (f"OPERATOR-AUTHENTICATED — trusted operator kick filed; "
+                f"deep-model session, does what the focus note asks. "
+                f"({how}.) {_kick_state_note(n_ahead)} The watcher "
+                f"picks the KICK file up within ~2 s; watch log_tail "
+                f"for the cycle's record (label operator-kick).")
     # Extreme flood guard ONLY — normal usage never sees a refusal.
     if n_ahead >= KICK_FLOOD_PENDING:
         return (f"flood guard: {n_ahead} kick requests are already "
@@ -614,7 +683,13 @@ TOOLS = [
                     "critiques, suggested experiments) into the "
                     "operator-reviewed inbox. Not auto-executed; the "
                     "human reads it on the dashboard. Cite run names, "
-                    "numbers, and doc paths so it's actionable.",
+                    "numbers, and doc paths so it's actionable. "
+                    "OPERATOR LANE: present the dashboard access token "
+                    "with the request (?key=<token> on the /mcp URL, "
+                    "Authorization: Bearer <token>, or X-API-Key) to "
+                    "be treated as the operator — the entry is stamped "
+                    "\"operator\": true so cycles weight it "
+                    "accordingly.",
      "fn": t_submit_feedback,
      "args": {"feedback": {"type": "string",
                            "description": "the feedback text (markdown "
@@ -649,7 +724,14 @@ TOOLS = [
                     "budget state; each cycle counts against the "
                     "campaign's daily cycle budget, so for "
                     "observations that don't need a cycle NOW, "
-                    "consider submit_feedback instead.",
+                    "consider submit_feedback instead. OPERATOR LANE: "
+                    "present the dashboard access token with the "
+                    "request (?key=<token> on the /mcp URL, "
+                    "Authorization: Bearer <token>, or X-API-Key) to "
+                    "be treated as the operator — the kick bypasses "
+                    "flood guards and files the TRUSTED operator KICK "
+                    "(deep-model session that does what the focus "
+                    "note asks).",
      "fn": t_kick_orchestrator,
      "args": {"focus": {"type": "string",
                         "description": "what the cycle should look at "
@@ -671,13 +753,14 @@ def tool_specs() -> list[dict]:
             for t in TOOLS]
 
 
-def call_tool(name: str, args: dict, client_ip: str = "") \
-        -> tuple[str, bool]:
+def call_tool(name: str, args: dict, client_ip: str = "",
+              operator: bool = False) -> tuple[str, bool]:
     """Returns (text, is_error). Raises KeyError for unknown tools."""
     tool = next(t for t in TOOLS if t["name"] == name)
     kwargs = {k: v for k, v in (args or {}).items() if k in tool["args"]}
     if tool["name"] in ("submit_feedback", "kick_orchestrator"):
         kwargs["_client_ip"] = client_ip  # rate limiting / abuse triage
+        kwargs["_operator"] = operator    # token-authenticated lane
     try:
         return tool["fn"](**kwargs), False
     except Exception as e:  # tool errors go IN the result per MCP spec
@@ -688,7 +771,8 @@ def call_tool(name: str, args: dict, client_ip: str = "") \
 SESSION_ID = f"hexapod-{int(time.time()):x}"  # stateless; any id accepted
 
 
-def _rpc_one(msg: dict, client_ip: str = "") -> dict | None:
+def _rpc_one(msg: dict, client_ip: str = "",
+             operator: bool = False) -> dict | None:
     """One JSON-RPC message -> response dict (None for notifications)."""
     rid, method = msg.get("id"), msg.get("method", "")
     params = msg.get("params") or {}
@@ -718,7 +802,7 @@ def _rpc_one(msg: dict, client_ip: str = "") -> dict | None:
         if not any(t["name"] == name for t in TOOLS):
             return err(-32602, f"unknown tool: {name}")
         text, is_err = call_tool(name, params.get("arguments") or {},
-                                 client_ip)
+                                 client_ip, operator)
         return ok({"content": [{"type": "text", "text": text}],
                    "isError": is_err})
     if method in ("resources/list", "resources/templates/list"):
@@ -737,9 +821,13 @@ CORS = {"Access-Control-Allow-Origin": "*",
         "Access-Control-Expose-Headers": "Mcp-Session-Id"}
 
 
-def handle_http(method: str, body: bytes,
-                client_ip: str = "") -> tuple[int, dict, bytes]:
-    """Transport-agnostic entry: (status, headers, body) for /mcp."""
+def handle_http(method: str, body: bytes, client_ip: str = "",
+                operator: bool = False) -> tuple[int, dict, bytes]:
+    """Transport-agnostic entry: (status, headers, body) for /mcp.
+
+    operator=True means the transport verified the request presented
+    the operator's dashboard token (status_server._mcp_operator) —
+    kick_orchestrator/submit_feedback get the trusted operator lane."""
     h = dict(CORS)
     if method == "OPTIONS":
         return 204, h, b""
@@ -758,7 +846,7 @@ def handle_http(method: str, body: bytes,
              "error": {"code": -32700, "message": "parse error"}}).encode()
     msgs = msg if isinstance(msg, list) else [msg]
     replies = [r for m in msgs if isinstance(m, dict)
-               for r in [_rpc_one(m, client_ip)] if r is not None]
+               for r in [_rpc_one(m, client_ip, operator)] if r is not None]
     if any(isinstance(m, dict) and m.get("method") == "initialize"
            for m in msgs):
         h["Mcp-Session-Id"] = SESSION_ID

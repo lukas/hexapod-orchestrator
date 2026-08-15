@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import datetime
 import glob
+import hmac
 import html
 import http.server
 import json
@@ -1311,8 +1312,26 @@ TOKEN = _load_token()
 class Handler(http.server.BaseHTTPRequestHandler):
     # MCP endpoint (mcp_server.py): keyless like the /llm mirror — it
     # serves the same public-repo results, as tools for MCP clients.
+    # OPERATOR LANE (operator 08-15): a request that presents the
+    # dashboard access token (?key=<token>, Authorization: Bearer, or
+    # X-API-Key) is treated as the operator — kick_orchestrator files
+    # a TRUSTED operator KICK (deep model) instead of the advisory
+    # queue, and submit_feedback stamps the entry operator:true.
+    # Wrong/absent credential = the keyless advisory path, unchanged.
     def _is_mcp(self) -> bool:
         return self.path.split("?")[0].rstrip("/") == "/mcp"
+
+    def _mcp_operator(self) -> bool:
+        """Does this /mcp request present the operator token?"""
+        if not TOKEN:
+            return False  # no token configured = no operator lane
+        from urllib.parse import parse_qs, urlparse
+        cands = [parse_qs(urlparse(self.path).query).get("key", [""])[0]]
+        auth = self.headers.get("Authorization", "")
+        if auth.lower().startswith("bearer "):
+            cands.append(auth[7:].strip())
+        cands.append(self.headers.get("X-API-Key", "") or "")
+        return any(c and hmac.compare_digest(c, TOKEN) for c in cands)
 
     def _serve_mcp(self):
         n = int(self.headers.get("Content-Length") or 0)
@@ -1321,7 +1340,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
         # X-Forwarded-For (first hop) — used only for rate limiting.
         ip = (self.headers.get("X-Forwarded-For", "").split(",")[0].strip()
               or self.client_address[0])
-        status, headers, out = _mcp.handle_http(self.command, body, ip)
+        status, headers, out = _mcp.handle_http(
+            self.command, body, ip, operator=self._mcp_operator())
         self.send_response(status)
         for k, v in headers.items():
             self.send_header(k, v)
