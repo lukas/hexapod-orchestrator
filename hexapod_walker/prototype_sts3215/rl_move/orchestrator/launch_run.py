@@ -287,6 +287,42 @@ BANNED_NAME_SUBSTRINGS = {
 }
 
 
+def _joystick_metric_block(run: str) -> str | None:
+    """Operator metric simplification (08-15, fb_20260815T115650_47010c):
+    the joystick-translation TRAINING contract is only raw signed
+    joystick/v_along_m_s (+ _cumulative + active_ticks; cross/wrong-way
+    may stay as secondary train/ diagnostics). Per-heading binned
+    training series are REMOVED — uniform [-pi,pi] heading sampling plus
+    the signed average already zeroes out command-ignorant motion, and
+    fixed 8/12-direction panels belong in held-out EVAL only. Enforced
+    at the launcher for the same reason as the naming table above: the
+    executing cycle's prompt was frozen before the simplification
+    landed. Self-clearing — refuses only while the sim tree still emits
+    the binned series."""
+    if "joystick" not in run:
+        return None
+    marker = "v_along_" + "hbin"   # split so this file never self-matches
+    sim = Path(__file__).resolve().parent.parent / "sim"
+    for fn in ("walk_task.py", "train_ppo_mjx.py"):
+        try:
+            src = (sim / fn).read_text(encoding="utf-8")
+        except OSError:
+            continue
+        if marker in src:
+            return (f"operator metric simplification "
+                    f"fb_20260815T115650_47010c not applied: sim/{fn} "
+                    f"still emits per-heading '{marker}*' training "
+                    "series. Training headline is ONLY "
+                    "joystick/v_along_m_s + joystick/v_along_m_s_"
+                    "cumulative + joystick/active_ticks (raw signed m/s "
+                    "along the requested direction, active ticks only); "
+                    "remove the bins — fixed-direction panels are "
+                    "held-out EVAL tools — then relaunch. See "
+                    "/workspace/llm_feedback/"
+                    "fb_20260815T115650_47010c.json")
+    return None
+
+
 def naming_correction(run: str) -> str | None:
     """Refusal message if this run name was renamed by the operator."""
     hit = RENAMED_RUNS.get(run)
@@ -296,7 +332,7 @@ def naming_correction(run: str) -> str | None:
                 hit = h
                 break
     if not hit:
-        return None
+        return _joystick_metric_block(run)
     new, ref = hit
     return (f"run name '{run}' superseded by operator naming correction "
             f"{ref} — use --run {new} (same spec otherwise; name the "

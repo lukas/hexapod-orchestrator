@@ -389,9 +389,43 @@ ORCHESTRATOR_PROMPT.md):**
   c3 read. Other 11 GPU slots idle on the typed [operator] waits
   below; train-10's CPUs stay on the operator's dynrep cohort
   (hands off).** **SUPERSEDED 08-15 (triage cycle) — c3 read IS IN:**
-- **RESOLVED 08-15 (dig-in cycle) — the `[triage]` wait below is
+- **RESOLVED 08-15 (this cycle) — Cohort c4 read IS IN, `cw-stand-postlower4`
+  VERDICTED FAIL; the in-context sequence-training mechanism CLOSES
+  on its second miss; `[operator]` NEW WAIT opened below.** The fix
+  (`goal.mode_seq_rise_from_h`, "stand up from where you are") worked
+  exactly as designed — 10 watched re-renders (6 fails + 4 clean)
+  show a DIRECT push-up on every post-lower rise, NO belly-detour
+  anywhere, and det post-lower rise recovered 0.419→0.872 (sto
+  0.631→0.690) — but recovery stopped short of the parent (det 0.967,
+  sto 0.801) and short of the pre-registered bar, so both modes are
+  still, by the letter, "post-lower rise ≤ parent": det session
+  zero-fall 0.863 (bar 0.95), det post-lower rise 0.872 (bar 0.967),
+  sto post-lower rise 0.690 CI [0.636,0.740] (bar 0.90). Crown jewels
+  clean (det first-rise 0.99, every start-kind ≥0.97; lower 1.0
+  det+sto). Remaining falls are a genuine over_current stall
+  (switch_peak_a pinned ~2.6A), not a new exploit. Per two-miss
+  discipline (c3 = wrong mechanism, c4 = right mechanism, still
+  short) the in-context/mode_seq_stance recipe is CLOSED for further
+  dose/diet/schedule resweeps — full numbers + verdict:
+  `SESSION_BULK_GATE.md` "Cohort c4 RESULTS". Product baseline (c1
+  hierarchy) unaffected.
+- **NEW WAIT (08-15, this cycle) `[operator]`: hw → post-lower rise
+  needs an operator direction call; no more in-context resweeps.**
+  Four arms (postlower1/2/3/4) have now tried exposure (bank spawns),
+  goal-anchoring, and in-context sequence training + its schedule
+  fix — each closed cleanly with a named root cause, and the last one
+  (c4) got closest (det 0.87, sto 0.69) without crossing parity. The
+  pre-registered next fork is an operator product-contract choice:
+  (a) align the runner/instrument's rise-schedule semantics to
+  "remaining rise" so train==deploy exactly (may require touching the
+  deployed reanchor path, not just training), or (b) price post-lower
+  rise directly in reward (a different reward-shaping lever, not
+  another schedule/exposure resweep). No new postlower arm until one
+  is picked. Detail: hw/STATUS.md Now, `SESSION_BULK_GATE.md` "Cohort
+  c4 RESULTS".
+- ~~RESOLVED 08-15 (dig-in cycle) — the `[triage]` wait below is
   CLEARED: `cw-stand-postlower3` is VERDICTED FAIL with the root
-  cause named and fixed.** The sequence trainer's rise schedule
+  cause named and fixed.~~ The sequence trainer's rise schedule
   started at belly-frame 0, PAYING the robot to re-descend/splay and
   re-run the flat rise after every sit-down (detour visible in
   failure AND success re-renders; over_current mid-curl on >50% det
