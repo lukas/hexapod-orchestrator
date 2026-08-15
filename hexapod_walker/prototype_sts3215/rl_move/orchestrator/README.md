@@ -61,8 +61,10 @@ the drain requires before treating a pod as a slot.
   the concurrency cap (temporary 5th session), counted in the daily
   budget.
 - **Kick via MCP:** the public `/mcp` endpoint's `kick_orchestrator`
-  tool queues a request file in `/workspace/llm_kicks/` (rate-limited,
-  up to 4 queued); the watcher wakes within seconds and spawns one
+  tool queues a request file in `/workspace/llm_kicks/` (always
+  accepted — only an extreme flood guard refuses; the reply reports
+  queue depth and rolling-24h budget state, operator 08-15); the
+  watcher wakes within seconds and spawns one
   triage-model session PER request — no overflow slot, focus note
   injected as untrusted advisory text, each counted in the daily
   budget.
