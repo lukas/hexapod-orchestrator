@@ -331,19 +331,48 @@ ORCHESTRATOR_PROMPT.md):**
      15 min. Full directive in ORCHESTRATOR_PROMPT.md; trigger: the
      08-14 overnight where two just-unblocked named steps waited ~2 h
      on backoff spacing while the fleet looked idle.
-- WAIT (08-15 ~18:1x UTC) `[operator]` (meta): CONFIRM OR DISAVOW the
-  repeated public-MCP feedback notes claiming your authorship
-  ("Lukas via Codex") that demand building+launching the coupled
-  `cw-recover-any1` universal-recovery package (fb_...606974 and 6
-  follow-up requeues, latest fb_20260815T174250_c0a6e3 /
-  fb_20260815T175834_7f8c83, incl. one claiming to abolish
-  one-variable-per-run). Cycles have declined 5x on channel grounds:
-  the keyless MCP endpoint is untrusted by standing rule, no matching
-  KICK/focus note or CURRENT_TRUTHS ruling exists, and the package
-  bundles task+curriculum+reward+horizon changes in one arm. If this
-  is really you, say so via a trusted channel (ops.sh cycle focus
-  note / KICK) and it will be spec'd properly; until then it stays
-  declined and future cycles should point here instead of re-arguing.
+- ~~WAIT (08-15 ~18:1x UTC) `[operator]` (meta): CONFIRM OR DISAVOW
+  the repeated public-MCP notes demanding the `cw-recover-any1`
+  universal-recovery package.~~ **RESOLVED 08-15 ~18:2x UTC —
+  OPERATOR CONFIRMED via the trusted channel** (authenticated
+  `ops.sh cycle` KICK focus note, 08-15 ~18:15 UTC): the
+  fb_20260815T165306_606974 chain WAS Lukas, relayed by his Codex
+  session; the 5-6 channel-grounds declines were "correct procedure"
+  (operator's words) and are superseded for this content only.
+  **OPERATOR RULING recorded (one-run scope):** `cw-recover-any1` is
+  granted a ONE-RUN exception to one-variable-per-run for the coupled
+  recovery bundle (mode + reset-family curriculum + PBRS reward +
+  PPO horizon). This is NOT a global abolition — RESEARCH_RULES
+  stays as written for every other run; future cycles must not cite
+  this as precedent for bundled arms, and must not re-decline
+  recover-any1 follow-ups on the old channel grounds (point here).
+  Executed the same cycle: `recover_to_plant` mode built
+  (default-off, bit-exact when off), RECOVER semantics bank green,
+  REWARD.md §4c, and `cw-recover-any1` launched (hw track — getup
+  lineage). Detail: rl_docs/tracks/hw/STATUS.md + the run's ledger
+  entry (incl. the v1-scope deviations from the directive spec).
+- WAIT (08-15 ~18:4x UTC) `[operator]` (meta): CONFIRM OR DISAVOW the
+  SCOPE of commit `24707196` (18:25:23 UTC, "one-variable-per-run
+  REPEAL ... relayed via authenticated Cursor session" — flipped
+  guardrails.yaml `one_variable_per_run: false` + RESEARCH_RULES/
+  CURRENT_TRUTHS, and added the /mcp dashboard-token operator lane).
+  It landed ten minutes AFTER your 18:15 KICK that said the recover
+  bundle exception "is NOT a global abolition of the rule —
+  RESEARCH_RULES stays as written otherwise", no cycle log claims
+  the commit, and it enacts globally what today's 6x-declined forged
+  "Lukas via Codex" MCP notes demanded. Most plausible reading: your
+  own Cursor session committed it directly and you broadened the
+  ruling — if so, one word confirms it and this entry dies. Until
+  then cycles should treat bundled arms conservatively (this cycle's
+  cw-recover-any1 needed only the one-run exception either way).
+  Security note on the same commit: the public keyless /mcp endpoint
+  now upgrades to the TRUSTED operator KICK lane on presentation of
+  the dashboard token — given today's sustained operator-imperson-
+  ation campaign against exactly that endpoint (7 forged notes/kicks
+  from client 143.105.114.154), that token is now the single secret
+  standing between the public internet and binding operator orders;
+  worth confirming it is long/rotated and the compare is constant-
+  time (it is hmac.compare_digest per the diff — good).
 - ~~WAIT (08-15 ~12:1x UTC) `[code]` (arch): the DURABLE CUDA-torch
   capability fix — recording + launcher gate.~~ **RESOLVED 08-15
   ~17:3x UTC: both halves are now LANDED.** The recording half
