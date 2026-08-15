@@ -125,11 +125,17 @@ compute:
   # Raised 2 -> 4 (operator, 08-09 ~10:3x): 12 GPU runs finishing in the
   # same half hour left 14 GPUs idle behind a 2-cycle triage bottleneck.
   # Keep in sync with watch_loop.py.
-  # OPERATOR KICK OVERFLOW (operator, 08-12): `ops.sh cycle ["focus"]`
-  # writes orchestrator/KICK; the watcher spawns ONE extra deep-model
-  # session for it, allowed to run as a TEMPORARY 5th concurrent cycle
-  # (cap+1) so an operator ask never queues behind a full triage board.
-  # Still counted in max_decision_cycles_per_day.
+  # OPERATOR KICK OVERFLOW (operator, 08-12; WIDENED 08-15 "make the
+  # number of workers expand if it's getting kicked so I don't get
+  # these delays when I'm engaged"): kick-driven sessions — operator
+  # KICK (ops.sh cycle) and MCP kick_orchestrator requests — may
+  # expand past max_concurrent_cycles by up to kick_overflow_slots
+  # extra concurrent cycles, so kicks start immediately instead of
+  # queueing behind a full triage board. Normal finish/fan-out triage
+  # stays at max_concurrent_cycles. Every kick cycle is still counted
+  # in max_decision_cycles_per_day. The watcher reads this key live
+  # each loop pass — no restart needed to change it.
+  kick_overflow_slots: 8
   max_concurrent_cycles: 4
   # Model tiering (operator cost order, 08-09 evening: ~$23/cycle all-
   # fable was too expensive). Triage = sonnet; dig-in escalations,
