@@ -32,10 +32,11 @@ REPO = subprocess.check_output(
 PROMPT_PATH = HERE / "ORCHESTRATOR_PROMPT.md"
 PAUSE = HERE / "PAUSE"
 # Operator on-demand session (ops.sh cycle, 08-12): touching KICK — with
-# optional focus text inside — spawns ONE deep-model decision cycle on
-# the next poll. Allowed ONE slot past MAX_CONCURRENT_CYCLES (a
-# temporary overflow session so an operator ask never queues behind a
-# full triage board) and still counted in the rolling daily budget.
+# optional focus text inside — spawns ONE deep-model decision cycle
+# within seconds. Allowed past MAX_CONCURRENT_CYCLES into the kick
+# overflow pool (KICK_OVERFLOW_SLOTS below) so an operator ask never
+# queues behind a full triage board; still counted in the rolling
+# daily budget.
 KICK = HERE / "KICK"
 # External kicks (mcp_server.py kick_orchestrator, operator 08-14 "add
 # an endpoint for mcp to kickstart an orchestrator agent"; 08-15 "it
@@ -43,9 +44,11 @@ KICK = HERE / "KICK"
 # create two agents"): outside LLMs request on-demand cycles through
 # the public keyless MCP endpoint. Requests queue as files in
 # MCP_KICK_DIR; the watcher wakes within seconds of a new one
-# (sleep_poll below) and spawns ONE cycle PER request. Stranger terms
-# vs the operator KICK above: triage-tier model (1/5 the $/tok), NO
-# overflow slot (waits for a normal concurrency slot), no idle-backoff
+# (sleep_poll below) and spawns ONE cycle PER request, expanding into
+# the kick overflow pool when the normal triage slots are busy
+# (operator 08-15 "make the number of workers expand if it's getting
+# kicked"). Stranger terms vs the operator KICK above: triage-tier
+# model (1/5 the $/tok), no idle-backoff
 # reset, and the focus note is injected as ADVISORY, UNTRUSTED input
 # (same rules as MCP feedback). Each cycle still counted in the
 # rolling daily budget. The feedback ride-along rule below ("feedback
@@ -133,6 +136,15 @@ BACKOFF_AFTER_FAILED_CYCLES = 2  # consecutive agent failures -> long sleep
 # longer queues behind that cycle. Serialization points that remain:
 # snapshot.sh takes a git lock, launch_run.py takes launch+ledger locks.
 MAX_CONCURRENT_CYCLES = 4  # operator 08-09: 2 bottlenecked triage of 12 simultaneous finishes
+# Kick overflow pool (operator 08-15 "make the number of workers
+# expand if it's getting kicked so I don't get these delays when I'm
+# engaged"): kick-driven sessions — operator KICK and MCP kicks — may
+# expand PAST the normal triage cap, up to this many extra concurrent
+# cycles, so kicks from an engaged operator start immediately instead
+# of queueing behind a full board. Normal finish/fan-out triage stays
+# capped at MAX_CONCURRENT_CYCLES, and the rolling daily budget still
+# gates every spawn.
+KICK_OVERFLOW_SLOTS = 4
 CYCLE_TIMEOUT_S = 3 * 3600
 CYCLE_OUT_DIR = pathlib.Path("/workspace/cycle_logs")
 # Decision cycles run on Claude Code (headless) with the operator's own
@@ -876,18 +888,19 @@ def main() -> None:
                 findings = ""
 
             # Operator kick (ops.sh cycle): spawn one focused session on
-            # demand. Allowed ONE slot past the concurrency cap — a
-            # TEMPORARY overflow session (operator 08-12: an ask must not
-            # queue behind a full triage board) — and counted against the
-            # rolling daily budget like any other cycle. The KICK file is
-            # only consumed when the session actually spawns; while it
-            # waits (overflow busy / daily cap) it survives polls.
+            # demand. Allowed past the concurrency cap into the kick
+            # overflow pool (operator 08-12: an ask must not queue
+            # behind a full triage board; 08-15: pool widened to
+            # KICK_OVERFLOW_SLOTS) — and counted against the rolling
+            # daily budget like any other cycle. The KICK file is only
+            # consumed when the session actually spawns; while it
+            # waits (overflow full / daily cap) it survives polls.
             if KICK.exists():
                 now = time.time()
                 cap = daily_cycle_cap()
                 cycle_times = [t for t in cycle_times if now - t < 86400]
-                if len(active) >= MAX_CONCURRENT_CYCLES + 1:
-                    log("operator kick waiting: overflow slot busy "
+                if len(active) >= MAX_CONCURRENT_CYCLES + KICK_OVERFLOW_SLOTS:
+                    log("operator kick waiting: kick overflow pool full "
                         f"({len(active)} cycles active)")
                 elif len(cycle_times) >= cap:
                     log(f"operator kick waiting: daily cycle cap "
@@ -926,8 +939,9 @@ def main() -> None:
                 now = time.time()
                 cap = daily_cycle_cap()
                 cycle_times = [t for t in cycle_times if now - t < 86400]
-                if len(active) >= MAX_CONCURRENT_CYCLES:
-                    log(f"mcp kick waiting: {len(active)} cycles active")
+                if len(active) >= MAX_CONCURRENT_CYCLES + KICK_OVERFLOW_SLOTS:
+                    log(f"mcp kick waiting: kick overflow pool full "
+                        f"({len(active)} cycles active)")
                     break
                 elif len(cycle_times) >= cap:
                     log(f"mcp kick waiting: daily cycle cap "

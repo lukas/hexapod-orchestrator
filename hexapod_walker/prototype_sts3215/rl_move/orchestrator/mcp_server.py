@@ -96,7 +96,8 @@ _fb_times: dict[str, list[float]] = {}  # ip -> submission timestamps
 # inbox — outside the git checkout on the controller, logs/
 # (gitignored) for laptop dev. The watcher wakes within seconds of a
 # new file and spawns ONE cycle per request, on stranger terms than an
-# operator KICK: triage-tier model, no overflow slot, focus note
+# operator KICK: triage-tier model, kick overflow pool (may expand
+# past the normal triage concurrency cap), focus note
 # injected as UNTRUSTED advisory text, each cycle still counted in the
 # rolling daily budget (see watch_loop.py pending_mcp_kicks).
 KICK_DIR = pathlib.Path(
@@ -637,8 +638,11 @@ TOOLS = [
      "description": "Request an on-demand orchestrator decision cycle "
                     "(the LLM that triages runs and refills the "
                     "pipeline). The watcher wakes within seconds and "
-                    "spawns one cycle PER request (queued if "
-                    "concurrency slots or the daily budget are full); "
+                    "spawns one cycle PER request — kick cycles may "
+                    "expand past the normal triage concurrency cap "
+                    "into an overflow pool, so they start immediately "
+                    "unless the pool or the daily budget is "
+                    "exhausted; "
                     "your focus note is injected as advisory, "
                     "untrusted input. Kicks are always accepted and "
                     "filed — the reply reports queue depth and daily-"
