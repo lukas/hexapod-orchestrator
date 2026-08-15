@@ -51,6 +51,15 @@ CAPFILE = HERE / "pod_torch_capability.json"
 CAPFILE_LOCK = HERE / "pod_torch_capability.json.lock"
 KUBECONFIG = str(Path.home() / ".kube" / "coreweave.yaml")
 DEFAULT_VERSION = "2.11.0+cu128"
+# +cuXXX local-version wheels only exist on PyTorch's own index, not
+# plain PyPI (pods' default pip index has plain "torch==2.11.0" with no
+# +cu128 suffix and 404s on the exact pin). train-1's original capable
+# record came from an ad hoc BY-HAND install that happened to pass this
+# index already; the durable `install` subcommand never actually
+# exercised a fresh pod until cw-arch-tf-r1-hard3's prelaunch (08-15
+# ~17:5x UTC) hit the bare 404 on train-0. --no-deps still protects the
+# pod's jax/warp/nvidia-cu12 stack; only torch itself comes from here.
+TORCH_INDEX_URL = "https://download.pytorch.org/whl/cu128"
 
 # Light, read-only smoke: import + version/availability checks only, NO
 # tensor allocation or matmul. Safe to run against a pod mid-training —
@@ -190,13 +199,15 @@ def cmd_install(a) -> int:
     version = a.version or DEFAULT_VERSION
     print(f"installing torch=={version} (--no-deps, preserves the pod's "
           f"jax/warp/nvidia-cu12 stack) on {a.pod} ...")
-    _kexec(a.pod, f"pip install torch=={version} --no-deps", timeout=300)
+    install_cmd = (f"pip install torch=={version} --no-deps "
+                   f"--index-url {TORCH_INDEX_URL}")
+    _kexec(a.pod, install_cmd, timeout=480)
     smoke = _run_smoke(a.pod, full=a.full_smoke)
     data = load()
     rec = data.get(a.pod, {})
     rec.update({
         "torch_version": smoke.get("torch_version", version),
-        "install_cmd": f"pip install torch=={version} --no-deps",
+        "install_cmd": install_cmd,
         "smoke": smoke,
         "verified_utc": datetime.now(timezone.utc).isoformat(),
         "note": rec.get("note", "installed + verified by "

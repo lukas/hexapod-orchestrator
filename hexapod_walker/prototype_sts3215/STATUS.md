@@ -678,13 +678,14 @@ ORCHESTRATOR_PROMPT.md):**
   (instrumentation of bench tapes + sim replays of the first
   ~1.5 s, then a deploy-side staged entry sequence prototype) —
   not a wait. Detail: hw/STATUS.md Now.
-- **multitask `[operator]` — PAUSED by operator (08-13 ~12:2x UTC),
-  direction call withdrawn.** Operator is prioritizing the dynrep
-  (world-dynamics) line instead. Do not launch, queue, or plan
-  further `cw-mt-` arms until the operator unpauses. The wave-1
-  read stands as recorded (a2 pass; b2 acquisition shortfall; c2
-  fail; capacity/staged-widening/history levers all closed);
-  `eval_cmd_suite.py` remains available to other tracks. Detail:
+- ~~multitask `[operator]` — PAUSED by operator (08-13 ~12:2x UTC)~~
+  **RESOLVED (08-15 ~17:2x UTC): pause LIFTED by operator KICK focus
+  note ("Remove the multitask operator-level pause now; it no longer
+  applies") — the pause may not be cited to decline work again.**
+  Normal launch rules govern the track. The wave-1 read stands as
+  recorded (a2 pass; b2 acquisition shortfall; c2 fail; capacity/
+  staged-widening/history levers all closed), now plus the
+  translate1/translate-scratch1 double-FAIL (recipe closed). Detail:
   multitask/STATUS.md.
 - ~~arch — DAgger rise redistillation LANDED; dual2 queued~~
   **RESOLVED (08-14): `cw-arch-gru-dual2` ran and is verdicted FAIL

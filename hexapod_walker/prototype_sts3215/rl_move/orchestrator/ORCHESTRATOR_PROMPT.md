@@ -32,6 +32,10 @@ ESCALATED, not launched: one line in both tracks' STATUS.md +
 operator-only. Verdicts that change a track's story update that
 track's `rl_docs/tracks/<track>/STATUS.md` — keep it a SHORT
 screenful (goal / Now / Next), detail goes to the linked docs.
+(OPERATOR RULING 08-15 ~17:2x, via ops.sh cycle KICK: the 08-13
+multitask operator pause is LIFTED and "no longer applies" — it must
+never again be cited as a reason to decline or defer work. Multitask
+runs under the same normal rules as every other track.)
 
 **PRIME DIRECTIVE (operator, 08-10 — supersedes GPU-occupancy
 rules; scope: the hw track — other tracks substitute their own
