@@ -1352,6 +1352,7 @@ def cmd_backlog(a: argparse.Namespace, extra: list[str]) -> int:
                   "(queued anyway; remove via backlog.json if so)")
         items.append({"run": a.run, "steps": a.steps, "parent": a.parent,
                       "hypothesis": a.hypothesis, "gate": a.gate,
+                      "trainer": getattr(a, "trainer", "ppo"),
                       "phase": getattr(a, "phase", ""),
                       "evidence": getattr(a, "evidence", ""),
                       "track": (getattr(a, "track", "")
@@ -1457,13 +1458,14 @@ def cmd_respec(g: dict, a: argparse.Namespace) -> int:
     # run's track unless explicitly overridden.
     track = (getattr(a, "track", "") or entry.get("track", "")
              or _tracks.infer(a.run))
+    trainer = entry.get("trainer", "ppo")
     if not a.now:
         ns = argparse.Namespace(
             action="add", run=a.run, steps=steps,
             parent=a.parent or a.source, hypothesis=a.hypothesis,
             gate=a.gate, phase=a.phase or entry.get("phase", ""),
             evidence=a.evidence or entry.get("evidence", ""),
-            track=track)
+            track=track, trainer=trainer)
         return cmd_backlog(ns, args)
 
     # --now: direct launch, skipping the backlog. snapshot -> sync ->
@@ -1494,7 +1496,7 @@ def cmd_respec(g: dict, a: argparse.Namespace) -> int:
         allow_slow=False, dry_run=False,
         phase=a.phase or entry.get("phase", ""),
         evidence=a.evidence or entry.get("evidence", ""),
-        track=track,
+        track=track, trainer=trainer,
         operator_override=a.operator_override)
     return cmd_launch(g, ns, args)
 
@@ -1626,6 +1628,7 @@ def cmd_drain(g: dict, a: argparse.Namespace) -> int:
             requeue(it, err)
             return
         cmd = [sys.executable, str(HERE / "launch_run.py"), "launch",
+               "--trainer", it.get("trainer", "ppo"),
                "--pod", pod, "--run", run, "--steps", str(it["steps"]),
                "--parent", it.get("parent", ""),
                "--hypothesis", it["hypothesis"], "--gate", it["gate"],
@@ -1863,6 +1866,9 @@ def main() -> int:
     bp.add_argument("--track", default="", choices=(*_tracks.ids(), ""),
                     help="research track (tracks.json); default: inferred "
                          "from the run-name prefix, else hw")
+    bp.add_argument("--trainer", choices=("ppo", "dynrep", "dynrep-fresh"),
+                    default="ppo", help="trainer family to preserve through "
+                         "the backlog drain")
     rp = sub.add_parser("respec", help="queue a follow-up by cloning a "
                                        "ledger entry's args with overrides")
     rp.add_argument("--from", dest="source", required=True,
