@@ -51,6 +51,19 @@
     "torch_version": "2.11.0+cu128",
     "verified_utc": "2026-08-15T18:57:26.246457+00:00"
   },
+  "hexapod-mjx-train-11": {
+    "extra_cuda_libs_installed": [],
+    "install_cmd": "pip install torch==2.11.0+cu128 --no-deps --index-url https://download.pytorch.org/whl/cu128",
+    "note": "installed + verified by pod_torch_capability.py install",
+    "smoke": {
+      "jax_import_ok": true,
+      "jax_version": "0.10.2",
+      "torch_cuda_available": true,
+      "torch_version": "2.11.0+cu128"
+    },
+    "torch_version": "2.11.0+cu128",
+    "verified_utc": "2026-08-15T20:05:50.724102+00:00"
+  },
   "hexapod-mjx-train-3": {
     "install_cmd": "pip install torch==2.11.0+cu128 --no-deps --index-url https://download.pytorch.org/whl/cu128",
     "note": "installed + verified by pod_torch_capability.py install",
