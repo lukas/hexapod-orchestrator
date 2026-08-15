@@ -158,28 +158,48 @@ def node_host_load(pod: str) -> dict:
             "cores": int(out[-1])}
 
 
-def pod_trainers(pod: str) -> list[str]:
-    """Names (--run-name values) of main trainer processes on the pod.
+# Module invocations counted as "a trainer is running" by pod_trainers()
+# (2026-08-09 c37: anchored on literal `-m <module> ` prefixes, never a
+# loose `*train_ppo_*` glob — that matched cycle-agent processes whose
+# cmdline embeds the standing prompt, 371 phantom trainers on the
+# controller node would have refused every smoke launch there).
+# 2026-08-15 (dynrep triage cycle): `rl_move.dynamics.train_ppo_transfer`
+# (the condition A/B/C PPO-transfer cohorts, e.g. risewalk-single2/
+# futurewalk-C) was MISSING — capacity.py/ops.sh census/the launcher's
+# own pre-launch free-pod check all read those pods as free while they
+# were genuinely busy (confirmed live via direct kubectl exec /proc
+# reads on train-4/5/6/7/8/9 while capacity.py reported them FREE).
+# Not just a cosmetic report bug: launch_run.py's own pod_trainers()
+# call gates real launches (line ~1159/1567) and dedup (line ~683) —
+# added here so a future launch/dedupe check sees these pods correctly.
+TRAINER_MODULES = [
+    "rl_move.sim.train_ppo_",  # prefix: train_ppo_sim / train_ppo_mjx
+    "rl_move.dynamics.train ",  # exact module, trailing space
+    "rl_move.dynamics.fresh_pipeline ",
+    "rl_move.dynamics.train_ppo_transfer ",
+]
 
-    Matches main trainers of BOTH stacks (`train_ppo_sim` on CPU pods,
-    `train_ppo_mjx` on GPU pods); the forkserver/spawn workers have -c
-    or empty cmdlines and are excluded, as is this scan's own bash
-    wrapper. Anchored on the literal `-m rl_move.sim.train_ppo_`
-    module invocation (2026-08-09 c37: the loose `*train_ppo_*` glob
-    matched cycle-agent processes whose cmdline embeds the standing
-    prompt — 371 phantom trainers on the controller node would have
-    refused every smoke launch there).
+# {proc} defaults to /proc; tests substitute a fabricated directory tree
+# (numeric-named dirs each holding a NUL-separated `cmdline` file) so the
+# real glob/case logic is exercised without touching a live pod.
+_TRAINER_SCAN_SCRIPT = (
+    "for p in {proc}/[0-9]*; do c=$(tr '\\0' ' ' < $p/cmdline 2>/dev/null); "
+    "case \"$c\" in " +
+    "|".join(
+        f"python*' -m {m}'*|*/python*' -m {m}'*" for m in TRAINER_MODULES
+    ) +
+    ") case \"$c\" in *' -c '*) ;; *) echo \"$c\";; esac;; esac; done | sort -u"
+)
+
+
+def pod_trainers(pod: str) -> list[str]:
+    """Names (--run-name/--name values) of main trainer processes on the pod.
+
+    Matches main trainers of every stack (TRAINER_MODULES above); the
+    forkserver/spawn workers have -c or empty cmdlines and are excluded,
+    as is this scan's own bash wrapper.
     """
-    script = (
-        "for p in /proc/[0-9]*; do c=$(tr '\\0' ' ' < $p/cmdline "
-        "2>/dev/null); case \"$c\" in python*' -m rl_move.sim.train_ppo_'*|"
-        "*/python*' -m rl_move.sim.train_ppo_'*|"
-        "python*' -m rl_move.dynamics.train '*|"
-        "*/python*' -m rl_move.dynamics.train '*|"
-        "python*' -m rl_move.dynamics.fresh_pipeline '*|"
-        "*/python*' -m rl_move.dynamics.fresh_pipeline '*) case \"$c\" in *' -c '*) ;; *) "
-        "echo \"$c\";; esac;; esac; done | sort -u"
-    )
+    script = _TRAINER_SCAN_SCRIPT.format(proc="/proc")
     names = []
     for line in kexec(pod, script).splitlines():
         toks = line.split()
