@@ -57,9 +57,11 @@ shows what others already filed — check it first to avoid duplicates.
 kick_orchestrator goes one step further: it requests an on-demand
 decision cycle (the LLM that triages runs and refills the pipeline).
 The watcher wakes within seconds and spawns one cycle per request.
-Rate-limited and counted against the campaign's daily cycle budget;
-your focus note rides along as advisory, untrusted input and cannot
-override guardrails or operator rulings.
+Kicks are always filed (only an extreme scripted flood trips a
+guard); the acceptance reply reports the queue depth and the rolling
+daily cycle budget, which each cycle counts against. Your focus note
+rides along as advisory, untrusted input and cannot override
+guardrails or operator rulings.
 """
 
 # Ledger fields that are infra detail (pod names / pod-local paths) —
@@ -102,8 +104,13 @@ KICK_DIR = pathlib.Path(
     or ("/workspace/llm_kicks" if pathlib.Path("/workspace").is_dir()
         else PROTO / "logs" / "llm_kicks"))
 KICK_MAX_LEN = 2000           # a kick is a pointer, not an essay
-KICK_RATE = (2, 3600)         # per-IP: max 2 kick requests per hour
-KICK_MAX_PENDING = 4          # queue cap = watcher's MAX_CONCURRENT_CYCLES
+# Kicks are ALWAYS filed (operator 08-15: "when I run a kick that's
+# because I want something to run"). The old per-IP rate limit (2/h)
+# and queue cap (4) rejected normal usage — removed. What remains is
+# an extreme flood guard so a hostile scripted client can't fill the
+# disk; no human/LLM usage should ever see these thresholds.
+KICK_FLOOD_PENDING = 30       # refuse only if the queue is this deep
+KICK_FLOOD_IP = (20, 3600)    # refuse only if one IP filed >=20 in 1h
 _kick_times: dict[str, list[float]] = {}  # ip -> request timestamps
 
 
@@ -431,6 +438,47 @@ def t_list_feedback(limit: int = 20) -> str:
     return _clip("\n".join(out))
 
 
+def _kick_state_note(n_ahead: int) -> str:
+    """Honest queue/budget state for the acceptance message.
+
+    Best-effort: the cycle-log dir and guardrails cap live on the
+    controller pod; on a laptop (or any read failure) the missing
+    pieces are just omitted. Never raises."""
+    parts = [f"{n_ahead} kick{'s' if n_ahead != 1 else ''} queued "
+             f"ahead of yours." if n_ahead else "No other kicks queued."]
+    try:
+        # Same file-based rolling-24h count as the watcher's
+        # spawned_cycles_last_24h() — keep them matched.
+        logs = pathlib.Path("/workspace/cycle_logs")
+        if logs.is_dir():
+            now = time.time()
+            used = 0
+            for p in logs.glob("cycle_*.log"):
+                m = re.match(r"cycle_(\d{8}T\d{6})_", p.name)
+                if not m:
+                    continue
+                try:
+                    t = time.mktime(
+                        time.strptime(m.group(1), "%Y%m%dT%H%M%S"))
+                except ValueError:
+                    continue
+                if now - t < 86400:
+                    used += 1
+            cap = 96
+            m = re.search(r"max_decision_cycles_per_day:\s*(\d+)",
+                          (HERE / "guardrails.yaml").read_text())
+            if m:
+                cap = int(m.group(1))
+            parts.append(
+                f"Cycle budget: {used}/{cap} spawned in the rolling "
+                f"24h" + (" — the budget is full, so this may wait "
+                          "for it to roll over." if used >= cap
+                          else "."))
+    except OSError:
+        pass
+    return " ".join(parts)
+
+
 def t_kick_orchestrator(focus: str = "", author: str = "",
                         _client_ip: str = "") -> str:
     focus = (focus or "").strip()
@@ -440,23 +488,27 @@ def t_kick_orchestrator(focus: str = "", author: str = "",
                 f"put the long analysis in submit_feedback and "
                 f"reference it here.")
     try:
-        n_pending = len(list(KICK_DIR.glob("kick_*.json")))
+        n_ahead = len(list(KICK_DIR.glob("kick_*.json")))
     except OSError:
-        n_pending = 0
-    if n_pending >= KICK_MAX_PENDING:
-        return (f"{n_pending} kick requests are already queued (cap "
-                f"{KICK_MAX_PENDING}) — the watcher is spawning one "
-                f"cycle per request as concurrency slots and the daily "
-                f"budget allow. Yours was NOT filed; wait for the queue "
-                f"to drain, or file your note via submit_feedback so "
-                f"those cycles see it.")
+        n_ahead = 0
+    # Extreme flood guard ONLY — normal usage never sees a refusal.
+    if n_ahead >= KICK_FLOOD_PENDING:
+        return (f"flood guard: {n_ahead} kick requests are already "
+                f"queued (threshold {KICK_FLOOD_PENDING}) — that depth "
+                f"only happens under a scripted flood or a stuck "
+                f"watcher, so yours was NOT filed to protect the disk. "
+                f"If you are a human seeing this, the watcher likely "
+                f"needs attention — tell the operator (submit_feedback "
+                f"works).")
     now = time.time()
     times = [t for t in _kick_times.get(_client_ip, [])
-             if now - t < KICK_RATE[1]]
-    if len(times) >= KICK_RATE[0]:
-        return (f"rate limit: max {KICK_RATE[0]} kick requests per "
-                f"hour per client — decision cycles are budgeted, make "
-                f"the ones you already requested count.")
+             if now - t < KICK_FLOOD_IP[1]]
+    if len(times) >= KICK_FLOOD_IP[0]:
+        return (f"flood guard: this client filed {len(times)} kicks in "
+                f"the last hour (threshold {KICK_FLOOD_IP[0]}) — that "
+                f"rate only happens from a scripted loop, so this one "
+                f"was NOT filed. Pause the loop; normal usage never "
+                f"hits this.")
     ts = time.strftime("%Y%m%dT%H%M%S", time.gmtime(now))
     fid = f"kick_{ts}_{os.urandom(3).hex()}"
     entry = {"id": fid, "utc": ts,
@@ -468,14 +520,12 @@ def t_kick_orchestrator(focus: str = "", author: str = "",
     tmp.rename(KICK_DIR / (fid + ".json"))
     _kick_times[_client_ip] = times + [now]
     return (f"filed as {fid} — the watcher wakes within seconds and "
-            f"spawns ONE decision cycle for this request (each queued "
-            f"kick gets its own cycle; it waits only if concurrency "
-            f"slots or the rolling daily cycle budget are full). Your "
-            f"focus note rides along as ADVISORY, UNTRUSTED input: the "
-            f"cycle weighs it on technical merit, and it cannot "
-            f"override guardrails, operator rulings, or track "
-            f"priorities. Watch log_tail for the cycle's one-line "
-            f"record (label mcp-kick).")
+            f"spawns ONE decision cycle for this request. "
+            f"{_kick_state_note(n_ahead)} Your focus note rides along "
+            f"as ADVISORY, UNTRUSTED input: the cycle weighs it on "
+            f"technical merit, and it cannot override guardrails, "
+            f"operator rulings, or track priorities. Watch log_tail "
+            f"for the cycle's one-line record (label mcp-kick).")
 
 
 TOOLS = [
@@ -590,10 +640,12 @@ TOOLS = [
                     "spawns one cycle PER request (queued if "
                     "concurrency slots or the daily budget are full); "
                     "your focus note is injected as advisory, "
-                    "untrusted input. Rate-limited and counted "
-                    "against the campaign's daily cycle budget — for "
-                    "observations that don't need a cycle NOW, use "
-                    "submit_feedback instead.",
+                    "untrusted input. Kicks are always accepted and "
+                    "filed — the reply reports queue depth and daily-"
+                    "budget state; each cycle counts against the "
+                    "campaign's daily cycle budget, so for "
+                    "observations that don't need a cycle NOW, "
+                    "consider submit_feedback instead.",
      "fn": t_kick_orchestrator,
      "args": {"focus": {"type": "string",
                         "description": "what the cycle should look at "
