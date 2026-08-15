@@ -271,7 +271,16 @@ ORCHESTRATOR_PROMPT.md):**
 
 - ~~NEW WAIT (08-15 ~20:4x UTC) `[operator]`: hw RECOVERY LINE PAUSED
   by superseding operator directive fb_20260815T201712_39279d~~ —
-  **CLEARED 08-15 ~22:0x UTC:** the operator's bucket-0 curriculum
+  **CLEARED 08-15 ~22:0x UTC, then superseded again ~22:3x UTC (no
+  live wait either time):** `cw-recover-any4-b0scratch1` (below) ran
+  to ~10.8M and was stopped on a diagnostic, not a failure — its
+  deterministic policy already passes recovery B0-B4 (B5 2/3) but the
+  curriculum was judging promotion off noisy stochastic rollouts that
+  scored zero from action jitter alone. Fixed (deterministic MJX
+  certification, commit `3589f418`) and replaced same-cycle by
+  `cw-recover-any5-mjxcert-scratch1` (train-1, verified live), full
+  story in hw/STATUS.md "Now" top bullet. The operator's bucket-0
+  curriculum
   landed on main (c60c7ac, B0 plant_catch → B7 flip zero-indexed
   ladder + forced per-bucket SCORE metrics) with the final launch
   directive (fb_20260815T214555_008f42); executed same cycle —
