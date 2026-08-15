@@ -25,6 +25,24 @@
     "torch_version": "2.11.0+cu128",
     "verified_utc": "2026-08-15T17:17:23.976266+00:00"
   },
+  "hexapod-mjx-train-10": {
+    "extra_cuda_libs_installed": [
+      "nvidia-cusparselt-cu12==0.8.1",
+      "nvidia-cufile-cu12==1.14.1.1",
+      "nvidia-curand-cu12==10.3.10.19",
+      "nvidia-nvtx-cu12==12.9.79"
+    ],
+    "install_cmd": "pip install torch==2.11.0+cu128 --no-deps --index-url https://download.pytorch.org/whl/cu128",
+    "note": "installed + verified by pod_torch_capability.py install",
+    "smoke": {
+      "jax_import_ok": true,
+      "jax_version": "0.10.2",
+      "torch_cuda_available": true,
+      "torch_version": "2.11.0+cu128"
+    },
+    "torch_version": "2.11.0+cu128",
+    "verified_utc": "2026-08-15T18:57:26.246457+00:00"
+  },
   "hexapod-mjx-train-3": {
     "install_cmd": "pip install torch==2.11.0+cu128 --no-deps --index-url https://download.pytorch.org/whl/cu128",
     "note": "installed + verified by pod_torch_capability.py install",
