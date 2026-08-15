@@ -302,9 +302,13 @@ prime directive and RL_PLAN "CLOSED moves".)
    specific pod matters. Sources, in order: continuations of
    near-misses (one, not two), the plan's next rung,
    `rl_docs/WISHLIST.md` topmost [READY] items. Rules that stay:
-   warm-start by default, one variable per run, plain-English-first
-   hypothesis and W&B notes, falsifiable gate. Two misses in a row =
-   change the hypothesis, not the step count.
+   warm-start by default, plain-English-first hypothesis and W&B
+   notes, falsifiable gate. (~~one variable per run~~ — REPEALED by
+   operator, 2026-08-15, relayed via authenticated Cursor session:
+   multi-variable/coupled bundles are permitted when the operator
+   orders them or the cycle judges the coupling necessary;
+   pre-registration and honest verdicts still required.) Two misses
+   in a row = change the hypothesis, not the step count.
    **PLAIN-ENGLISH-FIRST is binding (operator, 08-10, after finding a
    run page unreadable): every hypothesis MUST open with one plain
    sentence a stranger can parse — "Teach the walking champion to
