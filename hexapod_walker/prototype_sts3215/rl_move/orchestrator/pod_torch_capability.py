@@ -40,6 +40,7 @@ from __future__ import annotations
 import argparse
 import fcntl
 import json
+import shlex
 import subprocess
 import sys
 from contextlib import contextmanager
@@ -60,6 +61,21 @@ DEFAULT_VERSION = "2.11.0+cu128"
 # ~17:5x UTC) hit the bare 404 on train-0. --no-deps still protects the
 # pod's jax/warp/nvidia-cu12 stack; only torch itself comes from here.
 TORCH_INDEX_URL = "https://download.pytorch.org/whl/cu128"
+# torch==2.11.0+cu128 dynamically links a few CUDA-runtime .so's that
+# --no-deps skips and that are NOT part of every pod's baseline image
+# (jax pulls its own overlapping-but-not-identical nvidia-cu12 subset).
+# Measured gap train-0 vs the already-capable train-1 (08-15, this
+# cycle's cw-arch-tf-r1-hard3 prelaunch): missing cusparselt/cufile/
+# curand/nvtx, discovered one ImportError at a time. Pinned to
+# train-1's exact working versions and installed ONLY if the pod can't
+# already import them — this never touches/upgrades a package the pod
+# already has, so it can't disturb jax's pinned stack.
+EXTRA_CUDA_LIBS = {
+    "nvidia-cusparselt-cu12": "0.8.1",
+    "nvidia-cufile-cu12": "1.14.1.1",
+    "nvidia-curand-cu12": "10.3.10.19",
+    "nvidia-nvtx-cu12": "12.9.79",
+}
 
 # Light, read-only smoke: import + version/availability checks only, NO
 # tensor allocation or matmul. Safe to run against a pod mid-training —
@@ -98,7 +114,7 @@ _FULL_SMOKE_PY = (
     "torch.cuda.empty_cache()\n"
     "import jax, jax.numpy as jnp\n"
     "z=jnp.asarray([1.0,2.0,3.0])\n"
-    "out['jax_roundtrip_ok']=bool((z*2).sum()==6.0)\n"
+    "out['jax_roundtrip_ok']=bool((z*2).sum()==12.0)\n"
     "print('FULLPROBE_JSON:'+json.dumps(out))\n"
 )
 
@@ -149,6 +165,32 @@ def _kexec(pod: str, script: str, timeout: int = 120) -> str:
     ).stdout
 
 
+def _ensure_extra_cuda_libs(pod: str) -> list[str]:
+    """Install any of EXTRA_CUDA_LIBS the pod can't already import.
+
+    Never reinstalls/upgrades a package already present (idempotent,
+    additive-only — see EXTRA_CUDA_LIBS comment). Returns the list of
+    packages actually installed this call (empty on an already-full
+    pod, e.g. train-1)."""
+    mod_of = {
+        "nvidia-cusparselt-cu12": "nvidia.cusparselt.lib",
+        "nvidia-cufile-cu12": "nvidia.cufile.lib",
+        "nvidia-curand-cu12": "nvidia.curand.lib",
+        "nvidia-nvtx-cu12": "nvidia.nvtx.lib",
+    }
+    installed = []
+    for pkg, ver in EXTRA_CUDA_LIBS.items():
+        probe = f"import {mod_of[pkg]}" if pkg in mod_of else f"import {pkg}"
+        try:
+            _kexec(pod, f"python3 -c {shlex.quote(probe)}", timeout=30)
+            continue  # already importable, leave it alone
+        except subprocess.CalledProcessError:
+            pass
+        _kexec(pod, f"pip install {pkg}=={ver} --no-deps", timeout=300)
+        installed.append(f"{pkg}=={ver}")
+    return installed
+
+
 def _parse_probe(stdout: str, marker: str) -> dict:
     for line in stdout.splitlines():
         if line.startswith(marker):
@@ -157,11 +199,11 @@ def _parse_probe(stdout: str, marker: str) -> dict:
 
 
 def _run_smoke(pod: str, full: bool) -> dict:
-    out = _parse_probe(_kexec(pod, f"python3 -c {json.dumps(_LIGHT_SMOKE_PY)}"),
+    out = _parse_probe(_kexec(pod, f"python3 -c {shlex.quote(_LIGHT_SMOKE_PY)}"),
                        "CAPPROBE_JSON:")
     if full and not out.get("torch_error") and out.get("torch_cuda_available"):
         out.update(_parse_probe(
-            _kexec(pod, f"python3 -c {json.dumps(_FULL_SMOKE_PY)}"),
+            _kexec(pod, f"python3 -c {shlex.quote(_FULL_SMOKE_PY)}"),
             "FULLPROBE_JSON:"))
     return out
 
@@ -202,12 +244,14 @@ def cmd_install(a) -> int:
     install_cmd = (f"pip install torch=={version} --no-deps "
                    f"--index-url {TORCH_INDEX_URL}")
     _kexec(a.pod, install_cmd, timeout=480)
+    extras = _ensure_extra_cuda_libs(a.pod)
     smoke = _run_smoke(a.pod, full=a.full_smoke)
     data = load()
     rec = data.get(a.pod, {})
     rec.update({
         "torch_version": smoke.get("torch_version", version),
         "install_cmd": install_cmd,
+        "extra_cuda_libs_installed": extras,
         "smoke": smoke,
         "verified_utc": datetime.now(timezone.utc).isoformat(),
         "note": rec.get("note", "installed + verified by "
