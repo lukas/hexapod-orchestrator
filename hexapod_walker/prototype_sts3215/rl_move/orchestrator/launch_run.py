@@ -1288,7 +1288,13 @@ def cmd_checkup(g: dict, a: argparse.Namespace) -> int:
             # 30-core pod runs slower but should beat 60.
             limit = pod_cpu_limit(pod)
             solo = len(trainers) == 1
-            is_dynrep_trainer = entry.get("trainer") in ("dynrep", "dynrep-fresh")
+            # train_ppo_transfer added 08-15: the dynamics-track transfer
+            # PPO runs 8 SB3 envs (measured healthy 49 fps risewalk_s5,
+            # ~560 fps tfwalk-A) — nothing like MJX's 19-20k rollout fps;
+            # the 5000 floor false-SUSPECTed healthy risewalk-single2-s5.
+            # A genuine stall still lands near zero, under the 5.0 floor.
+            is_dynrep_trainer = entry.get("trainer") in (
+                "dynrep", "dynrep-fresh", "train_ppo_transfer")
             if is_dynrep_trainer and pod in g["compute"].get("gpu_pods", []):
                 # dynrep/dynrep-fresh's "global_step" is a GRADIENT step
                 # over pre-collected windows, not a PPO physics env-step —
