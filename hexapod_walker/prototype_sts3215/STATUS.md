@@ -269,6 +269,29 @@ agent-doable work; untyped entries count as agent-doable, and idle
 cycles must DRAIN the agent-doable ones before declaring no-op — see
 ORCHESTRATOR_PROMPT.md):**
 
+- **NEW WAIT (08-15 ~18:0x UTC) `[operator]`: dynrep → train-10
+  OOMKilled a second time (17:31:54 UTC today), silently, and its
+  A/B/C holdwalk cohort (seeds 5,6,7, launched 08-14 16:38 UTC, ETA
+  ~3h/seed) has no result recorded anywhere — dynrep/STATUS.md's last
+  update is still 08-14; nothing dated 08-15 exists.** Checked per
+  the 08-14 script-owned-cohort directive: `check_cohort` finds
+  NO_MANIFEST under every plausible cohort name
+  (`dyn_scale_M_h16_large`, `dyn_holdwalk`, `dyn_risewalk`,
+  `dyn_chain_abc`) — by that directive's own standard this cohort is
+  NOT verifiably launched/finished, prose alone doesn't count. Pod is
+  now 0/1, no persistent volume (train pods lose everything on
+  container death per the 08-14 OOM postmortem in dynrep/STATUS.md),
+  so any in-flight seeds 5-7 results not already pulled off-pod are
+  likely lost; only the 08-14 sweep artifacts are backed up
+  (`/workspace/dynrep_backup/train-10_20260814/`). NOT fixed this
+  cycle: dynrep is the operator's Cursor-session track (explicitly
+  "hands off" for the orchestrator) with a custom multi-stage
+  pipeline (venv, pushed champion checkpoints, datasets) this cycle
+  doesn't have full context to safely reconstruct — recreating the
+  pod blind risks compounding the loss. Recorded as a concrete
+  blocker per the directive's third option. Frees no GPU slot (the
+  pod is down, not idle) but the CPUs it hosted are gone.
+
 - **OPERATOR RULINGS (08-13 ~12:4x UTC) — five waits DECIDED this
   cycle; full narratives live in the named track docs:**
   1. **hw standing lean → MECHANICAL TRIM** (outside RL; no
