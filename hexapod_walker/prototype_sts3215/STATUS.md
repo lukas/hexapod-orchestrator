@@ -294,9 +294,25 @@ ORCHESTRATOR_PROMPT.md):**
      15 min. Full directive in ORCHESTRATOR_PROMPT.md; trigger: the
      08-14 overnight where two just-unblocked named steps waited ~2 h
      on backoff spacing while the fleet looked idle.
-- **NEW WAIT (08-15, arch mode-experts directive
-  fb_20260815T013349_488ffd) — one of two named follow-ups CLEARED
-  this cycle:** Arm B 2M mechanism canary
+- **NEW WAIT (08-15 ~11:5x UTC) `[precondition: the 11:45 operator-kick
+  cycle launches the joystick-translation arm]`: multitask → verify
+  the naming correction LANDED on the launched artifact.** The active
+  11:45 cycle is executing fb_20260815T114414_3c40d6 (operator-
+  authorized pause exception: joystick-commanded translation
+  continuation of `cw-mt-c2`) with a prompt frozen BEFORE the
+  operator's naming correction fb_20260815T114937_f9078d
+  ("fullcircle" banned; run = **`cw-joystick-translate1`**, wz/yaw
+  zero, headline metric `joystick/v_along_m_s`). Enforcement is
+  already mechanical: the launcher now REFUSES any run name
+  containing "fullcircle" on all three paths (launch/backlog/respec,
+  smoke-tested) with a message naming the corrected name, and the
+  correction is bannered in `rl_docs/MULTITASK.md` +
+  `rl_docs/tracks/multitask/STATUS.md`. Follow-up cycle: once the arm
+  exists, verify it is named `cw-joystick-translate1` in ledger + W&B
+  (track tag `multitask` despite the non-`cw-mt-` prefix), rename any
+  fullcircle-named artifact that slipped a non-launcher path (NO
+  duplicate launch — update/respec under ledger locks per the
+  correction), then REMOVE this entry. Arm B 2M mechanism canary
   `cw-arch-modeexperts-scratch1-r1` TRIAGED PASS (finished 2.03M
   clean, no NaN/crash; all four experts active within 0.09 of the
   commanded mix at final read — better than the 1.05M mid-run

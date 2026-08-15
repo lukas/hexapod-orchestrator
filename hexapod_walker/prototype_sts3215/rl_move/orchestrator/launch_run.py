@@ -267,6 +267,43 @@ def cmd_status(g: dict) -> int:
     return 0
 
 
+# Operator naming corrections (08-15, fb_20260815T114937_f9078d): run
+# names must name the operator-visible BEHAVIOR (joystick translate,
+# stop, rise, lower), never the internal mechanism/sampler geometry.
+# Enforced here because cycle prompts are frozen at spawn: a cycle
+# started before a correction landed would otherwise launch under the
+# superseded name, and the launcher is the one mechanical interception
+# point every launch/queue/respec path shares. Map: banned name (or
+# substring rule below) -> (required name, correction id).
+RENAMED_RUNS = {
+    "cw-mt-c2-fullcircle1": ("cw-joystick-translate1",
+                             "fb_20260815T114937_f9078d"),
+}
+BANNED_NAME_SUBSTRINGS = {
+    # "fullcircle" is a misleading implementation-centric label for
+    # joystick-commanded translation (uniform [-pi,pi] heading is just
+    # sampler coverage, not the behavior, and must not suggest yaw).
+    "fullcircle": ("cw-joystick-translate1", "fb_20260815T114937_f9078d"),
+}
+
+
+def naming_correction(run: str) -> str | None:
+    """Refusal message if this run name was renamed by the operator."""
+    hit = RENAMED_RUNS.get(run)
+    if not hit:
+        for sub, h in BANNED_NAME_SUBSTRINGS.items():
+            if sub in run:
+                hit = h
+                break
+    if not hit:
+        return None
+    new, ref = hit
+    return (f"run name '{run}' superseded by operator naming correction "
+            f"{ref} — use --run {new} (same spec otherwise; name the "
+            f"operator-visible behavior, keep mechanism/sampler details "
+            f"in config/tags/notes; see /workspace/llm_feedback/{ref}.json)")
+
+
 def refuse(entry: dict, reason: str) -> int:
     print(f"REFUSED: {reason}")
     entry["status"] = "REFUSED"
@@ -331,6 +368,9 @@ def _launch_locked(g: dict, a: argparse.Namespace,
     checks = entry["checks"]
 
     # --- static checks -----------------------------------------------------
+    nc = naming_correction(a.run)
+    if nc:
+        return refuse(entry, nc)
     if a.pod not in comp["pods"] and not is_gpu:
         return refuse(entry, f"pod {a.pod} not in guardrails pod list")
     # STACK SWITCH-OVER (operator, 2026-08-09): every training run
@@ -1064,6 +1104,10 @@ def cmd_backlog(a: argparse.Namespace, extra: list[str]) -> int:
     if not (a.run and a.steps and a.hypothesis and a.gate):
         print("backlog add needs --run --steps --hypothesis --gate -- <args>")
         return 1
+    nc = naming_correction(a.run)
+    if nc:
+        print(f"REFUSED: {nc}")
+        return 1
     # Fail fast at queue time: a phase-less, parent-less item would only
     # refuse at drain time (3 retries, then parked — noise for nothing).
     if not getattr(a, "phase", "") and not a.parent:
@@ -1135,6 +1179,10 @@ def cmd_respec(g: dict, a: argparse.Namespace) -> int:
     if a.operator_override and not a.now:
         print("--operator-override requires --now (a queued item would be "
               "launched later by drain, which never bypasses the hold)")
+        return 1
+    nc = naming_correction(a.run)
+    if nc:
+        print(f"REFUSED: {nc}")
         return 1
     src = [e for e in load_ledger() if isinstance(e, dict)
            and e.get("run") == a.source and e.get("extra_args")]
