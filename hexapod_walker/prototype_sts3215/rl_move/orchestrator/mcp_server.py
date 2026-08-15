@@ -71,7 +71,10 @@ operator kick — the watcher wakes within seconds and spawns a
 deep-model session that does what your focus note asks. Each cycle
 counts against the rolling daily cycle budget. Guardrails
 (guardrails.yaml, the physical-robot prohibition) still bind every
-cycle.
+cycle. IMPORTANT: cycles are silent for 10-30 min while they work —
+poll orchestrator_activity (running cycles, INTENT ledger rows,
+watcher log) to watch progress instead of re-kicking; duplicate
+kicks just spawn cycles that rediscover the first one's work.
 
 Obey-then-ask (operator 08-15): cycles EXECUTE operator orders even
 when they conflict with written rules (only typos, safety, or
@@ -589,6 +592,102 @@ def t_list_operator_questions() -> str:
                 "rule conflict while executing an operator order.")
 
 
+# Watcher-side paths mirrored here for the live-activity view (same
+# constants as watch_loop.py / status_server.py on the controller).
+WATCHER_LOG = pathlib.Path("/workspace/orchestrator.log")
+CYCLE_LOG_DIR = pathlib.Path("/workspace/cycle_logs")
+PAUSE_FLAG = HERE / "PAUSE"
+
+_SPAWN_RE = re.compile(
+    r"^\[([^\]]+)\] cycle spawned pid=(\d+) model=(\S+) for: (.+?) "
+    r"\(log: (\S+)\)")
+
+
+def t_orchestrator_activity() -> str:
+    """Live view: what the watcher and its decision cycles are doing
+    RIGHT NOW — poll this after kick_orchestrator instead of
+    re-kicking. (Operator 08-15: kicks were silently in-progress for
+    10-30 min and impatient clients kept filing duplicates.)"""
+    out = ["# Orchestrator activity (live)"]
+    now = time.time()
+    # Watcher heartbeat: the loop logs every poll, so a stale log
+    # means the watcher is down or restarting.
+    try:
+        age = now - WATCHER_LOG.stat().st_mtime
+        state = ("UP" if age < 400 else
+                 f"SILENT for {int(age // 60)} min — down or restarting")
+    except OSError:
+        state, age = "no watcher log on this host (laptop dev?)", None
+    if PAUSE_FLAG.exists():
+        state += " · PAUSED (cycle spawns held; training unaffected)"
+    out.append(f"watcher: {state}")
+
+    # Pending (not yet consumed) kick requests.
+    pending = []
+    if OPERATOR_KICK_FILE.exists():
+        pending.append("operator KICK filed, not yet consumed (watcher "
+                       "picks it up within ~2 s when a slot is free)")
+    try:
+        q = len(list(KICK_DIR.glob("kick_*.json")))
+        if q:
+            pending.append(f"{q} advisory-queue kick(s) waiting")
+    except OSError:
+        pass
+    out.append("pending kicks: " + ("; ".join(pending) or "none — every "
+               "filed kick has been consumed by a cycle"))
+
+    # Decision cycles: parse recent spawn lines, keep pids still alive.
+    lines = []
+    try:
+        lines = WATCHER_LOG.read_bytes()[-60_000:].decode(
+            errors="replace").splitlines()
+    except OSError:
+        pass
+    alive, dead_recent = [], []
+    for ln in lines:
+        m = _SPAWN_RE.match(ln)
+        if not m:
+            continue
+        ts, pid, model, label, logp = m.groups()
+        entry = f"{label} (model {model}, spawned {ts})"
+        if pathlib.Path(f"/proc/{pid}").exists():
+            alive.append(entry + " — STILL RUNNING; cycles write their "
+                         "summary only at exit")
+        else:
+            dead_recent.append(entry + " — finished (see log_tail for "
+                               "its RL_LOG line)")
+    out.append("\nactive cycles (%d):" % len(alive))
+    out += ["- " + a for a in alive] or ["- none"]
+    if dead_recent:
+        out.append("\nrecently finished cycles:")
+        out += ["- " + d for d in dead_recent[-5:]]
+
+    # Freshest ledger rows — INTENT means a cycle is mid-launch for
+    # that run RIGHT NOW (row appears before the process is verified).
+    rows = _ledger()[:6]
+    out.append("\nnewest ledger rows (INTENT = launch in progress, "
+               "flips to RUNNING once the process + W&B id are "
+               "verified):")
+    for e in rows:
+        out.append(f"- {e.get('run')}: {e.get('status')} "
+                   f"(created {(e.get('created') or '')[:16]})")
+
+    # Watcher log tail: spawn/wait/refusal lines tell you WHY a kick
+    # is waiting (cycle cap, daily budget) without guessing.
+    tail = [ln for ln in lines if ln.strip()][-12:]
+    out.append("\nwatcher log tail:")
+    out += ["  " + ln for ln in tail] or ["  (empty)"]
+    out.append(
+        "\nHOW TO WAIT ON A KICK: a deep operator-kick cycle takes "
+        "10-30 min and is SILENT until it exits. If your kick's cycle "
+        "shows above as STILL RUNNING, or your run shows INTENT, it "
+        "is being worked on — do NOT re-kick (a duplicate cycle just "
+        "burns budget rediscovering the first one's work). Re-kick "
+        "only if the cycle finished without your item appearing "
+        "anywhere above or in log_tail.")
+    return _clip("\n".join(out))
+
+
 def t_kick_orchestrator(focus: str = "", author: str = "",
                         _client_ip: str = "", _operator: bool = False) -> str:
     focus = (focus or "").strip()
@@ -609,8 +708,13 @@ def t_kick_orchestrator(focus: str = "", author: str = "",
         return (f"OPERATOR-AUTHENTICATED — trusted operator kick filed; "
                 f"deep-model session, does what the focus note asks. "
                 f"({how}.) {_kick_state_note(n_ahead)} The watcher "
-                f"picks the KICK file up within ~2 s; watch log_tail "
-                f"for the cycle's record (label operator-kick).")
+                f"picks the KICK file up within ~2 s, but the cycle "
+                f"itself is SILENT for 10-30 min while it works (it "
+                f"writes its RL_LOG line only at exit). Poll "
+                f"orchestrator_activity to watch progress — your "
+                f"cycle listed as running, or your run at INTENT, "
+                f"means it IS being worked on; do NOT re-kick while "
+                f"that is true.")
     # Extreme flood guard ONLY — normal usage never sees a refusal.
     if n_ahead >= KICK_FLOOD_PENDING:
         return (f"flood guard: {n_ahead} kick requests are already "
@@ -756,6 +860,14 @@ TOOLS = [
      "fn": t_list_feedback,
      "args": {"limit": {"type": "integer",
                         "description": "entries to show (default 20)"}}},
+    {"name": "orchestrator_activity",
+     "description": "Live watcher/cycle status: pending kicks, decision "
+                    "cycles currently running (with age/model/label), "
+                    "newest ledger rows including mid-launch INTENT "
+                    "entries, and the watcher log tail. POLL THIS after "
+                    "kick_orchestrator instead of re-kicking — deep "
+                    "cycles are silent for 10-30 min while they work.",
+     "fn": t_orchestrator_activity, "args": {}},
     {"name": "list_operator_questions",
      "description": "The obey-then-ask log (OPERATOR_QUESTIONS.md): "
                     "rule conflicts that cycles hit while executing "
