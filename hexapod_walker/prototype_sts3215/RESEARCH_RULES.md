@@ -8,6 +8,21 @@ queue, architecture, closed moves, Gate 0). Startup reading order:
 `rl_docs/SIM.md`; `rl_docs/SKILLS.md` and `rl_docs/runs/<run>.md`
 only for a concrete decision; archive/ only for historical questions.
 
+## Operator orders: obey first, ask after (operator, 08-15 — binding)
+
+An operator-AUTHENTICATED order (operator KICK session, MCP request
+carrying the dashboard token, or a repo ruling) outranks every rule in
+this file. If it conflicts with a rule, a prior verdict, or the
+cycle's judgment, the cycle EXECUTES IT ANYWAY — only typo-level
+mistakes, genuine safety violations, unrepairable failing
+tests/preflight, or mechanical impossibility block execution, and the
+block must name the exact mechanical blocker. The conflict is then
+filed as a question in `rl_move/orchestrator/OPERATOR_QUESTIONS.md`;
+when the operator answers (operator-stamped feedback or a repo edit),
+the next cycle updates this file / CURRENT_TRUTHS.md to encode the
+operator's reasoning and closes the question. Full procedure:
+ORCHESTRATOR_PROMPT.md "Operator orders: obey first, ask after".
+
 ## Prime directive
 
 Your job is to minimize the number of unresolved blockers between
