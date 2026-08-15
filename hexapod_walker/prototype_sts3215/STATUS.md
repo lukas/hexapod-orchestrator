@@ -21,7 +21,13 @@ anyone catching up. Facts here must agree with `CURRENT_TRUTHS.md`
 (which wins on conflict); the full checkpoint inventory with gate
 numbers lives in `rl_docs/SKILLS.md`.
 
-**Last updated: 2026-08-14 (late — hw: the post-lower stand-up saga
+**Last updated: 2026-08-15 (hw: the named next arm is no longer "to
+spec" — `cw-stand-postlower3` is RUNNING: an idle-kick cycle built the
+stance-only in-context sequence trainer (`goal.mode_seq_stance`,
+default-off, tested, snapshotted), pre-registered its bulk gate
+(Cohort c3, fresh banks) and launched the 2M discovery arm on train-0.
+Details: WAITING-ON FLEET entry below + hw/STATUS.md.) Earlier 08-14
+(late — hw: the post-lower stand-up saga
 took a decisive turn: `cw-stand-postlower2` (the low-dose retry)
 FAILED, and the dig-in proved the whole bank-exposure family was
 training the robot to chase a MECHANICALLY IMPOSSIBLE height — the
@@ -312,15 +318,21 @@ ORCHESTRATOR_PROMPT.md):**
   2/6) but det collapses to belly from the COLD spawn — cold
   single-mode spawns cannot reproduce the in-session transition
   context where the parent scores 0.967. Full chain:
-  `rl_docs/tracks/hw/STATUS.md` 08-14 (late). **NAMED NEXT
+  `rl_docs/tracks/hw/STATUS.md` 08-14 (late). ~~NAMED NEXT
   `[precondition: spec + preflight + c3 pre-registration]`:
-  `cw-stand-postlower3` — in-context lower→rise SEQUENCE training
-  via `goal.mode_seq` (machinery landed + pod-proven 08-14);
-  next idle cycle specs the stance-only grammar, runs the mode
-  bank, pre-registers Cohort c3 on fresh banks (940000../950000..),
-  then launches (discovery ≤2M).** All 12 GPU slots idle otherwise
-  on the typed [operator] waits below; train-10's CPUs stay on the
-  operator's dynrep cohort (hands off).**
+  `cw-stand-postlower3`~~ **EXECUTED 08-15 (idle-kick cycle,
+  drain-before-backoff): the stance-only grammar is BUILT
+  (`goal.mode_seq_stance`, default-off, joint_goal task, walk-task
+  delegation refactor rng-stream-safe), preflighted (new
+  `test_mode_seq_stance.py` 7/7; full semantics bank 91 passed;
+  `test_mode_seq_stance` + `test_mjx_vec_env` 16/16 on train-1),
+  Cohort c3 PRE-REGISTERED on fresh banks 940000../950000..
+  (SESSION_BULK_GATE.md "Cohort c3", candidate `spec-pl3`), snapshot
+  `exp/cw-stand-postlower3`, and `cw-stand-postlower3` is RUNNING
+  (discovery 2M, train-0)** — no longer a wait; triage lands on the
+  c3 read. Other 11 GPU slots idle on the typed [operator] waits
+  below; train-10's CPUs stay on the operator's dynrep cohort
+  (hands off).**
 - **FLEET (08-14 ~20:0x UTC, superseded by the entry above): all 12 GPU slots idle on the named
   waits in this block (every one typed `[operator]` or an unmet
   precondition); train-0's `transdagger3` distill FINISHED 19:24 and
