@@ -269,6 +269,23 @@ agent-doable work; untyped entries count as agent-doable, and idle
 cycles must DRAIN the agent-doable ones before declaring no-op — see
 ORCHESTRATOR_PROMPT.md):**
 
+- **NEW WAIT (08-16 ~21:xx UTC) `[operator]` (hw): the universal-
+  recovery TANGLE wall needs a reward/BC-teacher-side redesign call.**
+  Both exposure-side lever classes are now closed on tangle (3
+  curriculum-weight misses any7/any11/any12 + 1 on-path-bank-RSI miss
+  any13, this cycle's FAIL — see hw/STATUS.md "Now" top bullet). The
+  recover BC anchor is eligibility-gated OFF whenever the robot isn't
+  already near-upright/near-plant (08-15 anchor directive, by
+  design), so it cannot supervise the tangled→upright motion itself.
+  Options needing an operator pick (not an auto-retry): (a) build a
+  tangle-specific reference/demo trajectory to replace the belly→
+  plant anchor target for the tangle family, or (b) relax the
+  anchor's eligibility gate for tangle starts specifically (risks
+  re-teaching a defect, per CURRENT_TRUTHS "anchors can teach a
+  defect"), or (c) accept `any11`'s partial tangle competence
+  (~0.38-0.5 CERT) as the recovery line's practical ceiling and move
+  the line to bench/hardware evaluation instead of chasing more sim
+  %. No further recover/tangle arm queued pending this call.
 - ~~NEW WAIT (08-16 ~10:1x UTC) `[triage]` (hw): the universal-recovery
   zero-bucket (flat-belly rise) wall needs a MECHANISM-LEVEL fix~~ —
   **CLEARED 08-16 ~12:xx UTC (dig-in cycle): RECOVER RSI built +
