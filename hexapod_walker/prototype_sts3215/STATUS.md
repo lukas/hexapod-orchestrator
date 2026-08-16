@@ -495,6 +495,27 @@ ORCHESTRATOR_PROMPT.md):**
      next cycle triages the artifact against the same VERIFY before
      any Stage 1 PPO. Detail: `MODE_EXPERTS_DIRECTIVE.md` "Arm A"
      Stage 0.
+     **RESOLVED 08-16 ~11:5x UTC (this cycle) — bc2 VERIFIED: MIXED,
+     SECOND MISS, per pre-registration this ends the DAgger-variant
+     ladder (no bc3).** Isolated rise genuinely improved (det 0/6 ->
+     3/6) but the sequence eval regressed and got WORSE (post-lower
+     rise went from stalling to actually FALLING, overall det
+     zero-fall 10/12 -> 6/12) — the same zero-sum DAgger-correction
+     trade-off transdagger3 already found, now reproduced on the
+     isolated 4-expert architecture. No exploit (contact sheet shows
+     genuine motion). Detail: arch/STATUS.md, `MODE_EXPERTS_DIRECTIVE.md`
+     "Arm A" Stage 0 RESULT.
+- **NEW WAIT (08-16 ~11:5x UTC) `[operator]`: arch → Arm A (mode-experts
+  composition) Stage 0 distill is STUCK on a zero-sum rise/post-lower-rise
+  trade-off; no BC/DAgger recipe variant has closed it in two tries
+  (bc1, bc2).** Open question: can BC/DAgger hold isolated-rise AND
+  post-lower-rise simultaneously under this architecture at all, or
+  does Stage 1 need to start RL-based correction on the frozen rise
+  expert instead of waiting for a better distill. No Arm A Stage 1
+  PPO launches until this is answered. Detail:
+  `rl_docs/tracks/arch/MODE_EXPERTS_DIRECTIVE.md` "Arm A" Stage 0
+  RESULT. (Arm B `cw-arch-modeexperts-scratch2`, a fully separate
+  from-scratch lineage, is unaffected and continues training.)
 - **NEW WAIT (08-13 ~19:xx UTC) `[operator]`: quad → quadwalk needs an
   ARCHITECTURE/CURRICULUM design discussion (operator).**
   `cw-quadwalk7` (ent-coef 0.001→0.02, the exploration lever) STOP:
