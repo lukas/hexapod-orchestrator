@@ -269,6 +269,17 @@ agent-doable work; untyped entries count as agent-doable, and idle
 cycles must DRAIN the agent-doable ones before declaring no-op — see
 ORCHESTRATOR_PROMPT.md):**
 
+- **NEW WAIT (08-16 ~10:1x UTC) `[triage]` (hw): the universal-recovery
+  zero-bucket (flat-belly rise) wall needs a MECHANISM-LEVEL fix
+  (targeted BC anchor exposure or a reward term for the flat-belly
+  family) — new reward/env code, not a config tweak. Two curriculum-
+  mass attempts (`cw-recover-any8-spacedreplay-scratch1` concentrated,
+  `cw-recover-any9-lessfocus-cont1` diffuse) both FAILED identically
+  on this exact wall, closing that avenue per the two-miss rule.
+  Flagged `DIG-IN: cw-recover-any9-lessfocus-cont1` for the deep-tier
+  cycle to design + write the fix (dig-in trigger: about to change
+  reward/env code) rather than decided by this triage cycle. Detail:
+  hw/STATUS.md "Now" top bullet.
 - **NEW WAIT (08-15 ~22:5x UTC) `[precondition: dynrep-tfwalk-gpu1
   A/B/C cohort finishes ~1M steps]`: the operator's CORRECTED
   GPU-only Transformer transfer cohort is TRAINING** — the 22:2x
