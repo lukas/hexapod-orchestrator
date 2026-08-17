@@ -75,6 +75,9 @@ as soon as it is fixed — so every cycle answers one question first:
 download?"* Keep that answer concrete: named checkpoints + gate
 evidence (SKILLS.md / session-gate numbers), single policy or the
 session-controller composition — whichever is genuinely closest.
+**The maintained answer lives at `rl_docs/DOWNLOAD_ANSWER.md`
+(written 08-17 repivot cycle; update it whenever a verdict changes
+it).**
 
 Priority order while the sprint runs:
 

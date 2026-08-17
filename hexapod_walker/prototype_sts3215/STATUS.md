@@ -30,6 +30,11 @@ concrete answer to "what would we download tomorrow morning?"
 post-lower rise, takeoff roll transient. No new research-track
 launches unless they directly serve this; bench-owned items stay
 parked. Full text: RL_PLAN.md "SIM SPRINT" + CURRENT_TRUTHS.md.
+**The concrete download answer is written and maintained at
+`rl_docs/DOWNLOAD_ANSWER.md`** (08-17: the hierarchical composition —
+stance `footlow2_hard1` + walk `bcgait1_hard1` + session controller
+with entry-slew and STOP→stance-hold — det 0.967 / sto 0.853 on the
+n=600 held-out session gate; single weak boundary = post-lower rise).
 
 **Last updated: 2026-08-17 (dynrep: the joint PPO+auxiliary rebuild —
 the operator-directed third attempt to make the pretrained dynamics
@@ -288,6 +293,40 @@ agent-doable work; untyped entries count as agent-doable, and idle
 cycles must DRAIN the agent-doable ones before declaring no-op — see
 ORCHESTRATOR_PROMPT.md):**
 
+- **FLEET / SIM SPRINT (08-17 ~18:3x UTC, repivot cycle — READ THIS
+  FIRST while the sprint runs):** the fleet is re-pointed at the
+  operator's SIM SPRINT ruling (~18:05 UTC). Board: 1/12 training
+  (`cw-arch-modeexperts-scratch3`, in-flight — finishes and gets
+  triaged normally per the sprint text), train-10 pod `Failed`
+  (watcher-owned, 10 slots still free), backlog EMPTY on purpose —
+  **no new research-track launches (dynrep/arch/nobc/quad/turn/
+  multitask) unless an arm directly serves sim rise+walk
+  reliability.** The download answer exists TODAY and is written at
+  `rl_docs/DOWNLOAD_ANSWER.md`; sprint gap status: (1) post-lower
+  rise — gated on the ELEVATED `[operator]` fork below (the sprint's
+  ONLY open training lever); one named agent-doable probe queued to
+  inform that pick, see the `[code]` entry below; (2) takeoff roll
+  transient — sim-side COMPLETE (entry-slew composed into the
+  download; remaining reps are bench, parked); (3) session-gate
+  zero-fall/over-current regressions — none live (all came from the
+  closed postlower training attempts; product baseline unaffected).
+  Idle slots next to `[operator]`-typed waits are correct under the
+  sprint; do not backfill them with research arms.
+- **NEW WAIT (08-17 ~18:3x UTC) `[code]` (hw, sprint-serving,
+  agent-doable — next idle cycle drains this): build + run the
+  remaining-rise EVAL PROBE that prices the operator's postlower
+  fork.** Concretely: a default-off eval-side flag on the session
+  instrument (`rl_move.sim.eval_modeseq` / `bulk_session_eval`) that
+  issues mid-sequence rise schedules as "remaining rise from current
+  height" (mirroring the trained `goal.mode_seq_rise_from_h`
+  semantics), then a bulk read (fresh banks, pre-registered n) of
+  BOTH `footlow2_hard1` (parent) and `ppo_goal_cw_stand_postlower4`
+  (c4, trained on exactly those semantics) under it. This is an
+  EVAL, not a postlower training arm (the "no new postlower arm
+  until picked" line stands); it measures option (a)'s payoff
+  before the operator commits a product-contract change. If c4
+  crosses the c1 bars under matched semantics, fork option (a) is
+  measured-best and the pick becomes data, not taste.
 - **NEW WAIT (08-17 ~03:xx UTC) `[operator]` (arch): the operator-
   approved joystick-walking update-path redesign canary
   (`cw-arch-joystick-canary1`) FAILED its own pre-registered gate —
@@ -675,6 +714,15 @@ ORCHESTRATOR_PROMPT.md):**
   hierarchy) unaffected.
 - **NEW WAIT (08-15, this cycle) `[operator]`: hw → post-lower rise
   needs an operator direction call; no more in-context resweeps.**
+  **ELEVATED by SIM SPRINT (08-17): this fork is now the #1 named
+  sprint gap's ONLY open training lever — everything else on the
+  rise/walk deliverable is done or bench-parked. The pick below
+  ((a) remaining-rise runner semantics vs (b) reward-priced
+  post-lower rise) is the single decision standing between the
+  current download (`rl_docs/DOWNLOAD_ANSWER.md`, ships the parent
+  with sto 0.801 post-lower rise) and a training arm that could
+  raise it. The `[code]` remaining-rise eval probe above is queued
+  to price option (a) with data while you decide.**
   Four arms (postlower1/2/3/4) have now tried exposure (bank spawns),
   goal-anchoring, and in-context sequence training + its schedule
   fix — each closed cleanly with a named root cause, and the last one
