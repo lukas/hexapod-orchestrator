@@ -327,6 +327,54 @@ ORCHESTRATOR_PROMPT.md):**
   before the operator commits a product-contract change. If c4
   crosses the c1 bars under matched semantics, fork option (a) is
   measured-best and the pick becomes data, not taste.
+  **PROGRESS 08-17 ~22:1x UTC (triage cycle): the naive version of
+  this probe (just add `--cfg-set goal.mode_seq_rise_from_h=1` to a
+  `bulk_session_eval` candidate) is CONFIRMED A NO-OP — empirically
+  verified on-pod (train-1, 4-episode A/B, byte-identical JSON
+  output with/without the flag) and root-caused in code:
+  `eval_modeseq.py`'s reanchor-based sequencing (`run_rise`'s
+  non-cold branch) drives every mid-sequence rise through the
+  plain `_goal_gen.sample()` legacy generator, which NEVER calls
+  `goal_task.py`'s `_seq_segment_traj` (the method that actually
+  reads `mode_seq_rise_from_h`) — that method only fires via
+  `_sample_mode_seq_stance()`, gated on `goal.mode_seq_stance>0`, a
+  code path the harness's external reanchor/env.reset() sequencing
+  never enters. This does NOT invalidate the already-recorded
+  Cohort c4 verdict (FAIL) — c1/c4 compared parent vs postlower4
+  under the SAME legacy schedule, an honest apples-to-apples read.
+  It DOES mean the fork-(a) probe still needs real code: `run_rise`'s
+  non-cold branch must, AFTER restoring the kept qpos (i.e. once
+  `self.data.xpos` reflects the true carried-over height, not the
+  fresh reset pose), call `env._seq_segment_traj("rise", tick=0)`
+  directly (with `env._seq_stand_z`/`_z0` already installed and
+  `cfg["goal"]["mode_seq_rise_from_h"]=1` set) and install the
+  resulting trajectory as the active goal before stepping — a
+  scoped new `--rise-from-h` eval flag, default off, bit-exact
+  legacy otherwise. Not yet written; still `[code]`, next cycle with
+  eval-harness budget should implement+test this exact design rather
+  than re-deriving it.**
+- **NEW WAIT (08-17 ~22:0x UTC) `[triage]` (hw): `cw-recover-any15-
+  retentionrollback-cont1` finished 40M and is flagged DIG-IN, not
+  verdicted.** Warm-started from `any11` (which had already reached
+  ladder frontier bucket 15, the tangle/bank family) under the new
+  checkpoint+rollback retention-gated promotion mechanism; the guard
+  machinery itself worked exactly as designed (8 promotions, each
+  with a saved checkpoint + a same-round retention-suite pass; zero
+  rollbacks fired because no retained bucket ever sustained <0.60
+  for the 4M-step trigger window) but the ladder made NO forward
+  progress past bucket 8 (`partial_high`, stuck at 11/16=0.6875 for
+  ~32M of the 40M budget) — nowhere near matching, let alone beating,
+  its own warm-start parent's bucket 15. Reward quarters also
+  declined monotonically (-116.9/-120.5/-123.9/-125.9). Real trigger
+  (metrics anomalous vs parent beyond noise) per the model-tiering
+  rule — needs a root-cause dig-in (does the new one-shot-0.8
+  retention bar correctly expose that any11's bucket-8 competence was
+  never actually reliable under looser EMA admission, or did 32M
+  steps of frontier-stalled training genuinely erode competence at
+  buckets 9-15 that were never re-practiced) before any verdict or
+  next recover arm. W&B `xqcqvb3u`; no video/harness report yet
+  (pre-staged pod evals were still running `--modes recover` at
+  triage time).
 - **NEW WAIT (08-17 ~03:xx UTC) `[operator]` (arch): the operator-
   approved joystick-walking update-path redesign canary
   (`cw-arch-joystick-canary1`) FAILED its own pre-registered gate —
