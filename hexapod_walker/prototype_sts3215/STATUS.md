@@ -80,10 +80,17 @@ Startup verified: 3 distinct W&B runs, "synchronized cohort armed" in
 all 3 logs. **UPDATE ~23:0x: cohort STOPPED, INVALID_INTEGRATION_CANARY
 — population sync broken; see "Last updated" above. Codex's barrier
 fix landed at f5aee3f and the successor cohort
-`cw-recover-any17-pop3-s11/s12/s13` is live per operator directive
-fb_20260817T225114_a31958 (bootstrap barrier at 655,360 steps,
-forced summary refresh, leader release after all-ACK; 7-point live
-integration gate, fail-closed).** Detail:
+`cw-recover-any17-pop3-s11/s12/s13` was launched per operator
+directive fb_20260817T225114_a31958 (bootstrap barrier at 655,360
+steps, forced summary refresh, leader release after all-ACK; 7-point
+live integration gate, fail-closed). UPDATE ~23:1x: any17 FAIL-CLOSED
+at the bootstrap barrier exactly as designed — all three stopped at
+exactly 655,360 with valid ready_B00, but start_B00 was never
+released (`wandb.Api.runs()` negative peer-discovery cache, a third
+distinct sync bug) — and the operator stopped it, INVALID
+(fb_20260817T231211_ba01c4). Fix at 686f5628; the append-only any18
+relaunch (fb_20260817T231336_93cacc) is being executed by a
+concurrent cycle. See WAITING-ON.** Detail:
 hw/STATUS.md.) Earlier (dynrep,
 operator order
 fb_20260817T210422_9df9c7 executed: TWO new arms live — 
