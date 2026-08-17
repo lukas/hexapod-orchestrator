@@ -278,6 +278,22 @@ agent-doable work; untyped entries count as agent-doable, and idle
 cycles must DRAIN the agent-doable ones before declaring no-op — see
 ORCHESTRATOR_PROMPT.md):**
 
+- **NEW WAIT (08-17 ~03:xx UTC) `[operator]` (arch): the operator-
+  approved joystick-walking update-path redesign canary
+  (`cw-arch-joystick-canary1`) FAILED its own pre-registered gate —
+  the canary's contract explicitly routes any FAIL back to the
+  operator (no autonomous 40M clone, no autonomous next redesign).**
+  Critic explained_variance sat at ~0 the whole run despite the
+  redesigned update path (bounded terminal cost, calibrated height
+  gate, actor/critic LR groups, transactional rollback); new root
+  cause this time: every episode gets stopped by the low-height
+  safety check at the exact 2s grace-period boundary, so returns are
+  near-identical across states and there's nothing for the critic to
+  learn from (0/6 walk success det+sto, static crouch on video, no
+  stepping). Open lead named for the next design pass: check whether
+  the walk task's initial height reference already sits near/below
+  the 25mm trip band before the policy acts at all. Detail:
+  arch/STATUS.md top bullet, `rl_docs/runs/cw-arch-joystick-canary1.md`.
 - **NEW WAIT (08-17 ~01:xx UTC) `[operator]` (dynrep): the tfwalk-joint1
   verdict is in — corrected condition C FAILED its pre-registered 1M
   gate on ALL THREE conditions (heldout pred +17% vs the 15% band;
