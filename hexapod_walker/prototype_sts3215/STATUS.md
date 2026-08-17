@@ -36,7 +36,19 @@ stance `footlow2_hard1` + walk `bcgait1_hard1` + session controller
 with entry-slew and STOP→stance-hold — det 0.967 / sto 0.853 on the
 n=600 held-out session gate; single weak boundary = post-lower rise).
 
-**Last updated: 2026-08-17 ~22:3x UTC (hw: the postlower stand-up
+**Last updated: 2026-08-17 ~23:0x UTC (hw, operator MCP note
+fb_20260817T223644_c8bc48: the recover-any16-pop3 three-seed cohort
+is STOPPED and marked INVALID_INTEGRATION_CANARY — the 512-env
+broadcast fix works (all three certs synchronized=512), but the
+POPULATION sync does not: member 0 (s11) elected+ADOPTED its B1 and
+went on to publish B2/B3 while s12/s13 never saw or adopted it and
+promoted their own private lineages (verified in all three pod logs;
+root causes per the note: cached `wandb.Api` summaries in
+`_peer_rows` + no release barrier after all-ACK). No behavioral
+conclusions from these runs; checkpoints preserved on pods. The
+operator's coding session (Codex) is fixing the sync layer and will
+issue one clean relaunch directive — NO autonomous relaunch. See
+WAITING-ON below.) Earlier ~22:3x (hw: the postlower stand-up
 fork the operator escalated after Cohort c4's FAIL is now PRICED —
 the c4 verdict's own hypothesis (train/eval schedule mismatch) is
 CONFIRMED and mostly explains the shortfall. A matched-schedule
@@ -52,22 +64,22 @@ product baseline (still `footlow2_hard1`+`bcgait1_hard1`, still the
 DOWNLOAD_ANSWER) — two contract decisions (upgrade the runner/
 hardware reference to this semantics; promote `postlower4`) are
 `[operator]`, not made autonomously. Detail: hw/STATUS.md "Now" +
-SESSION_BULK_GATE.md "Cohort c5rr".) Earlier 2026-08-17 late (hw: the
-get-up ("recover") line's
-scoreboard turns out to have been INFLATED. The operator-ordered
-self-healing training (`cw-recover-any15-retentionrollback-cont1`)
-made every promotion re-pass all the easier fallen poses in the same
-test round, and under that honest bar the ladder tops out at the 9th
-pose instead of the advertised 16th — yet the same one-shot exam
-scores the new policy and its parent IDENTICALLY (10 of 18 poses at
-DR-0, 11 of 18 mildly randomized, both). Nothing was forgotten; the
-real wall is instability at deep-crouch / half-collapsed get-ups,
-which flip between perfect and zero between checks, and the failures
-are not falls — the robot stands up a couple of centimetres short of
-the height it must hold. The rollback safety net is built and
-verified but watches for steady decline, so it never fired on
-oscillation. No new recovery arm: the redesign is an operator call
-and outside the sim sprint. Detail: hw/STATUS.md.) Earlier (dynrep,
+SESSION_BULK_GATE.md "Cohort c5rr".) 2026-08-17 latest (hw, operator
+order fb_20260817T221115_78b688: the get-up ("recover") run
+`cw-recover-any15-retentionrollback-cont1` and every conclusion drawn
+from it are scientifically INVALID — a bug meant only 1 of its 512
+training environments ever advanced to harder fallen poses, so its
+"honest ladder", stall and retention story described the test probes,
+not what the policy trained on. Fix is committed (4d1b45d: curriculum
+admission broadcast to all 512 envs, abort on divergence), and the
+line restarted FROM SCRATCH as an operator-ordered three-seed
+synchronized cohort `cw-recover-any16-pop3-s11/s12/s13` (40M each):
+the first seed to earn each retention-clean promotion shares its
+exact weights with the other two, best-of-three at every rung.
+Startup verified: 3 distinct W&B runs, "synchronized cohort armed" in
+all 3 logs. **UPDATE ~23:0x: cohort STOPPED, INVALID_INTEGRATION_CANARY
+— population sync broken; see "Last updated" above.** Detail:
+hw/STATUS.md.) Earlier (dynrep,
 operator order
 fb_20260817T210422_9df9c7 executed: TWO new arms live — 
 `cw-dynrep-criticD-40m1`, a 40M command-rich walk run with the frozen
@@ -356,6 +368,19 @@ ORCHESTRATOR_PROMPT.md):**
   closed postlower training attempts; product baseline unaffected).
   Idle slots next to `[operator]`-typed waits are correct under the
   sprint; do not backfill them with research arms.
+- **NEW WAIT (08-17 ~23:0x UTC) `[operator]` (hw): recover-any16-pop3
+  relaunch is gated on the operator's Codex session.** The three-seed
+  cohort (s11/s12/s13) was STOPPED and marked
+  INVALID_INTEGRATION_CANARY per operator MCP note
+  fb_20260817T223644_c8bc48: 512-env admission broadcast confirmed
+  working, but population checkpoint sync did not — member 0 adopted
+  its own elected B1 and ran ahead to B2/B3 while s12/s13 never
+  adopted anything (log-verified on train-0/1/3). Codex is landing
+  the fix (force-refresh `_peer_rows` reads + leader release barrier
+  so no member trains past a bucket until all ACK) and will issue ONE
+  clean append-only relaunch directive. Do NOT relaunch the current
+  recipe autonomously. Checkpoints preserved on pods; /dev/shm
+  cleaned on train-0/1/3, pods free for other sprint work meanwhile.
 - **NEW WAIT (08-17 ~18:3x UTC) `[code]` (hw, sprint-serving,
   agent-doable — next idle cycle drains this): build + run the
   remaining-rise EVAL PROBE that prices the operator's postlower
@@ -479,10 +504,17 @@ ORCHESTRATOR_PROMPT.md):**
   (~0.38-0.5 CERT) as the recovery line's practical ceiling and move
   the line to bench/hardware evaluation instead of chasing more sim
   %. No further recover/tangle arm queued pending this call.
-  **RE-AIMED 08-17 ~22:xx UTC by the `cw-recover-any15-
+  **INVALIDATED 08-17 ~23:xx UTC (operator fb_20260817T221115_78b688):
+  the RE-AIM below was built on `cw-recover-any15-retentionrollback-
+  cont1`, whose training was broken (only env 0 of 512 advanced the
+  curriculum) — its B8-frontier / stability-wall / "any11 inflated"
+  claims are void. The recover line restarted from scratch as the
+  synchronized cohort `cw-recover-any16-pop3-s11/s12/s13`; re-pose
+  this fork, if still needed, on that cohort's results.**
+  ~~RE-AIMED 08-17 ~22:xx UTC by the `cw-recover-any15-
   retentionrollback-cont1` dig-in (FAIL recorded; hw/STATUS.md top
   bullet): the operator's pick should no longer be framed around
-  tangle at all.** Under honest same-round retention certification
+  tangle at all.~~ Under honest same-round retention certification
   this lineage's frontier is B8, not B15 — every earlier frontier
   number (including any11's "tangle competence") was certified on a
   rotating subset where stale passes counted, and matched one-shot
