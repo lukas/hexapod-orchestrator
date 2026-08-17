@@ -36,7 +36,22 @@ stance `footlow2_hard1` + walk `bcgait1_hard1` + session controller
 with entry-slew and STOP→stance-hold — det 0.967 / sto 0.853 on the
 n=600 held-out session gate; single weak boundary = post-lower rise).
 
-**Last updated: 2026-08-17 late (dynrep, operator order
+**Last updated: 2026-08-17 late (hw: the get-up ("recover") line's
+scoreboard turns out to have been INFLATED. The operator-ordered
+self-healing training (`cw-recover-any15-retentionrollback-cont1`)
+made every promotion re-pass all the easier fallen poses in the same
+test round, and under that honest bar the ladder tops out at the 9th
+pose instead of the advertised 16th — yet the same one-shot exam
+scores the new policy and its parent IDENTICALLY (10 of 18 poses at
+DR-0, 11 of 18 mildly randomized, both). Nothing was forgotten; the
+real wall is instability at deep-crouch / half-collapsed get-ups,
+which flip between perfect and zero between checks, and the failures
+are not falls — the robot stands up a couple of centimetres short of
+the height it must hold. The rollback safety net is built and
+verified but watches for steady decline, so it never fired on
+oscillation. No new recovery arm: the redesign is an operator call
+and outside the sim sprint. Detail: hw/STATUS.md.) Earlier (dynrep,
+operator order
 fb_20260817T210422_9df9c7 executed: TWO new arms live — 
 `cw-dynrep-criticD-40m1`, a 40M command-rich walk run with the frozen
 pretrained transformer as critic D (the 1M frozen-critic transfer WIN,
@@ -377,28 +392,6 @@ ORCHESTRATOR_PROMPT.md):**
   980000/990000) is DISPATCHED on idle pods this cycle — **`[code]`
   becomes `[precondition: c5rr aggregate.json exists]`, next cycle
   aggregates + reports the price to the operator.**
-- **NEW WAIT (08-17 ~22:0x UTC) `[triage]` (hw): `cw-recover-any15-
-  retentionrollback-cont1` finished 40M and is flagged DIG-IN, not
-  verdicted.** Warm-started from `any11` (which had already reached
-  ladder frontier bucket 15, the tangle/bank family) under the new
-  checkpoint+rollback retention-gated promotion mechanism; the guard
-  machinery itself worked exactly as designed (8 promotions, each
-  with a saved checkpoint + a same-round retention-suite pass; zero
-  rollbacks fired because no retained bucket ever sustained <0.60
-  for the 4M-step trigger window) but the ladder made NO forward
-  progress past bucket 8 (`partial_high`, stuck at 11/16=0.6875 for
-  ~32M of the 40M budget) — nowhere near matching, let alone beating,
-  its own warm-start parent's bucket 15. Reward quarters also
-  declined monotonically (-116.9/-120.5/-123.9/-125.9). Real trigger
-  (metrics anomalous vs parent beyond noise) per the model-tiering
-  rule — needs a root-cause dig-in (does the new one-shot-0.8
-  retention bar correctly expose that any11's bucket-8 competence was
-  never actually reliable under looser EMA admission, or did 32M
-  steps of frontier-stalled training genuinely erode competence at
-  buckets 9-15 that were never re-practiced) before any verdict or
-  next recover arm. W&B `xqcqvb3u`; no video/harness report yet
-  (pre-staged pod evals were still running `--modes recover` at
-  triage time).
 - **NEW WAIT (08-17 ~03:xx UTC) `[operator]` (arch): the operator-
   approved joystick-walking update-path redesign canary
   (`cw-arch-joystick-canary1`) FAILED its own pre-registered gate —
@@ -458,6 +451,28 @@ ORCHESTRATOR_PROMPT.md):**
   (~0.38-0.5 CERT) as the recovery line's practical ceiling and move
   the line to bench/hardware evaluation instead of chasing more sim
   %. No further recover/tangle arm queued pending this call.
+  **RE-AIMED 08-17 ~22:xx UTC by the `cw-recover-any15-
+  retentionrollback-cont1` dig-in (FAIL recorded; hw/STATUS.md top
+  bullet): the operator's pick should no longer be framed around
+  tangle at all.** Under honest same-round retention certification
+  this lineage's frontier is B8, not B15 — every earlier frontier
+  number (including any11's "tangle competence") was certified on a
+  rotating subset where stale passes counted, and matched one-shot
+  gate evals score any11 == any15 exactly (det 10/18 DR-0, 11/18
+  DR-0.1, sto 0/18). So option (c)'s premise ("any11 has partial
+  tangle competence") is not measurable as a stable skill, and the
+  live wall is STABILITY at `crouch_deep`/`partial_high` (per-round
+  pass rates 0.47/0.14, oscillating 0.00↔1.00) — failures that end
+  upright a few cm short of the held-success height, not falls.
+  Restated options for the operator: (a) tangle demo/anchor work as
+  before, (b) anchor-eligibility relaxation as before, (c) accept the
+  honest B8 ceiling and move to bench evaluation, or **(d) NEW: stop
+  climbing and spend a budget on frontier STABILITY — repeat-until-
+  stable certification plus a rollback trigger keyed on a windowed
+  pass RATE instead of consecutive sub-threshold age (the current
+  timer provably cannot fire on oscillation: max age 3.01M vs the 4M
+  trigger, zero rollbacks in 40M).** All four stay `[operator]`; no
+  recover arm is queued, and recover is outside the SIM SPRINT.
 - ~~NEW WAIT (08-16 ~10:1x UTC) `[triage]` (hw): the universal-recovery
   zero-bucket (flat-belly rise) wall needs a MECHANISM-LEVEL fix~~ —
   **CLEARED 08-16 ~12:xx UTC (dig-in cycle): RECOVER RSI built +
