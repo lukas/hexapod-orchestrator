@@ -36,7 +36,24 @@ stance `footlow2_hard1` + walk `bcgait1_hard1` + session controller
 with entry-slew and STOP→stance-hold — det 0.967 / sto 0.853 on the
 n=600 held-out session gate; single weak boundary = post-lower rise).
 
-**Last updated: 2026-08-17 late (hw: the get-up ("recover") line's
+**Last updated: 2026-08-17 ~22:3x UTC (hw: the postlower stand-up
+fork the operator escalated after Cohort c4's FAIL is now PRICED —
+the c4 verdict's own hypothesis (train/eval schedule mismatch) is
+CONFIRMED and mostly explains the shortfall. A matched-schedule
+re-read (new `--rise-from-h` eval flag, Cohort c5rr, n=1,200 fresh
+sessions) shows `postlower4` crossing the current product parent's
+OWN post-lower-rise number on both deterministic (0.963 vs 0.950)
+and stochastic (0.799 vs 0.779) passes once judged on the schedule it
+was actually trained for, and even beating the parent outright on
+overall stochastic session reliability (0.91 vs 0.84 zero-fall) —
+with clean video (16 reviewed episodes, direct push-ups, no belly
+detour) and no retention loss. This does not change today's deployed
+product baseline (still `footlow2_hard1`+`bcgait1_hard1`, still the
+DOWNLOAD_ANSWER) — two contract decisions (upgrade the runner/
+hardware reference to this semantics; promote `postlower4`) are
+`[operator]`, not made autonomously. Detail: hw/STATUS.md "Now" +
+SESSION_BULK_GATE.md "Cohort c5rr".) Earlier 2026-08-17 late (hw: the
+get-up ("recover") line's
 scoreboard turns out to have been INFLATED. The operator-ordered
 self-healing training (`cw-recover-any15-retentionrollback-cont1`)
 made every promotion re-pass all the easier fallen poses in the same
@@ -380,18 +397,29 @@ ORCHESTRATOR_PROMPT.md):**
   legacy otherwise. Not yet written; still `[code]`, next cycle with
   eval-harness budget should implement+test this exact design rather
   than re-deriving it.**
-  **BUILT + DISPATCHED 2026-08-17 ~22:2x UTC (idle-drain cycle):**
-  `--rise-from-h` written exactly per the spec above (calls
+  **PRICED 2026-08-17 ~22:3x UTC (idle-drain cycle) — `[code]` DONE,
+  becomes `[operator]`: fork (a) is the measured-best answer.**
+  `--rise-from-h` built exactly per the spec above (calls
   `SimHexapodGoalEnv._seq_segment_traj` directly, cfg toggle
   scoped/restored, works without `_seq_stand_z`); tests green
   (`test_eval_modeseq_rise_from_h.py` 4/4 real-env + `test_
-  bulk_session_eval.py` +2, 14/14 total) and real-checkpoint smoke
-  reads confirm the mechanism (detail + pre-registered readout:
-  SESSION_BULK_GATE.md "Cohort c5rr"); the matched-schedule bulk read
-  of `spec` vs `spec-pl4` (n=300 det + 300 sto each, fresh bank
-  980000/990000) is DISPATCHED on idle pods this cycle — **`[code]`
-  becomes `[precondition: c5rr aggregate.json exists]`, next cycle
-  aggregates + reports the price to the operator.**
+  bulk_session_eval.py` +2, 14/14 total). Matched-schedule bulk read
+  (Cohort c5rr, n=1,200 fresh sessions, both `spec` and `spec-pl4`):
+  `spec-pl4` crosses `spec`'s OWN post-lower-rise number on BOTH det
+  (0.963 vs 0.950) and sto (0.799 vs 0.779), recovering ~9-11pp of
+  its apparent c4 deficit from the schedule fix alone, and BEATS
+  `spec` outright on sto session zero-fall (0.91 vs 0.84); retention
+  at parity, eye clause PASS on 16 reviewed episodes (direct
+  push-ups both candidates, no belly detour, no new exploit from the
+  schedule change). Does not flip the c4 ledger verdict (correct
+  under the schedule that existed then) — answers exactly what that
+  verdict escalated. **Remaining `[operator]` decisions (not this
+  cycle's to take): (i) upgrade the runner/instrument — and the real
+  hardware post-lower rise reference — to rise-from-h semantics
+  generally; (ii) promote `spec-pl4`/postlower4 over `footlow2_hard1`
+  as the stance half of the product hierarchy given this read.** No
+  promotion made autonomously. Full numbers: SESSION_BULK_GATE.md
+  "Cohort c5rr — RESULTS".
 - **NEW WAIT (08-17 ~03:xx UTC) `[operator]` (arch): the operator-
   approved joystick-walking update-path redesign canary
   (`cw-arch-joystick-canary1`) FAILED its own pre-registered gate —
