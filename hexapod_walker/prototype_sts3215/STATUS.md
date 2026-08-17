@@ -21,7 +21,16 @@ anyone catching up. Facts here must agree with `CURRENT_TRUTHS.md`
 (which wins on conflict); the full checkpoint inventory with gate
 numbers lives in `rl_docs/SKILLS.md`.
 
-**Last updated: 2026-08-15 (arch: a small causal-transformer policy
+**Last updated: 2026-08-17 (dynrep: the joint PPO+auxiliary rebuild —
+the operator-directed third attempt to make the pretrained dynamics
+transformer help walking — FAILED its pre-registered 1M gate on all
+three conditions, and the line STOPS adding complexity per that gate;
+scratch PPO remains the best walker in every dynrep cohort to date.
+Separately, all three C arms were killed by a leftover memory-watchdog
+during checkpoint saves because checkpoints were pickling the 12.5GB
+rehearsal corpus — serialization + bookkeeping bugs fixed and tested,
+every artifact preserved, no relaunch by operator order. Detail:
+dynrep/STATUS.md + WAITING-ON below.) Earlier 08-15 (arch: a small causal-transformer policy
 trunk now WALKS as well as the flatten-MLP champion at the same 40M
 step budget — zero falls, clean six-leg gait, no roll-fall — the
 first architecture-line proof that attention-based trunks aren't a
@@ -269,6 +278,24 @@ agent-doable work; untyped entries count as agent-doable, and idle
 cycles must DRAIN the agent-doable ones before declaring no-op — see
 ORCHESTRATOR_PROMPT.md):**
 
+- **NEW WAIT (08-17 ~01:xx UTC) `[operator]` (dynrep): the tfwalk-joint1
+  verdict is in — corrected condition C FAILED its pre-registered 1M
+  gate on ALL THREE conditions (heldout pred +17% vs the 15% band;
+  action-KL 0.070 vs 0.02 target/0.04 guard, aux permanently stopped
+  on 2 of 3 seeds; walk 288.9 < B 308.8/318.5 < scratch A 334.9/360.8)
+  — per the gate, dynrep STOPS adding complexity; the next dynrep
+  experiment is the operator's call** (directive
+  fb_20260817T005323_22be43 forbids relaunch/recollection/architecture
+  change). Operational side handled this cycle: all three C arms were
+  SIGKILLed by the leftover risewalk-era memwatch on train-11/4/5
+  during checkpoint saves because JointAuxPPO pickled the 12.5GB
+  rehearsal corpus into every zip (C-s5/s6 died at ck500000, C-s7
+  AFTER its complete 1M eval during the final save — the 1M checkpoint
+  never existed). Fixes landed + tested: `_excluded_save_params`
+  (checkpoints 12.7GB→~60MB), optimizer param-group round-trip on
+  load, wrapper phase_fail bookkeeping. All artifacts preserved
+  (controller `artifacts/tfwalk-joint1/`; C-s7 best-550k verified
+  loadable end-to-end). Detail: dynrep/STATUS.md.
 - **NEW WAIT (08-16 ~21:xx UTC) `[operator]` (hw): the universal-
   recovery TANGLE wall needs a reward/BC-teacher-side redesign call.**
   Both exposure-side lever classes are now closed on tangle (3
@@ -295,9 +322,10 @@ ORCHESTRATOR_PROMPT.md):**
   construction, tests green, snapshot a1994dee) and the matched A/B
   `cw-recover-any10-zerorsi-cont1` is VERIFIED RUNNING on train-1.
   Detail: hw/STATUS.md "Now" top bullet.
-- **NEW WAIT (08-15 ~22:5x UTC) `[precondition: dynrep-tfwalk-gpu1
-  A/B/C cohort finishes ~1M steps]`: the operator's CORRECTED
-  GPU-only Transformer transfer cohort is TRAINING** — the 22:2x
+- ~~NEW WAIT (08-15 ~22:5x UTC) `[precondition: dynrep-tfwalk-gpu1
+  A/B/C cohort finishes ~1M steps]`~~ — **CLEARED (superseded by the
+  metrics1 2M triple, triaged 08-16 ~06:3x, and by the joint1 cohort
+  resolved 08-17 — see the 08-17 dynrep entry above):** the 22:2x
   cohort was a GPU compliance failure (all three arms CPU-hard-coded,
   fb_20260815T222316_26b670; old attempts `11zsrpl9`/`f086dlfd`/
   `9e4eimd8` ABORTED/NON-EVIDENCE, the stale old-B trainer found
