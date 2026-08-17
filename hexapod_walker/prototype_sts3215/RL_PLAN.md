@@ -63,6 +63,38 @@ critical path is hardware, specification work, or code fixes. Every
 spec answers the launch question first: if this run succeeds or
 fails, does it change what we do before the next hardware test?
 
+## SIM SPRINT (operator, 08-17 ~18:05 UTC — binding, CURRENT; wins
+## over anything below where they disagree)
+
+**The robot is off the bench for about a day of repair. Until the
+operator announces it is back, the whole fleet's single deliverable
+is RELIABLE RISING + WALKING IN THE MUJOCO SIM, download-ready.**
+The operator is confident about downloading a policy onto the robot
+as soon as it is fixed — so every cycle answers one question first:
+*"if the robot were fixed tomorrow morning, what exactly would we
+download?"* Keep that answer concrete: named checkpoints + gate
+evidence (SKILLS.md / session-gate numbers), single policy or the
+session-controller composition — whichever is genuinely closest.
+
+Priority order while the sprint runs:
+
+1. The named reliability gaps on the rise/walk session line — the
+   post-lower rise (the one open sim training target), the takeoff
+   roll transient, any zero-fall or over-current regression on the
+   bulk session gate.
+2. Hardening + retention of the rise and walk champions (Gate 0 /
+   deployment contract, eval_session, varied starts) so the
+   download candidate is export-ready, not a lab result.
+3. Anything else ONLY if it directly moves sim rise+walk
+   reliability this week.
+
+Research tracks (dynrep, arch, nobc, quad, turn, multitask): no new
+launches unless the arm directly serves sim rise+walk reliability;
+in-flight runs may finish and be triaged normally. Bench-owned
+[operator] queue items stay parked — there is no robot to test on —
+and cycles do not steer toward hardware attempts until the operator
+says the robot is back.
+
 ## Operator directive (08-11 night — binding)
 
 **Make standing and walking work IN SIM, to deployable-champion

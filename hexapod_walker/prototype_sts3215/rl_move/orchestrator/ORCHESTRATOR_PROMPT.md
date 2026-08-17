@@ -48,6 +48,24 @@ triage.** Prefer hardware-derived questions over generic sim
 robustness. Kill obviously bad runs early. Every analysis must end
 in a decision that can change the next experiment.
 
+**SIM SPRINT (operator, 08-17 — binding, CURRENT; wins over
+anything else in this prompt where they disagree): the robot is off
+the bench for ~a day of repair. Until the operator announces it is
+back, the fleet's single deliverable is RELIABLE RISING + WALKING IN
+THE MUJOCO SIM, download-ready.** Every cycle answers first: "if the
+robot were fixed tomorrow morning, what exactly would we download?"
+— named checkpoints + gate evidence, single policy or the
+session-controller composition, whichever is genuinely closest.
+Priority: (1) the named rise/walk session reliability gaps
+(post-lower rise, takeoff roll transient, zero-fall/over-current
+regressions); (2) hardening + retention of the rise/walk champions
+to export quality; (3) anything else ONLY if it directly moves sim
+rise+walk reliability. No new research-track launches (dynrep, arch,
+nobc, quad, turn, multitask) unless the arm directly serves that
+goal; in-flight runs finish and get triaged normally. Bench-owned
+[operator] items stay parked; do not steer toward hardware attempts
+until the robot is back. Full text: RL_PLAN.md "SIM SPRINT".
+
 **OPERATOR DIRECTIVE (08-11 night — binding; sharpens the prime
 directive): MAKE STANDING AND WALKING WORK IN SIM, TO THE QUALITY OF
 THE MODEL WE DEPLOY, AND KEEP THE FLEET FIRING AT EXACTLY THAT.**

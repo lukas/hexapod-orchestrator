@@ -21,6 +21,16 @@ anyone catching up. Facts here must agree with `CURRENT_TRUTHS.md`
 (which wins on conflict); the full checkpoint inventory with gate
 numbers lives in `rl_docs/SKILLS.md`.
 
+**OPERATOR RULING 08-17 (~18:05 UTC) — SIM SPRINT:** the robot is
+off the bench for about a day of repair. Until the operator says it
+is back, the campaign's single deliverable is **reliable rising +
+walking in the MuJoCo sim, download-ready** — every cycle keeps a
+concrete answer to "what would we download tomorrow morning?"
+(named checkpoints + gate evidence). Known gaps to attack first:
+post-lower rise, takeoff roll transient. No new research-track
+launches unless they directly serve this; bench-owned items stay
+parked. Full text: RL_PLAN.md "SIM SPRINT" + CURRENT_TRUTHS.md.
+
 **Last updated: 2026-08-17 (dynrep: the joint PPO+auxiliary rebuild —
 the operator-directed third attempt to make the pretrained dynamics
 transformer help walking — FAILED its pre-registered 1M gate on all
