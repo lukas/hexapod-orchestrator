@@ -380,24 +380,36 @@ ORCHESTRATOR_PROMPT.md):**
   closed postlower training attempts; product baseline unaffected).
   Idle slots next to `[operator]`-typed waits are correct under the
   sprint; do not backfill them with research arms.
-- **WAIT (updated 08-17 ~23:2x UTC; opened ~23:0x for any16)
-  `[operator]` (hw): recover population relaunch is gated on the
-  operator's Codex session issuing the any18 directive.** The
-  successor cohort recover-any17-pop3 (s11/s12/s13) was ALSO stopped
-  by the operator at the bootstrap barrier and marked
-  INVALID_INTEGRATION_CANARY (fb_20260817T231211_ba01c4): the
-  barrier itself PASSED (all three stopped at exactly 655,360 steps
-  with valid ready_B00 records; no post-boundary training), but
-  start_B00 was never released — `wandb.Api.runs()` negative-cached
-  the empty peer page queried before s13 existed, so s11/s12 saw 2/3
-  peers forever (a THIRD, distinct integration bug after the any15
-  env-0 admission and any16 stale-summary/release-barrier bugs). Fix
-  is landed at main `686f5628` (fresh `wandb.Api` per unresolved-peer
-  retry + regression test; 23/23 + 51/51 recovery tests green per the
-  note). Codex will push the exact launch SHA and issue ONE
-  append-only any18 directive. Do NOT relaunch any17/any16 names
-  autonomously. PIDs verified absent on train-0/1/3; W&B/log evidence
-  preserved; pods free for other sprint work meanwhile.
+- **WAIT `[operator]` (hw, opened 08-17 ~23:4x UTC): recover-any18-pop3
+  ALSO failed closed at the bootstrap barrier — a FOURTH distinct sync
+  bug, not the one 686f5628 fixed.** Launched per operator directive
+  fb_20260817T231336_93cacc (exact any17 recipe, from scratch, no
+  `--init-from`, on 686f5628-or-descendant); gate items (1)-(2) PASSED
+  live (all 3 rows RUNNING with distinct W&B ids — s11 `18q6to9f`/
+  train-0, s12 `e8qr91fq`/train-1, s13 `1z5ejwe4`/train-3 — no
+  init_from; all three stopped exactly at 655,360 steps with valid,
+  distinct `ready_B00` records). **Gate item (3) FAILED differently
+  from any17**: the leader (s11) crashed with `RuntimeError` at its
+  own 900s `barrier_timeout`, having logged ZERO "start poll
+  deferred" exceptions the whole wait — `_peer_rows()` never raised,
+  it just silently never reached 3/3 peers — while a manual replica
+  of the identical peer-discovery query, run from the controller at
+  matching wall-clock times, resolved all three names instantly and
+  W&B confirmed all three correct `ready_B00` records were live well
+  before the timeout. So the empty-page-cache fix is real but
+  insufficient; something INSIDE the leader process itself (not
+  reproducible from the controller) is still blocking peer
+  resolution, and `wait_for_start` has no diagnostic print for a
+  short peer count (unlike `poll()`), so only the crash surfaced it.
+  Stopped mechanically + cleanly: s11 self-terminated; s12/s13
+  (pre-deadline) killed once the leader was confirmed dead (no member
+  0 left to ever release the race); PIDs verified absent on
+  train-0/1/3. All three ledger rows INVALID_INTEGRATION_CANARY, W&B
+  notes updated. Escalated `q_20260817T2340Z` (full analysis + a
+  concrete next diagnostic: log `self._peer_ids` state / per-call
+  resolved-count on timeout) — per the directive's own instruction,
+  NO fix attempted this cycle. Do NOT relaunch any16/17/18 names
+  without a fifth, root-caused directive.
 - **NEW WAIT (08-17 ~18:3x UTC) `[code]` (hw, sprint-serving,
   agent-doable — next idle cycle drains this): build + run the
   remaining-rise EVAL PROBE that prices the operator's postlower
