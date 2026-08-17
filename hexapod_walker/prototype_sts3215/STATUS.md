@@ -373,19 +373,24 @@ ORCHESTRATOR_PROMPT.md):**
   closed postlower training attempts; product baseline unaffected).
   Idle slots next to `[operator]`-typed waits are correct under the
   sprint; do not backfill them with research arms.
-- **NEW WAIT (08-17 ~23:0x UTC) `[operator]` (hw): recover-any16-pop3
-  relaunch is gated on the operator's Codex session.** The three-seed
-  cohort (s11/s12/s13) was STOPPED and marked
-  INVALID_INTEGRATION_CANARY per operator MCP note
-  fb_20260817T223644_c8bc48: 512-env admission broadcast confirmed
-  working, but population checkpoint sync did not — member 0 adopted
-  its own elected B1 and ran ahead to B2/B3 while s12/s13 never
-  adopted anything (log-verified on train-0/1/3). Codex is landing
-  the fix (force-refresh `_peer_rows` reads + leader release barrier
-  so no member trains past a bucket until all ACK) and will issue ONE
-  clean append-only relaunch directive. Do NOT relaunch the current
-  recipe autonomously. Checkpoints preserved on pods; /dev/shm
-  cleaned on train-0/1/3, pods free for other sprint work meanwhile.
+- **WAIT (updated 08-17 ~23:2x UTC; opened ~23:0x for any16)
+  `[operator]` (hw): recover population relaunch is gated on the
+  operator's Codex session issuing the any18 directive.** The
+  successor cohort recover-any17-pop3 (s11/s12/s13) was ALSO stopped
+  by the operator at the bootstrap barrier and marked
+  INVALID_INTEGRATION_CANARY (fb_20260817T231211_ba01c4): the
+  barrier itself PASSED (all three stopped at exactly 655,360 steps
+  with valid ready_B00 records; no post-boundary training), but
+  start_B00 was never released — `wandb.Api.runs()` negative-cached
+  the empty peer page queried before s13 existed, so s11/s12 saw 2/3
+  peers forever (a THIRD, distinct integration bug after the any15
+  env-0 admission and any16 stale-summary/release-barrier bugs). Fix
+  is landed at main `686f5628` (fresh `wandb.Api` per unresolved-peer
+  retry + regression test; 23/23 + 51/51 recovery tests green per the
+  note). Codex will push the exact launch SHA and issue ONE
+  append-only any18 directive. Do NOT relaunch any17/any16 names
+  autonomously. PIDs verified absent on train-0/1/3; W&B/log evidence
+  preserved; pods free for other sprint work meanwhile.
 - **NEW WAIT (08-17 ~18:3x UTC) `[code]` (hw, sprint-serving,
   agent-doable — next idle cycle drains this): build + run the
   remaining-rise EVAL PROBE that prices the operator's postlower
