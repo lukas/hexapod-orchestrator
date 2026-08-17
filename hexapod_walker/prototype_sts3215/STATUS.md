@@ -36,7 +36,19 @@ stance `footlow2_hard1` + walk `bcgait1_hard1` + session controller
 with entry-slew and STOP→stance-hold — det 0.967 / sto 0.853 on the
 n=600 held-out session gate; single weak boundary = post-lower rise).
 
-**Last updated: 2026-08-17 (dynrep: the joint PPO+auxiliary rebuild —
+**Last updated: 2026-08-17 late (dynrep, operator order
+fb_20260817T210422_9df9c7 executed: TWO new arms live — 
+`cw-dynrep-criticD-40m1`, a 40M command-rich walk run with the frozen
+pretrained transformer as critic D (the 1M frozen-critic transfer WIN,
+3/3 seeds, scaled up; checkpoints picked by a locomotion-quality
+composite, never scalar reward), and `cw-dynrep-livewalkrise1`, a 10M
+live world-model run (stratified 75/25 walk/rise CUDA replay,
+command-rich commands incl. yaw + stops, boundary-gated versioned
+critic snapshots). Both mechanism canaries PASSED; canary1 caught and
+fixed a real defect (exogenous joystick-command channels exploded the
+predictor's targets — now masked). Obey-first question
+q_20260817T2200Z records the SIM-SPRINT tension. Detail:
+dynrep/STATUS.md.) Earlier (dynrep: the joint PPO+auxiliary rebuild —
 the operator-directed third attempt to make the pretrained dynamics
 transformer help walking — FAILED its pre-registered 1M gate on all
 three conditions, and the line STOPS adding complexity per that gate;
