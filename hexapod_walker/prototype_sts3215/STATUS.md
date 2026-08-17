@@ -78,7 +78,12 @@ the first seed to earn each retention-clean promotion shares its
 exact weights with the other two, best-of-three at every rung.
 Startup verified: 3 distinct W&B runs, "synchronized cohort armed" in
 all 3 logs. **UPDATE ~23:0x: cohort STOPPED, INVALID_INTEGRATION_CANARY
-— population sync broken; see "Last updated" above.** Detail:
+— population sync broken; see "Last updated" above. Codex's barrier
+fix landed at f5aee3f and the successor cohort
+`cw-recover-any17-pop3-s11/s12/s13` is live per operator directive
+fb_20260817T225114_a31958 (bootstrap barrier at 655,360 steps,
+forced summary refresh, leader release after all-ACK; 7-point live
+integration gate, fail-closed).** Detail:
 hw/STATUS.md.) Earlier (dynrep,
 operator order
 fb_20260817T210422_9df9c7 executed: TWO new arms live — 
