@@ -365,6 +365,18 @@ ORCHESTRATOR_PROMPT.md):**
   legacy otherwise. Not yet written; still `[code]`, next cycle with
   eval-harness budget should implement+test this exact design rather
   than re-deriving it.**
+  **BUILT + DISPATCHED 2026-08-17 ~22:2x UTC (idle-drain cycle):**
+  `--rise-from-h` written exactly per the spec above (calls
+  `SimHexapodGoalEnv._seq_segment_traj` directly, cfg toggle
+  scoped/restored, works without `_seq_stand_z`); tests green
+  (`test_eval_modeseq_rise_from_h.py` 4/4 real-env + `test_
+  bulk_session_eval.py` +2, 14/14 total) and real-checkpoint smoke
+  reads confirm the mechanism (detail + pre-registered readout:
+  SESSION_BULK_GATE.md "Cohort c5rr"); the matched-schedule bulk read
+  of `spec` vs `spec-pl4` (n=300 det + 300 sto each, fresh bank
+  980000/990000) is DISPATCHED on idle pods this cycle — **`[code]`
+  becomes `[precondition: c5rr aggregate.json exists]`, next cycle
+  aggregates + reports the price to the operator.**
 - **NEW WAIT (08-17 ~22:0x UTC) `[triage]` (hw): `cw-recover-any15-
   retentionrollback-cont1` finished 40M and is flagged DIG-IN, not
   verdicted.** Warm-started from `any11` (which had already reached
