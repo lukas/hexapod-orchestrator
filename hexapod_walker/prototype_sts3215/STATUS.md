@@ -294,13 +294,21 @@ ORCHESTRATOR_PROMPT.md):**
   the walk task's initial height reference already sits near/below
   the 25mm trip band before the policy acts at all. Detail:
   arch/STATUS.md top bullet, `rl_docs/runs/cw-arch-joystick-canary1.md`.
-- **NEW WAIT (08-17 ~01:xx UTC) `[operator]` (dynrep): the tfwalk-joint1
-  verdict is in — corrected condition C FAILED its pre-registered 1M
+- ~~NEW WAIT (08-17 ~01:xx UTC) `[operator]` (dynrep)~~ **CLEARED
+  08-17 ~06:xx UTC: the operator's call arrived
+  (fb_20260817T052333_e5ae09, "ok try it") and is EXECUTED this cycle
+  — the decoupled predictive-CRITIC design (actor fully independent,
+  zero-gated stop-gradient snapshot-latent residual in the critic
+  only; D frozen / E online+guarded-EMA) is built, tested (8/8 new
+  bank + all dynrep banks), snapshotted, and the E integration canary
+  is live ahead of the pre-registered D/E seeds-5/6/7 1M cohort.
+  Detail: dynrep/STATUS.md.** Original wait text (the tfwalk-joint1
+  verdict): corrected condition C FAILED its pre-registered 1M
   gate on ALL THREE conditions (heldout pred +17% vs the 15% band;
   action-KL 0.070 vs 0.02 target/0.04 guard, aux permanently stopped
   on 2 of 3 seeds; walk 288.9 < B 308.8/318.5 < scratch A 334.9/360.8)
   — per the gate, dynrep STOPS adding complexity; the next dynrep
-  experiment is the operator's call** (directive
+  experiment is the operator's call (directive
   fb_20260817T005323_22be43 forbids relaunch/recollection/architecture
   change). Operational side handled this cycle: all three C arms were
   SIGKILLed by the leftover risewalk-era memwatch on train-11/4/5
