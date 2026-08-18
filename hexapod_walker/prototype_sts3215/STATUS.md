@@ -438,16 +438,21 @@ ORCHESTRATOR_PROMPT.md):**
   every one of these checkpoints. Fixed at the root (trainable-only
   filter) plus a defensive `load_checkpoint_auto` repair fallback for
   already-saved checkpoints (frozen-encoder regression test added,
-  `rl_move/tests/test_dynrep_predictive_critic.py`). No follow-up
-  queued from walkcurr3 itself — the fix is already running as the
-  operator's same-seed canary tournament: `cw-dynrep-criticD-
-  walkcurr4-canA-r2` (arm A, scratch+gates+LR) RUNNING on train-7;
-  arms B/C (actor-only init from the proven BC-gait recipe, per the
-  URGENT addendum fb_20260818T085834_588d9a) are a concurrent cycle's
-  in-flight work (`actor_only_transplant` landed in
+  `rl_move/tests/test_dynrep_predictive_critic.py`).
+  **UPDATE ~10:2x UTC: arm A (`cw-dynrep-criticD-walkcurr4-canA-r2`,
+  scratch+gates+LR) FINISHED its 4M canary — FAIL, reproducing
+  walkcurr3's exact crouch-shuffle stall (frontier/promotions stuck at
+  0, cmd_prog_frac 0.024 vs bar 0.50, video confirms a static crouch).
+  Gates-ON + higher-LR alone is refuted as the fix.** Arms B/C
+  (actor-only init from the proven BC-gait recipe, per the URGENT
+  addendum fb_20260818T085834_588d9a) are `[triage]`-pending under a
+  concurrent cycle (`canB-r1` train-9, `canC-r1` train-5,
+  `actor_only_transplant` landed in
   `rl_move/dynamics/predictive_critic.py`, tests in
   `rl_move/tests/test_actor_only_transplant.py`) — not duplicated
-  here.
+  here; if both also fail, the tournament's own gate calls for one
+  evidence-based correction before any re-canary, `[triage]`-gated on
+  their results. Detail: dynrep/STATUS.md.
 - **CLEARED 2026-08-18 ~00:5x UTC (hw): the recover-population sync
   barrier is SOLVED — `cw-recover-any21-pop3-s11/s12/s13` is the
   first cohort in the whole any16-21 saga to clear EVERY live gate
