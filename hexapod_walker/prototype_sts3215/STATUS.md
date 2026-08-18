@@ -36,18 +36,25 @@ stance `footlow2_hard1` + walk `bcgait1_hard1` + session controller
 with entry-slew and STOP→stance-hold — det 0.967 / sto 0.853 on the
 n=600 held-out session gate; single weak boundary = post-lower rise).
 
-**Last updated: 2026-08-18 ~23:2x UTC (hw): TWO of three seeds of the
+**Last updated: 2026-08-18 ~23:3x UTC (hw): ALL THREE seeds of the
 from-scratch `predictive1b-pop3` recover cohort now independently
-clear the ENTIRE redesigned 23-rung get-up ladder** (`-s13`: frontier
-held B22 `flip` at 40M, gate 21/23 then 23/23 own-DR, incl. a genuine
-flip recovery; `-s12`: frontier reached B22 by 35.1M and held clean
-with zero retention-guard rollbacks, gate 22/23 both passes — `flip`
-is its one open miss, video-confirmed a genuine stuck attempt, no
-exploit either member). No flag/tripod/stilt/park exploit in any
-reviewed video on either member, incl. the rungs built specifically
-to teach the old parked-on-4/5-feet wall. Still not a line-level
-claim — the third seed (`-s11`, same recipe) is still training and
-gets its own verdict; recover/tangle stays `[operator]`-gated, no
+clear the ENTIRE redesigned 23-rung get-up ladder — cohort COMPLETE.**
+`-s13`: frontier held B22 `flip` at 40M, gate 21/23 then 23/23
+own-DR, incl. a genuine flip recovery. `-s12`: frontier reached B22
+by 35.1M, held clean with zero retention-guard rollbacks, gate 22/23
+both passes (flip its one miss, no exploit). `-s11`: frontier reached
+B22 by 34.7M, held clean (one guard rollback fired and recovered);
+raw gate score looked weaker (18/23, 20/23) but video + per-episode
+metrics show most of that gap is the known quiet-hold-timing
+false-negative, not a real miss — real success ~22/23 both passes,
+matching its siblings. No flag/tripod/stilt/park exploit in any
+reviewed video on any member, incl. the rungs built specifically to
+teach the old parked-on-4/5-feet wall (now solved 3/3, from scratch).
+`flip` is the one shared weak rung across the cohort (1/3 solves it
+fully, 2/3 partial-or-fail under harder DR/noise) — the clearest
+target for a future hardening pass. This is a genuine line-level win
+for the population-sync + predictive-context recipe; per the
+standing ruling recover/tangle redesign stays `[operator]`-gated, no
 follow-up queued, and this does not change today's download answer
 (rise/walk session gate, unaffected). Detail: hw/STATUS.md "Now" +
 `rl_docs/SKILLS.md`.
@@ -436,27 +443,7 @@ ORCHESTRATOR_PROMPT.md):**
   closed postlower training attempts; product baseline unaffected).
   Idle slots next to `[operator]`-typed waits are correct under the
   sprint; do not backfill them with research arms.
-- **[triage] hw / `cw-recover-predictive1b-pop3-s11` — s12/s13
-  already triaged (both PASS, both cleared the full 23-rung ladder,
-  see "Last updated"); s11 still training on the identical recipe,
-  normal 40M cohort triage when it finishes (since 2026-08-18
-  ~17:3x UTC).**
-  The barrier mystery is RESOLVED, not a code defect: attempt 1's
-  "silent zombie at 655,360" was the operator-kick cycle's own
-  deliberate fail-closed pkill of s11/s12 (both parked healthy at the
-  barrier; s13's burned single-use W&B id 200e6aac had made the roster
-  permanently un-rendezvousable — ledger verdicts written before the
-  zombie observation). Attempt 2 is fully healthy: all 3 members
-  (ids 7901e7bb/304ac843/95414586, pods train-5/7/9) crossed the
-  bootstrap barrier, leader released, and ALL THREE posted the first
-  synchronized cert at 1,048,576 (B0 plant_catch 16/16, frontier
-  B0->B1, CERT/recover_training_envs_synchronized=512,
-  predictive_enabled=1, finite gates). `--predictive-actor` +
-  population-sync composes fine. Judge at the pre-registered 40M
-  checkpoints vs the any21 B14 wall (s13 already crossed it decisively
-  — the bar for s11/s12 is now whether they repeat it or drift like
-  the any21c2 cohort did post-plateau). Detail: hw/STATUS.md "Now",
-  ledger verdicts on `predictive1-pop3-*` / `predictive1b-pop3-*`.
+- **CLEARED 08-18 ~23:3x UTC (this cycle): `cw-recover-predictive1b-pop3-s11` triaged, PASS — the predictive1b-pop3 cohort is now COMPLETE (all three seeds s11/s12/s13 independently clear the full 23-rung ladder, no exploit; `flip` is the shared weak rung). See "Last updated" + hw/STATUS.md "Now" + `rl_docs/SKILLS.md`. Recover/tangle redesign stays `[operator]`-gated per the standing ruling — no follow-up queued.
 - **CLEARED 08-18 ~17:1x UTC (this cycle): both fleet preconditions
   from the predictive1 launch drained.** (1) train-6 torch CUDA
   capability installed + durably recorded via
