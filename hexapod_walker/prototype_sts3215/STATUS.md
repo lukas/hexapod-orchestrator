@@ -36,7 +36,23 @@ stance `footlow2_hard1` + walk `bcgait1_hard1` + session controller
 with entry-slew and STOP→stance-hold — det 0.967 / sto 0.853 on the
 n=600 held-out session gate; single weak boundary = post-lower rise).
 
-**Last updated: 2026-08-18 ~06:5x UTC (hw): the recover population
+**Last updated: 2026-08-18 ~19:4x UTC (hw): the "keep it rumbling"
++100M recover cohort (below) is now FULLY COMPLETE — all three
+members (s11/s12/s13) verdicted. Answer to the operator's "does more
+training help": no clean answer — one member rose (13→16/18), one
+fell (16→8/18), one washed (13→14/18, 16→15/18), all on the
+identical recipe/budget, all holding the shared B15 frontier the
+whole 100M with no exploit. This is the same oscillating-retention
+wall CURRENT_TRUTHS already named, now confirmed at 100M/member
+scale, not a new mechanism. Separately (walk track): a staged
+difficulty-ramp fix for the joystick direction-switch jamming that
+failed at 20M (`steer1-hard20m1`) passed its 2M canary cleanly
+(`steer2-stagecurric1`: 0/24 over_current vs the failed run's 3/24,
+1/24 mild single-leg drag vs 1/24 severe tangle) and a matched ~20M
+hardening continuation is now running. Neither changes today's
+download answer. Detail: hw/STATUS.md "Now".**
+
+**Earlier — 2026-08-18 ~06:5x UTC (hw): the recover population
 saga has its first full win and is now RUMBLING ON BY OPERATOR ORDER.
 The any21 three-seed cohort finished its full 40M budget with the
 sync mechanism proven end-to-end (all certs synchronized=512, B1-B14
