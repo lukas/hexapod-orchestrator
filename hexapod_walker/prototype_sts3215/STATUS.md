@@ -471,14 +471,21 @@ ORCHESTRATOR_PROMPT.md):**
   no update strength ignites upright walking from scratch in 4M.
   `walkcurr3` itself (40M, 0 promotions in 80 cert rounds) is marked
   SUPERSEDED_REWARD_EXPLOIT per the order; checkpoints preserved.
-  `[triage]`-pending now only on the addendum arms (gaitinit-bcinit/
-  gaitinit-hard1, the concurrent cycle's runs); if they ALSO collapse
-  to the crouch, that argues the defect is structural to the
-  critic-D/walkcurr income, not actor competence at init — the
-  tournament's own gate calls for one
-  evidence-based correction before any re-canary, `[triage]`-gated on
-  their results. `[precondition: a gaitinit arm passes admission]` for
-  any 40M walkcurr4 launch. Detail: dynrep/STATUS.md.
+  **UPDATE ~11:xx UTC (operator-kick cycle, fb_20260818T102844_116d4c
+  + focus note executed): tournament CLOSED — all six 4M arms
+  verdicted FAIL on admission (gaitinit-bcinit kept posture but lost
+  commanded travel, prog 0.0575; gaitinit-hard1 is the outlier that
+  PRESERVED real walking, gait_valid 6/6, but falls chasing V2's
+  non-adjacent 0.08-0.12 band). The operator's one evidence-based
+  correction is BUILT (V3 bridge curriculum + `--actor-freeze-steps`
+  + pre-PPO deterministic cert, all default-off, banks green) and
+  LAUNCHED as `cw-dynrep-criticD-walkcurr4-bridge1` (4M, train-9).
+  `[precondition: bridge1 passes its pre-registered gate (B0 promo
+  <=1M; at 4M frontier>=B2, prog>=.6, hf>=.8, slip<=2, zero falls)]`:
+  the triaging cycle AUTOMATICALLY launches the 40M
+  `cw-dynrep-criticD-walkcurr4` on the same recipe — operator-ordered,
+  already pre-registered, no new decision needed. FAIL => no 40M.
+  Detail: dynrep/STATUS.md top.**
 - **CLEARED 2026-08-18 ~00:5x UTC (hw): the recover-population sync
   barrier is SOLVED — `cw-recover-any21-pop3-s11/s12/s13` is the
   first cohort in the whole any16-21 saga to clear EVERY live gate
