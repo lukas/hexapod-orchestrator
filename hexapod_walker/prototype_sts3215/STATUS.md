@@ -453,6 +453,24 @@ ORCHESTRATOR_PROMPT.md):**
   step; fixed by hand, zero GPU-seconds lost, stale duplicate ledger
   rows reconciled). Detail: rl_docs/tracks/hw/STATUS.md, ledger
   verdict.
+  **ADDENDUM ~18:0x UTC (a SECOND concurrent cycle, independently
+  triaging the same steer1c finish): reached the identical CANARY
+  PASS verdict (own held-out re-eval: 24 episodes DR-0+own-DR-0.35
+  det+sto, zero falls, six-leg gait_valid 23/24) and, not yet aware
+  the peer above had already launched+finished the continuation,
+  respec'd + launched a byte-identical duplicate
+  (`cw-dep-bcgait1-hard1-steer1-hard1`, same parent/seed 11/
+  `--best-ckpt`) onto the pod the first attempt's crash had freed.
+  Caught at ~2.9M/20M steps by re-reading the ledger (two rows both
+  claiming train-4 RUNNING), confirmed via live pod process that only
+  one trainer was actually alive, killed the redundant one
+  immediately (verdict: KILLED_DUPLICATE on
+  `cw-dep-bcgait1-hard1-steer1-hard1`) — zero useful signal lost, no
+  double GPU-seconds beyond the ~15 min overlap. The real answer is
+  `cw-dep-bcgait1-hard1-steer1-hard20m1` (W&B `w3fbxfj7`) above,
+  finished its full 20M and is a PEER CYCLE'S in-progress triage as
+  of this addendum — not re-verdicted here to avoid a second
+  collision on the same run.**
 - **CLEARED 2026-08-18 ~08:5x UTC (dynrep): the SubprocVecEnv->GPU-
   physics backend swap is DONE and LIVE** (operator order
   fb_20260818T065930_03b422 executed same cycle): condition-D +
