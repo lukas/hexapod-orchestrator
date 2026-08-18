@@ -419,8 +419,12 @@ ORCHESTRATOR_PROMPT.md):**
   normal 40M triage) or died the same way (two independent failures
   at the same code path = stop blind-retrying, dig into
   `_RecoverPopulation.wait_for_start`/`_peer_rows` in
-  rl_move/sim/train_ppo_mjx.py with the now-unbuffered log). Detail:
-  hw/STATUS.md "Now", ledger verdicts on `predictive1-pop3-*`.
+  rl_move/sim/train_ppo_mjx.py with the now-unbuffered log). **UPDATE
+  ~17:0x: all 3 predictive1b members are past the barrier
+  (720,896 steps, still alive) — encouraging, but not yet a clean
+  bill of health for the mechanism (only one data point past the
+  danger zone); still triage normally at its next checkpoint.**
+  Detail: hw/STATUS.md "Now", ledger verdicts on `predictive1-pop3-*`.
 - **CLEARED 2026-08-18 ~16:3x UTC: `cw-dep-bcgait1-hard1-steer1c`
   canary PASSED triage (mechanism-health only)** — found already
   finished on the pod (ledger was stale/RUNNING; W&B + process state
