@@ -36,7 +36,23 @@ stance `footlow2_hard1` + walk `bcgait1_hard1` + session controller
 with entry-slew and STOP→stance-hold — det 0.967 / sto 0.853 on the
 n=600 held-out session gate; single weak boundary = post-lower rise).
 
-**Last updated: 2026-08-18 ~00:2x UTC (hw): recover-any19-pop3 also
+**Last updated: 2026-08-18 ~06:5x UTC (hw): the recover population
+saga has its first full win and is now RUMBLING ON BY OPERATOR ORDER.
+The any21 three-seed cohort finished its full 40M budget with the
+sync mechanism proven end-to-end (all certs synchronized=512, B1-B14
+adoptions clean, frontier B14/tangle held 16M→40M, matched-eval beats
+the any11/any15 baseline, genuine video-verified recoveries). The
+operator ("keep it rumbling lets see what happens", MCP lane
+20260818T055528Z) ordered +100M steps per member from exact final
+state: now RUNNING as cw-recover-any21c2-pop3-s11/s12/s13 (W&B
+5ecd335b/cc54b647/11892a73, pods train-0/1/3), resuming each member's
+own final policy+optimizer plus the adopted B14 curriculum sidecar
+via the new default-off --recover-init-curriculum flag (a1a01b27);
+rendezvous re-proven at B14 (barrier crossed, race started). Attempt
+1 (any21c) was lost to launch skew racing the 900s barrier — fail-
+closed, verdicted, ids consumed; c2 pins member indices and uses a
+3600s barrier. Caps overridden per the order; see q_20260818T0650Z.**
+Earlier ~00:2x (hw): recover-any19-pop3 also
 failed closed at the sync barrier, but the freeze family is finally
 ROOT-CAUSED — one W&B backend-view pinning defect (a long-lived
 trainer only ever sees runs that existed at its first connect), not
@@ -459,10 +475,13 @@ ORCHESTRATOR_PROMPT.md):**
   same failure class as any20), verdicted (FAIL/KILLED, no training
   conclusion) with checkpoints/ids preserved, never a silent partial
   continue. Attempt 2 (`cw-recover-any21c2-pop3-s11/s12/s13`, pinned
-  member indices + barrier timeout raised to 3600s) is mechanically
-  RUNNING all 3/3 as of this cycle (verified via `launch_run.py
-  status`); barrier-crossing/first-cert not yet confirmed — next
-  checkup watches it, no operator wait open on the mechanism itself.**
+  member indices + barrier timeout raised to 3600s) is RUNNING 3/3
+  and, per live pod-log confirmation this cycle, already CLEARED the
+  bootstrap barrier (`leader RELEASED initial B14 race after all 3
+  members reached 655,360 steps`, all training past it in lockstep
+  ~852k/786k/852k steps); first 1M cert not yet due — next checkup
+  watches CERT/recover_training_envs_synchronized=512, no operator
+  wait open on the mechanism itself.**
 - **NEW WAIT (08-17 ~18:3x UTC) `[code]` (hw, sprint-serving,
   agent-doable — next idle cycle drains this): build + run the
   remaining-rise EVAL PROBE that prices the operator's postlower
