@@ -404,22 +404,21 @@ ORCHESTRATOR_PROMPT.md):**
   closed postlower training attempts; product baseline unaffected).
   Idle slots next to `[operator]`-typed waits are correct under the
   sprint; do not backfill them with research arms.
-- **[precondition: cw-dep-bcgait1-hard1-steer1c canary PASS +
-  triage] hw / larger direction-switch continuation of the tall
-  walker (since 08-18 ~16:1x UTC, operator order
-  fb_20260818T152717_278879):** the rot60 on/off probe
-  (`probe_dirswitch_tangle`, 48 matched 120 s episodes det+sto:
-  ZERO falls, wrapper strictly safer — sector crossings exonerated;
-  real gaps = post-switch yaw-limit saturation + legs pausing) chose
-  plain transition fine-tuning as the smallest fix; the 2M
-  mechanism-health canary `steer1c` is RUNNING on train-5. When it
-  passes triage, launch the full hardening continuation (same recipe,
-  ~20M, `--best-ckpt` retention guard) with the operator's admission
-  panel: original fixed-command hard1 quality retained (height >=
-  -20 mm, six-leg gait-valid, zero falls, slip <= 1.8/m), long
-  det+sto direction-switch panels zero falls/tangles, all legs
-  cycling after changes, no accumulating yaw saturation, prompt
-  tracking recovery. Detail: rl_docs/tracks/hw/STATUS.md.
+- **CLEARED 2026-08-18 ~16:3x UTC: `cw-dep-bcgait1-hard1-steer1c`
+  canary PASSED triage (mechanism-health only)** — found already
+  finished on the pod (ledger was stale/RUNNING; W&B + process state
+  confirmed done). Finite losses, approx_kl 0.0069 with 0 KL
+  rollbacks, no early-termination signal, tall gait intact on the
+  last periodic eval + video. The pre-registered ~20M hardening
+  continuation is VERIFIED RUNNING on train-4 as
+  `cw-dep-bcgait1-hard1-steer1-hard20m1` (W&B `w3fbxfj7`,
+  `--best-ckpt` retention guard, same stress-mix recipe) with the
+  operator's admission panel as its gate (a first launch attempt hit
+  a real respec-tool bug — a bare `--best-ckpt` flag through `--arg`
+  left a stray empty argument and crashed at argparse before any
+  step; fixed by hand, zero GPU-seconds lost, stale duplicate ledger
+  rows reconciled). Detail: rl_docs/tracks/hw/STATUS.md, ledger
+  verdict.
 - **CLEARED 2026-08-18 ~08:5x UTC (dynrep): the SubprocVecEnv->GPU-
   physics backend swap is DONE and LIVE** (operator order
   fb_20260818T065930_03b422 executed same cycle): condition-D +

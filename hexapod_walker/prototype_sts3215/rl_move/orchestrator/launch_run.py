@@ -1535,14 +1535,28 @@ def cmd_respec(g: dict, a: argparse.Namespace) -> int:
         else:
             args.extend([flag, val])
 
+    def set_bare_flag(flag: str) -> None:
+        # store_true-style flag: takes no value. Adding [flag, ""]
+        # (the old set_flag behavior for a missing '=') crashed
+        # train_ppo_mjx.py's argparse with a trailing empty
+        # "unrecognized arguments" (found the hard way, 08-18:
+        # --arg='--best-ckpt' launched, argparse-crashed pre-boot,
+        # zero GPU-seconds lost, fixed here). Idempotent: a bare flag
+        # already present is left alone.
+        if flag not in args:
+            args.append(flag)
+
     if a.seed is not None:
         set_flag("--seed", str(a.seed))
     for spec in a.arg or []:
-        flag, _, val = spec.partition("=")
+        flag, eq, val = spec.partition("=")
         if not flag.startswith("--"):
-            print(f"bad --arg (need --flag=value): {spec}")
+            print(f"bad --arg (need --flag=value or bare --flag): {spec}")
             return 1
-        set_flag(flag, val)
+        if eq:
+            set_flag(flag, val)
+        else:
+            set_bare_flag(flag)
     for spec in a.cfg or []:
         key = spec.split("=", 1)[0]
         # replace an existing --cfg-set for the same key, else append
