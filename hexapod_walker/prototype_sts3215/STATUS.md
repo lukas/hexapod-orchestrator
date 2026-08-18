@@ -479,12 +479,25 @@ ORCHESTRATOR_PROMPT.md):**
   non-adjacent 0.08-0.12 band). The operator's one evidence-based
   correction is BUILT (V3 bridge curriculum + `--actor-freeze-steps`
   + pre-PPO deterministic cert, all default-off, banks green) and
-  LAUNCHED as `cw-dynrep-criticD-walkcurr4-bridge1` (4M, train-9).
+  LAUNCHED as `cw-dynrep-criticD-walkcurr4-bridge1` (4M, actually
+  **train-11**, correcting this entry's pod — capacity.py is ground
+  truth, W&B `ytfh9o3j`).
   `[precondition: bridge1 passes its pre-registered gate (B0 promo
   <=1M; at 4M frontier>=B2, prog>=.6, hf>=.8, slip<=2, zero falls)]`:
   the triaging cycle AUTOMATICALLY launches the 40M
   `cw-dynrep-criticD-walkcurr4` on the same recipe — operator-ordered,
   already pre-registered, no new decision needed. FAIL => no 40M.
+  **Independent corroboration (a second, concurrent cycle building
+  the identical fb_20260818T102844_116d4c recipe from the same
+  committed code): a standalone pre-launch mechanism smoke
+  (`--walkcurr-precert-only`, 100k-step budget, train-9) ran the exact
+  bridge-B0 cert on the untrained transplant and PASSED CLEANLY
+  (prog=1.164, falls=0, slip/m=0.93, roll=5.7deg, height_factor=0.83,
+  slew=0.90) — its own launch attempt then correctly lost the
+  duplicate-run race to the train-11 job above (REFUSED, normal
+  launcher traffic) and stood down rather than double-spend the 4M
+  budget. No action needed; this only strengthens confidence the
+  transplant/obs mapping is sound going into the real run.
   Detail: dynrep/STATUS.md top.**
 - **CLEARED 2026-08-18 ~00:5x UTC (hw): the recover-population sync
   barrier is SOLVED — `cw-recover-any21-pop3-s11/s12/s13` is the
