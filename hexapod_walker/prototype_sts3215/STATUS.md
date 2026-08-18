@@ -456,13 +456,29 @@ ORCHESTRATOR_PROMPT.md):**
   unit-tested `test_actor_only_transplant.py` 9/9, CUDA-canary-proven
   on-pod) transplants ONLY the actor from a proven scripted-gait/
   gait-hardened checkpoint into a fresh condition-D model, critic +
-  frozen encoder untouched. `[triage]`-pending on all four (canB-r1/
-  canC-r1/gaitinit-bcinit/gaitinit-hard1); if the addendum arms ALSO
-  collapse to the crouch, that argues the defect is structural to the
+  frozen encoder untouched.
+  **UPDATE ~11:0x UTC (kick cycle, fb_20260818T085648_2a0a60 executor):
+  the SCRATCH tournament is now fully triaged — ALL THREE scratch arms
+  FAIL the pre-registered behavioral admission gate, so per the
+  operator's own order NO 40M `walkcurr4` launches from this
+  tournament.** Verdicts (ledger + W&B notes): `canA-r2` (2e-4 x5)
+  prog 0.02 final / hf 0.55; `canB-r1` (3e-4 x5) prog peaked 0.74 @r4
+  then regressed to -0.13, height stuck -29mm below the 25mm safety
+  cutoff (falls every round); `canC-r1` (3e-4 x7) got fully UPRIGHT
+  (h_err -4.9mm, hf 0.90 @r7) but stands still (prog 0.01, feet not
+  cycling). Clean negative control for the addendum: the gates
+  verifiably reprice the crouch (all arms rise -54mm -> upright) and
+  no update strength ignites upright walking from scratch in 4M.
+  `walkcurr3` itself (40M, 0 promotions in 80 cert rounds) is marked
+  SUPERSEDED_REWARD_EXPLOIT per the order; checkpoints preserved.
+  `[triage]`-pending now only on the addendum arms (gaitinit-bcinit/
+  gaitinit-hard1, the concurrent cycle's runs); if they ALSO collapse
+  to the crouch, that argues the defect is structural to the
   critic-D/walkcurr income, not actor competence at init — the
   tournament's own gate calls for one
   evidence-based correction before any re-canary, `[triage]`-gated on
-  their results. Detail: dynrep/STATUS.md.
+  their results. `[precondition: a gaitinit arm passes admission]` for
+  any 40M walkcurr4 launch. Detail: dynrep/STATUS.md.
 - **CLEARED 2026-08-18 ~00:5x UTC (hw): the recover-population sync
   barrier is SOLVED — `cw-recover-any21-pop3-s11/s12/s13` is the
   first cohort in the whole any16-21 saga to clear EVERY live gate
