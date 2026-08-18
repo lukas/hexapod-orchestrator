@@ -404,6 +404,23 @@ ORCHESTRATOR_PROMPT.md):**
   closed postlower training attempts; product baseline unaffected).
   Idle slots next to `[operator]`-typed waits are correct under the
   sprint; do not backfill them with research arms.
+- **[triage] hw / `cw-recover-predictive1b-pop3-s11/s12/s13` sync-barrier
+  outcome (since 2026-08-18 ~16:5x UTC):** attempt 1 of this
+  from-scratch predictive-state-context recovery cohort
+  (`predictive1-pop3`) died silently (zombie, no traceback) on 2 of 3
+  members at the exact recover-population bootstrap barrier
+  (655,360 steps), right after `--predictive-actor` was combined with
+  the population-sync code for the first time. A concurrent cycle
+  relaunched attempt 2 (`predictive1b-pop3`) under the operator's
+  retry-once clause, running on old (pre-fix) buffered stdout. A
+  diagnostic `PYTHONUNBUFFERED=1` launcher fix is in (4a62f80a) for
+  whichever attempt comes next. Whoever next triages this cohort:
+  check whether predictive1b crossed the barrier clean (proceed to
+  normal 40M triage) or died the same way (two independent failures
+  at the same code path = stop blind-retrying, dig into
+  `_RecoverPopulation.wait_for_start`/`_peer_rows` in
+  rl_move/sim/train_ppo_mjx.py with the now-unbuffered log). Detail:
+  hw/STATUS.md "Now", ledger verdicts on `predictive1-pop3-*`.
 - **CLEARED 2026-08-18 ~16:3x UTC: `cw-dep-bcgait1-hard1-steer1c`
   canary PASSED triage (mechanism-health only)** — found already
   finished on the pod (ledger was stale/RUNNING; W&B + process state
