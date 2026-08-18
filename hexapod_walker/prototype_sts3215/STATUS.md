@@ -443,14 +443,24 @@ ORCHESTRATOR_PROMPT.md):**
   scratch+gates+LR) FINISHED its 4M canary — FAIL, reproducing
   walkcurr3's exact crouch-shuffle stall (frontier/promotions stuck at
   0, cmd_prog_frac 0.024 vs bar 0.50, video confirms a static crouch).
-  Gates-ON + higher-LR alone is refuted as the fix.** Arms B/C
-  (actor-only init from the proven BC-gait recipe, per the URGENT
-  addendum fb_20260818T085834_588d9a) are `[triage]`-pending under a
-  concurrent cycle (`canB-r1` train-9, `canC-r1` train-5,
-  `actor_only_transplant` landed in
-  `rl_move/dynamics/predictive_critic.py`, tests in
-  `rl_move/tests/test_actor_only_transplant.py`) — not duplicated
-  here; if both also fail, the tournament's own gate calls for one
+  Gates-ON + higher-LR alone is refuted as the fix.** `canB-r1`
+  (train-9, FINISHED, `[triage]`-pending) / `canC-r1` (train-5,
+  RUNNING) are the PRE-addendum design (scratch actor, LR variants
+  only, from the ORIGINAL fb_20260818T085648_2a0a60) — a correction,
+  **`canB-r1`/`canC-r1` do NOT yet test the addendum's actor-init
+  claim.** The actual addendum arms (fb_20260818T085834_588d9a, "the
+  positive mechanism is actor init from the scripted gait, not LR")
+  are `cw-dynrep-criticD-walkcurr4-gaitinit-bcinit` (train-11) and
+  `-gaitinit-hard1` (train-7), BOTH launched + RUNNING this cycle:
+  `actor_only_transplant` (`rl_move/dynamics/predictive_critic.py`,
+  unit-tested `test_actor_only_transplant.py` 9/9, CUDA-canary-proven
+  on-pod) transplants ONLY the actor from a proven scripted-gait/
+  gait-hardened checkpoint into a fresh condition-D model, critic +
+  frozen encoder untouched. `[triage]`-pending on all four (canB-r1/
+  canC-r1/gaitinit-bcinit/gaitinit-hard1); if the addendum arms ALSO
+  collapse to the crouch, that argues the defect is structural to the
+  critic-D/walkcurr income, not actor competence at init — the
+  tournament's own gate calls for one
   evidence-based correction before any re-canary, `[triage]`-gated on
   their results. Detail: dynrep/STATUS.md.
 - **CLEARED 2026-08-18 ~00:5x UTC (hw): the recover-population sync
