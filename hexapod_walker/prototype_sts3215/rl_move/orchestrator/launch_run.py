@@ -913,6 +913,15 @@ def _launch_locked(g: dict, a: argparse.Namespace,
     # UI then filters per track on tag `track:<id>`.
     if not a.smoke:
         envp += f"WANDB_TAGS={shlex.quote(_tracks.tag(track))} "
+    # PYTHONUNBUFFERED (08-18, recover-predictive1-pop3 silent-death dig-in):
+    # a trainer that dies by SIGKILL/native crash loses every buffered-but-
+    # unflushed stdout/stderr line — cw-recover-predictive1-pop3-s11/s12 both
+    # zombied with zero traceback right at the recover-population bootstrap
+    # barrier, and block buffering (writing to a file, not a tty) is the
+    # prime suspect for why nothing after the last full block reached the
+    # log. Purely diagnostic: unbuffered I/O changes no training semantics,
+    # only whether a genuine crash leaves a readable trace next time.
+    envp += "PYTHONUNBUFFERED=1 "
     # `< /dev/null` is load-bearing: without it the nohup'd trainer inherits
     # the kubectl-exec stream and `kubectl exec` hangs until the trainer
     # exits (observed cycle 10: launch verified fine but kexec timed out at
