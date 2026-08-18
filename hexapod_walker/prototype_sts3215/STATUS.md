@@ -36,7 +36,15 @@ stance `footlow2_hard1` + walk `bcgait1_hard1` + session controller
 with entry-slew and STOP→stance-hold — det 0.967 / sto 0.853 on the
 n=600 held-out session gate; single weak boundary = post-lower rise).
 
-**Last updated: 2026-08-17 ~23:0x UTC (hw, operator MCP note
+**Last updated: 2026-08-18 ~00:2x UTC (hw): recover-any19-pop3 also
+failed closed at the sync barrier, but the freeze family is finally
+ROOT-CAUSED — one W&B backend-view pinning defect (a long-lived
+trainer only ever sees runs that existed at its first connect), not
+four client bugs; fix landed at `8fbb7b21`, relaunch awaits the
+operator's sixth directive. Plus: the 900s fail-closed timeout is
+unenforceable when a W&B call blocks (all three members hung past
+their deadlines). Full story: WAITING-ON below +
+`q_20260817T2352Z` addendum.** Earlier ~23:0x (hw, operator MCP note
 fb_20260817T223644_c8bc48: the recover-any16-pop3 three-seed cohort
 is STOPPED and marked INVALID_INTEGRATION_CANARY — the 512-env
 broadcast fix works (all three certs synchronized=512), but the
