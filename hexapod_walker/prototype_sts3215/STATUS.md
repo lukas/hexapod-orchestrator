@@ -495,16 +495,20 @@ ORCHESTRATOR_PROMPT.md):**
   since it carries the KL-breach its own fatal rollback was undoing);
   `retry1` ran the clean 4M and hit prog/height/slip gate at every
   rung but falls escalate 12.5%->37.5%->50% with curriculum depth.
-  Neither holds single authority for the 40M call any more: that same
-  concurrent cycle restored the run's last VALID checkpoint (B1
-  promotion, step 524,288) as `bridge1-r2` (train-11, RUNNING) and its
-  pre-registration makes IT the single-authority run now — still live,
-  not yet triaged. A plausible `bridge2` fix (actor-only rollback +
-  critic-readiness gate + restored anti-drag/anti-park reward terms)
-  is proposed (MCP `fb_20260818T112826_9ed832`) but NOT launched —
-  new dynrep code + a new 4M launch under SIM SPRINT restrictions,
-  left `[operator]` for sign-off pending r2's own result. Detail:
-  dynrep/STATUS.md top.**
+  The recovery cycle then KILLED `bridge1-r2` at ~40k steps
+  (~11:45Z): retry1's finished full-4M answered r2's exact question
+  (recipe fails the falls bar, escalating with rung) and operator
+  fb_20260818T112826_9ed832 explicitly ruled NO 40M from this recipe —
+  a third same-recipe arm would have violated "two misses = change
+  the hypothesis". The same operator note SPECS the correction, and
+  per obey-first it was BUILT and LAUNCHED the same cycle as
+  `cw-dynrep-criticD-walkcurr4-bridge2` (train-11, 4M): actor-only
+  curriculum rollback (never reset the adapting critic), critic-EV
+  readiness gate on the actor unfreeze (>=0.2 x3 windows, fail-closed
+  2M cap, release lr 1e-5), and hard1's anti-drag/anti-park reward
+  stack restored (existing keys). Its 4M gate (falls==0 at B0-B2 +
+  frontier>=B2 + no-critic-reset proof) is now the SINGLE authority
+  for the 40M call. Detail: dynrep/STATUS.md top.**
   **Independent corroboration (a second, concurrent cycle building
   the identical fb_20260818T102844_116d4c recipe from the same
   committed code): a standalone pre-launch mechanism smoke
