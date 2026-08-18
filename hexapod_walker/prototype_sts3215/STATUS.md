@@ -404,6 +404,22 @@ ORCHESTRATOR_PROMPT.md):**
   closed postlower training attempts; product baseline unaffected).
   Idle slots next to `[operator]`-typed waits are correct under the
   sprint; do not backfill them with research arms.
+- **[code] (dynrep, 08-18 ~07:0x UTC):** `train_ppo_transfer.py`
+  (dynrep's condition-D/E/F trainer) still steps physics via CPU
+  `SubprocVecEnv`, not the Warp/MJX batched `MjxVecEnv` every other
+  GPU-pod trainer uses — the operator's walkcurr2 note named this a
+  wanted fix (root cause 4). NOT done this cycle (`cw-dynrep-criticD-
+  walkcurr2` launched on the unchanged backend so its curriculum-vs-
+  fixed-mix comparison stays apples-to-apples with its exact-twin
+  parents): the swap needs `make_task_env`'s post-construction
+  `p_walk=1.0` goal-mix pin re-homed onto whatever hook `MjxVecEnv`/
+  `mjx_host.make_shim_class` offers per-shim-env (unverified this
+  cycle) plus its own mechanism canary (obs parity, checkpoint
+  compat, the frozen-critic/PredictiveCriticPPO wiring) before
+  anything trains on it — genuine agent-doable code+verification
+  work, not a one-line swap; see `q_20260818T0700Z` in
+  OPERATOR_QUESTIONS.md for the full scope note. A wall-clock-speed
+  win when done, not a correctness blocker on any run so far.
 - **CLEARED 2026-08-18 ~00:5x UTC (hw): the recover-population sync
   barrier is SOLVED — `cw-recover-any21-pop3-s11/s12/s13` is the
   first cohort in the whole any16-21 saga to clear EVERY live gate
