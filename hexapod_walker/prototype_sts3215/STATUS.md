@@ -36,7 +36,21 @@ stance `footlow2_hard1` + walk `bcgait1_hard1` + session controller
 with entry-slew and STOP→stance-hold — det 0.967 / sto 0.853 on the
 n=600 held-out session gate; single weak boundary = post-lower rise).
 
-**Last updated: 2026-08-18 ~19:4x UTC (hw): the "keep it rumbling"
+**Last updated: 2026-08-18 ~23:0x UTC (hw): a single seed of the
+from-scratch `predictive1b-pop3` recover cohort just cleared the
+ENTIRE redesigned 23-rung get-up ladder for the first time ever**
+(`cw-recover-predictive1b-pop3-s13`: frontier held B22 `flip` at 40M,
+matched gate eval 21/23 then 23/23 own-DR, video confirms no exploit
+even on the rungs built specifically to teach the old
+parked-on-4/5-feet wall). Single-member only — the other two seeds
+of the same recipe (predictive dynamics context + the redesigned
+curriculum) are still training and get their own verdicts before
+this is a line-level win; recover/tangle stays `[operator]`-gated, no
+follow-up queued, and this does not change today's download answer
+(rise/walk session gate, unaffected). Detail: hw/STATUS.md "Now" +
+`rl_docs/SKILLS.md`.
+
+**Earlier — 2026-08-18 ~19:4x UTC (hw): the "keep it rumbling"
 +100M recover cohort (below) is now FULLY COMPLETE — all three
 members (s11/s12/s13) verdicted. Answer to the operator's "does more
 training help": no clean answer — one member rose (13→16/18), one
@@ -420,8 +434,10 @@ ORCHESTRATOR_PROMPT.md):**
   closed postlower training attempts; product baseline unaffected).
   Idle slots next to `[operator]`-typed waits are correct under the
   sprint; do not backfill them with research arms.
-- **[triage] hw / `cw-recover-predictive1b-pop3-s11/s12/s13` — normal
-  40M cohort triage when it finishes (since 2026-08-18 ~17:3x UTC).**
+- **[triage] hw / `cw-recover-predictive1b-pop3-s11/s12` — s13
+  already triaged (PASS, cleared the full 23-rung ladder, see "Last
+  updated"); s11/s12 still training on the identical recipe, normal
+  40M cohort triage when each finishes (since 2026-08-18 ~17:3x UTC).**
   The barrier mystery is RESOLVED, not a code defect: attempt 1's
   "silent zombie at 655,360" was the operator-kick cycle's own
   deliberate fail-closed pkill of s11/s12 (both parked healthy at the
@@ -434,7 +450,9 @@ ORCHESTRATOR_PROMPT.md):**
   B0->B1, CERT/recover_training_envs_synchronized=512,
   predictive_enabled=1, finite gates). `--predictive-actor` +
   population-sync composes fine. Judge at the pre-registered 40M
-  checkpoints vs the any21 B14 wall. Detail: hw/STATUS.md "Now",
+  checkpoints vs the any21 B14 wall (s13 already crossed it decisively
+  — the bar for s11/s12 is now whether they repeat it or drift like
+  the any21c2 cohort did post-plateau). Detail: hw/STATUS.md "Now",
   ledger verdicts on `predictive1-pop3-*` / `predictive1b-pop3-*`.
 - **CLEARED 08-18 ~17:1x UTC (this cycle): both fleet preconditions
   from the predictive1 launch drained.** (1) train-6 torch CUDA
