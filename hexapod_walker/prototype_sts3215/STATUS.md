@@ -420,20 +420,24 @@ ORCHESTRATOR_PROMPT.md):**
   population-sync composes fine. Judge at the pre-registered 40M
   checkpoints vs the any21 B14 wall. Detail: hw/STATUS.md "Now",
   ledger verdicts on `predictive1-pop3-*` / `predictive1b-pop3-*`.
-- **[precondition: pod repair] fleet / train-6 torch is CPU-only
-  (since 08-18 ~16:4x):** `nvidia-smi` shows a healthy idle H200 but
-  `torch.cuda.is_available()=False` in the trainer env — every
-  `--require-gpu-physics` launch there fails closed at boot. Agent-
-  doable: re-run `bootstrap_train_pod.sh` / reinstall the CUDA torch
-  wheel on train-6, then a smoke; until then launchers should skip it.
-- **[precondition: dataset copy] fleet / train-0 + train-8 lack
-  `rl_move/dynamics/datasets/v5_mjx_fresh` (8.3G, since 08-18
-  ~16:5x):** frozen `--critic-encoder` mode loads it at boot for the
-  heldout probe, so any predictive-context arm placed there crashes
-  AFTER consuming its W&B id. Agent-doable: pod-to-pod copy from
-  train-9 (or make the heldout probe lazily optional in frozen mode —
-  code, default-off). Until then, place predictive arms only on
-  train-4/5/7/9/11.
+- **CLEARED 08-18 ~17:1x UTC (this cycle): both fleet preconditions
+  from the predictive1 launch drained.** (1) train-6 torch CUDA
+  capability installed + durably recorded via
+  `pod_torch_capability.py install --pod hexapod-mjx-train-6`
+  (`torch==2.11.0+cu128`, verified `torch.cuda.is_available()=True`,
+  `status` table now lists it alongside train-0/1/3/4/5/7/8/9/10/11 —
+  every live pod is now CUDA-torch-capable). (2) `v5_mjx_fresh`
+  (8.3G/82 files) copied from train-9 to train-0 and train-8 via the
+  controller (pull once to `/tmp`, push twice, ~30-40s each over
+  kubectl cp) — md5-verified on `meta.json` + `shard_0000.npz`,
+  file-count (82) and total size (8.3G) matched, and
+  `rl_move.dynamics.data.load_dataset()` loads all 164,251 episodes
+  cleanly on both pods (identical count to train-9). No launch placed
+  on this fix alone (no open predictive-context arm needs a new pod
+  right now — `predictive1b-pop3` already runs healthy on
+  train-5/7/9); this just removes the placement restriction for the
+  NEXT predictive/frozen-critic-encoder arm, which may now go on any
+  of the 12 pods. Staging dir cleaned up.
 - **CLEARED 2026-08-18 ~16:3x UTC: `cw-dep-bcgait1-hard1-steer1c`
   canary PASSED triage (mechanism-health only)** — found already
   finished on the pod (ledger was stale/RUNNING; W&B + process state
