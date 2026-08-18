@@ -431,6 +431,25 @@ ORCHESTRATOR_PROMPT.md):**
   only; s11/s13 are the concurrent cycle's. No follow-up queued —
   recover/tangle redesign stays `[operator]`-gated. Detail:
   `rl_docs/runs/cw-recover-any21-pop3-s12.md`, hw/STATUS.md.
+  **RESOLVED 08-18 ~05:4x UTC (this concurrent cycle): `s11`/`s13`
+  finished too — same story, both PASS, neither hardware-ready.**
+  Matched gate: s11 13/18 @DR-0 + 16/18 @DR-0.1, s13 13/18 + 10/18
+  (s13 the cohort's weak point, its DR-0.1 read at/below the prior
+  baseline). Same video honesty (no exploit, failures are
+  short-of-height non-falls) and the same confirmed new finding:
+  `RECOVER_GUARD/rollback_count` stayed 0 across ALL THREE members
+  for the full 40M despite repeated per-round collapses on
+  foundational buckets (s13 ends at B0/B1/B2 = 7/3/2 of 16 in its
+  final cert) — proves the any15 dig-in's predicted windowed-pass-
+  rate rollback-trigger gap on a run the sync bug does not confound.
+  **This closes the WAIT: the cohort's mechanism AND its first
+  behavioral read are both done; the only thing left is the
+  operator's own call on recover/tangle redesign (rollback-trigger
+  fix + tangle mechanism), which is already tracked as
+  `[operator]`-gated and outside the SIM SPRINT, not a live
+  orchestrator wait.** Detail: `rl_docs/runs/cw-recover-any21-pop3-
+  s11.md`, `rl_docs/runs/cw-recover-any21-pop3-s13.md`,
+  hw/STATUS.md, `rl_docs/SKILLS.md` "Fall recovery".
 - **NEW WAIT (08-17 ~18:3x UTC) `[code]` (hw, sprint-serving,
   agent-doable — next idle cycle drains this): build + run the
   remaining-rise EVAL PROBE that prices the operator's postlower
