@@ -510,6 +510,10 @@ killrun)  # killrun <run> — kill a run's training procs on its pod.
   # Pods have no pkill, and a naive /proc scan matches ITSELF (the
   # scanning shell's own cmdline contains the run name — a cycle killed
   # its own kill command this way on 08-09). MUST skip $$.
+  # 08-18: match ONLY the "--run-name <run>" token, never a bare
+  # substring — respec embeds the PARENT run's name inside --notes
+  # ("respec of <parent>: ..."), so a bare-substring killrun against a
+  # parent name would also kill every child respec'd from it.
   run="$2"
   pod="$(entry_field "$run" pod)"
   [ -n "$pod" ] || { echo "no pod in ledger for $run"; exit 1; }
@@ -517,7 +521,7 @@ killrun)  # killrun <run> — kill a run's training procs on its pod.
     for d in /proc/[0-9]*; do
       p=${d#/proc/}; [ "$p" = "$$" ] && continue
       c=$(tr "\0" " " < "$d/cmdline" 2>/dev/null)
-      case "$c" in *"$1"*) echo "kill $p: ${c:0:80}"; kill "$p";; esac
+      case "$c" in *"--run-name $1 "*|*"--run-name=$1 "*|*"--run-name $1"|*"--run-name=$1") echo "kill $p: ${c:0:80}"; kill "$p";; esac
     done' _ "$run"
   echo "remember: launch_run.py update --run $run --set status=KILLED 'verdict=...'"
   ;;

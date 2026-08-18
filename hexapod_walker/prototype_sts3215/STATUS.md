@@ -380,37 +380,33 @@ ORCHESTRATOR_PROMPT.md):**
   closed postlower training attempts; product baseline unaffected).
   Idle slots next to `[operator]`-typed waits are correct under the
   sprint; do not backfill them with research arms.
-- **WAIT `[triage]` (hw, opened 2026-08-17 ~23:5x UTC): recover-any19-pop3
-  LIVE — the fifth attempt, now on predeclared W&B ids instead of
-  display-name discovery; watch it to the sync-gate verdict.**
-  any16/17/18 each failed closed at the population-sync barrier on
-  four DISTINCT bugs (stale summary cache / negative-cached empty
-  peer page / an in-process wandb-client-state bug that a fresh
-  out-of-process `Api` replica could not reproduce — see RL_LOG
-  08-17 22:47/23:18/23:43 and `q_20260817T2310Z/2330Z/2340Z`); all
-  three invalidated, no behavioral conclusions, checkpoints
-  preserved. Per operator directive `fb_20260817T234449_bcdcce`
-  (executing the identity-protocol fix landed at exact SHA `3cc62a2`,
-  "Predeclare recovery population run ids"): peer discovery no
-  longer queries by display name at all — every member calls
-  `wandb.init(id=<predeclared>, resume="never")` and aborts if W&B
-  assigns a different id, then looks up peers by direct
-  `api.run(project/id)`, `load(force=True)` for live summaries. 23
-  direct + 51 recovery-focused tests green. Launched
-  `cw-recover-any19-pop3-s11/s12/s13` (40M each, exact prior recipe,
-  no `--init-from`) with the fixed roster of predeclared ids
-  `6907573e`/`1c67c001`/`79ef86ae` — verified: all three RUNNING on
-  train-0/1/3 with W&B ids matching the roster EXACTLY (not
-  generated ids), and each pod's own trainer log shows
-  `total_timesteps=655360` (the bootstrap-rollout boundary) with
-  sane PPO stats. Peer-discovery/`start_B00`/cert-sync (gate items
-  3-7) were not yet observable at launch time — **next checkup must
-  watch the same 7-point live gate to conclusion** (do not just
-  check "still running"; any16/17/18 all looked fine at this exact
-  point too). `q_20260817T2352Z` filed (GPU-step-cap overage, same
-  pattern as the two prior any17/18 launches). Do NOT relaunch
-  any16/17/18/19 names outside this exact cohort without a sixth
-  directive if any19 also fails closed.
+- **WAIT `[operator]` (hw, updated 2026-08-18 ~00:2x UTC):
+  recover-any19-pop3 ALSO FAILED CLOSED at the sync barrier — but
+  the checkup cycle that watched it to conclusion has the ROOT CAUSE
+  of the whole any17/18/19 freeze family, and the fix is landed
+  (`8fbb7b21` "Read recovery peers through fresh GraphQL"); the
+  SIXTH relaunch directive is the operator/Codex's call.** What was
+  observed live (full evidence: `q_20260817T2352Z` addendum +
+  `rl_docs/runs/cw-recover-any19-pop3-s11.md`): all three posted
+  valid `ready_B00` at exactly 655,360 steps, but the leader's
+  direct `api.run(project/id)` lookups 404'd on precisely the two
+  runs created AFTER its own process started (s12 404'd only on
+  s13; s13, started last, on nobody) — while identical by-id reads
+  from the controller and from the same pod out-of-process
+  succeeded throughout. Mechanism: wandb 0.28 shares one
+  authenticated session per process, pinning a long-lived trainer to
+  the stale backend view from its first connect — runs created later
+  stay invisible to that process regardless of "fresh"
+  `wandb.Api()` objects. This retro-explains any17 and any18 (same
+  first-sight pattern under display-name search); there were never
+  four client bugs, one backend-view pinning defect wore four
+  costumes. SECOND defect: all three members hung PAST their 900s
+  deadlines blocked inside W&B calls — the fail-closed timeout is
+  unenforceable without call-level timeouts/watchdog (Codex should
+  confirm `8fbb7b21` also guards the write path). Cohort cleaned up
+  ~00:15-00:17Z, all three INVALID_INTEGRATION_CANARY, no
+  behavioral conclusions. Do NOT relaunch any recover-pop cohort
+  without the operator's sixth directive on `8fbb7b21`-or-descendant.
 - **NEW WAIT (08-17 ~18:3x UTC) `[code]` (hw, sprint-serving,
   agent-doable — next idle cycle drains this): build + run the
   remaining-rise EVAL PROBE that prices the operator's postlower
