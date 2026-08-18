@@ -388,33 +388,37 @@ ORCHESTRATOR_PROMPT.md):**
   closed postlower training attempts; product baseline unaffected).
   Idle slots next to `[operator]`-typed waits are correct under the
   sprint; do not backfill them with research arms.
-- **WAIT `[operator]` (hw, updated 2026-08-18 ~00:2x UTC):
-  recover-any19-pop3 ALSO FAILED CLOSED at the sync barrier — but
-  the checkup cycle that watched it to conclusion has the ROOT CAUSE
-  of the whole any17/18/19 freeze family, and the fix is landed
-  (`8fbb7b21` "Read recovery peers through fresh GraphQL"); the
-  SIXTH relaunch directive is the operator/Codex's call.** What was
-  observed live (full evidence: `q_20260817T2352Z` addendum +
-  `rl_docs/runs/cw-recover-any19-pop3-s11.md`): all three posted
-  valid `ready_B00` at exactly 655,360 steps, but the leader's
-  direct `api.run(project/id)` lookups 404'd on precisely the two
-  runs created AFTER its own process started (s12 404'd only on
-  s13; s13, started last, on nobody) — while identical by-id reads
-  from the controller and from the same pod out-of-process
-  succeeded throughout. Mechanism: wandb 0.28 shares one
-  authenticated session per process, pinning a long-lived trainer to
-  the stale backend view from its first connect — runs created later
-  stay invisible to that process regardless of "fresh"
-  `wandb.Api()` objects. This retro-explains any17 and any18 (same
-  first-sight pattern under display-name search); there were never
-  four client bugs, one backend-view pinning defect wore four
-  costumes. SECOND defect: all three members hung PAST their 900s
-  deadlines blocked inside W&B calls — the fail-closed timeout is
-  unenforceable without call-level timeouts/watchdog (Codex should
-  confirm `8fbb7b21` also guards the write path). Cohort cleaned up
-  ~00:15-00:17Z, all three INVALID_INTEGRATION_CANARY, no
-  behavioral conclusions. Do NOT relaunch any recover-pop cohort
-  without the operator's sixth directive on `8fbb7b21`-or-descendant.
+- **CLEARED 2026-08-18 ~00:5x UTC (hw): the recover-population sync
+  barrier is SOLVED — `cw-recover-any21-pop3-s11/s12/s13` is the
+  first cohort in the whole any16-21 saga to clear EVERY live gate
+  item live: all 3 stopped exactly at 655,360 with valid `ready_B00`,
+  leader released `start_B00` and all 3 crossed, each independently
+  passed its B0 cert (plant_catch 16/16) and published a candidate,
+  exactly ONE winner (member 0) was elected, all 3 ADOPTED the
+  identical checkpoint and ACKed, `release_B01` fired and all 3 are
+  now racing B2. No `[operator]` wait remains on the sync mechanism
+  itself — `8fbb7b21` (InternalApi fresh-GraphQL rendezvous) is
+  PROVEN live, not just unit-tested. Getting here took two more
+  false starts this cycle, both mechanical/orchestration, not
+  protocol bugs: (1) `any20-pop3` (the operator's fb_20260818T001206
+  cohort) actually achieved the same full release once s11/s12 were
+  re-synced+relaunched after a code-marker race, but a concurrent
+  checkup killed member 2 twenty seconds earlier (checkups didn't
+  yet know a stalled-log recover-population member could be
+  legitimately WAITING at a barrier — fixed same-window by the
+  operator's own `4001b57c` "Treat recovery start barriers as
+  healthy"), so the partial cohort was correctly stopped per the
+  never-continue-partial rule (fb_20260818T002830_3d14e2); (2) the
+  any21 relaunch itself hit two more launcher-side git-tag/code-sha
+  collisions from concurrent cycles retrying the same run names
+  (mechanically resolved: stale `exp/cw-recover-any20/21-pop3-s1x`
+  tags deleted, pods re-synced to current HEAD each time). No
+  behavioral verdict yet — this is an INTEGRATION win, not a
+  recovery-quality one; the cohort now needs to run to a real
+  cert/retention frontier before any capability claim. Full evidence:
+  `q_20260817T2352Z` addendum, `rl_docs/runs/cw-recover-any19-pop3-
+  s11.md` (root cause), pod logs
+  `/tmp/train_cw-recover-any21-pop3-s1{1,2,3}.log`.
 - **NEW WAIT (08-17 ~18:3x UTC) `[code]` (hw, sprint-serving,
   agent-doable — next idle cycle drains this): build + run the
   remaining-rise EVAL PROBE that prices the operator's postlower
