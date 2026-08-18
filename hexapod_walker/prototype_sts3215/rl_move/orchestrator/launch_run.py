@@ -271,15 +271,43 @@ def now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
+def _recover_population_waiting(summary: object) -> dict | None:
+    """Return the newest unreleased recovery-population start barrier."""
+    try:
+        keys = list(summary.keys())
+    except (AttributeError, TypeError):
+        return None
+    ready = []
+    for key in keys:
+        match = re.fullmatch(r"recover_population/ready_B(\d+)", str(key))
+        if match:
+            ready.append((int(match.group(1)), str(key)))
+    for bucket, key in sorted(ready, reverse=True):
+        start_key = f"recover_population/start_B{bucket:02d}"
+        try:
+            is_ready = bool(summary.get(key))
+            is_started = bool(summary.get(start_key))
+        except (AttributeError, TypeError):
+            return None
+        if is_ready and not is_started:
+            return {"bucket": bucket, "ready_key": key,
+                    "start_key": start_key}
+    return None
+
+
 def wandb_running_runs() -> dict[str, dict]:
-    """name -> {id, state, global_step} for runs currently 'running'."""
+    """Name -> liveness fields for runs currently reported as running."""
     import wandb
     api = wandb.Api()
     out = {}
     for r in api.runs(WANDB_PROJECT, order="-created_at")[:25]:
         if r.state == "running":
             step = r.summary.get("global_step") or r.summary.get("_step")
-            out[r.name] = {"id": r.id, "state": r.state, "global_step": step}
+            out[r.name] = {"id": r.id, "state": r.state,
+                           "global_step": step}
+            barrier = _recover_population_waiting(r.summary)
+            if barrier is not None:
+                out[r.name]["recover_population_barrier"] = barrier
     return out
 
 
@@ -1250,6 +1278,14 @@ def cmd_checkup(g: dict, a: argparse.Namespace) -> int:
             problems.append("W&B no longer reports the run as running")
             if log_stalled:
                 problems.append("log stopped growing")
+        elif s2 <= s1 and wb2.get("recover_population_barrier"):
+            barrier = wb2["recover_population_barrier"]
+            facts["recover_population_barrier"] = barrier
+            facts["placement"] = "recovery-population start barrier"
+            facts["note"] = (
+                f"intentionally waiting at recovery-population B"
+                f"{int(barrier['bucket'])} start barrier at global_step "
+                f"{s2}; ready is published and start is not yet released")
         elif s2 <= s1:
             # W&B logs once per PPO iteration, and an iteration's wall
             # time is floored by its rollout (n_envs * n_steps). Small-
