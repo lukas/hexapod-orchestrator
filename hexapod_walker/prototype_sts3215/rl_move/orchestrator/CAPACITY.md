@@ -50,3 +50,10 @@ with the script, the script is right; fix the doc.**
   (pod_torch_capability.py install). Recreate other IDLE pods the same
   way before scheduling wide sharded runs on them; note the pod-local
   /workspace is wiped (re-copy encoder/dataset artifacts).
+  MEASURED 08-18 ~16:0x UTC: train-5/7/9/11 have the 4Gi tmpfs;
+  train-0/4/6/8 still 64M (train-1/2/3/10 unchecked, assume 64M).
+  A hist16 predictive-live 4096-env run uses ~75M shm — it BOOT-KILLS
+  on a 64M pod (cw-dynrep-tf-liveactor-walkcurr4-canary1 died exactly
+  this way on train-4; retried fine on train-11). CHECK
+  `df -h /dev/shm` on the target pod before placing any hist16/wide
+  sharded run.
