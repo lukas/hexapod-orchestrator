@@ -411,14 +411,43 @@ ORCHESTRATOR_PROMPT.md):**
   `--require-gpu-physics` fail-closed backend assert, cfg
   `goal.walk_pure` construction-time pure-walk hook, in-env walk-probe
   cert on the training backend, pool flush on admission changes);
-  `cw-dynrep-criticD-walkcurr3` VERIFIED RUNNING on train-5 (W&B
-  4dih5ztm, 4096 Warp worlds); `cw-dynrep-criticD-walkcurr2` stopped
-  ~9M/40M and marked SUPERSEDED_NONCOMPLIANT per the order (not a
-  behavioral FAIL; checkpoints preserved). `q_20260818T0700Z` CLOSED.
-  Fleet caveat recorded in CAPACITY.md: live pods still carry 64M
-  /dev/shm (SIGBUS on wide sharded layouts) — train-5 recreated from
-  the fixed 4Gi-dshm spec; recreate other idle pods before scheduling
-  hist16-wide sharded runs on them.
+  `cw-dynrep-criticD-walkcurr2` stopped ~9M/40M and marked
+  SUPERSEDED_NONCOMPLIANT per the order (not a behavioral FAIL;
+  checkpoints preserved). `q_20260818T0700Z` CLOSED. Fleet caveat
+  recorded in CAPACITY.md: live pods still carry 64M /dev/shm (SIGBUS
+  on wide sharded layouts) — train-5 recreated from the fixed 4Gi-dshm
+  spec; recreate other idle pods before scheduling hist16-wide sharded
+  runs on them.
+  **UPDATE ~10:1x UTC: `cw-dynrep-criticD-walkcurr3` finished its full
+  40M budget and FAILED** — `walkcurr/frontier` and `walkcurr/
+  promotions` stayed at 0 for the entire run (never certified past
+  B0), and the gate-eval video confirms it behaviorally: every
+  deterministic episode falls forward from a low crouch (tilt_pitch,
+  gait_valid 0/6, slip 2.6/m). Root cause was already diagnosed by the
+  operator at 7.5M (fb_20260818T085648_2a0a60): the calibrated
+  walk_height_gate/walk_kernel_prog_gate income gates were left OFF
+  and the actor update was weaker than the proven acquisition recipe.
+  Backend itself is healthy (verified MjxShardedVecEnv/warp proof line
+  in the log) — this is a recipe failure, not a mechanism failure.
+  ALSO surfaced + fixed the same cycle: a real eval-harness bug bit
+  every condition-D/criticD checkpoint saved with `--actor-lr` set
+  (walkcurr1/2/3 and the tournament below) — `save_stock_optimizer`
+  built the save-time optimizer over ALL policy parameters including
+  the frozen dynamics-transformer encoder instead of trainable-only,
+  so `PPO.load`/eval crashed with an optimizer-group-size mismatch on
+  every one of these checkpoints. Fixed at the root (trainable-only
+  filter) plus a defensive `load_checkpoint_auto` repair fallback for
+  already-saved checkpoints (frozen-encoder regression test added,
+  `rl_move/tests/test_dynrep_predictive_critic.py`). No follow-up
+  queued from walkcurr3 itself — the fix is already running as the
+  operator's same-seed canary tournament: `cw-dynrep-criticD-
+  walkcurr4-canA-r2` (arm A, scratch+gates+LR) RUNNING on train-7;
+  arms B/C (actor-only init from the proven BC-gait recipe, per the
+  URGENT addendum fb_20260818T085834_588d9a) are a concurrent cycle's
+  in-flight work (`actor_only_transplant` landed in
+  `rl_move/dynamics/predictive_critic.py`, tests in
+  `rl_move/tests/test_actor_only_transplant.py`) — not duplicated
+  here.
 - **CLEARED 2026-08-18 ~00:5x UTC (hw): the recover-population sync
   barrier is SOLVED — `cw-recover-any21-pop3-s11/s12/s13` is the
   first cohort in the whole any16-21 saga to clear EVERY live gate
