@@ -404,27 +404,36 @@ ORCHESTRATOR_PROMPT.md):**
   closed postlower training attempts; product baseline unaffected).
   Idle slots next to `[operator]`-typed waits are correct under the
   sprint; do not backfill them with research arms.
-- **[triage] hw / `cw-recover-predictive1b-pop3-s11/s12/s13` sync-barrier
-  outcome (since 2026-08-18 ~16:5x UTC):** attempt 1 of this
-  from-scratch predictive-state-context recovery cohort
-  (`predictive1-pop3`) died silently (zombie, no traceback) on 2 of 3
-  members at the exact recover-population bootstrap barrier
-  (655,360 steps), right after `--predictive-actor` was combined with
-  the population-sync code for the first time. A concurrent cycle
-  relaunched attempt 2 (`predictive1b-pop3`) under the operator's
-  retry-once clause, running on old (pre-fix) buffered stdout. A
-  diagnostic `PYTHONUNBUFFERED=1` launcher fix is in (4a62f80a) for
-  whichever attempt comes next. Whoever next triages this cohort:
-  check whether predictive1b crossed the barrier clean (proceed to
-  normal 40M triage) or died the same way (two independent failures
-  at the same code path = stop blind-retrying, dig into
-  `_RecoverPopulation.wait_for_start`/`_peer_rows` in
-  rl_move/sim/train_ppo_mjx.py with the now-unbuffered log). **UPDATE
-  ~17:0x: all 3 predictive1b members are past the barrier
-  (720,896 steps, still alive) — encouraging, but not yet a clean
-  bill of health for the mechanism (only one data point past the
-  danger zone); still triage normally at its next checkpoint.**
-  Detail: hw/STATUS.md "Now", ledger verdicts on `predictive1-pop3-*`.
+- **[triage] hw / `cw-recover-predictive1b-pop3-s11/s12/s13` — normal
+  40M cohort triage when it finishes (since 2026-08-18 ~17:3x UTC).**
+  The barrier mystery is RESOLVED, not a code defect: attempt 1's
+  "silent zombie at 655,360" was the operator-kick cycle's own
+  deliberate fail-closed pkill of s11/s12 (both parked healthy at the
+  barrier; s13's burned single-use W&B id 200e6aac had made the roster
+  permanently un-rendezvousable — ledger verdicts written before the
+  zombie observation). Attempt 2 is fully healthy: all 3 members
+  (ids 7901e7bb/304ac843/95414586, pods train-5/7/9) crossed the
+  bootstrap barrier, leader released, and ALL THREE posted the first
+  synchronized cert at 1,048,576 (B0 plant_catch 16/16, frontier
+  B0->B1, CERT/recover_training_envs_synchronized=512,
+  predictive_enabled=1, finite gates). `--predictive-actor` +
+  population-sync composes fine. Judge at the pre-registered 40M
+  checkpoints vs the any21 B14 wall. Detail: hw/STATUS.md "Now",
+  ledger verdicts on `predictive1-pop3-*` / `predictive1b-pop3-*`.
+- **[precondition: pod repair] fleet / train-6 torch is CPU-only
+  (since 08-18 ~16:4x):** `nvidia-smi` shows a healthy idle H200 but
+  `torch.cuda.is_available()=False` in the trainer env — every
+  `--require-gpu-physics` launch there fails closed at boot. Agent-
+  doable: re-run `bootstrap_train_pod.sh` / reinstall the CUDA torch
+  wheel on train-6, then a smoke; until then launchers should skip it.
+- **[precondition: dataset copy] fleet / train-0 + train-8 lack
+  `rl_move/dynamics/datasets/v5_mjx_fresh` (8.3G, since 08-18
+  ~16:5x):** frozen `--critic-encoder` mode loads it at boot for the
+  heldout probe, so any predictive-context arm placed there crashes
+  AFTER consuming its W&B id. Agent-doable: pod-to-pod copy from
+  train-9 (or make the heldout probe lazily optional in frozen mode —
+  code, default-off). Until then, place predictive arms only on
+  train-4/5/7/9/11.
 - **CLEARED 2026-08-18 ~16:3x UTC: `cw-dep-bcgait1-hard1-steer1c`
   canary PASSED triage (mechanism-health only)** — found already
   finished on the pod (ledger was stale/RUNNING; W&B + process state
