@@ -450,6 +450,19 @@ ORCHESTRATOR_PROMPT.md):**
   orchestrator wait.** Detail: `rl_docs/runs/cw-recover-any21-pop3-
   s11.md`, `rl_docs/runs/cw-recover-any21-pop3-s13.md`,
   hw/STATUS.md, `rl_docs/SKILLS.md` "Fall recovery".
+  **ADDENDUM 08-18 ~06:3x UTC: operator order ("keep it rumbling",
+  MCP `fb_20260818T055528`) continues this exact proven cohort for
+  +100M steps/member from its own final checkpoints — attempt 1
+  (`cw-recover-any21c-pop3-s11/s12/s13`) FAILED CLOSED at the B14
+  bootstrap barrier on pure launch skew (a member-index recording
+  artifact delayed s12's launch ~17 min past s11's 900s deadline;
+  same failure class as any20), verdicted (FAIL/KILLED, no training
+  conclusion) with checkpoints/ids preserved, never a silent partial
+  continue. Attempt 2 (`cw-recover-any21c2-pop3-s11/s12/s13`, pinned
+  member indices + barrier timeout raised to 3600s) is mechanically
+  RUNNING all 3/3 as of this cycle (verified via `launch_run.py
+  status`); barrier-crossing/first-cert not yet confirmed — next
+  checkup watches it, no operator wait open on the mechanism itself.**
 - **NEW WAIT (08-17 ~18:3x UTC) `[code]` (hw, sprint-serving,
   agent-doable — next idle cycle drains this): build + run the
   remaining-rise EVAL PROBE that prices the operator's postlower
