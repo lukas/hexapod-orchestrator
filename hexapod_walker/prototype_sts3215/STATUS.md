@@ -419,6 +419,18 @@ ORCHESTRATOR_PROMPT.md):**
   `q_20260817T2352Z` addendum, `rl_docs/runs/cw-recover-any19-pop3-
   s11.md` (root cause), pod logs
   `/tmp/train_cw-recover-any21-pop3-s1{1,2,3}.log`.
+  **UPDATE 08-18 ~05:3x UTC: `s12` finished its full 40M budget —
+  first real behavioral readout, PASS (partial), not hardware-ready.**
+  New best matched det gate for the recover line (16/18 @DR-0, 14/18
+  @DR-0.1 vs the prior 10/18 & 11/18) and the first checkpoint past
+  the old B8 wall into genuine tangle recoveries, but stochastic gate
+  is still 0/18 (known evaluator quirk, video looks clean — timeouts,
+  not falls) and this member's own training stalled 25M of 40M steps
+  oscillating on retention right at the new frontier — the same
+  stability wall as before, one rung higher. Verdict scoped to s12
+  only; s11/s13 are the concurrent cycle's. No follow-up queued —
+  recover/tangle redesign stays `[operator]`-gated. Detail:
+  `rl_docs/runs/cw-recover-any21-pop3-s12.md`, hw/STATUS.md.
 - **NEW WAIT (08-17 ~18:3x UTC) `[code]` (hw, sprint-serving,
   agent-doable — next idle cycle drains this): build + run the
   remaining-rise EVAL PROBE that prices the operator's postlower
