@@ -509,6 +509,15 @@ ORCHESTRATOR_PROMPT.md):**
   stack restored (existing keys). Its 4M gate (falls==0 at B0-B2 +
   frontier>=B2 + no-critic-reset proof) is now the SINGLE authority
   for the 40M call. Detail: dynrep/STATUS.md top.**
+  **RESOLVED 08-18 ~12:1x UTC (triage cycle): bridge2 FAILED — its own
+  IN-RUN fail-closed gate self-aborted at 2.007M/4M (critic EV never
+  held >=0.2x3 by the 2M cap, final -0.345), a THIRD distinct failure
+  mode (critic never learns a value function at all, one layer deeper
+  than retry1's falls-escalation). NO 40M. `[operator]`: the walkcurr4
+  tournament (3 corrections, ~11 arms today, never beat its own
+  `cw-dep-bcgait1-hard1` parent) needs an explicit go/no-go before any
+  4th arm — its SIM-SPRINT fit is already open at
+  q_20260818T1035Z/1040Z/1103Z/1125Z. No autonomous bridge3.**
   **Independent corroboration (a second, concurrent cycle building
   the identical fb_20260818T102844_116d4c recipe from the same
   committed code): a standalone pre-launch mechanism smoke
