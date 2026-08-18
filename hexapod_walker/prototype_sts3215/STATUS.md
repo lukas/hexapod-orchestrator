@@ -404,22 +404,21 @@ ORCHESTRATOR_PROMPT.md):**
   closed postlower training attempts; product baseline unaffected).
   Idle slots next to `[operator]`-typed waits are correct under the
   sprint; do not backfill them with research arms.
-- **[code] (dynrep, 08-18 ~07:0x UTC):** `train_ppo_transfer.py`
-  (dynrep's condition-D/E/F trainer) still steps physics via CPU
-  `SubprocVecEnv`, not the Warp/MJX batched `MjxVecEnv` every other
-  GPU-pod trainer uses — the operator's walkcurr2 note named this a
-  wanted fix (root cause 4). NOT done this cycle (`cw-dynrep-criticD-
-  walkcurr2` launched on the unchanged backend so its curriculum-vs-
-  fixed-mix comparison stays apples-to-apples with its exact-twin
-  parents): the swap needs `make_task_env`'s post-construction
-  `p_walk=1.0` goal-mix pin re-homed onto whatever hook `MjxVecEnv`/
-  `mjx_host.make_shim_class` offers per-shim-env (unverified this
-  cycle) plus its own mechanism canary (obs parity, checkpoint
-  compat, the frozen-critic/PredictiveCriticPPO wiring) before
-  anything trains on it — genuine agent-doable code+verification
-  work, not a one-line swap; see `q_20260818T0700Z` in
-  OPERATOR_QUESTIONS.md for the full scope note. A wall-clock-speed
-  win when done, not a correctness blocker on any run so far.
+- **CLEARED 2026-08-18 ~08:5x UTC (dynrep): the SubprocVecEnv->GPU-
+  physics backend swap is DONE and LIVE** (operator order
+  fb_20260818T065930_03b422 executed same cycle): condition-D +
+  walkcurr V2 ported into `train_ppo_mjx` (MjxShardedVecEnv impl=warp,
+  `--require-gpu-physics` fail-closed backend assert, cfg
+  `goal.walk_pure` construction-time pure-walk hook, in-env walk-probe
+  cert on the training backend, pool flush on admission changes);
+  `cw-dynrep-criticD-walkcurr3` VERIFIED RUNNING on train-5 (W&B
+  4dih5ztm, 4096 Warp worlds); `cw-dynrep-criticD-walkcurr2` stopped
+  ~9M/40M and marked SUPERSEDED_NONCOMPLIANT per the order (not a
+  behavioral FAIL; checkpoints preserved). `q_20260818T0700Z` CLOSED.
+  Fleet caveat recorded in CAPACITY.md: live pods still carry 64M
+  /dev/shm (SIGBUS on wide sharded layouts) — train-5 recreated from
+  the fixed 4Gi-dshm spec; recreate other idle pods before scheduling
+  hist16-wide sharded runs on them.
 - **CLEARED 2026-08-18 ~00:5x UTC (hw): the recover-population sync
   barrier is SOLVED — `cw-recover-any21-pop3-s11/s12/s13` is the
   first cohort in the whole any16-21 saga to clear EVERY live gate
