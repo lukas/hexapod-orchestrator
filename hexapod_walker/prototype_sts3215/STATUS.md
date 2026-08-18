@@ -487,6 +487,24 @@ ORCHESTRATOR_PROMPT.md):**
   the triaging cycle AUTOMATICALLY launches the 40M
   `cw-dynrep-criticD-walkcurr4` on the same recipe — operator-ordered,
   already pre-registered, no new decision needed. FAIL => no 40M.
+  **PARTIALLY RESOLVED 08-18 ~11:3x UTC (triage cycle): `bridge1-r1`
+  (resume, operator order fb_20260818T111051Z) and `bridge1-retry1`
+  (from-zero twin) both FAIL — `bridge1-r1` fail-closed at its pre-PPO
+  precert (resumed actor falls 38% of B0, never trained, and a
+  concurrent cycle judged its 2M resume target scientifically invalid
+  since it carries the KL-breach its own fatal rollback was undoing);
+  `retry1` ran the clean 4M and hit prog/height/slip gate at every
+  rung but falls escalate 12.5%->37.5%->50% with curriculum depth.
+  Neither holds single authority for the 40M call any more: that same
+  concurrent cycle restored the run's last VALID checkpoint (B1
+  promotion, step 524,288) as `bridge1-r2` (train-11, RUNNING) and its
+  pre-registration makes IT the single-authority run now — still live,
+  not yet triaged. A plausible `bridge2` fix (actor-only rollback +
+  critic-readiness gate + restored anti-drag/anti-park reward terms)
+  is proposed (MCP `fb_20260818T112826_9ed832`) but NOT launched —
+  new dynrep code + a new 4M launch under SIM SPRINT restrictions,
+  left `[operator]` for sign-off pending r2's own result. Detail:
+  dynrep/STATUS.md top.**
   **Independent corroboration (a second, concurrent cycle building
   the identical fb_20260818T102844_116d4c recipe from the same
   committed code): a standalone pre-launch mechanism smoke
