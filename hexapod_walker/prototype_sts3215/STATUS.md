@@ -380,36 +380,37 @@ ORCHESTRATOR_PROMPT.md):**
   closed postlower training attempts; product baseline unaffected).
   Idle slots next to `[operator]`-typed waits are correct under the
   sprint; do not backfill them with research arms.
-- **WAIT `[operator]` (hw, opened 08-17 ~23:4x UTC): recover-any18-pop3
-  ALSO failed closed at the bootstrap barrier — a FOURTH distinct sync
-  bug, not the one 686f5628 fixed.** Launched per operator directive
-  fb_20260817T231336_93cacc (exact any17 recipe, from scratch, no
-  `--init-from`, on 686f5628-or-descendant); gate items (1)-(2) PASSED
-  live (all 3 rows RUNNING with distinct W&B ids — s11 `18q6to9f`/
-  train-0, s12 `e8qr91fq`/train-1, s13 `1z5ejwe4`/train-3 — no
-  init_from; all three stopped exactly at 655,360 steps with valid,
-  distinct `ready_B00` records). **Gate item (3) FAILED differently
-  from any17**: the leader (s11) crashed with `RuntimeError` at its
-  own 900s `barrier_timeout`, having logged ZERO "start poll
-  deferred" exceptions the whole wait — `_peer_rows()` never raised,
-  it just silently never reached 3/3 peers — while a manual replica
-  of the identical peer-discovery query, run from the controller at
-  matching wall-clock times, resolved all three names instantly and
-  W&B confirmed all three correct `ready_B00` records were live well
-  before the timeout. So the empty-page-cache fix is real but
-  insufficient; something INSIDE the leader process itself (not
-  reproducible from the controller) is still blocking peer
-  resolution, and `wait_for_start` has no diagnostic print for a
-  short peer count (unlike `poll()`), so only the crash surfaced it.
-  Stopped mechanically + cleanly: s11 self-terminated; s12/s13
-  (pre-deadline) killed once the leader was confirmed dead (no member
-  0 left to ever release the race); PIDs verified absent on
-  train-0/1/3. All three ledger rows INVALID_INTEGRATION_CANARY, W&B
-  notes updated. Escalated `q_20260817T2340Z` (full analysis + a
-  concrete next diagnostic: log `self._peer_ids` state / per-call
-  resolved-count on timeout) — per the directive's own instruction,
-  NO fix attempted this cycle. Do NOT relaunch any16/17/18 names
-  without a fifth, root-caused directive.
+- **WAIT `[triage]` (hw, opened 2026-08-17 ~23:5x UTC): recover-any19-pop3
+  LIVE — the fifth attempt, now on predeclared W&B ids instead of
+  display-name discovery; watch it to the sync-gate verdict.**
+  any16/17/18 each failed closed at the population-sync barrier on
+  four DISTINCT bugs (stale summary cache / negative-cached empty
+  peer page / an in-process wandb-client-state bug that a fresh
+  out-of-process `Api` replica could not reproduce — see RL_LOG
+  08-17 22:47/23:18/23:43 and `q_20260817T2310Z/2330Z/2340Z`); all
+  three invalidated, no behavioral conclusions, checkpoints
+  preserved. Per operator directive `fb_20260817T234449_bcdcce`
+  (executing the identity-protocol fix landed at exact SHA `3cc62a2`,
+  "Predeclare recovery population run ids"): peer discovery no
+  longer queries by display name at all — every member calls
+  `wandb.init(id=<predeclared>, resume="never")` and aborts if W&B
+  assigns a different id, then looks up peers by direct
+  `api.run(project/id)`, `load(force=True)` for live summaries. 23
+  direct + 51 recovery-focused tests green. Launched
+  `cw-recover-any19-pop3-s11/s12/s13` (40M each, exact prior recipe,
+  no `--init-from`) with the fixed roster of predeclared ids
+  `6907573e`/`1c67c001`/`79ef86ae` — verified: all three RUNNING on
+  train-0/1/3 with W&B ids matching the roster EXACTLY (not
+  generated ids), and each pod's own trainer log shows
+  `total_timesteps=655360` (the bootstrap-rollout boundary) with
+  sane PPO stats. Peer-discovery/`start_B00`/cert-sync (gate items
+  3-7) were not yet observable at launch time — **next checkup must
+  watch the same 7-point live gate to conclusion** (do not just
+  check "still running"; any16/17/18 all looked fine at this exact
+  point too). `q_20260817T2352Z` filed (GPU-step-cap overage, same
+  pattern as the two prior any17/18 launches). Do NOT relaunch
+  any16/17/18/19 names outside this exact cohort without a sixth
+  directive if any19 also fails closed.
 - **NEW WAIT (08-17 ~18:3x UTC) `[code]` (hw, sprint-serving,
   agent-doable — next idle cycle drains this): build + run the
   remaining-rise EVAL PROBE that prices the operator's postlower
