@@ -36,16 +36,18 @@ stance `footlow2_hard1` + walk `bcgait1_hard1` + session controller
 with entry-slew and STOP→stance-hold — det 0.967 / sto 0.853 on the
 n=600 held-out session gate; single weak boundary = post-lower rise).
 
-**Last updated: 2026-08-18 ~23:0x UTC (hw): a single seed of the
-from-scratch `predictive1b-pop3` recover cohort just cleared the
-ENTIRE redesigned 23-rung get-up ladder for the first time ever**
-(`cw-recover-predictive1b-pop3-s13`: frontier held B22 `flip` at 40M,
-matched gate eval 21/23 then 23/23 own-DR, video confirms no exploit
-even on the rungs built specifically to teach the old
-parked-on-4/5-feet wall). Single-member only — the other two seeds
-of the same recipe (predictive dynamics context + the redesigned
-curriculum) are still training and get their own verdicts before
-this is a line-level win; recover/tangle stays `[operator]`-gated, no
+**Last updated: 2026-08-18 ~23:2x UTC (hw): TWO of three seeds of the
+from-scratch `predictive1b-pop3` recover cohort now independently
+clear the ENTIRE redesigned 23-rung get-up ladder** (`-s13`: frontier
+held B22 `flip` at 40M, gate 21/23 then 23/23 own-DR, incl. a genuine
+flip recovery; `-s12`: frontier reached B22 by 35.1M and held clean
+with zero retention-guard rollbacks, gate 22/23 both passes — `flip`
+is its one open miss, video-confirmed a genuine stuck attempt, no
+exploit either member). No flag/tripod/stilt/park exploit in any
+reviewed video on either member, incl. the rungs built specifically
+to teach the old parked-on-4/5-feet wall. Still not a line-level
+claim — the third seed (`-s11`, same recipe) is still training and
+gets its own verdict; recover/tangle stays `[operator]`-gated, no
 follow-up queued, and this does not change today's download answer
 (rise/walk session gate, unaffected). Detail: hw/STATUS.md "Now" +
 `rl_docs/SKILLS.md`.
@@ -434,10 +436,11 @@ ORCHESTRATOR_PROMPT.md):**
   closed postlower training attempts; product baseline unaffected).
   Idle slots next to `[operator]`-typed waits are correct under the
   sprint; do not backfill them with research arms.
-- **[triage] hw / `cw-recover-predictive1b-pop3-s11/s12` — s13
-  already triaged (PASS, cleared the full 23-rung ladder, see "Last
-  updated"); s11/s12 still training on the identical recipe, normal
-  40M cohort triage when each finishes (since 2026-08-18 ~17:3x UTC).**
+- **[triage] hw / `cw-recover-predictive1b-pop3-s11` — s12/s13
+  already triaged (both PASS, both cleared the full 23-rung ladder,
+  see "Last updated"); s11 still training on the identical recipe,
+  normal 40M cohort triage when it finishes (since 2026-08-18
+  ~17:3x UTC).**
   The barrier mystery is RESOLVED, not a code defect: attempt 1's
   "silent zombie at 655,360" was the operator-kick cycle's own
   deliberate fail-closed pkill of s11/s12 (both parked healthy at the
