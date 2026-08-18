@@ -675,6 +675,28 @@ ORCHESTRATOR_PROMPT.md):**
   ~852k/786k/852k steps); first 1M cert not yet due — next checkup
   watches CERT/recover_training_envs_synchronized=512, no operator
   wait open on the mechanism itself.**
+  **UPDATE 08-18 ~18:5x UTC (triage cycle): `s12` finished its full
+  +100M — mechanism PASS, behavior AMBIGUOUS (answers the operator's
+  question with "a bit of both, not a clean win").** All 6
+  integration clauses held (clean 100M finish, barrier/cert/ACK
+  protocol intact, `RECOVER_GUARD/rollback_count`=0 throughout). The
+  population frontier DID push past the old B14 wall to B15 (this
+  member adopted winner s11's B15, video-verified genuine
+  tangle-untangle + bank recoveries, no exploit) — but this member's
+  OWN matched gate-eval score FELL vs its pre-continuation checkpoint
+  (det 8/18 DR-0, 10/18 DR-0.1, was 16/18 / 14/18) because
+  previously-solved easy buckets (crouch ×3, partial_mid/low, zero,
+  plant_catch) now fail (over_current stalls / short-of-height
+  timeouts, not falls). This is the SAME oscillating-retention wall
+  CURRENT_TRUTHS already named, caught one rung deeper — NOT proof
+  either that more training hardens or breaks the frontier; the
+  rollback guard still can't see oscillation. Not hardware-ready; not
+  an upgrade over the pre-continuation checkpoint. s11/s13 still
+  training (this cycle's assignment boundary) — no cohort-level
+  conclusion yet. No follow-up queued (recover/tangle redesign stays
+  `[operator]`-gated, outside the SIM SPRINT). Detail:
+  `rl_docs/runs/cw-recover-any21c2-pop3-s12.md`,
+  `rl_docs/SKILLS.md` "Fall recovery".**
 - **NEW WAIT (08-17 ~18:3x UTC) `[code]` (hw, sprint-serving,
   agent-doable — next idle cycle drains this): build + run the
   remaining-rise EVAL PROBE that prices the operator's postlower
