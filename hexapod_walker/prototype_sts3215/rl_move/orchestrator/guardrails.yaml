@@ -47,7 +47,15 @@ compute:
     impl: warp
     # GPU steps are ~18x cheaper in wall clock: 30M steps ~= 27 min.
     # Budget cap is per run; the per-cycle caps below still apply.
-    max_steps_per_run: 40000000
+    # TEMPORARY 40M -> 100M (operator order 08-18, MCP operator lane
+    # fb 20260818T055528Z, Lukas: "keep it rumbling lets see what
+    # happens"): the finished recover-any21-pop3 cohort continues
+    # +100M steps PER MEMBER from its exact final checkpoints
+    # (cw-recover-any21c-pop3-s11/s12/s13). Explicit operator override
+    # of the recover launch gate. RESTORE TO 40000000 as soon as all
+    # three continuation members are verified RUNNING (same cycle);
+    # any retry of a dead member re-raises citing this same order.
+    max_steps_per_run: 100000000
     # At ~20k fps the CPU-pod eval cadence would fire every 10 s; the MJX
     # trainer's eval is skip-if-busy in a background thread, but keep it
     # sane. Never launch below these on a GPU pod:
