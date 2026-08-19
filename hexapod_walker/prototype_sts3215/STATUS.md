@@ -451,9 +451,29 @@ ORCHESTRATOR_PROMPT.md):**
   closed postlower training attempts; product baseline unaffected).
   Idle slots next to `[operator]`-typed waits are correct under the
   sprint; do not backfill them with research arms.
-- **NEW WAIT (08-19 ~19:1x UTC, triage cycle) `[operator]` (hw): the
-  operator's own combined "fast non-slipping gait" order FAILED all
-  four of its pre-registered bars.** `cw-dep-bcgait1-hard1-steer4-fastclean1`
+- **CLEARED 08-19 ~21:3x UTC (operator-kick cycle): the steer
+  sub-line park-vs-retry fork was ANSWERED — the operator (MCP lane
+  20260819T211434Z) ordered the NEXT lever: actuator/profile
+  HEADROOM, not another penalty squeeze.** Executed same cycle:
+  new opt-in cfg `bus.servo_vel_max_counts_s` (sentinel
+  `write_speed`) lands the raised STS write profile in the sim — the
+  ServoProfile/MJX vel ceiling was silently clamped to the ~350
+  counts/s sys-ID fit, so raising `bus.write_speed` alone was a
+  no-op (code in `SimServoParams.from_cfg`, default OFF bit-exact,
+  `test_servo_vel_override.py` 12/12 + sim_env 43/43 + walk bank
+  green, snapshot `4a8a4561`). Bounded 2M CANARY queued:
+  `cw-dep-bcgait1-hard1-steer5-fastprof1`, exact steer3-yawm1 recipe
+  (hard1 warm start, seed 12, yaw-margin, 0.05–0.06 band) + ONLY the
+  profile keys (write_speed=1500, write_acc=80,
+  servo_vel_max_counts_s=write_speed, max_delta_q_deg=5.0 @25 Hz ≈
+  125°/s slew; `servo_params=loaded` NOT added — it is not this
+  lineage's default, per the order's own conditional, and would
+  confound the headroom A/B). Gate: hard1-panel retention + tangle
+  no-regression vs yawm1 + mandatory matched-parent control (hard1 +
+  yawm1 evaluated under the SAME raised profile) + informational
+  pinned-0.08 read; any miss = STOP + report, no autonomous dose
+  sweep. The FAIL record below stands for reference.
+  `cw-dep-bcgait1-hard1-steer4-fastclean1`
   (20M hardening, warm from steer3-yawm1, W&B `ml1rja4v`) — retention
   slip 2.33/2.67 per m det/sto vs required <=1.8/<=2.0 (both the
   final and --best-ckpt checkpoint), a reproduced two-leg tangle on
