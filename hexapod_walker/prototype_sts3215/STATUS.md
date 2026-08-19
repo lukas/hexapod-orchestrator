@@ -443,6 +443,22 @@ ORCHESTRATOR_PROMPT.md):**
   closed postlower training attempts; product baseline unaffected).
   Idle slots next to `[operator]`-typed waits are correct under the
   sprint; do not backfill them with research arms.
+- **`[operator]` — steer sub-line scale-up decision (08-19 ~01:5x
+  UTC): the joystick direction-switch line is STOPPED awaiting an
+  operator pick.** The 4th and final autonomous lever
+  (`cw-dep-bcgait1-hard1-steer3-yawm1`, new `reward.k_yaw_margin`
+  term) VALIDATED on the safety half of the problem — 0/24
+  over_current, blend1's park/freeze episode cured same-seed, hip-yaw
+  saturation 3–10x below parent on the deployed rot60-ON config,
+  retention clean — but missed the pre-registered slip bar (panel
+  medians 2.51–3.54/m vs < 2.0/m target; unchanged from blend1).
+  Its own gate text forbids an autonomous 5th lever. Options for the
+  operator: (a) accept the slip band on switch schedules and order
+  the ~20M k_yaw_margin hardening continuation, (b) order a
+  continuation that pairs k_yaw_margin with slip-priced reward, or
+  (c) park the sub-line (download answer never needed mid-walk
+  switches). Evidence: ledger verdict + W&B `qon84cv1` +
+  hw/STATUS.md "Now".
 - **CLEARED 08-18 ~23:3x UTC (this cycle): `cw-recover-predictive1b-pop3-s11` triaged, PASS — the predictive1b-pop3 cohort is now COMPLETE (all three seeds s11/s12/s13 independently clear the full 23-rung ladder, no exploit; `flip` is the shared weak rung). See "Last updated" + hw/STATUS.md "Now" + `rl_docs/SKILLS.md`. Recover/tangle redesign stays `[operator]`-gated per the standing ruling — no follow-up queued.
 - **CLEARED 08-18 ~17:1x UTC (this cycle): both fleet preconditions
   from the predictive1 launch drained.** (1) train-6 torch CUDA
