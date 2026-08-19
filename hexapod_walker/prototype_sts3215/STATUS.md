@@ -428,8 +428,16 @@ ORCHESTRATOR_PROMPT.md):**
   FIRST while the sprint runs):** the fleet is re-pointed at the
   operator's SIM SPRINT ruling (~18:05 UTC). Board: 1/12 training
   (`cw-arch-modeexperts-scratch3`, in-flight — finishes and gets
-  triaged normally per the sprint text), train-10 pod `Failed`
-  (watcher-owned, 10 slots still free), backlog EMPTY on purpose —
+  triaged normally per the sprint text), ~~train-10 pod `Failed`
+  (watcher-owned, 10 slots still free)~~ **train-10 REPAIRED 08-19
+  ~09:1x UTC (idle-drain cycle): the OOMKilled pod had sat Failed
+  3d8h with no watcher fix — deleted + recreated from the fixed
+  4Gi-dshm spec, bootstrapped (code @ c7c2919a, jax CUDA OK, ckpt
+  md5 verified), CUDA torch reinstalled + durably recorded
+  (pod_torch_capability.py). Fleet is 12/12 slots ready; dshm truth
+  updated in CAPACITY.md (train-1 measured 4Gi; train-2/3 measured
+  64M — still recreate-before-wide-sharded)**, backlog EMPTY on
+  purpose —
   **no new research-track launches (dynrep/arch/nobc/quad/turn/
   multitask) unless an arm directly serves sim rise+walk
   reliability.** The download answer exists TODAY and is written at

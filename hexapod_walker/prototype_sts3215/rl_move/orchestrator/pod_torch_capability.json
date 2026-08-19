@@ -49,7 +49,7 @@
       "torch_version": "2.11.0+cu128"
     },
     "torch_version": "2.11.0+cu128",
-    "verified_utc": "2026-08-15T18:57:26.246457+00:00"
+    "verified_utc": "2026-08-19T02:30:23.958949+00:00"
   },
   "hexapod-mjx-train-11": {
     "extra_cuda_libs_installed": [
