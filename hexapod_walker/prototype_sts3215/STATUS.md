@@ -451,21 +451,39 @@ ORCHESTRATOR_PROMPT.md):**
   closed postlower training attempts; product baseline unaffected).
   Idle slots next to `[operator]`-typed waits are correct under the
   sprint; do not backfill them with research arms.
-- **CLEARED 08-19 ~18:1x UTC (operator-kick cycle): the steer
-  sub-line scale-up fork is ANSWERED — the operator (MCP lane
-  20260819T175106Z, "I'd really like the hexapod walker to learn a
-  fast non slipping gait") picked option (b) plus a speed raise.**
-  Executing now: `cw-dep-bcgait1-hard1-steer4-fastclean1` (20M
-  hardening, train-0, W&B `ml1rja4v`) — warm from steer3-yawm1's
-  checkpoint, k_yaw_margin (validated anti-jam) + the banked
-  structural per-stance drag charge `k_drag_stance` 8000/6/0.25
-  (audit operating point) + command band widened to 0.05–0.08 m/s,
-  `--best-ckpt` retention guard; hard1/fric stay immutable rollback
-  baselines. Combined-stack preflight added + green
-  (`test_fastclean_*`, 138 passed, snapshot `f89863ca`). Gate:
+- **NEW WAIT (08-19 ~19:1x UTC, triage cycle) `[operator]` (hw): the
+  operator's own combined "fast non-slipping gait" order FAILED all
+  four of its pre-registered bars.** `cw-dep-bcgait1-hard1-steer4-fastclean1`
+  (20M hardening, warm from steer3-yawm1, W&B `ml1rja4v`) — retention
+  slip 2.33/2.67 per m det/sto vs required <=1.8/<=2.0 (both the
+  final and --best-ckpt checkpoint), a reproduced two-leg tangle on
+  the stage2-forced switch panel (the exact pathology steer3-yawm1
+  had cured), switch-panel slip 4.46-5.56/m (worse than the already
+  failed parent band), and only ~0.5 progress_ratio at the requested
+  0.08 m/s (needed >=0.8). No exploit collapse on video — six-leg
+  tall gait most of the time — just genuinely worse tracking/slip
+  than before combining the levers. Per pre-registration this STOPS
+  here (no autonomous 5th/6th lever); the operator's steer sub-line
+  question is now: park it, or fund a gentler version of this exact
+  combo (lower LR / fewer simultaneous changes) since the failure
+  pattern (everything got worse together) suggests the bundle or its
+  budget overwhelmed retention rather than any one mechanism being
+  wrong. Download answer (hard1/fric) unaffected. Detail: ledger
+  verdict + W&B `ml1rja4v` OUTCOME note + hw/STATUS.md "Now".
+- **CLEARED 08-19 ~18:1x UTC (operator-kick cycle, see the FAIL
+  above): the steer sub-line scale-up fork was ANSWERED — the
+  operator (MCP lane 20260819T175106Z, "I'd really like the hexapod
+  walker to learn a fast non slipping gait") picked option (b) plus a
+  speed raise, and the combined arm executed** (warm from
+  steer3-yawm1's checkpoint, k_yaw_margin + the banked structural
+  per-stance drag charge `k_drag_stance` 8000/6/0.25 + command band
+  widened to 0.05–0.08 m/s, `--best-ckpt` retention guard; hard1/fric
+  stayed immutable rollback baselines; combined-stack preflight green,
+  `test_fastclean_*` 138 passed, snapshot `f89863ca`). Gate:
   retention == hard1/fric band AND 0/24 over_current AND switch-panel
   slip < 2.0/m AND 0.08 m/s prog_ratio >= 0.8. Any miss = STOP and
-  report (no autonomous follow-up).
+  report (no autonomous follow-up) — see the NEW WAIT above, all four
+  missed.
 - **CLEARED 08-18 ~23:3x UTC (this cycle): `cw-recover-predictive1b-pop3-s11` triaged, PASS — the predictive1b-pop3 cohort is now COMPLETE (all three seeds s11/s12/s13 independently clear the full 23-rung ladder, no exploit; `flip` is the shared weak rung). See "Last updated" + hw/STATUS.md "Now" + `rl_docs/SKILLS.md`. Recover/tangle redesign stays `[operator]`-gated per the standing ruling — no follow-up queued.
 - **CLEARED 08-18 ~17:1x UTC (this cycle): both fleet preconditions
   from the predictive1 launch drained.** (1) train-6 torch CUDA
