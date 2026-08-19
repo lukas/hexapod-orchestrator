@@ -36,7 +36,25 @@ stance `footlow2_hard1` + walk `bcgait1_hard1` + session controller
 with entry-slew and STOP→stance-hold — det 0.967 / sto 0.853 on the
 n=600 held-out session gate; single weak boundary = post-lower rise).
 
-**Last updated: 2026-08-18 ~23:3x UTC (hw): ALL THREE seeds of the
+**Last updated: 2026-08-19 ~22:5x UTC (hw): the servo
+profile-headroom canary (`steer5-fastprof1`, operator order
+20260819T211434Z) is verdicted — the walking-speed ceiling was
+ACTUATOR TIMING, not reward design.** Under the 4x-raised servo
+profile every checkpoint (old champions re-evaluated untouched, plus
+the 2M-trained canary child) walks ~2.5x faster zero-shot (0.13–0.16
+m/s vs ~0.06) with zero over-current, six-leg gait intact, and no
+return of the park/tangle pathology — but nobody can STEER at that
+speed yet: everyone blasts past the commanded speed, drifts 50–60°
+off heading, and slips 2–4x more, so the canary FAILS its
+pre-registered retention/tangle bars and the fast-gait fork goes to
+the operator (WAITING-ON entry; no autonomous dose sweep, per the
+order). 2M of adaptation already beat both parents-under-profile on
+every metric — headroom + longer command-tracking training looks
+viable if funded. Bench question attached: can the real STS3215
+sustain write_speed=1500 under load? Download answer unchanged.
+Detail: hw/STATUS.md "Now" + W&B `yvkjp5xj`.
+
+**Earlier — 2026-08-18 ~23:3x UTC (hw): ALL THREE seeds of the
 from-scratch `predictive1b-pop3` recover cohort now independently
 clear the ENTIRE redesigned 23-rung get-up ladder — cohort COMPLETE.**
 `-s13`: frontier held B22 `flip` at 40M, gate 21/23 then 23/23
@@ -451,6 +469,33 @@ ORCHESTRATOR_PROMPT.md):**
   closed postlower training attempts; product baseline unaffected).
   Idle slots next to `[operator]`-typed waits are correct under the
   sprint; do not backfill them with research arms.
+- **WAITING 08-19 ~22:5x UTC `[operator]` — profile-headroom fork:
+  the operator-ordered canary `cw-dep-bcgait1-hard1-steer5-fastprof1`
+  is verdicted CANARY FAIL - MECHANISM (as dosed), and its own
+  pre-registration forbids any autonomous write_speed/acc/slew dose
+  sweep — the next move on the fast-gait line is the operator's.**
+  The headline finding is real and useful: with the raised profile
+  (write_speed=1500/acc=80/vel-ceiling lifted) EVERY checkpoint —
+  hard1 and steer3-yawm1 re-evaluated untouched as matched controls,
+  plus the 2M-trained child — immediately walks ~2.5x faster
+  (0.13–0.16 m/s vs the 0.05–0.06 command) with zero over-current,
+  6/6 gait validity and no park/freeze/sacrificed-leg, so actuator
+  timing WAS the binding constraint on raw walking speed. But
+  command tracking breaks for all of them under the profile:
+  prog_ratio overshoots to 1.27–1.76 (band 0.91–1.07), slip 2.4–4.0/m
+  fixed-command and 4.1–8.1/m on the switch panel, heading error
+  ~50–60°, probe yaw_sat 0.019–0.023 (bar 0.011), one dynamic
+  tip-over each in 24 switch eps. The child beats both
+  parents-under-profile on every slice (2M of adaptation genuinely
+  helps) but is nowhere near the bands. Operator decisions: (a) fund
+  a longer adaptation run at the raised profile focused on command
+  tracking, (b) pick an intermediate dose, or (c) park the fast-gait
+  line — plus the bench question the sim cannot answer: can the real
+  STS3215 deliver write_speed=1500 under load? Evidence: ledger
+  verdict + W&B `yvkjp5xj` OUTCOME note; artifacts on train-0
+  (`logs/ckpt_eval/*steer5_fastprof1*`, `*profilectl*`,
+  `logs/probe_dirswitch/{steer5_fastprof1_profile,yawm1_profilectl}.json`).
+  Download answer (hard1/fric + footlow2) unchanged.
 - **CLEARED 08-19 ~21:3x UTC (operator-kick cycle): the steer
   sub-line park-vs-retry fork was ANSWERED — the operator (MCP lane
   20260819T211434Z) ordered the NEXT lever: actuator/profile
