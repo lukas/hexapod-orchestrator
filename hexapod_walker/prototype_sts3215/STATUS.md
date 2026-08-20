@@ -9,11 +9,18 @@ wins. Run-level evidence lives in `rl_docs/runs/`, `RL_LOG.md`, and W&B.
 - [operator] Fast-gait fork decision: all 4 A/B canaries (train-through &
   ramp-in, mid & full dose) FAILED identically as of 08-20 19:5x UTC.
   Choose: respec with a different lever, or park fast gait and keep the
-  current download-answer walk speed. Until then the fleet is idle by
-  design — agent-doable queue is empty (no untriaged runs, no open CODE
-  items, no pre-registered arms with met preconditions); all other open
-  gates (post-lower contract, bench promotion, recover/tangle) are also
-  [operator].
+  current download-answer walk speed.
+- [operator] Recover mode flip handling (since 08-20 ~23:00 UTC): the
+  recover champion is packaged + sim-gate-verified through the
+  deployment runner (see below), but flip (full inversion) is out of
+  envelope (0/6 own-DR isolation). Ship recover with flip unsupported,
+  or order a flip-hardening arm from s13.
+- [operator, bench-parked] Recover-mode hardware items: 185 deg tilt
+  envelope inside recover mode only, on-robot transformer compute
+  check (torch/ONNX at 25 Hz), level-IMU bias calibration. Parked
+  until the robot is back (`rl_docs/RECOVER_DEPLOY.md` blockers 2/4/5).
+- Agent-doable queue otherwise empty (no untriaged runs, no open CODE
+  items); post-lower contract + bench promotion remain [operator].
 
 ## Read First
 
@@ -82,7 +89,7 @@ exist. Poll `orchestrator_activity` and the ledger.
 - Train-through FAILED at both tested doses (`fastthru1`, `midthru1`): periodic B0 certs show falls trending WORSE not toward zero, and by 1M both dose 0/6 det+sto walk success, TERM walk_low_height/fell, dir_err 35-78 deg, slip/m 2.1-11.0. Same collapse-into-leg-splay pattern as the ramp-in arms.
 - The dose itself is the problem, not its abruptness or onset style; the fast-gait fork is closed pending an operator decision (respec with a different lever, or park).
 - Post-lower rise remains the main stance/session contract decision: `postlower4` looks better only under remaining-rise semantics; promotion requires an operator contract call.
-- Recover/tangle work made a real scientific gain, but it is outside the current download answer and remains operator-gated during SIM SPRINT.
+- Recover/tangle: REOPENED by operator order 08-20 and made sim/deploy-ready the same cycle. Champion `predictive1b-pop3-s13` is packaged (policy zip + frozen encoder, relocatable loader — the zip alone is NOT loadable off-pod), the deployment runner obs contract (16x90 predictive context, plant-relative q, entry-hold reset history, LEVEL tilt ref, manual-command gating, stance-hold handoff) is implemented and test-locked, and the 23-rung ladder run THROUGH the runner reproduces the training-path gate exactly: DR-0 21/23 (misses: zero = documented scoring false-negative, flip = genuinely weak), own-DR 22/23 (flip only). Flip is out of envelope: 0/6 in a seed/contract isolation probe — not caused by the deployment contract. Recovery ships as an ADDITIONAL operator-requested mode; the rise+walk download answer is unchanged. Package + contract + blocker list: `rl_docs/RECOVER_DEPLOY.md`.
 - Coxa geometry sweep says coxa length is a yaw-margin/scrub lever, not a walking-speed lever; no sim pivot follows from it.
 
 ## Operator Gates
@@ -92,7 +99,7 @@ Open decisions that should not be resolved by autonomous doc rereads:
 - Post-lower contract: accept remaining-rise semantics generally, and decide whether to promote `postlower4` over `footlow2_hard1`.
 - Fast gait after the A/B canaries finish: continue the arm that passes, respec from evidence, or park fast gait and keep the current download answer.
 - Hardware return: bench-promote the hierarchy or fall back to scripted stand/sit glides as appropriate.
-- Recover/tangle redesign: parked until the operator reopens it.
+- Recover mode: flip handling (ship unsupported vs flip-hardening arm); hardware-side recover items parked for the bench.
 - Non-sprint tracks: arch/dynrep/quad/turn/nobc/multitask stay gated unless directly serving rise+walk download readiness or explicitly ordered.
 
 ## Track Snapshot
