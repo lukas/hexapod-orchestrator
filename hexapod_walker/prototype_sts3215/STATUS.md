@@ -4,6 +4,17 @@ Last compacted: 2026-08-20 UTC. This is the operator-facing dashboard,
 not a history file. If this conflicts with `CURRENT_TRUTHS.md`, that file
 wins. Run-level evidence lives in `rl_docs/runs/`, `RL_LOG.md`, and W&B.
 
+## WAITING-ON
+
+- [operator] Fast-gait fork decision: all 4 A/B canaries (train-through &
+  ramp-in, mid & full dose) FAILED identically as of 08-20 19:5x UTC.
+  Choose: respec with a different lever, or park fast gait and keep the
+  current download-answer walk speed. Until then the fleet is idle by
+  design — agent-doable queue is empty (no untriaged runs, no open CODE
+  items, no pre-registered arms with met preconditions); all other open
+  gates (post-lower contract, bench promotion, recover/tangle) are also
+  [operator].
+
 ## Read First
 
 Default startup packet for an agent cycle:
