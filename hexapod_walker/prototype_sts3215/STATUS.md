@@ -36,26 +36,31 @@ stance `footlow2_hard1` + walk `bcgait1_hard1` + session controller
 with entry-slew and STOP→stance-hold — det 0.967 / sto 0.853 on the
 n=600 held-out session gate; single weak boundary = post-lower rise).
 
-**Last updated: 2026-08-20 ~08:xx UTC (hw): the operator ANSWERED
-the fast-gait fork (fb_20260820T075230_4a90c6) — not a third dose but
-a mechanism change, and the two ordered canaries are TRAINING.**
-Walk-curriculum **V5** ("fast anti-skate": a bcgait1-hard1-adjacent
-bridge→fast-band→joystick→DR ladder with strict slip ≤1.6/m,
-cross-track ≤0.20, height ≥0.80 cert gates — exactly the axes both
-steer forks failed) plus a **direct loaded-slip charge**
-(`reward.k_loadslip_excess`: −k·max(loadslip_ratio − ok, 0) per
-commanded tick, so skating is charged in training instead of merely
-income-gated) were implemented on the controller (the operator's
-desktop commit couldn't push; recreated per the note, tests + walk
-semantics bank green, REWARD.md row added) and launched as two 1M
-mechanism-health canaries warm from `bcgait1_hard1`:
-`cw-dep-bcgait1-fastnoslip1` (full 1500/80 profile, 5° clamp, seed
-21) and `cw-dep-bcgait1-midnoslip1` (750/40, 3° clamp, seed 22).
-Gate: pre-PPO V5 B0 cert survives (cmd_prog ≥0.50), B0 retained + B1
-improving by 1M, slip trending ≤1.6/m, zero falls; FAIL if steer6-
-style skating recurs. Viewer (play.py) now sims fast-profile
-checkpoints under their own trained write regime. Detail:
-hw/STATUS.md "Now".
+**Last updated: 2026-08-20 ~08:4x UTC (hw): the operator's fast
+anti-skate order (fb_20260820T075230_4a90c6) is EXECUTED — V5 +
+k_loadslip_excess implemented and both ordered canaries launched —
+and BOTH died at their own pre-registered step-0 check: the champion
+walker zero-shot cannot survive the raised motor profile, at either
+dose.** Walk-curriculum **V5** ("fast anti-skate": a bcgait1-hard1-
+adjacent bridge→fast-band→joystick→DR ladder with strict slip
+≤1.6/m, cross-track ≤0.20, height ≥0.80 cert gates) plus the
+**direct loaded-slip charge** (`reward.k_loadslip_excess`:
+−k·max(loadslip_ratio − ok, 0) per commanded tick) were implemented
+on the controller (the desktop commit couldn't push; recreated per
+the note, tests + full semantics bank green, REWARD.md row, snapshot
+e1a81703; play.py viewer now sims fast-profile checkpoints under
+their own write regime). Both 1M canaries launched warm from
+`bcgait1_hard1` and hit the fail-closed pre-PPO B0 bridge cert (10s
+at the source's OWN 0.05-0.06 m/s band): `fastnoslip1` (1500/80, 5°)
+falls 6/8, slip 2.26/m, roll 10.2°, 2.09x speed overshoot;
+`midnoslip1` (750/40, 3°) falls 2/8, slip 1.66/m, roll 10.6°, 1.26x
+overshoot — CANARY FAIL - MECHANISM both, zero training steps.
+Dose-graded on every axis ⇒ the instability is the PROFILE DOSE
+itself, felt before the new curriculum/penalty ever engage. V5 +
+k_loadslip_excess stay implemented/tested and ready. `[operator]`
+wait (new): pick precert-bar easing (let PPO repair the wobble),
+profile ramp-in, or park — see WAITING-ON + hw/STATUS.md "Now" +
+q_20260820T0830Z.
 
 **Earlier — 2026-08-20 ~03:4x UTC (hw): BOTH halves of the
 fast-gait profile-headroom fork are now VERDICTED — FAIL, and the
@@ -614,6 +619,26 @@ ORCHESTRATOR_PROMPT.md):**
   unchanged. Detail: `rl_docs/runs/cw-dep-bcgait1-hard1-steer6-
   fasttrack1.md` + `rl_docs/runs/cw-dep-bcgait1-hard1-steer7-
   middose1.md`.
+- **`[operator]` NEW 08-20 ~08:4x UTC — fast anti-skate V5 canaries
+  BOTH CANARY FAIL - MECHANISM at the pre-PPO B0 bridge cert, zero
+  training steps: the bcgait1_hard1 transplant zero-shot does not
+  survive 10s of its own 0.05-0.06 m/s straight walking under either
+  raised profile** (`fastnoslip1` 1500/80: falls 6/8, slip 2.26/m,
+  roll 10.2°, 2.09x speed overshoot; `midnoslip1` 750/40: falls 2/8,
+  slip 1.66/m, roll 10.6°, 1.26x overshoot — dose-graded on every
+  axis, so the profile dose destabilizes the walker BEFORE the new
+  curriculum/penalty ever engage). The fail-closed
+  `--walkcurr-cert-at-init` guard aborted both, per each run's
+  pre-registered gate clause (1). Blocked on the operator's pick:
+  (a) ease/waive the precert bar so the V5 ladder starts anyway and
+  PPO repairs the takeoff wobble inside B0 (one-line launch change;
+  mechanism otherwise implemented + tested), (b) a profile ramp-in
+  mechanism (CODE, unbuilt — anneal write_speed/acc from the fitted
+  400/20 toward the target dose across the run), or (c) park the
+  fast-gait sub-line. No autonomous continuation (fork history + SIM
+  SPRINT). Since 08-20 ~08:4x. Detail: q_20260820T0830Z +
+  `rl_docs/runs/cw-dep-bcgait1-fastnoslip1.md` /
+  `-midnoslip1.md`.
 - **CLEARED 08-20 ~00:xx UTC (idle-kick cycle): motor-contract
   logging + resolved-ceiling integration tests LANDED
   (fb_20260820T000059 item 4, agent-doable code, no training).**
