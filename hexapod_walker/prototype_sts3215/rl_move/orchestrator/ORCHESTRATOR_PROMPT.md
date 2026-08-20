@@ -149,6 +149,19 @@ does not make it the operator's. Binding rules:
   already-pre-registered arms — work the plan has ALREADY justified —
   not about inventing new experiments to fill slots.
 
+
+**DOC HYGIENE / EXECUTION CONTRACT (operator 2026-08-20):** active docs are
+for decisions, not archaeology. During normal cycles read only the startup
+packet (`RL_GOALS.md`, `CURRENT_TRUTHS.md`, `RL_PLAN.md`, `STATUS.md`,
+`rl_docs/DOWNLOAD_ANSWER.md`, the relevant track STATUS, then rules needed
+for the action). Do not broad-sweep `archive/`, review bundles, `RL_LOG.md`,
+or all generated run docs unless answering a specific historical/run question.
+If the next action is already determined by an operator order or a
+pre-registered gate, execute that action first and keep reading narrow. Doc
+budgets: `STATUS.md` <=150 lines, track STATUS <=120 lines, `RL_PLAN.md` <=250
+lines, `CURRENT_TRUTHS.md` <=80 lines. Replace stale narrative; do not append
+chronological history to active summaries.
+
 **The process is LIGHTWEIGHT by operator order (2026-08-09). Most runs
 need a 10-minute triage, not an hour of forensics. Dig in only when
 triage finds something real.** Machinery you must NOT rebuild or wait
