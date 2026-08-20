@@ -57,21 +57,16 @@ and passes the promotion contract.
 
 ## Active Queue
 
-Current live fast-profile A/B test set, launched from the operator order to
-do both A and B:
-
-- `cw-dep-bcgait1-fastthru1`: train through full-profile step-0 wobble by waiving the B0 pre-cert.
-- `cw-dep-bcgait1-midthru1`: train through mid-profile step-0 wobble by waiving the B0 pre-cert.
-- `cw-dep-bcgait1-midramp1`: ramp from fitted profile to 750/40/3 deg.
-- `cw-dep-bcgait1-fastramp1`: ramp from fitted profile to 1500/80/5 deg.
-
-Use the ledger as truth for RUNNING/INTENT/FINISHED state. Do not duplicate
-these launches.
+Empty. The operator's fast-profile A/B set (fastthru1/midthru1/midramp1/
+fastramp1) is fully triaged, all 4 CANARY FAIL identically (raised
+actuator dose destabilizes direction/footing regardless of onset style
+or dose magnitude). No pods running, no backlog. Next launch on this
+line needs the operator's continue/respec/park call below.
 
 ## Open Operator Decisions
 
 - Post-lower rise contract: adopt remaining-rise semantics and/or promote `postlower4` over `footlow2_hard1`.
-- Fast gait: wait for the A/B canary verdicts, then decide continue/respec/park.
+- Fast gait: all 4 A/B canaries FAILed identically; decide respec (different lever) vs park.
 - Hardware bench promotion after repair: test the hierarchy and decide whether to replace deployed stance/walk fallbacks.
 - Recover/tangle redesign: outside SIM SPRINT unless reopened.
 - Non-sprint tracks: remain gated unless directly relevant or explicitly ordered.

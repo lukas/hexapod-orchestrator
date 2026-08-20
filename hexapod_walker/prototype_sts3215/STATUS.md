@@ -43,15 +43,18 @@ hardware.
 
 ## Live Work
 
-Latest operator order executed: test both fast-gait options A and B in sim.
-Live ledger rows as of 2026-08-20 19:27 UTC:
-
-- `cw-dep-bcgait1-fastthru1` - **FAIL** (train-through, full 1500/80/5 dose): PPO does not repair the step-0 wobble, it collapses it. 0/12 eval episodes ok, all TERM walk_low_height, slip 4-36/m, cert survival stalled at 2.0s across both 500k rounds. Video shows progressive leg-splay to a full fall.
-- `cw-dep-bcgait1-midthru1` - RUNNING (relaunching after an earlier launch hiccup), 1M canary, mid 750/40/3 deg profile, B0 pre-cert waived.
-- `cw-dep-bcgait1-midramp1` - FINISHED training (1.05M steps), untriaged next cycle. Profile ramp from fitted 350/20/1.5 deg to 750/40/3 deg over the first 500k steps.
-- `cw-dep-bcgait1-fastramp1` - FINISHED training (1.05M steps), untriaged next cycle. Profile ramp from fitted 350/20/1.5 deg to 1500/80/5 deg over the first 500k steps.
-
-Reading so far: the train-through option (a) fails outright at the full dose. The ramp-in option (b) is the one still worth reading once fastramp1/midramp1 are triaged - it is the only path left that could make the fast profile trainable at all.
+Operator order (test both fast-gait options A and B in sim) is fully
+answered as of 2026-08-20 19:5x UTC. All 4 matched canaries **FAIL**
+identically: train-through and ramp-in, at mid (750/40/3 deg) and full
+(1500/80/5 deg) dose, all collapse instead of repairing (falls trend
+worse round-over-round, not toward zero; 0/12 eval episodes ok at each
+dose; TERM walk_low_height/fell; dir_err 35-78 deg; slip/m 2.1-11.0 vs a
+<=1.6 budget; video shows progressive leg-splay/kicking). The raised
+actuator dose itself destabilizes direction-holding and footing,
+regardless of onset style or magnitude tested. No pods are running.
+WAITING-ON [operator]: fast-gait fork decision (respec with a different
+lever, or park and keep the current download-answer walk speed) - see
+`rl_docs/tracks/hw/STATUS.md` Operator Gates.
 
 Do not re-kick while the operator-kick cycle or these INTENT/RUNNING rows
 exist. Poll `orchestrator_activity` and the ledger.
@@ -59,12 +62,14 @@ exist. Poll `orchestrator_activity` and the ledger.
 ## Current Findings
 
 - Product baseline is still the stance/walk hierarchy above.
-- Fast actuator profile was the speed ceiling, but neither trained dose has produced a deployable fast, steerable, low-slip gait yet.
+- Fast actuator profile was the speed ceiling; the operator's 4-way A/B (train-through vs ramp-in, mid vs full dose) closes the question: all 4 canaries FAIL identically. No trained dose/onset combo has produced a deployable fast, steerable, low-slip gait.
 - `steer6-fasttrack1` full dose: speed improved, direction tracking and slip failed.
 - `steer7-middose1` half dose: cleaner than parent under the same profile but still not monotone/in-band and slip remains high.
 - V5 fast anti-skate curriculum + `reward.k_loadslip_excess` are implemented and tested.
 - Raw raised-profile transplants failed at step-0 B0, so the profile dose itself destabilizes the parent before V5 can help.
-- Profile ramp-in FAILED at both tested doses (`fastramp1`, `midramp1`): step-0 B0 already fails at the ramp's fitted start profile, and by 1M at target dose both spin in place (~44-52 deg heading error) with slip well over budget, reproducing steer6-style skating. Ramping the onset does not fix the raised-speed destabilization; the dose is the problem, not its abruptness. Awaiting the matched train-through siblings before closing the fast-gait fork.
+- Profile ramp-in FAILED at both tested doses (`fastramp1`, `midramp1`): step-0 B0 already fails at the ramp's fitted start profile, and by 1M at target dose both spin in place (~44-52 deg heading error) with slip well over budget, reproducing steer6-style skating.
+- Train-through FAILED at both tested doses (`fastthru1`, `midthru1`): periodic B0 certs show falls trending WORSE not toward zero, and by 1M both dose 0/6 det+sto walk success, TERM walk_low_height/fell, dir_err 35-78 deg, slip/m 2.1-11.0. Same collapse-into-leg-splay pattern as the ramp-in arms.
+- The dose itself is the problem, not its abruptness or onset style; the fast-gait fork is closed pending an operator decision (respec with a different lever, or park).
 - Post-lower rise remains the main stance/session contract decision: `postlower4` looks better only under remaining-rise semantics; promotion requires an operator contract call.
 - Recover/tangle work made a real scientific gain, but it is outside the current download answer and remains operator-gated during SIM SPRINT.
 - Coxa geometry sweep says coxa length is a yaw-margin/scrub lever, not a walking-speed lever; no sim pivot follows from it.
