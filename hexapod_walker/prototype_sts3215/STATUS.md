@@ -469,24 +469,34 @@ ORCHESTRATOR_PROMPT.md):**
   closed postlower training attempts; product baseline unaffected).
   Idle slots next to `[operator]`-typed waits are correct under the
   sprint; do not backfill them with research arms.
-- **WAITING 08-20 ~00:xx UTC `[code]` — fast-profile command-tracking
-  MDP prep (fb_20260820T000059 item 3, agent-doable, no training):**
-  before ANY funded fast-gait run, build + bank (all default-off):
-  (a) eval pinned-speed panels at 0.04/0.06/0.08/0.10 m/s as a named
-  eval_checkpoint mode so speed-as-a-controllable-variable is
-  measurable per checkpoint; (b) opt-in reward keys pricing OVERSPEED
-  (commanded-band exceedance, not just progress shortfall) and
-  heading error directly, REWARD.md rows + walk semantics bank green;
-  (c) verify obs carry enough body-velocity/command-error signal
-  under the raised profile (goal.walk_obs_body_vel=2 exists — audit
-  sufficiency, document). This does NOT launch anything — the fork
-  itself stays `[operator]` below. Same note's items 1 (profile
-  trapezoid restart-on-rewrite semantics flag: only with/after a
-  bench step-response trace, implement in BOTH numpy ServoProfile and
-  mjx_backend for parity) and 2 (bench characterization of 1500/80
-  under load at 25/50/100 Hz) are `[operator]`/bench — parked until
-  the robot is back. Item 4 (motor-contract logging + integration
-  tests) is DONE this cycle, see CLEARED entry below.
+- **CLEARED 08-20 ~01:xx UTC (idle-kick cycle): fast-profile
+  command-tracking MDP prep LANDED (fb_20260820T000059 item 3, all
+  default-off, nothing trained — full record:
+  `rl_docs/FAST_PROFILE.md`).** (a) `eval_checkpoint.py
+  --pinned-speed-panel` (defaults 0.04/0.06/0.08/0.10 m/s; rows
+  `walk@<speed>/<det|sto>` in report.json + W&B; `pinned_speed_cfg()`
+  is the reusable pin truth) — smoke on hard1 already shows the
+  point: ~0.06 m/s achieved whether commanded 0.04 or 0.08
+  (prog_ratio 1.47/0.80) — one cadence, not speed control.
+  (b) `reward.k_walk_overspeed`/`walk_overspeed_tol` (linear
+  commanded-band exceedance charge — the Gaussian kernel saturates
+  2σ out and k_walk_prog's 1.25 cap still PAYS overspeed) +
+  `reward.k_walk_heading`/`walk_heading_min_speed_m_s` (1−cos
+  heading charge); REWARD.md rows added, FASTPROF semantics bank
+  (obey > 2.5x-overspeed and > 55°-skew, margin from the NEW keys)
+  + full bank green (141 passed / 4 skip / 1 xfail), units
+  `test_walk_fastprof_mdp.py` 11/11. (c) OBS AUDIT VERDICT: the
+  cw-dep contract `walk_obs_body_vel=2` is BLIND to command error by
+  construction (meas:=ref — the canary could not even observe its
+  own 2.5x overspeed); AND a latent trap found+fixed: cfg value 3
+  ("estimator mode", probe-referenced) silently fell into the
+  PRIVILEGED branch — mode 3 is now genuinely wired to the
+  board-safe LegOdometryVelocity on the DR-corrupted observed state
+  (same obs width = warm-start compatible; pool-restore safe;
+  0/1/2 bit-exact). Recommended funded-arm contract in
+  FAST_PROFILE.md. Items 1+2 of the note stay `[operator]`/bench
+  (parked, robot off bench); item 5 explicitly not-autonomous; the
+  profile-headroom fork itself stays `[operator]` above.
 - **WAITING 08-19 ~22:5x UTC `[operator]` — profile-headroom fork:
   the operator-ordered canary `cw-dep-bcgait1-hard1-steer5-fastprof1`
   is verdicted CANARY FAIL - MECHANISM (as dosed), and its own
