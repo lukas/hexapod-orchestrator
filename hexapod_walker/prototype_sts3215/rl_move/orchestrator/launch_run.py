@@ -123,7 +123,12 @@ def canary_update_error(entry: dict) -> str:
 
 
 def sh(cmd: list[str], timeout: int = 60) -> str:
+    # errors="replace": pod logs/tails occasionally carry non-UTF-8 bytes
+    # (e.g. a Latin-1 "deg" symbol byte 0xb0) that used to crash checkup
+    # (UnicodeDecodeError) with a strict decode; never let a stray byte
+    # in someone's print statement take down the watcher's health check.
     return subprocess.run(cmd, capture_output=True, text=True,
+                          errors="replace",
                           timeout=timeout, check=True).stdout
 
 

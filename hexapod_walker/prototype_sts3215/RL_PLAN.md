@@ -57,16 +57,17 @@ and passes the promotion contract.
 
 ## Active Queue
 
-Empty. The operator's fast-profile A/B set (fastthru1/midthru1/midramp1/
-fastramp1) is fully triaged, all 4 CANARY FAIL identically (raised
-actuator dose destabilizes direction/footing regardless of onset style
-or dose magnitude). No pods running, no backlog. Next launch on this
-line needs the operator's continue/respec/park call below.
+Empty, 12/12 pods idle, backlog empty. The fast-gait BC-INIT fork
+(08-20 order) ran its course: discovery canary `cw-dep-bcgait2-fastbc1`
+PASSED (clean tall 6-leg gait, ~2x speed, overspeeds command 2x), its
+pre-authorized hardening fix `cw-dep-bcgait2-fastbc1-track1` FAILED
+(command-tracking price made the overspeed worse, not better). No
+agent-doable next step on this line; needs the operator's call below.
 
 ## Open Operator Decisions
 
 - Post-lower rise contract: adopt remaining-rise semantics and/or promote `postlower4` over `footlow2_hard1`.
-- Fast gait: all 4 A/B canaries FAILed identically; decide respec (different lever) vs park.
+- Fast gait: BC-INIT discovery canary passed but overspeeds 2x; its command-tracking hardening fix also FAILED (wrong lever). All prior transplant A/Bs FAILed too. Decide a new lever (e.g. price speed directly in the obs/reward instead of tracking-error) vs park (`STATUS.md` q_20260820T2330Z).
 - Hardware bench promotion after repair: test the hierarchy and decide whether to replace deployed stance/walk fallbacks.
 - Recover/tangle redesign: outside SIM SPRINT unless reopened.
 - Non-sprint tracks: remain gated unless directly relevant or explicitly ordered.
