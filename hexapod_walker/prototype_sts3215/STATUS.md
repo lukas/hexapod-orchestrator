@@ -46,10 +46,12 @@ hardware.
 Latest operator order executed: test both fast-gait options A and B in sim.
 Live ledger rows as of 2026-08-20 19:27 UTC:
 
-- `cw-dep-bcgait1-fastthru1` - RUNNING, 1M canary, full 1500/80/5 deg profile, B0 pre-cert waived so PPO can try to repair the step-0 wobble.
-- `cw-dep-bcgait1-midthru1` - INTENT, 1M canary, mid 750/40/3 deg profile, B0 pre-cert waived.
-- `cw-dep-bcgait1-midramp1` - RUNNING, 1M canary, profile ramp from fitted 350/20/1.5 deg to 750/40/3 deg over the first 500k steps.
-- `cw-dep-bcgait1-fastramp1` - RUNNING, 1M canary, profile ramp from fitted 350/20/1.5 deg to 1500/80/5 deg over the first 500k steps.
+- `cw-dep-bcgait1-fastthru1` - **FAIL** (train-through, full 1500/80/5 dose): PPO does not repair the step-0 wobble, it collapses it. 0/12 eval episodes ok, all TERM walk_low_height, slip 4-36/m, cert survival stalled at 2.0s across both 500k rounds. Video shows progressive leg-splay to a full fall.
+- `cw-dep-bcgait1-midthru1` - RUNNING (relaunching after an earlier launch hiccup), 1M canary, mid 750/40/3 deg profile, B0 pre-cert waived.
+- `cw-dep-bcgait1-midramp1` - FINISHED training (1.05M steps), untriaged next cycle. Profile ramp from fitted 350/20/1.5 deg to 750/40/3 deg over the first 500k steps.
+- `cw-dep-bcgait1-fastramp1` - FINISHED training (1.05M steps), untriaged next cycle. Profile ramp from fitted 350/20/1.5 deg to 1500/80/5 deg over the first 500k steps.
+
+Reading so far: the train-through option (a) fails outright at the full dose. The ramp-in option (b) is the one still worth reading once fastramp1/midramp1 are triaged - it is the only path left that could make the fast profile trainable at all.
 
 Do not re-kick while the operator-kick cycle or these INTENT/RUNNING rows
 exist. Poll `orchestrator_activity` and the ledger.
