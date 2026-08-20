@@ -36,7 +36,28 @@ stance `footlow2_hard1` + walk `bcgait1_hard1` + session controller
 with entry-slew and STOP→stance-hold — det 0.967 / sto 0.853 on the
 n=600 held-out session gate; single weak boundary = post-lower rise).
 
-**Last updated: 2026-08-20 ~03:4x UTC (hw): BOTH halves of the
+**Last updated: 2026-08-20 ~08:xx UTC (hw): the operator ANSWERED
+the fast-gait fork (fb_20260820T075230_4a90c6) — not a third dose but
+a mechanism change, and the two ordered canaries are TRAINING.**
+Walk-curriculum **V5** ("fast anti-skate": a bcgait1-hard1-adjacent
+bridge→fast-band→joystick→DR ladder with strict slip ≤1.6/m,
+cross-track ≤0.20, height ≥0.80 cert gates — exactly the axes both
+steer forks failed) plus a **direct loaded-slip charge**
+(`reward.k_loadslip_excess`: −k·max(loadslip_ratio − ok, 0) per
+commanded tick, so skating is charged in training instead of merely
+income-gated) were implemented on the controller (the operator's
+desktop commit couldn't push; recreated per the note, tests + walk
+semantics bank green, REWARD.md row added) and launched as two 1M
+mechanism-health canaries warm from `bcgait1_hard1`:
+`cw-dep-bcgait1-fastnoslip1` (full 1500/80 profile, 5° clamp, seed
+21) and `cw-dep-bcgait1-midnoslip1` (750/40, 3° clamp, seed 22).
+Gate: pre-PPO V5 B0 cert survives (cmd_prog ≥0.50), B0 retained + B1
+improving by 1M, slip trending ≤1.6/m, zero falls; FAIL if steer6-
+style skating recurs. Viewer (play.py) now sims fast-profile
+checkpoints under their own trained write regime. Detail:
+hw/STATUS.md "Now".
+
+**Earlier — 2026-08-20 ~03:4x UTC (hw): BOTH halves of the
 fast-gait profile-headroom fork are now VERDICTED — FAIL, and the
 fork's answer to the operator is complete.** `steer7-middose1`
 (750/40, W&B `wadldlj2`) finished its 20M budget and misses its own
@@ -577,9 +598,17 @@ ORCHESTRATOR_PROMPT.md):**
   the same profile) is worse on every axis, so training genuinely
   helped but not enough. Neither run falls, neither shows an exploit,
   both keep SOME of the win (speed / tracking-improvement-over-
-  parent) without clearing their own bars. `[operator]`: next call on
-  the fast-gait sub-line is a third dose, a longer budget on one of
-  these two, or park it — no autonomous continuation. The bench
+  parent) without clearing their own bars. ~~`[operator]`: next call
+  on the fast-gait sub-line~~ **ANSWERED 08-20 ~08:xx UTC
+  (fb_20260820T075230_4a90c6, operator MCP lane): neither a third
+  dose nor a longer budget — a MECHANISM change. Walk-curriculum V5
+  ("fast anti-skate" ladder adjacent to bcgait1-hard1, strict
+  slip/direction/height cert gates) + a direct loaded-slip charge
+  (`reward.k_loadslip_excess`) were implemented per the operator's
+  desktop patch (recreated here — the desktop push was blocked) and
+  two 1M canaries launched: `cw-dep-bcgait1-fastnoslip1` (1500/80,
+  5° clamp, seed 21) and `cw-dep-bcgait1-midnoslip1` (750/40, 3°
+  clamp, seed 22), both warm from `bcgait1_hard1`.** The bench
   write_speed-under-load question stays parked with bench items 1–2
   (robot off bench). Download answer (hard1/fric + footlow2)
   unchanged. Detail: `rl_docs/runs/cw-dep-bcgait1-hard1-steer6-
