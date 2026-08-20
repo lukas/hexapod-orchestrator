@@ -64,7 +64,7 @@ exist. Poll `orchestrator_activity` and the ledger.
 - `steer7-middose1` half dose: cleaner than parent under the same profile but still not monotone/in-band and slip remains high.
 - V5 fast anti-skate curriculum + `reward.k_loadslip_excess` are implemented and tested.
 - Raw raised-profile transplants failed at step-0 B0, so the profile dose itself destabilizes the parent before V5 can help.
-- Profile ramp-in is built and under test in the live canaries above.
+- Profile ramp-in FAILED at both tested doses (`fastramp1`, `midramp1`): step-0 B0 already fails at the ramp's fitted start profile, and by 1M at target dose both spin in place (~44-52 deg heading error) with slip well over budget, reproducing steer6-style skating. Ramping the onset does not fix the raised-speed destabilization; the dose is the problem, not its abruptness. Awaiting the matched train-through siblings before closing the fast-gait fork.
 - Post-lower rise remains the main stance/session contract decision: `postlower4` looks better only under remaining-rise semantics; promotion requires an operator contract call.
 - Recover/tangle work made a real scientific gain, but it is outside the current download answer and remains operator-gated during SIM SPRINT.
 - Coxa geometry sweep says coxa length is a yaw-margin/scrub lever, not a walking-speed lever; no sim pivot follows from it.
