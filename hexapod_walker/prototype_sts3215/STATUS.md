@@ -469,6 +469,24 @@ ORCHESTRATOR_PROMPT.md):**
   closed postlower training attempts; product baseline unaffected).
   Idle slots next to `[operator]`-typed waits are correct under the
   sprint; do not backfill them with research arms.
+- **WAITING 08-20 ~00:xx UTC `[code]` — fast-profile command-tracking
+  MDP prep (fb_20260820T000059 item 3, agent-doable, no training):**
+  before ANY funded fast-gait run, build + bank (all default-off):
+  (a) eval pinned-speed panels at 0.04/0.06/0.08/0.10 m/s as a named
+  eval_checkpoint mode so speed-as-a-controllable-variable is
+  measurable per checkpoint; (b) opt-in reward keys pricing OVERSPEED
+  (commanded-band exceedance, not just progress shortfall) and
+  heading error directly, REWARD.md rows + walk semantics bank green;
+  (c) verify obs carry enough body-velocity/command-error signal
+  under the raised profile (goal.walk_obs_body_vel=2 exists — audit
+  sufficiency, document). This does NOT launch anything — the fork
+  itself stays `[operator]` below. Same note's items 1 (profile
+  trapezoid restart-on-rewrite semantics flag: only with/after a
+  bench step-response trace, implement in BOTH numpy ServoProfile and
+  mjx_backend for parity) and 2 (bench characterization of 1500/80
+  under load at 25/50/100 Hz) are `[operator]`/bench — parked until
+  the robot is back. Item 4 (motor-contract logging + integration
+  tests) is DONE this cycle, see CLEARED entry below.
 - **WAITING 08-19 ~22:5x UTC `[operator]` — profile-headroom fork:
   the operator-ordered canary `cw-dep-bcgait1-hard1-steer5-fastprof1`
   is verdicted CANARY FAIL - MECHANISM (as dosed), and its own
@@ -496,6 +514,27 @@ ORCHESTRATOR_PROMPT.md):**
   (`logs/ckpt_eval/*steer5_fastprof1*`, `*profilectl*`,
   `logs/probe_dirswitch/{steer5_fastprof1_profile,yawm1_profilectl}.json`).
   Download answer (hard1/fric + footlow2) unchanged.
+- **CLEARED 08-20 ~00:xx UTC (idle-kick cycle): motor-contract
+  logging + resolved-ceiling integration tests LANDED
+  (fb_20260820T000059 item 4, agent-doable code, no training).**
+  New `servo_model.motor_contract()` — every train/eval path now
+  records bus.write_speed / write_acc / servo_vel_max_counts_s, the
+  RESOLVED per-joint vel ceiling, safety.max_delta_q_deg, control.hz
+  and the backend profile mode (train_ppo_sim + train_ppo_mjx W&B
+  config `motor_contract` + a greppable `[motor-contract]` pod-log
+  line; eval_checkpoint report.json field). Writing the integration
+  tests found + fixed TWO real latent gaps of exactly the class the
+  note feared: (1) `train_ppo_sim._build_env` (and its `gate()` eval
+  env) only re-resolved actuator params when `bus.servo_params` was
+  set — a vel-ceiling-only run through the CPU trainer would have
+  silently trained WITHOUT the raise; (2) `MjxVecEnv` resolved
+  default params via bare `load()` instead of `from_cfg` (the sharded
+  env already did it right). AUDITED: steer5-fastprof1 is unaffected
+  — its ledger args show `--impl warp` → `train_ppo_mjx._env_kwargs`,
+  which always re-resolved; the canary genuinely trained under the
+  raised ceiling and its verdict stands. All fixes bit-exact when the
+  overrides are absent (`test_motor_contract.py` 12/12,
+  `test_servo_vel_override.py` 11/11, sim_env bank 43 passed).
 - **CLEARED 08-19 ~21:3x UTC (operator-kick cycle): the steer
   sub-line park-vs-retry fork was ANSWERED — the operator (MCP lane
   20260819T211434Z) ordered the NEXT lever: actuator/profile
