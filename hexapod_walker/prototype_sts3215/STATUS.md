@@ -633,10 +633,20 @@ ORCHESTRATOR_PROMPT.md):**
   (a) ease/waive the precert bar so the V5 ladder starts anyway and
   PPO repairs the takeoff wobble inside B0 (one-line launch change;
   mechanism otherwise implemented + tested), (b) a profile ramp-in
-  mechanism (CODE, unbuilt — anneal write_speed/acc from the fitted
-  400/20 toward the target dose across the run), or (c) park the
-  fast-gait sub-line. No autonomous continuation (fork history + SIM
-  SPRINT). Since 08-20 ~08:4x. Detail: q_20260820T0830Z +
+  mechanism — **CODE BUILT 08-20 ~09:5x (idle-drain cycle, per the
+  CODE-FIRST rule "never park a line on CODE-unbuilt"):
+  `bus.profile_ramp_steps` anneals the live write profile from the
+  fitted regime (350 counts/s / acc 20 / 1.5° slew, cfg-overridable)
+  to the target dose across the run; trainer-armed in train_ppo_mjx
+  (per-rollout broadcast, W&B `profile_ramp/*`), the V5 pre-PPO B0
+  cert then guards the transplant at the ramp START (where it is
+  stable) and later cert rounds assay the dose actually being
+  trained; evals/play always judge at FULL dose; default-off
+  bit-exact, fail-closed edges, `test_profile_ramp.py` 8/8 + full
+  banks green; spec: FAST_PROFILE.md §(d). Ready to launch on pick —
+  nothing trained on it** — or (c) park the fast-gait sub-line. No
+  autonomous continuation (fork history + SIM SPRINT). Since 08-20
+  ~08:4x. Detail: q_20260820T0830Z +
   `rl_docs/runs/cw-dep-bcgait1-fastnoslip1.md` /
   `-midnoslip1.md`.
 - **CLEARED 08-20 ~00:xx UTC (idle-kick cycle): motor-contract
