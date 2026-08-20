@@ -36,7 +36,29 @@ stance `footlow2_hard1` + walk `bcgait1_hard1` + session controller
 with entry-slew and STOP→stance-hold — det 0.967 / sto 0.853 on the
 n=600 held-out session gate; single weak boundary = post-lower rise).
 
-**Last updated: 2026-08-20 ~01:5x UTC (hw): the fast-gait
+**Last updated: 2026-08-20 ~03:2x UTC (hw): the full-dose half of the
+fast-gait fork is VERDICTED — ACQUISITION FAIL, the predict-if-false
+branch.** `steer6-fasttrack1` (write_speed=1500/acc=80, W&B
+`35z4dw4n`) finished its full 20M budget: heading/direction error
+stayed pinned 41-57° the WHOLE run (bar ≤25°, essentially unchanged
+from the canary's 48-53° despite 20M steps of a dedicated heading
+charge — `env/reward_walk_heading` barely moved, -1.16→-0.97, an
+unresolved standing tax), and hard1-style fixed-band slip got WORSE
+(2.99-3.43/m vs the canary's own 2.37/3.00, bar 1.8/2.0). The genuine
+win buried in the FAIL: raw overspeed DID resolve (speed converged
+0.10-0.11 m/s near the band edge, from the canary's flat 0.13-0.16)
+and the anti-jam/tangle cure fully holds at the new profile+MDP
+(0/96 falls on the direction-switch probe, yaw_sat_frac
+0.0005-0.0023 vs bar 0.011). Zero falls/park/sacrificed-leg anywhere
+across ~150 eval episodes — a controllable-speed, uncontrollable-
+direction result, not a collapse. Per pre-registration: STOP, no
+autonomous charge-k/dose sweep; `steer7-middose1` (750/40, W&B
+`wadldlj2`) is the paired dose and a SEPARATE concurrent cycle's
+verdict, not called here. Download answer unchanged (hard1/fric +
+footlow2). Detail: hw/STATUS.md "Now" + `rl_docs/runs/
+cw-dep-bcgait1-hard1-steer6-fasttrack1.md`.
+
+**Earlier — 2026-08-20 ~01:5x UTC (hw): the fast-gait
 profile-headroom fork is ANSWERED — the operator funded BOTH doses,
 and the two arms are training now.** `steer6-fasttrack1` (full
 write_speed=1500/acc=80, train-0, W&B `35z4dw4n`) and
