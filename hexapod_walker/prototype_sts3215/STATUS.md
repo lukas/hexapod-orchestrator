@@ -36,7 +36,25 @@ stance `footlow2_hard1` + walk `bcgait1_hard1` + session controller
 with entry-slew and STOP→stance-hold — det 0.967 / sto 0.853 on the
 n=600 held-out session gate; single weak boundary = post-lower rise).
 
-**Last updated: 2026-08-19 ~22:5x UTC (hw): the servo
+**Last updated: 2026-08-20 ~01:5x UTC (hw): the fast-gait
+profile-headroom fork is ANSWERED — the operator funded BOTH doses,
+and the two arms are training now.** `steer6-fasttrack1` (full
+write_speed=1500/acc=80, train-0, W&B `35z4dw4n`) and
+`steer7-middose1` (750/40, train-1, W&B `wadldlj2`), 20M acquisition
+each, both warm from steer3-yawm1 (seed 12) on the FAST_PROFILE.md
+command-tracking contract: leg-odometry velocity observation
+(`walk_obs_body_vel=3` — the old contract literally could not see
+command error), linear overspeed + heading charges, and a widened
+0.05–0.10 m/s command band so speed trains as a controllable
+variable. The dose keys are the only difference between the arms, so
+the pair answers directly: does the new tracking MDP fix the
+steering collapse the canary saw at full dose, and if not, does a
+moderate raise keep tracking while still buying speed? Pre-registered
+gates in the ledger; no autonomous dose sweep beyond these two.
+Download answer unchanged (hard1/fric + footlow2). Detail:
+hw/STATUS.md "Now" + `rl_docs/FAST_PROFILE.md`.
+
+**Earlier — 2026-08-19 ~22:5x UTC (hw): the servo
 profile-headroom canary (`steer5-fastprof1`, operator order
 20260819T211434Z) is verdicted — the walking-speed ceiling was
 ACTUATOR TIMING, not reward design.** Under the 4x-raised servo
@@ -497,33 +515,24 @@ ORCHESTRATOR_PROMPT.md):**
   FAST_PROFILE.md. Items 1+2 of the note stay `[operator]`/bench
   (parked, robot off bench); item 5 explicitly not-autonomous; the
   profile-headroom fork itself stays `[operator]` above.
-- **WAITING 08-19 ~22:5x UTC `[operator]` — profile-headroom fork:
-  the operator-ordered canary `cw-dep-bcgait1-hard1-steer5-fastprof1`
-  is verdicted CANARY FAIL - MECHANISM (as dosed), and its own
-  pre-registration forbids any autonomous write_speed/acc/slew dose
-  sweep — the next move on the fast-gait line is the operator's.**
-  The headline finding is real and useful: with the raised profile
-  (write_speed=1500/acc=80/vel-ceiling lifted) EVERY checkpoint —
-  hard1 and steer3-yawm1 re-evaluated untouched as matched controls,
-  plus the 2M-trained child — immediately walks ~2.5x faster
-  (0.13–0.16 m/s vs the 0.05–0.06 command) with zero over-current,
-  6/6 gait validity and no park/freeze/sacrificed-leg, so actuator
-  timing WAS the binding constraint on raw walking speed. But
-  command tracking breaks for all of them under the profile:
-  prog_ratio overshoots to 1.27–1.76 (band 0.91–1.07), slip 2.4–4.0/m
-  fixed-command and 4.1–8.1/m on the switch panel, heading error
-  ~50–60°, probe yaw_sat 0.019–0.023 (bar 0.011), one dynamic
-  tip-over each in 24 switch eps. The child beats both
-  parents-under-profile on every slice (2M of adaptation genuinely
-  helps) but is nowhere near the bands. Operator decisions: (a) fund
-  a longer adaptation run at the raised profile focused on command
-  tracking, (b) pick an intermediate dose, or (c) park the fast-gait
-  line — plus the bench question the sim cannot answer: can the real
-  STS3215 deliver write_speed=1500 under load? Evidence: ledger
-  verdict + W&B `yvkjp5xj` OUTCOME note; artifacts on train-0
-  (`logs/ckpt_eval/*steer5_fastprof1*`, `*profilectl*`,
-  `logs/probe_dirswitch/{steer5_fastprof1_profile,yawm1_profilectl}.json`).
-  Download answer (hard1/fric + footlow2) unchanged.
+- **CLEARED 08-20 ~01:5x UTC (operator kick): profile-headroom fork
+  ANSWERED — the operator funded BOTH doses (chat ~01:4x UTC).**
+  `cw-dep-bcgait1-hard1-steer6-fasttrack1` (full write_speed=1500/
+  acc=80, train-0, W&B `35z4dw4n`) and
+  `cw-dep-bcgait1-hard1-steer7-middose1` (750/40, train-1, W&B
+  `wadldlj2`) are verified RUNNING, 20M acquisition each, on the
+  FAST_PROFILE.md recommended command-tracking contract
+  (`walk_obs_body_vel=3` leg-odometry obs, `k_walk_overspeed=2.0`/
+  tol 0.10, `k_walk_heading=2.0`, 0.05–0.10 m/s command band), warm
+  from steer3-yawm1, seed 12 — the three dose keys are the ONLY
+  difference between the arms. Pre-registered gates in the ledger;
+  STOP + report on miss, no autonomous dose interpolation beyond
+  these two. Earlier REFUSED ledger stubs under both names were
+  phase-cap noise from the canary→acquisition respec, not failures.
+  The bench write_speed-under-load question stays parked with bench
+  items 1–2 (robot off bench). Download answer (hard1/fric +
+  footlow2) unchanged; canary evidence remains at W&B `yvkjp5xj` +
+  train-0 artifacts.
 - **CLEARED 08-20 ~00:xx UTC (idle-kick cycle): motor-contract
   logging + resolved-ceiling integration tests LANDED
   (fb_20260820T000059 item 4, agent-doable code, no training).**
