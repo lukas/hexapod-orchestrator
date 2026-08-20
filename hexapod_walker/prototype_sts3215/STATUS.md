@@ -36,7 +36,36 @@ stance `footlow2_hard1` + walk `bcgait1_hard1` + session controller
 with entry-slew and STOP→stance-hold — det 0.967 / sto 0.853 on the
 n=600 held-out session gate; single weak boundary = post-lower rise).
 
-**Last updated: 2026-08-20 ~03:2x UTC (hw): the full-dose half of the
+**Last updated: 2026-08-20 ~03:4x UTC (hw): BOTH halves of the
+fast-gait profile-headroom fork are now VERDICTED — FAIL, and the
+fork's answer to the operator is complete.** `steer7-middose1`
+(750/40, W&B `wadldlj2`) finished its 20M budget and misses its own
+funding-question bar: the pre-registered pinned-speed panel
+(0.04/0.06/0.08/0.10 m/s, DR-0) is NOT monotone-in-band —
+prog_ratio 1.65/1.25/1.02/0.85 det (needs 0.85-1.15 at every row),
+1.25/1.00/0.85/0.75 sto (needs 0.8-1.2) — the policy still settles
+into one weakly-scaling cadence (~0.066→0.085 m/s achieved across the
+0.04-0.10 command range) rather than real speed control. Stress-mix
+retention (DR0+DR0.35): zero falls, gait_valid 6/6, genuine tall
+six-leg gait on video (no exploit), but slip is still 1.6-5.1/m (bar
+≤1.8/2.0) and direction_err 24-67°. The mandatory matched-parent
+control (steer3-yawm1 zero-shot under the identical 750/40 profile)
+is WORSE on every axis (slip 2.0-18.1/m, dir_err 40-85°) — so the 20M
+of training genuinely improved tracking/slip over the untrained-
+under-profile parent (same shape as the fastprof1 2M canary's own
+finding), it just didn't improve it enough to clear the band even at
+half dose. Per pre-registration: STOP, no autonomous dose
+interpolation. Combined with the full-dose sibling's FAIL below
+(steering pinned 41-57°, slip worse than its own canary), **neither
+funded dose delivers a deployable fast gait** — both keep some part
+of the win (steer6: speed; steer7: better-than-parent tracking/slip)
+without clearing their own bars. This is now data for the operator's
+next call on the fast-gait sub-line (a third dose, a longer budget,
+or park it) — no autonomous next arm on this line. Download answer
+unchanged (hard1/fric + footlow2). Detail: hw/STATUS.md "Now" +
+`rl_docs/runs/cw-dep-bcgait1-hard1-steer7-middose1.md`.
+
+**Earlier — 2026-08-20 ~03:2x UTC (hw): the full-dose half of the
 fast-gait fork is VERDICTED — ACQUISITION FAIL, the predict-if-false
 branch.** `steer6-fasttrack1` (write_speed=1500/acc=80, W&B
 `35z4dw4n`) finished its full 20M budget: heading/direction error
@@ -53,10 +82,9 @@ and the anti-jam/tangle cure fully holds at the new profile+MDP
 across ~150 eval episodes — a controllable-speed, uncontrollable-
 direction result, not a collapse. Per pre-registration: STOP, no
 autonomous charge-k/dose sweep; `steer7-middose1` (750/40, W&B
-`wadldlj2`) is the paired dose and a SEPARATE concurrent cycle's
-verdict, not called here. Download answer unchanged (hard1/fric +
-footlow2). Detail: hw/STATUS.md "Now" + `rl_docs/runs/
-cw-dep-bcgait1-hard1-steer6-fasttrack1.md`.
+`wadldlj2`) is the paired dose, verdicted above. Download answer
+unchanged (hard1/fric + footlow2). Detail: hw/STATUS.md "Now" +
+`rl_docs/runs/cw-dep-bcgait1-hard1-steer6-fasttrack1.md`.
 
 **Earlier — 2026-08-20 ~01:5x UTC (hw): the fast-gait
 profile-headroom fork is ANSWERED — the operator funded BOTH doses,
@@ -537,24 +565,26 @@ ORCHESTRATOR_PROMPT.md):**
   FAST_PROFILE.md. Items 1+2 of the note stay `[operator]`/bench
   (parked, robot off bench); item 5 explicitly not-autonomous; the
   profile-headroom fork itself stays `[operator]` above.
-- **CLEARED 08-20 ~01:5x UTC (operator kick): profile-headroom fork
-  ANSWERED — the operator funded BOTH doses (chat ~01:4x UTC).**
-  `cw-dep-bcgait1-hard1-steer6-fasttrack1` (full write_speed=1500/
-  acc=80, train-0, W&B `35z4dw4n`) and
-  `cw-dep-bcgait1-hard1-steer7-middose1` (750/40, train-1, W&B
-  `wadldlj2`) are verified RUNNING, 20M acquisition each, on the
-  FAST_PROFILE.md recommended command-tracking contract
-  (`walk_obs_body_vel=3` leg-odometry obs, `k_walk_overspeed=2.0`/
-  tol 0.10, `k_walk_heading=2.0`, 0.05–0.10 m/s command band), warm
-  from steer3-yawm1, seed 12 — the three dose keys are the ONLY
-  difference between the arms. Pre-registered gates in the ledger;
-  STOP + report on miss, no autonomous dose interpolation beyond
-  these two. Earlier REFUSED ledger stubs under both names were
-  phase-cap noise from the canary→acquisition respec, not failures.
-  The bench write_speed-under-load question stays parked with bench
-  items 1–2 (robot off bench). Download answer (hard1/fric +
-  footlow2) unchanged; canary evidence remains at W&B `yvkjp5xj` +
-  train-0 artifacts.
+- **CLEARED 08-20 ~03:4x UTC: profile-headroom fork FULLY VERDICTED
+  — both operator-funded doses FAIL their own pre-registered gates,
+  no autonomous next arm.** `cw-dep-bcgait1-hard1-steer6-fasttrack1`
+  (full 1500/80, W&B `35z4dw4n`): speed control resolved but
+  direction pinned 41-57° the whole 20M run (bar ≤25°) and slip got
+  worse than its own canary. `cw-dep-bcgait1-hard1-steer7-middose1`
+  (750/40, W&B `wadldlj2`): pinned-speed panel NOT monotone-in-band
+  (one weak cadence ~0.066-0.085 m/s across 0.04-0.10 commanded),
+  slip still 1.6-5.1/m; matched-parent control (yawm1 zero-shot under
+  the same profile) is worse on every axis, so training genuinely
+  helped but not enough. Neither run falls, neither shows an exploit,
+  both keep SOME of the win (speed / tracking-improvement-over-
+  parent) without clearing their own bars. `[operator]`: next call on
+  the fast-gait sub-line is a third dose, a longer budget on one of
+  these two, or park it — no autonomous continuation. The bench
+  write_speed-under-load question stays parked with bench items 1–2
+  (robot off bench). Download answer (hard1/fric + footlow2)
+  unchanged. Detail: `rl_docs/runs/cw-dep-bcgait1-hard1-steer6-
+  fasttrack1.md` + `rl_docs/runs/cw-dep-bcgait1-hard1-steer7-
+  middose1.md`.
 - **CLEARED 08-20 ~00:xx UTC (idle-kick cycle): motor-contract
   logging + resolved-ceiling integration tests LANDED
   (fb_20260820T000059 item 4, agent-doable code, no training).**
