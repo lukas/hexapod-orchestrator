@@ -50,6 +50,12 @@ Default startup packet for an agent cycle:
 Do not broad-sweep `archive/`, review bundles, `RL_LOG.md`, or generated
 `rl_docs/runs/` unless answering a specific historical/run question.
 
+Robot-control/web edit loop: use `make robot-check`, `make robot-unit-check`,
+`make robot-status`, and `make robot-deploy` from this directory
+(`linux_control/dev_loop.sh`; details in `linux_control/README.md`). These
+helpers do not move the robot; use `make robot-resolve` for a temporary IP
+when `hexapod.local` is flaky rather than hard-coding one.
+
 ## Current Ruling
 
 SIM SPRINT remains binding: while the physical robot is off the bench for
