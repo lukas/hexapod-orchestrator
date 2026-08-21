@@ -6,23 +6,6 @@ wins. Run-level evidence lives in `rl_docs/runs/`, `RL_LOG.md`, and W&B.
 
 ## WAITING-ON
 
-- [operator] q_20260820T2330Z: confirm the fast-gait substitution, AND
-  decide the fork now that its pre-authorized successor has also
-  FAILED. The 08-20 order (fb 20260820T224241Z) resolved the fork with
-  a faster-TripodGait-cadence BC-INIT lever, but that knob FAILED its
-  own teacher preflight at every rung; the cycle substituted a fresh
-  BC-INIT from the FULL-profile native-cadence teacher instead:
-  `cw-dep-bcgait2-fastbc1` PASSED discovery (tall, fast, zero falls,
-  direction correct, only overspeeds ~2x). Its pre-authorized hardening
-  fix, `cw-dep-bcgait2-fastbc1-track1` (adds `k_walk_cmd_track=1.0`),
-  has now FINISHED and FAILED its own gate: the command-tracking price
-  made the overspeed WORSE (DR-0 prog_ratio det 1.88x->2.10x, sto
-  1.20x->1.76x; own-DR sto 1.12x->1.92x, was in-band, now overspeeds),
-  zero falls/clean video unchanged. Per the gate's own text this is
-  "wrong lever, STOP" — no further respec without a new hypothesis.
-  BLOCKING for the fast-gait sub-line: no agent-doable next step
-  exists until the operator either supplies a new lever or parks the
-  line (details in OPERATOR_QUESTIONS.md).
 - [operator] Recover mode flip handling (since 08-20 ~23:00 UTC): the
   recover champion is packaged + sim-gate-verified through the
   deployment runner (see below), but flip (full inversion) is out of
@@ -80,7 +63,21 @@ hardware.
 
 ## Live Work
 
-No runs currently training. The operator's 08-21 from-scratch ANTI-SLIP
+`cw-dep-bcgait3-speedbc1` (hw, discovery 2M, train-7) is TRAINING — the
+operator's 08-21 fast-gait lever (order 20260821T224150Z, closing
+q_20260820T2330Z): speed-conditioned BC from the NATIVE-cadence tripod
+teacher under the FULL servo profile, band 0.06-0.10 m/s, with the obs
+contract FIXED so the policy sees its actual body velocity (deployable
+leg-odometry `walk_obs_body_vel=3`) separately from the command — the
+failed fastbc1/track1 arms were blind under vel:=ref — plus the
+semantics-tested band-exceedance + heading charges. Teacher preflight
+this cycle: realized speed strictly monotone in command, slip/m 1.5-2.8,
+147mm, zero falls at 0.06/0.08/0.10; the 0.04/0.05 bands were honestly
+REFUTED at teacher level (slip/m 2.9-3.8 vs the <=2-3 budget). Clone
+preflight green (zero falls, six-leg, slip 1.8-2.8, holdout err 0.0119).
+Gate: pinned-speed panel in-band 0.75-1.25 at every band det+sto, zero
+falls, dir err <=30 deg, slip in budget. PASS -> fixed headings rung,
+then irregular direction changes (operator-preregistered ladder). The operator's 08-21 from-scratch ANTI-SLIP
 walking experiment (order 20260821T133626Z) ran and FAILED honestly:
 `cw-nobc-slipwalk1-r1` (no BC anchor, one fixed forward command, no speed
 target, hard structural loaded-slip charge, anti-park travel floor) froze
@@ -92,11 +89,6 @@ under that exact stack, so this is an exploration failure from a blank
 init. Sub-line stopped per the operator's own instruction; the new
 default-off reward pieces stay in the repo. Details:
 `rl_docs/tracks/nobc/STATUS.md`. DOWNLOAD_ANSWER unchanged.
-
-The 08-20 fast-gait BC-INIT fork remains STALLED on the operator
-(q_20260820T2330Z): `cw-dep-bcgait2-fastbc1` PASSED discovery but
-overspeeds 2x, and its pre-authorized hardening fix
-`cw-dep-bcgait2-fastbc1-track1` FAILED (overspeed got worse).
 
 Do not re-kick while the operator-kick cycle or these INTENT/RUNNING rows
 exist. Poll `orchestrator_activity` and the ledger.
@@ -121,14 +113,14 @@ exist. Poll `orchestrator_activity` and the ledger.
 Open decisions that should not be resolved by autonomous doc rereads:
 
 - Post-lower contract: accept remaining-rise semantics generally, and decide whether to promote `postlower4` over `footlow2_hard1`.
-- Fast gait: confirm the 08-20 substitution AND supply the next lever (q_20260820T2330Z) — cadence knob refuted by preflight, full-profile BC-INIT canary (fastbc1) passed discovery but overspeeds, and its pre-authorized command-tracking hardening fix (fastbc1-track1) also FAILED (overspeed got worse). No agent-doable next step on this sub-line without a new hypothesis.
+- Fast gait: RESOLVED 08-21 (order 20260821T224150Z closed q_20260820T2330Z) — speed-conditioned BC + mode-3 velocity obs; canary `cw-dep-bcgait3-speedbc1` training. Next operator gate arrives only if it fails.
 - Hardware return: bench-promote the hierarchy or fall back to scripted stand/sit glides as appropriate.
 - Recover mode: flip handling (ship unsupported vs flip-hardening arm); hardware-side recover items parked for the bench.
 - Non-sprint tracks: arch/dynrep/quad/turn/nobc/multitask stay gated unless directly serving rise+walk download readiness or explicitly ordered.
 
 ## Track Snapshot
 
-- `hw`: mainline. The 08-20 fast-gait BC-INIT line is stalled: canary `cw-dep-bcgait2-fastbc1` PASSED discovery (fast/tall/clean, overspeeds), but its hardening fix `cw-dep-bcgait2-fastbc1-track1` FAILED (overspeed got worse, not better). No fast-gait runs live; awaiting operator (q_20260820T2330Z). Product baseline unchanged.
+- `hw`: mainline. Fast-gait line REOPENED by operator order 08-21: `cw-dep-bcgait3-speedbc1` (speed-conditioned BC, mode-3 velocity obs, 0.06-0.10 band, overspeed/heading charges) training on train-7. Product baseline unchanged.
 - `arch`: temporal/unified-controller research has useful partials but no deployment change.
 - `dynrep`: causal-transformer/dynamics representation work found partial walking signals but no replacement for the baseline.
 - `nobc`: from-scratch gait stays closed. The operator's 08-21 anti-slip/no-speed-target reopening ran one canary (`cw-nobc-slipwalk1-r1`) and it froze; the spec was preflight-proven correct, so the blocker is exploration from a blank init, and the sub-line is stopped.

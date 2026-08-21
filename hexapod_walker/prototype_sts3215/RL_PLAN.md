@@ -57,17 +57,20 @@ and passes the promotion contract.
 
 ## Active Queue
 
-Empty, 12/12 pods idle, backlog empty. The fast-gait BC-INIT fork
-(08-20 order) ran its course: discovery canary `cw-dep-bcgait2-fastbc1`
-PASSED (clean tall 6-leg gait, ~2x speed, overspeeds command 2x), its
-pre-authorized hardening fix `cw-dep-bcgait2-fastbc1-track1` FAILED
-(command-tracking price made the overspeed worse, not better). No
-agent-doable next step on this line; needs the operator's call below.
+`cw-dep-bcgait3-speedbc1` (hw, discovery 2M, train-7): the operator's
+08-21 fast-gait lever — speed-conditioned BC from the native-cadence
+teacher under the full profile (band 0.06-0.10; 0.04/0.05 refuted at
+teacher preflight), mode-3 leg-odometry velocity obs (fixes the
+vel:=ref blindness behind the fastbc1 2x overspeed), tested
+overspeed/heading charges. Gate: pinned-speed panel in-band at every
+band, zero falls, six-leg, dir <=30 deg, slip in budget. PASS ladder:
+fixed headings -> irregular direction changes. Other 11 pods idle;
+backlog empty.
 
 ## Open Operator Decisions
 
 - Post-lower rise contract: adopt remaining-rise semantics and/or promote `postlower4` over `footlow2_hard1`.
-- Fast gait: BC-INIT discovery canary passed but overspeeds 2x; its command-tracking hardening fix also FAILED (wrong lever). All prior transplant A/Bs FAILed too. Decide a new lever (e.g. price speed directly in the obs/reward instead of tracking-error) vs park (`STATUS.md` q_20260820T2330Z).
+- Fast gait: decision made 08-21 (order 20260821T224150Z, q CLOSED) — speed-conditioned BC + observable-speed obs contract; canary running. Returns to the operator only on a gate FAIL.
 - Hardware bench promotion after repair: test the hierarchy and decide whether to replace deployed stance/walk fallbacks.
 - Recover/tangle redesign: outside SIM SPRINT unless reopened.
 - Non-sprint tracks: remain gated unless directly relevant or explicitly ordered.
