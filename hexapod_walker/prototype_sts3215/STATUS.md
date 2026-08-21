@@ -74,23 +74,23 @@ hardware.
 
 ## Live Work
 
-TRAINING NOW: `cw-nobc-slipwalk1` (nobc, discovery, 2M) — the operator's
-08-21 from-scratch ANTI-SLIP walking canary: no BC anchor, one fixed
-forward command, no speed target, loaded slip charged structurally,
-anti-park travel floor. New default-off reward code + SLIPWALK
-MDP_PREFLIGHT bank landed this cycle. Gate is plain behavior (zero
-falls, >=0.15 m median travel per 15 s, direction <=30 deg, gait_valid
->=4/6, slip/m <=3.0 with absolute slip <=1.0 m); harness in-band-speed
-"success" is deliberately NOT part of it. Details:
-`rl_docs/tracks/nobc/STATUS.md`. The 08-20 fast-gait BC-INIT fork
-(operator order fb 20260820T224241Z) is STALLED: discovery canary
-`cw-dep-bcgait2-fastbc1` PASSED (tall/clean/zero-fall 6-leg gait,
-~2x deployed speed, but overspeeds command 2x); its pre-authorized
-hardening fix `cw-dep-bcgait2-fastbc1-track1` (added
-`reward.k_walk_cmd_track=1.0`) FAILED — overspeed got WORSE, not
-better. Full numbers in `rl_docs/tracks/hw/STATUS.md` and
-`rl_docs/runs/`. No agent-doable next step on this sub-line; awaiting
-the operator (q_20260820T2330Z). DOWNLOAD_ANSWER unchanged.
+No runs currently training. The operator's 08-21 from-scratch ANTI-SLIP
+walking experiment (order 20260821T133626Z) ran and FAILED honestly:
+`cw-nobc-slipwalk1-r1` (no BC anchor, one fixed forward command, no speed
+target, hard structural loaded-slip charge, anti-park travel floor) froze
+— 0.001 m of travel per 15 s episode, 0.34 m of foot scuffing, four legs
+unused, zero falls only because nothing moved. Importantly the reward was
+NOT the culprit: the new SLIPWALK MDP_PREFLIGHT bank (green before launch)
+prices real walking 300-2000 points above marching, parking and skating
+under that exact stack, so this is an exploration failure from a blank
+init. Sub-line stopped per the operator's own instruction; the new
+default-off reward pieces stay in the repo. Details:
+`rl_docs/tracks/nobc/STATUS.md`. DOWNLOAD_ANSWER unchanged.
+
+The 08-20 fast-gait BC-INIT fork remains STALLED on the operator
+(q_20260820T2330Z): `cw-dep-bcgait2-fastbc1` PASSED discovery but
+overspeeds 2x, and its pre-authorized hardening fix
+`cw-dep-bcgait2-fastbc1-track1` FAILED (overspeed got worse).
 
 Do not re-kick while the operator-kick cycle or these INTENT/RUNNING rows
 exist. Poll `orchestrator_activity` and the ledger.
@@ -125,7 +125,7 @@ Open decisions that should not be resolved by autonomous doc rereads:
 - `hw`: mainline. The 08-20 fast-gait BC-INIT line is stalled: canary `cw-dep-bcgait2-fastbc1` PASSED discovery (fast/tall/clean, overspeeds), but its hardening fix `cw-dep-bcgait2-fastbc1-track1` FAILED (overspeed got worse, not better). No fast-gait runs live; awaiting operator (q_20260820T2330Z). Product baseline unchanged.
 - `arch`: temporal/unified-controller research has useful partials but no deployment change.
 - `dynrep`: causal-transformer/dynamics representation work found partial walking signals but no replacement for the baseline.
-- `nobc`: from-scratch gait is closed unless new hardware evidence reopens it.
+- `nobc`: from-scratch gait stays closed. The operator's 08-21 anti-slip/no-speed-target reopening ran one canary (`cw-nobc-slipwalk1-r1`) and it froze; the spec was preflight-proven correct, so the blocker is exploration from a blank init, and the sub-line is stopped.
 - `quad`: specialist/party-trick line, not a current sprint deliverable.
 - `turn`: rot60/mirror tooling is useful, but yaw/turn is not the current blocker.
 - `multitask`: pause lifted 08-15, but secondary under SIM SPRINT.
