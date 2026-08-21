@@ -74,7 +74,15 @@ hardware.
 
 ## Live Work
 
-No runs currently training. The 08-20 fast-gait BC-INIT fork
+TRAINING NOW: `cw-nobc-slipwalk1` (nobc, discovery, 2M) — the operator's
+08-21 from-scratch ANTI-SLIP walking canary: no BC anchor, one fixed
+forward command, no speed target, loaded slip charged structurally,
+anti-park travel floor. New default-off reward code + SLIPWALK
+MDP_PREFLIGHT bank landed this cycle. Gate is plain behavior (zero
+falls, >=0.15 m median travel per 15 s, direction <=30 deg, gait_valid
+>=4/6, slip/m <=3.0 with absolute slip <=1.0 m); harness in-band-speed
+"success" is deliberately NOT part of it. Details:
+`rl_docs/tracks/nobc/STATUS.md`. The 08-20 fast-gait BC-INIT fork
 (operator order fb 20260820T224241Z) is STALLED: discovery canary
 `cw-dep-bcgait2-fastbc1` PASSED (tall/clean/zero-fall 6-leg gait,
 ~2x deployed speed, but overspeeds command 2x); its pre-authorized
