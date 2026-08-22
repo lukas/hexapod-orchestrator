@@ -1,14 +1,15 @@
-"""Research-track registry (operator restructure, 2026-08-11).
+"""Research-track registry (operator two-track reset, 2026-08-21).
 
-The campaign runs as parallel research tracks, each with its own goal
-and status doc (rl_docs/tracks/). All runs live in ONE W&B project
-(operator: tags, not separate projects — nothing moves); each run is
-tagged `track:<id>` so the W&B UI filters per track. tracks.json is
-the single source of truth; this module is the one shared accessor.
+The campaign runs exactly TWO tracks (operator order 2026-08-21):
+`joystick` (RL from the programmatic teacher gait to joystick control)
+and `amp` (from-scratch AMP program, rl_docs/AMP_LOCOMOTION.md). All
+runs live in ONE W&B project (tags, not separate projects); each run
+is tagged `track:<id>`. tracks.json is the single source of truth;
+this module is the one shared accessor.
 
-Containment rule (operator): analysis of a run in one track fires
-follow-up jobs ONLY in that track, unless a big insight is explicitly
-escalated (see ORCHESTRATOR_PROMPT.md "Research tracks").
+Containment rule: agent-initiated launches go only to these two
+tracks. Operator-launched out-of-scope runs are triaged honestly but
+never spawn agent follow-ups.
 """
 from __future__ import annotations
 
@@ -18,19 +19,16 @@ import pathlib
 HERE = pathlib.Path(__file__).resolve().parent
 ENTITY = "l2k2"
 PROJECT = "hexapod-balance"       # one project for every track
-DEFAULT_TRACK = "hw"
+DEFAULT_TRACK = "joystick"
 TAG_PREFIX = "track:"
 
 # Run-name prefix -> track, for entries/launches that don't say. Order
-# matters: first match wins. Everything unmatched is the hw mainline.
+# matters: first match wins. Everything unmatched is the joystick
+# mainline. (Pre-08-21 runs already carry a "track" field in the
+# ledger; this map only serves new/untagged names.)
 PREFIX_MAP = (
-    ("cw-arch-", "arch"),
-    ("cw-gru-", "arch"),
-    ("cw-quad-", "quad"),
-    ("cw-nobc-", "nobc"),
-    ("cw-gait-", "nobc"),
-    ("cw-turn-", "turn"),
-    ("cw-mt-", "multitask"),
+    ("cw-amp-", "amp"),
+    ("mjx-amp-", "amp"),
 )
 
 

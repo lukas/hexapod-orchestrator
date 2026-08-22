@@ -1,37 +1,12 @@
 {
-  "hw": {
-    "name": "Hardware joystick robot",
-    "doc": "rl_docs/tracks/hw/STATUS.md",
-    "goal": "A walking, joystick-driven, standing/sitting/holding robot working ON HARDWARE by any means necessary. BC anchors, scripted blends, rot-60 wrappers, specialist checkpoints - all fair game. The KPI is unresolved blockers between the current robot and reliable joystick control, session after session."
+  "joystick": {
+    "name": "Joystick gait from the programmatic teacher",
+    "doc": "rl_docs/tracks/joystick/STATUS.md",
+    "goal": "Start from the simple programmatic gait (the scripted tripod teacher and its BC clones) and use RL to make it genuinely joystick controllable. DONE when one policy (or the session controller stack) follows a randomized 60-second joystick command script in MuJoCo with ZERO falls, directions actually followed, and little slip (slip/m no worse than the scripted teacher's measured band, <=~2.9 at the measured plant), across a held-out eval panel (n>=12 episodes, det+sto, DR-0 and own-DR)."
   },
-  "arch": {
-    "name": "Advanced architectures",
-    "doc": "rl_docs/tracks/arch/STATUS.md",
-    "goal": "Get a more advanced model (GRU/recurrent/temporal) to walk, stand up, and sit down. Capability research: what architecture learns the full skill set, at what budget, with which failure modes."
-  },
-  "nobc": {
-    "name": "Learn without BC anchor",
-    "doc": "rl_docs/tracks/nobc/STATUS.md",
-    "goal": "Learn standing from scratch WITHOUT the help of a BC anchor - and more broadly, honest skill discovery (clean non-scraping gait included) by RL alone: structural rewards, curricula, terrain, RSI. No imitation losses of any kind."
-  },
-  "quad": {
-    "name": "Quadruped with two hands",
-    "doc": "rl_docs/tracks/quad/STATUS.md",
-    "goal": "Learn walking on four legs with the two front legs lifted as hands/arms. Stand on four, walk on four, front pair free for tricks."
-  },
-  "turn": {
-    "name": "Commanded turning",
-    "doc": "rl_docs/tracks/turn/STATUS.md",
-    "goal": "Make commanded yaw actually work: fix the structural left-yaw drift baked into the walk gait (price tuning doubly closed; mirror-symmetry augmentation is the open lever). De-scoped from the hw deliverable (no camera = no front) but alive as its own research line."
-  },
-  "multitask": {
-    "name": "Multitask learning",
-    "doc": "rl_docs/tracks/multitask/STATUS.md",
-    "goal": "Test whether diverse SIMULTANEOUS training beats sequential specialist fine-tuning: a fresh command-conditioned locomotion policy (stand + forward + small yaw/lateral as ONE command family, one coherent reward) vs the specialist path. Decisive A/B/C cohort + transfer test; design doc rl_docs/MULTITASK.md. The campaign's failures look like failure-to-ACQUIRE (narrow gait local optimum), not primarily catastrophic forgetting - this track tests that reframe."
-  },
-  "dynrep": {
-    "name": "Dynamics-representation pretraining",
-    "doc": "rl_docs/tracks/dynrep/STATUS.md",
-    "goal": "Learn a task-independent latent of the body's dynamics by self-supervised action-conditioned multi-horizon prediction on diverse sim rollouts (failures included), then test whether PPO reusing that representation (frozen / continually anchored) learns new motor skills with fewer env steps than PPO from scratch. Hard gate: the predictor must beat persistence + linear baselines on held-out data BEFORE any PPO wiring. Design doc rl_docs/DYNREP.md; code rl_move/dynamics/."
+  "amp": {
+    "name": "AMP locomotion from scratch",
+    "doc": "rl_docs/tracks/amp/STATUS.md",
+    "goal": "Implement the AMP program in rl_docs/AMP_LOCOMOTION.md: adversarial motion priors + massively parallel PPO + privileged critic + observation history + actuator/fault randomization, trained from scratch on the existing MJX GPU stack (no Isaac Lab). The demonstration gait is training data, not the controller. Build every tool it needs (motion library, discriminator, GRU actor, joystick command env, eval suite) and do not pause on operator input. DONE when milestone M5 (MuJoCo cross-engine transfer of the M2-M4 policy) passes per the brief; M6 hardware deployment is operator-owned."
   }
 }

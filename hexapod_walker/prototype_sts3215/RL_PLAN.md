@@ -1,106 +1,101 @@
-# RL Plan - joystick-driven hexapod
+# RL Plan — two goals
 
-Last compacted: 2026-08-20 UTC. This file is the current operating plan.
-History belongs in `archive/`, `RL_LOG.md`, and generated run docs. Keep
-this file under 250 lines.
+Reset by the operator 2026-08-21. This file is the current operating
+plan; history belongs in `archive/`, `RL_LOG.md`, and generated run
+docs. Keep this file under 150 lines.
 
-## Goal
+## The two goals (the only agent-driven work)
 
-Drive the real hexapod with a joystick: stand up, sit down, turn, and walk
-where pointed, reliably, session after session. Reliability and physical
-safety outrank speed and experiment count. Foot slip is not failure by
-itself; it is a sim-to-real calibration signal unless it prevents usable
-motion or indicates skating/jamming.
+1. **`joystick`** — RL from the simple programmatic gait to real
+   joystick control. DONE: 60 s randomized joystick script in MuJoCo,
+   zero falls, directions followed, slip/m within the teacher band
+   (<=~2.9); n>=12 det+sto, DR-0 + own-DR, held-out commands.
+   Track doc: `rl_docs/tracks/joystick/STATUS.md`.
+2. **`amp`** — the from-scratch AMP program per
+   `rl_docs/AMP_LOCOMOTION.md` (no Isaac Lab; MJX stack; build all
+   needed tools; never pause on operator input). DONE: milestone M5
+   (MuJoCo cross-engine transfer). M6 hardware is operator-owned.
+   Track doc: `rl_docs/tracks/amp/STATUS.md`.
 
-## Startup Packet
+The loop does not stop until both gates are green. The operator may
+kick off out-of-scope runs; they are triaged honestly but spawn no
+agent follow-ups.
 
-Read in this order:
+## Startup packet
 
-1. `RL_GOALS.md` - mission and plain-English framing
-2. `CURRENT_TRUTHS.md` - accepted facts and rulings; wins on conflict
-3. `RL_PLAN.md` - this operating plan
-4. `STATUS.md` - campaign dashboard
-5. `rl_docs/DOWNLOAD_ANSWER.md` - current deployable answer
-6. relevant `rl_docs/tracks/<track>/STATUS.md`
-7. `RESEARCH_RULES.md` and `RUN_INTERPRETATION_RULES.md` before launch/triage
+1. `CURRENT_TRUTHS.md` — accepted facts; wins on conflict
+2. this file
+3. the relevant `rl_docs/tracks/<track>/STATUS.md`
+4. `RESEARCH_RULES.md` + `RUN_INTERPRETATION_RULES.md` before
+   launch/triage
+5. `rl_docs/COMMANDS.md` for helpers
 
-Do not read `archive/`, review bundles, `RL_LOG.md`, or all run docs during
-normal startup. Use them only for a specific historical or run-level question.
+## Binding rulings
 
-## Binding Current Ruling: SIM SPRINT
+- **08-21 interpretation ruling:** bad evals + rising reward = go
+  longer and/or align the reward with the evals; never a reflex FAIL
+  (`RUN_INTERPRETATION_RULES.md`).
+- **No operator pauses:** assume-and-go with recorded assumptions;
+  only physical-robot access and spend wait.
+- **Build the tools:** missing harnesses/banks/models are cycle work,
+  written, tested, and snapshotted before training on them.
 
-The robot is off the bench for repair. Until the operator says it is back,
-the fleet's deliverable is reliable rise + walk in MuJoCo, download-ready.
-Every cycle must answer: if the robot were fixed tomorrow morning, what
-exactly would we download?
+## Active queue
 
-Priority order:
+### joystick — next arms
 
-1. Protect and improve the named download answer.
-2. Attack the known session gaps: post-lower rise, takeoff roll transient, zero-fall/over-current regressions.
-3. Harden the rise/walk champions only when it can change the download answer.
-4. Run other tracks only if they directly serve this sprint or the operator explicitly orders them.
+1. [SPECIFICATION] Build the 60 s joystick gate harness: randomized
+   held-out command scripts (speeds, headings incl. rear, turns,
+   stops, reverses), 60 s horizon, metrics = falls, heading obedience
+   (delta vs teacher-clone floor), slip/m, per-leg gait validity,
+   video. Plus a WALK/JOYSTICK semantics bank proving the training
+   reward ranks gate behavior above park/paddle/overspeed/
+   sacrificed-leg.
+2. [DISCOVERY→ACQUISITION] RL fine-tune from the phase-conditioned BC
+   clone `ppo_goal_cw_bcgait_init_fullprof_phase1` with the aligned
+   reward; a walk-champion-lineage arm as control. Continue while
+   reward and gate metrics rise together.
+3. [HARDENING] Widen command envelope; DR to own-DR zero-fall; then
+   run the DONE gate panel.
 
-Bench-owned items stay parked until hardware returns.
+### amp — next arms (brief §17)
 
-## Current Download Answer
+1. [SPECIFICATION/CODE] M0: joystick-command env on MJX with
+   actor/critic obs split; GRU/history actor + deterministic
+   recurrent eval; fault-injection + push hooks.
+2. [SPECIFICATION/CODE] M1: motion library from the scripted teacher
+   (all command families + mirroring/speed/phase augmentation) with
+   validation metrics; AMP discriminator + replay + style reward.
+3. [CANARY] Smoke: PPO gradients flow, discriminator trains without
+   instant saturation.
+4. [ACQUISITION] Wave 1 on 8 pods: 3 seeds at task/style 0.5/0.5,
+   no-AMP ablation, recurrent vs fixed-history, ±AMP weight. Select
+   on videos + tracking/stability.
 
-Use the hierarchy maintained in `rl_docs/DOWNLOAD_ANSWER.md`:
+## Inherited assets (both tracks)
 
-- `ppo_goal_cw_stand_footlow2_hard1` for rise/hold/lower
-- `ppo_goal_cw_dep_bcgait1_hard1` for tall joystick walk
-- session controller with per-mode re-anchor, entry slew, STOP->stance hold, and rot60 wrapper
+- Scripted tripod teacher verified clean at the measured tibia-150
+  plant (0.06–0.10 m/s × 4 headings, zero falls, slip/m 1.4–2.9, full
+  fast profile) — the joystick starting point and the amp motion-prior
+  seed.
+- Phase-conditioned BC clone passes the direction-first curriculum
+  with zero RL (see joystick track doc).
+- Download hierarchy baseline (`footlow2_hard1` + `bcgait1_hard1` +
+  session controller; det 0.967 / sto 0.853, n=600) — the fallback
+  deployable answer in `rl_docs/DOWNLOAD_ANSWER.md`.
+- MJX/Warp GPU stack: 12 H200 pods, ~4096 envs each, model DR,
+  canaries, eval/video, desync. Asym-critic flag exists.
 
-Measured product baseline: n=600 held-out session gate, det 0.967, sto
-0.853. This remains the answer until a run beats it on the relevant gate
-and passes the promotion contract.
+## Operator-owned items (parked, do not block the tracks)
 
-## Active Queue
+- Physical robot: bench promotion, calibration readings, any motion.
+- Spend/capacity changes beyond guardrails.
+- Out-of-scope runs (recover mode, quad tricks, etc.) — operator
+  kicks only.
 
-Empty. `cw-dep-bcgait3-speedbc1` and its operator-ordered +4M
-continuation `-cont1` both finished and FAILED (see hw track STATUS);
-four fast-gait speed-obedience levers are now refuted (cadence,
-tracking price, speed-obs+charges, more steps). Fast-gait fork returns
-to the operator for a new lever. All pods idle; backlog empty.
+## Documentation discipline
 
-## Open Operator Decisions
-
-- Post-lower rise contract: adopt remaining-rise semantics and/or promote `postlower4` over `footlow2_hard1`.
-- Fast gait: the 08-21 lever (order 20260821T224150Z) and its +4M continuation both FAILED their gates (4th refuted lever); returned to the operator for a new approach.
-- Hardware bench promotion after repair: test the hierarchy and decide whether to replace deployed stance/walk fallbacks.
-- Recover/tangle redesign: outside SIM SPRINT unless reopened.
-- Non-sprint tracks: remain gated unless directly relevant or explicitly ordered.
-
-## Agent-Doable Work
-
-Agent cycles may act without more operator input when all preconditions are
-met:
-
-- triage a finished run and write the ledger verdict;
-- launch a pre-registered successor whose parent passed its gate;
-- fix default-off code required by a selected arm, with tests and snapshot;
-- update `STATUS.md`, this plan, a track status, `SKILLS.md`, or `DOWNLOAD_ANSWER.md` when a verdict changes the story.
-
-A pure reread is a no-op. If no launch/code/triage/update is available,
-state the specific operator gate and exit.
-
-## Closed Current Conclusions
-
-- Single-policy distills do not beat the hierarchy today.
-- Fast profile headroom explains the old speed ceiling but not the complete fast-gait solution.
-- Repricing-only attempts have repeatedly failed on several anchored behaviors; change the mechanism or the task, not just coefficients.
-- From-scratch gait is closed absent new hardware evidence.
-- Recover made real progress scientifically, but it is not in the current download answer.
-
-## Documentation Discipline
-
-Replace stale narrative with current state. Do not append long histories to
-active summaries. Suggested budgets:
-
-- `STATUS.md`: <=150 lines
-- track `STATUS.md`: <=120 lines
-- `RL_PLAN.md`: <=250 lines
-- `CURRENT_TRUTHS.md`: <=80 lines
-- `RL_LOG.md`: one line per cycle via `ops.sh logline`
-
-Review bundles and long audits live in `archive/`.
+Replace stale narrative with current state. Budgets: `STATUS.md`
+<=100 lines, track STATUS <=120, this file <=150,
+`CURRENT_TRUTHS.md` <=80. One RL_LOG line per cycle via
+`ops.sh logline`. Long audits go to `archive/`.

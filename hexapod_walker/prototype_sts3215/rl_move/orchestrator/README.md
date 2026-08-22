@@ -5,9 +5,10 @@ the operator is away. Mechanical software owns state and throughput;
 an LLM cycle owns judgment (verdicts + what to try next). If this file
 and the code disagree, the code is right — fix this file.
 
-**Taking over this project (human or LLM)? Start with
-`rl_docs/AGENT.md`** — how the agent picks runs, what we learned
-works/fails, and the future-work map. This file covers mechanics only.
+**Taking over this project (human or LLM)? Start with `RL_GOALS.md`
+and `RL_PLAN.md`** (prototype root) — the two goals and the operating
+plan — then `ORCHESTRATOR_PROMPT.md` for how a cycle behaves. This
+file covers mechanics only.
 
 ## Architecture (2026-08-09)
 

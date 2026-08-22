@@ -1,104 +1,108 @@
-# RL Run Interpretation Rules (operator, 08-10 — binding)
+# RL Run Interpretation Rules (operator, 08-21 — binding)
 
-Use this before any deep analysis. This is the triage checklist and
-verdict vocabulary for every finished run: work the 8 questions in
-order, stop at the first one that fails, and record the table's
-verdict — the point is to NOT waste an analysis cycle (or a
-continuation budget) on a run the first failing question already
-classifies. Complements `RESEARCH_RULES.md` "Judging runs" (known-
-exploit one-line STOP, matched-parent control, impossibility kills).
+The triage checklist and verdict vocabulary for every finished run.
+Work the questions in order and record the table's verdict.
+
+## The 08-21 ruling (overrides everything below on conflict)
+
+**If a run stops (budget end, canary, kill) with bad evals but
+training reward still rising, that is NOT a fail.** It means one or
+both of:
+
+1. **UNDERTRAINED** — the run needs to go longer. Continue from the
+   last checkpoint.
+2. **MISALIGNED** — the reward is not aligned with the evals: the
+   policy is honestly maximizing what we priced, and what we priced is
+   not the gate behavior. Fix the reward so its optimum is the gate
+   behavior (encode the observed cheat in the mode's
+   `test_task_semantics.py` bank first), then relaunch or continue.
+
+Choosing between them: if the video shows qualitatively right behavior
+still improving, continue. If the video shows an exploit or a stable
+wrong behavior earning rising reward, realign first — more steps buy
+more of the same exploit. When genuinely unsure, do both as a pair
+(continuation + realigned arm) and let the evidence decide.
+
+A run is a genuine FAIL only when (a) nothing is learning — reward AND
+task metrics flat with adequate budget — or (b) a reward already
+aligned with the eval (bank PASS) plus adequate budget still does not
+move the gate metrics. Two aligned-and-budgeted misses in the same
+behavioral class = change the hypothesis or the task specification.
 
 ## 0. What is this checkpoint allowed to answer?
 
-Read the ledger `phase` and `assessment_scope` before looking at behavior.
-
-- `canary` / `mechanism_health`: judge only boot/runtime, finite learning,
-  routing/exposure, and required telemetry. The only legal verdict prefixes
-  are `CANARY PASS`, `CANARY FAIL - INFRASTRUCTURE`, and `CANARY FAIL -
-  MECHANISM`. Immature gait, falls, or a known exploit do **not** close the
-  behavior/reward class at a canary checkpoint.
-- `discovery` / `short_behavior_discovery`: use the behavioral checklist
-  below at the short budget.
-- `acquisition` / `full_budget_skill_acquisition`: this is still learning.
-  Read checkpoint trends, but do not issue the final skill verdict before
-  the pre-registered acquisition budget unless its explicit kill condition
-  fires.
-- `hardening`, `composition`, `transfer`: use the full checklist and their
-  registered gates.
-
-This phase precheck overrides every generic known-exploit STOP rule below.
-It prevents a mechanism canary from being mistaken for a completed learning
-experiment.
+Read the ledger `phase` and `assessment_scope` before judging.
+A canary checkpoint answers mechanism health (boot, finite learning,
+routing, telemetry, an improving learnable signal) — not mature
+behavior. An acquisition run is judged at its registered budget.
+Immature behavior at a canary/early checkpoint never closes a
+behavior, architecture, or reward class.
 
 ## 1. Did learning happen?
-- Check BOTH training return and the pre-registered task metric.
-- If neither improves meaningfully: **FAIL — hypothesis did not produce learning.**
-- Do not assume “needs more steps” unless correct behavior has already appeared or there is a clear positive trend.
 
-## 2. Did the real task improve, not just reward?
-- Reward up + task metric flat/worse: **REWARD / SPECIFICATION BUG.**
-- Assume the policy found a shortcut until proven otherwise.
+Check BOTH training return and the pre-registered task metric.
 
-## 3. Did held-out evaluation improve?
-- Training task improves + held-out eval flat/down: **GENERALIZATION FAILURE.**
-- Possible causes: overfitting, train/eval distribution mismatch, curriculum mismatch, or variance.
-- Do not call it a pass.
+- Neither improves with adequate budget: **FAIL — hypothesis did not
+  produce learning.**
+- Reward rising: apply the 08-21 ruling — this run is not a FAIL,
+  classify it UNDERTRAINED or MISALIGNED and act accordingly.
 
-## 4. Does the video look physically correct? (behavioral phases only)
-- Metrics improve + video shows flag-leg, tripod, dragging, jitter, freeze, march-in-place, or another known exploit:
-  **EVAL / REWARD BUG.**
-- Video overrides scalar success.
+## 2. Reward up, evals/task bad?
+
+**MISALIGNED and/or UNDERTRAINED (08-21 ruling)** — never a terminal
+verdict. The deliverable of this triage is a concrete next action:
+the continuation launch, or the reward change + bank row + relaunch.
+
+## 3. Does the video look physically correct? (behavioral phases)
+
+An exploit on video (flag-leg, tripod, dragging, freeze, park,
+paddle-creep, overspeed attractor) with rising reward = MISALIGNED:
+name it bluntly, encode it in the semantics bank, realign, relaunch.
+Video overrides scalar success; a checkpoint that scores well but
+looks wrong means the metric (or reward) is the bug.
+
+## 4. Eval good but video bad?
+
+**EVALUATOR LOOPHOLE** — fix the evaluator; conclusions that depended
+on it are void until re-evaluated.
 
 ## 5. Did it beat the frozen parent under the SAME conditions?
-- For noise / DR / friction / latency / actuator injections, evaluate child AND parent with identical:
-  - injection
-  - seeds
-  - horizon
-  - evaluator
-- Otherwise no causal claim is valid.
+
+For any injected physics/sensor axis, evaluate child AND parent with
+identical injection, seeds, horizon, evaluator
+(`eval_checkpoint.py --baseline <parent.zip>`). Otherwise no causal
+claim.
 
 ## 6. Did protected skills survive?
-- New skill improves + old skill regresses: **SKILL INTERFERENCE.**
-- This is not a clean pass.
 
-## 7. What happened over training?
-Inspect early / middle / final checkpoints.
-- Never correct -> mechanism likely wrong.
-- Correct behavior appears then disappears -> interference / optimization drift.
-- Correct behavior exists and keeps improving -> continuation may be justified.
+New skill up + protected skill down = **SKILL INTERFERENCE**, not a
+clean pass. Guard the current track baselines.
 
-## 8. When is more training justified?
-For behavioral DISCOVERY/HARDENING, continue ONLY when:
-- qualitatively correct behavior already exists, AND
-- task/eval metrics are still improving or clearly budget-limited.
+## 7. When is more training justified?
 
-Never continue because:
-- reward is flat,
-- behavior is wrong,
-- known exploit dominates,
-- “maybe another 20M steps will fix it.”
+- Reward rising: yes, per the 08-21 ruling — unless the video shows a
+  reward-earning exploit, in which case align first, then continue.
+- Reward flat AND behavior wrong: no — change the mechanism or spec.
 
-CANARY-to-ACQUISITION is not a speculative behavioral continuation: it is
-the pre-registered transition from a machinery check to the honest learning
-budget. Do not apply this section to block it.
+## Classification table
 
-## Classification Table
-
-| Training | Held-out eval | Video | Verdict |
+| Training reward | Evals/task | Video | Verdict |
 |---|---|---|---|
-| flat | flat | wrong | FAIL — hypothesis failed |
-| reward up, task flat | flat | wrong | reward/spec bug |
-| task up | flat/down | maybe good | generalization failure |
-| up | up | wrong | evaluator/reward loophole |
-| up | up | good, old skill down | skill interference |
+| flat | flat/bad | wrong | FAIL — hypothesis failed |
+| rising | bad | right behavior, immature | UNDERTRAINED — continue |
+| rising | bad | exploit / stable wrong | MISALIGNED — realign reward with eval, relaunch/continue |
+| up | up | wrong | evaluator loophole — fix the eval |
+| up | up | good, protected skill down | skill interference |
 | up | up | good | PASS / harden |
-| up | up | good in sim, worse on hardware anchor | sim/transfer failure |
 
-## Default order of evidence
-1. Correct physical behavior
-2. Held-out task success
+## Order of evidence
+
+1. Correct physical behavior (video)
+2. Held-out gate metrics
 3. Protected-skill retention
 4. Training task metric
 5. Training reward
 
-Reward is never enough by itself.
+Reward is never sufficient evidence of success by itself — but rising
+reward with bad evals is always evidence the run deserves alignment
+work or more budget, not a burial.

@@ -2020,7 +2020,7 @@ def main() -> int:
                          "this run")
     bp.add_argument("--track", default="", choices=(*_tracks.ids(), ""),
                     help="research track (tracks.json); default: inferred "
-                         "from the run-name prefix, else hw")
+                         "from the run-name prefix, else joystick")
     bp.add_argument("--trainer", choices=("ppo", "dynrep", "dynrep-fresh"),
                     default="ppo", help="trainer family to preserve through "
                          "the backlog drain")
@@ -2094,7 +2094,7 @@ def main() -> int:
     lp.add_argument("--track", default="", choices=(*_tracks.ids(), ""),
                     help="research track (tracks.json): sets the W&B "
                          "track:<id> tag and the status doc; default: "
-                         "inferred from the run-name prefix, else hw")
+                         "inferred from the run-name prefix, else joystick")
     argv = sys.argv[1:]
     extra: list[str] = []
     if "--" in argv:

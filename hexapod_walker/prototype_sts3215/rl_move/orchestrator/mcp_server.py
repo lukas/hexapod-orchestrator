@@ -779,9 +779,8 @@ TOOLS = [
                                         "FINISHED, RUNNING, FAILED, "
                                         "REFUSED"},
               "track": {"type": "string",
-                        "description": "research-track id, e.g. hw, arch, "
-                                       "nobc, quad, turn, multitask, "
-                                       "dynrep"},
+                        "description": "research-track id: joystick or "
+                                       "amp (tracks.json)"},
               "contains": {"type": "string",
                            "description": "substring matched against the "
                                           "whole ledger entry"},

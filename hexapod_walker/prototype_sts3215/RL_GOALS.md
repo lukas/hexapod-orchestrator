@@ -1,46 +1,49 @@
 # What we are doing, in plain English
 
-We are training controllers for a real STS3215-servo hexapod in MuJoCo,
-using cloud RL runs plus an autonomous experiment loop.
+We are training controllers for a hexapod robot in simulation, using
+cloud RL runs plus an autonomous experiment loop. As of 2026-08-21 the
+loop has exactly two goals and works until both are achieved.
 
-## Goal
+## Goal 1 — joystick control grown from the simple gait
 
-Drive the physical robot with a joystick: stand up, sit down, turn, and walk
-where pointed, reliably and repeatedly. After that, work on the party tricks:
-stand on four legs and walk on four legs.
+We already have a simple programmed walking gait that works. Use RL,
+starting from that gait, to make the robot genuinely joystick
+controllable: point the stick, the robot goes there. Done means: in
+simulation it follows changing joystick commands for 60 straight
+seconds without falling, actually goes where pointed, and slips no
+more than the programmed gait does.
 
-## What Good Means
+## Goal 2 — modern RL from scratch (AMP)
 
-Distance, stability, reliability. A policy that moves less but never falls is
-better than a faster policy that falls half the time. Speed and slip metrics
-are tools, not the objective. Foot slip is not automatic failure because the
-scripted real gait slips visibly while still being useful.
+Build the full modern learned-locomotion pipeline described in
+`rl_docs/AMP_LOCOMOTION.md`: a policy trained from scratch with
+adversarial motion priors (the programmed gait is training DATA, not
+the controller), massively parallel PPO, a privileged critic,
+observation history, and actuator/fault randomization. Done means the
+policy walks beautifully under joystick command, survives pushes,
+tolerates broken joints, and transfers unchanged into plain MuJoCo.
+We are not using Isaac Lab; the existing GPU simulation stack gets
+extended instead. The loop builds whatever tools this needs and does
+not wait for the operator.
 
-## Current State
+## What good means
 
-Read `STATUS.md` for the live dashboard and `rl_docs/DOWNLOAD_ANSWER.md` for
-what would be downloaded today. The current baseline is a hierarchy:
+The video is the judge: smooth alternating-tripod walking, feet that
+lift and place, no dragged or sacrificed legs, no falls. Metrics
+exist to keep the sim honest. And one standing rule: if a run ends
+with bad evals but the reward was still climbing, that run is not a
+failure — it either needed to run longer or the reward needed to be
+brought in line with the evals.
 
-- stance: `footlow2_hard1`
-- walk: `bcgait1_hard1`
-- session controller: re-anchor, entry slew, STOP->stance hold, rot60 wrapper
+## Process, briefly
 
-The robot is temporarily off the bench for repair, so the active sprint is
-sim-only reliability for rise + walk. Open decisions are post-lower rise
-promotion, fast-gait continuation after live canaries finish, and bench
-promotion once the robot returns.
+A watcher notices finished runs and spawns agent cycles that triage,
+record verdicts, and launch the next work toward the two goals. While
+either goal is unmet, an idle fleet is a bug, not a rest state. Only
+the operator touches the physical robot or starts work outside these
+two goals.
 
-## Process
-
-The watcher notices finished runs, spawns an agent cycle, records verdicts,
-and launches only work that can change the next useful robot test or the
-current download answer. Idle GPUs are acceptable; peripheral experiments are
-not.
-
-Primary docs:
-
-- `CURRENT_TRUTHS.md` - accepted facts and rulings
-- `RL_PLAN.md` - current operating plan
-- `STATUS.md` - live dashboard
-- `RESEARCH_RULES.md` - launch/triage rules
-- `rl_docs/DOWNLOAD_ANSWER.md` - download candidate and evidence
+Primary docs: `CURRENT_TRUTHS.md` (facts), `RL_PLAN.md` (plan),
+`STATUS.md` (dashboard), `RESEARCH_RULES.md` +
+`RUN_INTERPRETATION_RULES.md` (rules), `rl_docs/AMP_LOCOMOTION.md`
+(goal 2 charter).

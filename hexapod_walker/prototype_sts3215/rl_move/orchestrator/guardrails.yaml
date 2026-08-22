@@ -188,16 +188,18 @@ compute:
   log_file_pattern: /tmp/train_<run-name>.log
 
 phases:
-  # Experiment phase system (operator, 08-10, binding — see
-  # RESEARCH_RULES.md). Every non-smoke launch declares --phase; the
-  # launcher enforces:
+  # Experiment phase system (see RESEARCH_RULES.md). Every non-smoke
+  # launch declares --phase; the launcher enforces:
   #   canary       <= discovery_max_steps; MECHANISM HEALTH ONLY. A mature
   #                behavior verdict or reward-class closure is invalid.
   #   discovery    <= discovery_max_steps; the question is binary — did
   #                qualitatively correct behavior emerge? Aggressive
-  #                early video; kill on a known exploit.
+  #                early video. 08-21 ruling: a known exploit with
+  #                rising reward = MISALIGNED (realign reward with the
+  #                eval and relaunch/continue), not a lineage kill.
   #   acquisition  full honest learning budget after a healthy canary;
-  #                evidence names the canary + comparable budget precedent.
+  #                continuable past the registered budget while reward
+  #                and gate metrics rise (08-21 ruling).
   #   hardening / composition / transfer  require --evidence naming
   #                where the correct behavior was already seen (run /
   #                video / test_task_semantics PASS).
@@ -206,16 +208,12 @@ phases:
   discovery_max_steps: 2000000
 
 experiments:
-  # Continue-while-improving lineages: DISABLED (simplification review,
-  # 2026-08-10, operator-adopted). A rising training return alone must
-  # never mechanically buy more steps — reward-quarter-based
-  # auto-continuation is exactly the shortcut amplifier the review
-  # flags. Continuation is a cycle decision: intended behavior already
-  # exists, task metric / held-out eval still moving, no known exploit
-  # dominating, protected skills holding (review §5). The watcher
-  # machinery (try_auto_continue in watch_loop.py) stays but is inert
-  # while this list is empty; re-add a prefix only with an explicit
-  # operator directive.
+  # Continue-while-improving lineages: mechanically DISABLED (list
+  # empty); continuation is a CYCLE decision. Per the operator's 08-21
+  # interpretation ruling, bad evals with rising reward mean the cycle
+  # continues the run and/or realigns the reward with the evals —
+  # judgment picks which, so the mechanical auto-continue stays inert.
+  # Re-add a prefix only with an explicit operator directive.
   auto_continue_lineages: []
   # Structured ledger (external review 8b): software-owned facts per run in
   # rl_move/orchestrator/experiments.json — hypothesis+predictions, parent,
@@ -364,89 +362,43 @@ forbidden:
   - >-
     Disabling the PAUSE kill switch, the watcher, or these guardrails.
 
-# OPERATOR DIRECTIVE 2026-08-09 (throughput — binding): the fleet idled a
-# whole night on questions the campaign could have answered itself. Idle
-# GPU pods are the failure mode, not the safe default.
+# OPERATOR DIRECTIVE 2026-08-21 (two-track reset — binding): the fleet
+# pursues exactly two goals — the `joystick` and `amp` track gates in
+# tracks.json — and does not stop until both are green.
 operator_unblock_policy:
-  # (1) ASSUME AND KEEP GOING. A design/gate/reward question that would
-  # previously park a line under "NEEDS OPERATOR" no longer stops work
-  # when a well-reasoned recommendation exists (from the rulings doc,
-  # the binding reviews, or the cycle's own root-cause analysis).
-  # Adopt the recommendation, record in RL_LOG under
-  # "## ASSUMPTION (operator to review)": the question, the assumption
-  # adopted, the evidence for it, and what to revisit if overruled.
-  # Then launch. Wrong-but-recorded beats idle.
+  # ASSUME AND KEEP GOING. No line is ever parked "waiting on the
+  # operator" for a design, gate, reward, or tooling question: adopt
+  # the best-reasoned answer, record it in OPERATOR_QUESTIONS.md, and
+  # keep moving. Wrong-but-recorded beats idle.
   assume_and_go: true
-  # (2) TRULY OPERATOR-ONLY blockers (hardware access/calibration,
-  # physical robot, spend approvals) still block THAT line — but idle
-  # pods must then pick up parallel lines. Authorized now (operator,
-  # 2026-08-09), each with its own lineage, gates, and pre-registration:
-  #   - command-steering: velocity-command competence / "drive it
-  #     around" arms — forward + forward-diagonal for promotion per the
-  #     rulings; wider hemisphere allowed as exploratory (non-promotion)
-  #     arms
-  #   - quadruped-mode: stand/walk on four rear legs (party-tricks
-  #     sketch): static stance -> weight-shift under DR -> quadruped
-  #     walk. Pulled FORWARD from "after Done" by the operator: allowed
-  #     whenever main-line arms cannot fill the GPU pods
-  #   - mirror-symmetry implementation cycle; contact-from-
-  #     proprioception aux head
-  parallel_lines_when_blocked: [command-steering, quadruped-mode,
-                                mirror-symmetry, contact-aux-head]
-  # The full operator backlog lives in rl_docs/WISHLIST.md (operator-
-  # owned). Free pods pull the topmost [READY] item not already
-  # running; [CODE] items get a dedicated implementation cycle when
-  # 2+ pods would otherwise idle.
-  wishlist: rl_docs/WISHLIST.md
-  # IDLE COMPUTE IS ACCEPTABLE (simplification review, 2026-08-10,
-  # operator-adopted — supersedes the 08-09 "idle pod = violation"
-  # rule). Never invent an experiment because a pod is free: when the
-  # next useful work is specification, hardware evidence, or code, let
-  # GPUs idle. The parallel lines and wishlist above stay AVAILABLE for
-  # idle pods, but pulling from them is a judgment call, not a duty,
-  # and never justifies peripheral DR/robustness composes — that broad
-  # question is already answered.
-  # NARROWED by the 08-11 night operator directive (RL_PLAN.md
-  # "Operator directive (08-11 night)"): idle pods next to an
-  # unattacked SIM STAND/WALK blocker are the failure mode — keep the
-  # backlog fed with arms that directly attack those blockers (each a
-  # deployable candidate), and write+check in the code they need
-  # (cfg-gated, default-off, tests green) instead of parking lines.
-  idle_gpu_needs_hard_reason: false
-  # SURFACE ALL WAITING (operator, 08-11 night): any wait — on code,
-  # operator input, bench data, a missing checkpoint, a stale backlog
-  # item — is written into STATUS.md's top "READ FIRST / WAITING-ON"
-  # block in the SAME cycle it starts, named concretely, and removed
-  # in the cycle that clears it. Waiting silently (or only in cycle
-  # logs) is a guardrail violation.
+  # The ONLY legitimate waits are physical-robot access and spend
+  # approvals; those go in STATUS.md WAITING-ON tagged [operator] and
+  # never block the two tracks' sim/code work.
+  operator_only_blockers: [physical-robot, spend-approvals]
+  # While either track gate is unmet, an idle fleet next to an empty
+  # backlog is the failure state: build the missing tool, write the
+  # alignment bank, fund the continuation the 08-21 interpretation
+  # ruling calls for, or queue the next milestone arm. Launches still
+  # serve a named gap toward a track gate — never raw slot-filling
+  # with peripheral runs, and never outside the two tracks (out-of-
+  # scope runs are operator-kick only).
+  idle_gpu_needs_hard_reason: true
+  # Any true wait is written into STATUS.md's WAITING-ON block in the
+  # same cycle it starts and removed in the cycle that clears it.
   surface_waits_in_status_top: true
-  # AGENT-DOABLE WORK DRAINS BEFORE BACKOFF (operator, 08-14 —
-  # overrides the "judgment call, not a duty" clause above for NAMED
-  # items): a cycle may declare no-op only when the agent-doable
-  # queue is empty — no untriaged finishes, no named [code]/[triage]
-  # items in WAITING-ON / track STATUS "Next" / directive follow-up
-  # lists, no pre-registered arm with all preconditions met. If any
-  # exist, execute the topmost by track priority. WAITING-ON entries
-  # carry a blocker type ([operator] vs [code]/[triage]/
-  # [precondition: <x>]); untyped = agent-doable. Cycles that execute
-  # real work touch rl_move/orchestrator/CYCLE_WORKED so the watcher
-  # resets idle-kick backoff. UNNAMED speculative work stays a
-  # judgment call; the launch filter is unchanged. Full text:
-  # ORCHESTRATOR_PROMPT.md 08-14 directive.
+  # A cycle may declare no-op only when nothing agent-doable exists:
+  # no untriaged finishes, no named code/tooling items in the track
+  # STATUS "Next" lists, no continuation or pre-registered arm with
+  # preconditions met. Cycles that execute real work touch
+  # rl_move/orchestrator/CYCLE_WORKED so the watcher keeps the fast
+  # cadence.
   drain_agent_doable_before_backoff: true
 
 escalation:
-  # If any of these happen, do NOT launch new runs; write the situation to
-  # EXPERIMENT_LOG.md under "## NEEDS OPERATOR" and exit the cycle.
-  # EXCEPTION (operator, 2026-08-09): design questions covered by
-  # operator_unblock_policy.assume_and_go are NOT escalations — adopt the
-  # recommendation, record the assumption, keep going:
+  # Escalate (note in STATUS.md WAITING-ON, keep working everything
+  # else) ONLY for genuine infra failure or physical/spend items:
   - >-
-    Two consecutive cycles where every launched run failed its gate badly
-    (no metric moved toward its gate).
+    Infra failure the cycle cannot repair: pod unreachable, W&B auth
+    failing, git push rejected.
   - >-
-    Any sign of infra failure (pod unreachable, W&B auth failing, git push
-    rejected).
-  - >-
-    The next logical step requires hardware, more compute, or a plan change
-    beyond RL_PLAN.md.
+    Physical robot access or spending beyond these guardrails.

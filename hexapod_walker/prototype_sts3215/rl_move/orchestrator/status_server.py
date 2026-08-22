@@ -575,19 +575,15 @@ def llm_url_groups(base: str) -> list[tuple[str, list[tuple[str, str]]]]:
             for p in sorted((PROTO / "rl_docs" / "tracks")
                             .glob("*/STATUS.md"))]),
         ("Deep-dive research docs", docs([
+            ("AMP locomotion charter", "rl_docs/AMP_LOCOMOTION.md"),
+            ("Download answer", "rl_docs/DOWNLOAD_ANSWER.md"),
             ("Skills table", "rl_docs/SKILLS.md"),
             ("Reward design", "rl_docs/REWARD.md"),
-            ("Rise (stand-up)", "rl_docs/RISE.md"),
             ("Gait", "rl_docs/GAIT.md"),
-            ("Turning", "rl_docs/TURN.md"),
             ("Sim", "rl_docs/SIM.md"),
             ("Evals", "rl_docs/EVALS.md"),
             ("Hardware", "rl_docs/HARDWARE.md"),
-            ("Multitask design", "rl_docs/MULTITASK.md"),
-            ("Dynamics-representation design", "rl_docs/DYNREP.md"),
-            ("Takeoff", "rl_docs/TAKEOFF.md"),
             ("W&B usage", "rl_docs/WANDB.md"),
-            ("Wishlist", "rl_docs/WISHLIST.md"),
         ])),
         ("Hardware / build / infra", docs([
             ("Prototype build story", "PROTOTYPE.md"),
