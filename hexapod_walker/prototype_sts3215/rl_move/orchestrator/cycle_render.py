@@ -154,7 +154,14 @@ class Renderer:
                 self.raw_block(text)  # verbatim: DIG-IN lines keep col 0
             self.raw_block(f"=== CYCLE END: {ev.get('subtype', '?')} ===")
             return
-        # rate_limit_event, stream_event, unknown types: one quiet line.
+        if etype == "tool_progress":
+            # The CLI emits one of these every ~30 s while a tool call
+            # runs. Keep a compact line (it proves liveness and bumps
+            # the log mtime that activity views report), not raw JSON
+            # (observed cluttering the first deployed cycle, 08-22).
+            self.line(f"... ({ev.get('tool_name', 'tool')} still running)")
+            return
+        # rate_limit_event, unknown types: one quiet line.
         if etype and etype != "stream_event":
             self.line(f"({etype}: {_squash(json.dumps(ev), 160)})")
 
