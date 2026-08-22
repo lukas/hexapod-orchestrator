@@ -69,9 +69,12 @@ Last updated: 2026-08-22 UTC. Operator-facing dashboard, not a history file.
   envelope inside recover mode only, on-robot transformer compute
   check (torch/ONNX at 25 Hz), level-IMU bias calibration. Parked
   until the robot is back (`rl_docs/RECOVER_DEPLOY.md` blockers 2/4/5).
-- Agent-doable queue NON-EMPTY (08-22 ~03:2x): topmost = the [code]
-  bank bisect/repair above, then the launch-blocked fix arms. Post-
-  lower contract + bench promotion remain [operator].
+- Agent-doable queue NON-EMPTY (08-22, updated after bank repair):
+  topmost = [code] the 7-test tibia-150 recalibration residue above
+  (rise-ref re-mint first: unblocks the stance fix arm), then
+  [triage] phasedir1 re-read/re-run on the repaired sim. Walk fix
+  arm `cw-dep-bcgait1-plant150-1` is QUEUED/training. Post-lower
+  contract + bench promotion remain [operator].
 
 ## Read First
 
