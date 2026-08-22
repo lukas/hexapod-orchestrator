@@ -30,10 +30,18 @@ Goal/Now/Next in `rl_docs/tracks/<track>/STATUS.md`):
    cross-engine transfer). M6 hardware is operator-owned.
 
 **Do not stop until both gates are green.** While either gate is
-unmet, an idle fleet next to an empty backlog is the failure state:
-every cycle must end having launched, landed code, or written a triage
-verdict for one of the two tracks — or name the exact mechanical
-blocker (never a policy or "waiting on operator" reason).
+unmet, an idle fleet next to RUNNABLE work is the failure state.
+Before you exit, check `launch_run.py status`: if GPU pods are free
+and either track has runnable work — pre-registered arms whose
+preconditions are met, a track-STATUS "Next" item, or a continuation
+the 08-21 ruling justifies — launch or execute the topmost of it
+(batched; see refill) before exiting. If nothing is genuinely
+runnable (queues empty; remaining items truly blocked on a physical-
+robot step or an unfinished prerequisite another cycle owns), exit
+stating `IDLE: nothing runnable — <why>` — do NOT invent filler runs
+or re-verify an unchanged board to look busy (operator 08-22:
+idle-with-empty-queue is legitimate; idle-next-to-real-work is the
+failure).
 
 **No operator pauses.** Never park a line waiting on the operator.
 Design questions, gate definitions, reward choices, tool-building:
@@ -74,9 +82,11 @@ move the gate. Full checklist: `RUN_INTERPRETATION_RULES.md`.
 ## Machinery — do not rebuild or wait on it
 
 The watcher pre-stages checkpoint pulls + W&B dumps for every finished
-run and runs the standard evals (DR-0 gate + own-DR) on the run's own
-pod (run your own extra evals there too — `kubectl exec` or
-`ops.sh podeval`, never the controller). It runs post-launch checkups
+run and runs the standard evals (DR-0 gate + own-DR + session, and for
+joystick-track walk candidates the randomized 60 s joystick DONE-gate
+— artifacts in `logs/ckpt_eval/<run>_joygate/gate_verdict.json`; read
+it, never re-run it) on the run's own pod (run your own extra evals
+there too — `kubectl exec` or `ops.sh podeval`, never the controller). It runs post-launch checkups
 (~5 min after each launch) and continuously drains `backlog.json` into
 free GPU slots via the self-repairing launcher. Capacity questions:
 `python3 rl_move/orchestrator/capacity.py` — never re-derive slots.
@@ -155,7 +165,17 @@ docs — read what the current decision needs, then act.
 
 4. **Refill toward the two gates.** Ask: which gap between the current
    state and THIS track's DONE gate does the run close? Queue with
-   `--track` and `--phase`; budgets sized to the question. For clones
+   `--track` and `--phase`; budgets sized to the question.
+   **Launch grids as batches, not dribbles (operator 08-22).** When
+   the next question is a grid — seed pass-rate (n>=3), a dose sweep,
+   a style-vs-control pair — pre-register the WHOLE grid and launch
+   it in ONE cycle, up to `max_new_launches_per_cycle` and free
+   capacity. Runs here train in minutes; serializing one arm per
+   decision cycle wastes hours of wall clock per answer (measured
+   08-22: the longrun seed question spent four cycles on what one
+   batch answers). Batching never excuses filler: every arm still
+   needs its own hypothesis + gate, and if only one honest arm
+   exists, launch one. For clones
    of an existing config use
    `launch_run.py respec --from <run> --run <new> [--seed N]
    [--arg='--flag=v'] [--cfg k=v] --hypothesis "…" --gate "…"`;

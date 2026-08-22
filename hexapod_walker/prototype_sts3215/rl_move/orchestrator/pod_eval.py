@@ -40,6 +40,8 @@ import shlex
 import subprocess
 import sys
 
+import tracks
+
 # Same convention as launch_run.py / ops.sh: the controller's default
 # in-cluster serviceaccount cannot exec pods.
 os.environ.setdefault(
@@ -65,6 +67,19 @@ DEPLOYED_STANCE = "ppo_goal_cw_stand_holdbc1_hard1.zip"
 DEPLOYED_WALK = "ppo_goal_cw_dep_vref1_r1.zip"
 STANCE_MODES = ("rise", "hold", "lower")
 SESSION_TIMEOUT_S = 900
+
+# Joystick DONE-gate reading (operator 08-22: the longrun17 rung-A
+# passer sat for hours before anyone thought to run the session gate
+# on it, and unsticking it took a manual kick). Every joystick-track
+# walk candidate now gets the randomized 60 s command-script gate
+# (rl_move.sim.eval_joystick_gate: stress_mix commands, held-out
+# seeds, det+sto x DR-0+own-DR, ONE PASS/FAIL vs the track's DONE
+# numbers) fired mechanically here, in parallel with the standard
+# passes, on the run's own pod. INFORMATIONAL like the session gate:
+# printed + logged + synced, never folded into pod_eval's exit code —
+# candidates are EXPECTED to fail it until the fine-tune stage closes
+# the fixed-heading -> randomized-session gap.
+JOYGATE_TIMEOUT_S = 3600
 
 
 def kexec(pod: str, cmd: str, timeout: int = 60) -> subprocess.CompletedProcess:
@@ -256,6 +271,31 @@ def main() -> int:
                       f"{partner_name}) -> {s_log}")
                 session = (side, partner_name, s_out_rel, s_log, s_p, s_fh)
 
+    # Joystick DONE-gate (see JOYGATE_TIMEOUT_S comment block).
+    joygate = None  # (out_rel, logpath, proc, fh)
+    if side == "walk" and (entry.get("track") or tracks.infer(run)) == "joystick":
+        j_out_rel = f"logs/ckpt_eval/{run_us}_joygate{suffix}"
+        # Key on gate_verdict.json (written only after all passes
+        # aggregate), so a half-finished attempt stays retryable.
+        if (PROTO / j_out_rel / "gate_verdict.json").is_file():
+            print(f"joygate: {j_out_rel} already on controller — skipping")
+        else:
+            j_log = f"/tmp/eval_{run}_joygate.log"
+            j_cmd = (f"cd {POD_PROTO} && set -a && "
+                     f". rl_move/sim/wandb.env 2>/dev/null; set +a; "
+                     f"python3 -m rl_move.sim.eval_joystick_gate "
+                     f"{shlex.quote(ckpt)} --own-dr-scale {dr}"
+                     + "".join(f" --extra-cfg-set {shlex.quote(c)}"
+                               for c in cfgs)
+                     + f" --out-dir {j_out_rel}")
+            j_fh = open(j_log, "w")
+            j_p = subprocess.Popen(
+                ["kubectl", "exec", pod, "--", "bash", "-c", j_cmd],
+                stdout=j_fh, stderr=subprocess.STDOUT, text=True)
+            print(f"joygate: started on {pod} (randomized 60s session "
+                  f"gate, own-dr {dr}) -> {j_log}")
+            joygate = (j_out_rel, j_log, j_p, j_fh)
+
     worst = 0
     for tag, out_rel, logpath, p, fh in jobs:
         try:
@@ -309,6 +349,36 @@ def main() -> int:
         else:
             status = f"ERROR rc={rc}"
         line = (f"SESSION ({side} seat vs {partner_name}): {status} "
+                f"artifacts -> {out_rel}")
+        fh.write(f"\nSYNCED {line}\n")
+        fh.close()
+        print(line)
+        # Informational only: never folds into pod_eval's exit code.
+
+    if joygate:
+        out_rel, logpath, p, fh = joygate
+        try:
+            rc = p.wait(timeout=JOYGATE_TIMEOUT_S)
+        except subprocess.TimeoutExpired:
+            p.kill()
+            rc = -1
+        if rc in (0, 1):
+            # eval_joystick_gate writes gate_verdict.json on both PASS
+            # (0) and FAIL (1); anything else died before aggregating.
+            (PROTO / out_rel).parent.mkdir(parents=True, exist_ok=True)
+            subprocess.run(
+                ["kubectl", "cp", f"{pod}:{POD_PROTO}/{out_rel}",
+                 str(PROTO / out_rel)],
+                capture_output=True, text=True, timeout=600)
+        has_v = (PROTO / out_rel / "gate_verdict.json").is_file()
+        if rc == 0 and has_v:
+            status = "DONE-GATE PASS"
+        elif rc == 1 and has_v:
+            status = ("DONE-GATE FAIL (expected until fine-tuning "
+                      "closes the randomized-session gap)")
+        else:
+            status = f"ERROR rc={rc}"
+        line = (f"JOYGATE (randomized 60s command script): {status} "
                 f"artifacts -> {out_rel}")
         fh.write(f"\nSYNCED {line}\n")
         fh.close()

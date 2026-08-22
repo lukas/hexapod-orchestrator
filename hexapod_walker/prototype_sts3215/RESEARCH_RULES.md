@@ -85,6 +85,13 @@ meaningful evidence.
 - Pre-register the gate and both outcomes (if-true / if-false) before
   launch. Coupled bundles are permitted when the mechanism requires
   them; pre-registration and honest verdicts still bind.
+- Grid questions launch as BATCHES (operator 08-22): seed pass-rate,
+  dose sweeps, style-vs-control pairs go out in one cycle up to
+  `max_new_launches_per_cycle` and free capacity — runs finish in
+  minutes, so one-arm-per-cycle serialization wastes hours per
+  answer. Batching never excuses filler: each arm carries its own
+  hypothesis + gate, and an idle pod next to an EMPTY queue is fine
+  (do not invent runs).
 - Two aligned-and-budgeted misses in the same behavioral class =
   change the hypothesis or the task spec, not the coefficient.
 - Matched-parent controls are mandatory for injected physics/sensor
