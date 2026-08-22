@@ -101,6 +101,46 @@ FEEDBACK_MAX_PER_CYCLE = 8
 FEEDBACK_MAX_CHARS = 12_000
 
 POLL_S = 300
+# Spawn-after-sync (operator 08-22): a finished run's triage cycle is
+# deferred until pod_eval's CORE evals (gate + own-DR) write the
+# _prestage.synced sentinel — cycles were burning ~5 min each sleep-
+# polling for artifacts, and verdicts written off half-synced reports
+# caused the longrun17 premature-verdict race. The timeout keeps a
+# wedged/missing prestage from stalling triage forever (dead runs
+# write the sentinel immediately: nothing to eval, nothing to wait on).
+PRESTAGE_MAX_WAIT_S = 1500
+
+# Nightly meta-analysis (operator 08-22): once per UTC day inside the
+# [META_HOUR_UTC, META_HOUR_UTC+3) window (~2-5am PT — a window, not
+# ">=", so a restart at midday can't trigger it), the watcher drains
+# in-flight cycles
+# (WRAPUP), holds ALL new spawns — triage, kicks, idle kicks — and
+# runs ONE deep-model session alone on META_PROMPT.md: are we making
+# best-possible progress toward the joystick robot, how do we
+# streamline analysis, how does the agent get more efficient. It may
+# edit code; its binding anti-bloat rule (may not grow process/docs)
+# lives in the prompt file. Its full narration streams to
+# cycle_logs/cycle_<stamp>_meta-analysis.log like any cycle.
+META_HOUR_UTC = 9
+META_LABEL = "meta-analysis"
+META_STATE = pathlib.Path("/workspace/meta_state.json")
+META_PROMPT_PATH = HERE / "META_PROMPT.md"
+META_DRAIN_DEADLINE_S = 2700
+
+
+def prestage_sentinel(run: str) -> pathlib.Path:
+    """Written by pod_eval.py once the core gate/own-DR passes are
+    settled (synced, skipped, or impossible). Session/joygate riders
+    are informational and never gate the cycle spawn."""
+    return (HERE.parent.parent / "logs" / "ckpt_eval"
+            / (run.replace("-", "_") + "_prestage.synced"))
+
+
+def _meta_last_day() -> str:
+    try:
+        return json.loads(META_STATE.read_text()).get("last_day", "")
+    except Exception:
+        return ""
 # Kick latency (operator 08-15 "it should go instantly"): the main
 # loop sleeps through sleep_poll(), which checks the kick channels
 # every KICK_WAKE_S and cuts the sleep short when a NEW kick appears.
@@ -559,6 +599,14 @@ def prestage_finished(run: str) -> None:
         return subprocess.run(["bash", "-c", cmd], capture_output=True,
                               text=True, timeout=timeout, cwd=proto)
 
+    def sentinel() -> None:
+        try:
+            p = prestage_sentinel(run)
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.touch()
+        except OSError:
+            pass
+
     def worker() -> None:
         try:
             r = sh(f"bash {ops} wandbdump {run}")
@@ -571,6 +619,7 @@ def prestage_finished(run: str) -> None:
                 # No checkpoint (e.g. run died at init, 0 steps): a gate
                 # eval can only FileNotFoundError (c37, cw-walk-longdist).
                 log(f"prestage {run}: pullckpt failed; skipping evals")
+                sentinel()  # nothing to wait on — release the cycle
             else:
                 # Evals run ON THE RUN'S OWN POD (operator 08-10): the
                 # controller once piled 21 concurrent gate evals and
@@ -581,13 +630,18 @@ def prestage_finished(run: str) -> None:
                 # /tmp/eval_<run>*.log locally, and copies artifacts
                 # back to logs/ckpt_eval/. Blocking is fine — this is
                 # a daemon thread and the cycle waits on the log.
+                # (pod_eval writes the _prestage.synced sentinel itself
+                # as soon as the CORE passes settle — the joygate rider
+                # can run another hour after that, hence the timeout.)
                 r = sh(f"python3 {HERE / 'pod_eval.py'} {run}",
-                       timeout=3300)
+                       timeout=7500)
                 out = ((r.stdout or "") + (r.stderr or "")).strip()
                 log(f"prestage {run}: pod evals rc={r.returncode} "
                     f"{out[-400:]}")
+                sentinel()  # belt-and-braces; normally already written
         except Exception as exc:
             log(f"prestage {run} failed: {exc!r} (cycle will do it manually)")
+            sentinel()  # never leave the run's cycle waiting on us
 
     threading.Thread(target=worker, daemon=True).start()
 
@@ -733,29 +787,26 @@ def spawn_cycle(newly_finished: set[str], still_running: set[str],
     if newly_finished:
         runs_ul = {r: r.replace("-", "_") for r in sorted(newly_finished)}
         cycle_prompt += (
-            "\n## Pre-staged by the watcher (do NOT redo these)\n"
-            "For each newly finished run the watcher already pulled the "
-            "checkpoint to rl_move/sim/policies/, cached W&B data to "
-            "logs/experiments/<run>/, and STARTED the standard evals ON "
-            "THE RUN'S OWN POD (the DR-0 gate pass, the own-DR pass when "
-            "the run trained at DR>0, and — for joystick-track walk "
-            "candidates — the randomized 60s joystick DONE-gate, all in "
-            "parallel; do NOT start any yourself). Logs stream to "
-            "/tmp/eval_<run>.log (gate), /tmp/eval_<run>_owncfg.log "
-            "(own-DR), and /tmp/eval_<run>_joygate.log (DONE-gate; "
-            "verdict lands in logs/ckpt_eval/<run_underscored>_joygate/"
-            "gate_verdict.json); gate/own-DR artifacts are copied back "
-            "to logs/ckpt_eval/<run_underscored>_gate / _owncfg when "
-            "each pass ends — "
-            + "; ".join(f"{r} -> {u}_gate" for r, u in runs_ul.items())
-            + ". Go straight to reading docs, then wait for the COPY-BACK "
-            "marker (not eval_checkpoint's own 'artifacts' line, which "
-            "prints on the pod before the copy): "
-            "`ops.sh waitlog /tmp/eval_<run>.log 'SYNCED|Traceback' 2700` "
-            "and review the frame strips. Run any EXTRA evals (baselines, "
-            "stress axes, joystick) on the run's pod via kubectl exec, "
-            "not on the controller. If a pre-stage step failed (see "
-            "orchestrator.log), fall back to doing it manually.\n"
+            "\n## Pre-staged by the watcher (do NOT redo or wait for these)\n"
+            "Your cycle spawned AFTER the core evals synced "
+            "(spawn-after-sync, 08-22). For each newly finished run: the "
+            "checkpoint is in rl_move/sim/policies/; W&B summary + FULL "
+            "history are cached at logs/experiments/<run>/"
+            "wandb_summary.json + wandb_history.csv (read those files — "
+            "never hand-query wandb.Api); the DR-0 gate and own-DR eval "
+            "artifacts are ALREADY on the controller — "
+            + "; ".join(f"{r} -> logs/ckpt_eval/{u}_gate" for r, u in runs_ul.items())
+            + " (+ _owncfg). Go straight to `ops.sh review <run>` and the "
+            "synced report + frame strips. Only if an artifact dir is "
+            "missing (prestage failure, see orchestrator.log) fall back "
+            "to `ops.sh waitlog /tmp/eval_<run>.log 'SYNCED|Traceback' "
+            "2700` or `ops.sh podeval`. Informational riders may still "
+            "be running (session gate; for joystick-track walk "
+            "candidates the randomized 60s DONE-gate -> logs/ckpt_eval/"
+            "<run_underscored>_joygate/gate_verdict.json): read them if "
+            "present, NEVER block or base a verdict wait on them. Run "
+            "any EXTRA evals on the run's own pod (kubectl exec / "
+            "ops.sh podeval), never the controller.\n"
         )
     if findings:
         cycle_prompt += (
@@ -982,6 +1033,10 @@ def main() -> None:
     idle_polls = 0
     idle_kick_streak = 0  # consecutive idle kicks with no real activity
     active: list[dict] = []
+    prestage_started: dict[str, float] = {}  # run -> first-seen ts
+    auto_started_all: dict[str, str] = {}    # run -> auto-continuation
+    meta_pending = False   # meta due; draining cycles before it runs
+    meta_drain_t0 = 0.0
     log(f"watcher started — {len(cycle_times)}/{daily_cycle_cap()} "
         "cycles already spawned in the rolling 24h window")
     threading.Thread(target=checkup_worker, daemon=True).start()
@@ -1033,10 +1088,88 @@ def main() -> None:
                     r, f"awaiting since "
                        f"{datetime.datetime.now().isoformat(timespec='seconds')}",
                     only_if_unset=True)
+            # Prestage AT DETECTION, spawn AFTER SYNC (operator 08-22):
+            # checkpoint pull + evals + auto-continue start the moment a
+            # finish is seen; the triage cycle spawns only once the CORE
+            # evals wrote their sentinel (or PRESTAGE_MAX_WAIT_S passed).
+            # Cycles stop burning ~5 min sleep-polling for artifacts and
+            # can no longer verdict off a half-synced report (the
+            # longrun17 premature-verdict race).
+            for r in sorted(newly):
+                if r not in prestage_started:
+                    prestage_started[r] = time.time()
+                    cont = try_auto_continue(r)
+                    if cont:
+                        auto_started_all[r] = cont
+                    prestage_finished(r)
+            if len(prestage_started) > 400:  # prune long-gone runs
+                cutoff = time.time() - 86400
+                prestage_started = {k: v for k, v in prestage_started.items()
+                                    if v > cutoff}
+            ready = {r for r in newly
+                     if prestage_sentinel(r).exists()
+                     or time.time() - prestage_started[r] > PRESTAGE_MAX_WAIT_S}
+            if newly - ready:
+                log("holding triage until prestage evals sync: "
+                    + ", ".join(sorted(newly - ready)))
             try:
                 findings = FINDINGS.read_text().strip() if FINDINGS.exists() else ""
             except OSError:
                 findings = ""
+
+            # Nightly meta-analysis (see META_* constants): drain, hold
+            # every other spawn, run ONE deep session alone, resume.
+            meta_active = any(c.get("label") == META_LABEL for c in active)
+            now_utc = datetime.datetime.now(datetime.timezone.utc)
+            today = now_utc.strftime("%Y-%m-%d")
+            if (not meta_active and not meta_pending
+                    and META_HOUR_UTC <= now_utc.hour < META_HOUR_UTC + 3
+                    and _meta_last_day() != today
+                    and META_PROMPT_PATH.exists()):
+                meta_pending = True
+                meta_drain_t0 = time.time()
+                (HERE / "WRAPUP").touch()
+                log("meta-analysis due — WRAPUP set; holding all new "
+                    "spawns while in-flight cycles wrap up")
+            if meta_pending:
+                if active and time.time() - meta_drain_t0 < META_DRAIN_DEADLINE_S:
+                    log(f"meta-analysis waiting on {len(active)} "
+                        "cycle(s) to wrap up")
+                    sleep_poll(60)
+                    continue
+                (HERE / "WRAPUP").unlink(missing_ok=True)
+                meta_pending = False
+                try:
+                    META_STATE.write_text(json.dumps({"last_day": today}))
+                except OSError as exc:
+                    log(f"meta state write failed: {exc!r}")
+                now = time.time()
+                cycle_times = [t for t in cycle_times if now - t < 86400]
+                if len(cycle_times) >= daily_cycle_cap():
+                    log("meta-analysis skipped: daily cycle cap reached")
+                else:
+                    cycle_times.append(now)
+                    active.append(spawn_cycle(
+                        set(), running, "", in_flight,
+                        model=AGENT_MODEL_DEEP,
+                        trigger_text=(
+                            "No run just finished — this is the once-"
+                            "nightly META-ANALYSIS session (operator "
+                            "directive 08-22). The watcher drained/held "
+                            "all other cycles; you run ALONE until you "
+                            "exit. Your task is the meta-analysis brief "
+                            "appended at the END of this prompt — NOT "
+                            "the normal cycle steps above (those are "
+                            "context for how the system works).\n"),
+                        label_override=META_LABEL,
+                        extra_prompt="\n\n" + META_PROMPT_PATH.read_text()))
+                    log("meta-analysis session spawned")
+                sleep_poll()
+                continue
+            if meta_active:
+                log("meta-analysis running — holding all other spawns")
+                sleep_poll()
+                continue
 
             # Operator kick (ops.sh cycle): spawn one focused session on
             # demand. Allowed past the concurrency cap into the kick
@@ -1179,6 +1312,13 @@ def main() -> None:
                 idle_kick_streak = 0
                 if findings:
                     log("checkup findings pending — injecting into next cycle")
+                if newly and not ready and not findings:
+                    # Every new finish is still waiting on its prestage
+                    # sentinel — nothing to spawn yet, don't fabricate
+                    # an empty cycle. (Idle kicks reach the fan-out via
+                    # the branch above, where newly is empty.)
+                    sleep_poll()
+                    continue
 
             if len(active) >= MAX_CONCURRENT_CYCLES:
                 log(
@@ -1210,9 +1350,9 @@ def main() -> None:
             # ~3 runs instead of a single agent serially triaging a 10-run
             # batch while other slots idle. Leftover runs stay unprocessed
             # and unclaimed, so the next poll spawns further cycles for
-            # them. Auto-continue/prestage fire only for runs actually
-            # assigned to a cycle this iteration (idempotence not assumed).
-            queue = sorted(newly)
+            # them. Prestage + auto-continue already fired at detection
+            # time (08-22); only sentinel-ready runs are fanned out.
+            queue = sorted(ready)
             batches = ([set(queue[i:i + 3])
                         for i in range(0, len(queue), 3)]
                        or [set()])  # findings / idle kick: one cycle
@@ -1222,15 +1362,9 @@ def main() -> None:
                     log("daily cycle cap reached mid-fan-out; deferring rest")
                     break
                 cycle_times.append(now)
-                # Keep pods busy first, deliberate second: fire mechanical
-                # continuations for improving lineage runs before the cycle
-                # even starts (directive 0-a).
-                auto_started = {}
-                for r in sorted(batch):
-                    cont = try_auto_continue(r)
-                    if cont:
-                        auto_started[r] = cont
-                    prestage_finished(r)
+                auto_started = {r: auto_started_all.pop(r)
+                                for r in sorted(batch)
+                                if r in auto_started_all}
                 handle = spawn_cycle(batch, running,
                                      findings if i == 0 else "",
                                      in_flight, auto_started)

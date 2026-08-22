@@ -460,6 +460,29 @@ print(f"notes updated: {r.url}")
 EOF
   ;;
 
+verdict)  # verdict <run> <status> "<verdict text>" ["logline text"] —
+  # ONE-SHOT verdict fan-out (operator 08-22: recording one verdict by
+  # hand averaged ~17 separate bookkeeping commands per cycle). Does,
+  # in order: ledger update (status + verdict), W&B OUTCOME note (same
+  # text), RL_LOG logline (arg 4, or auto-composed
+  # "[track] run -> status: text…"). Track STATUS.md / CURRENT_TRUTHS
+  # edits stay manual — those are judgment, not bookkeeping.
+  run="${2:-}"; st="${3:-}"; text="${4:-}"; line="${5:-}"
+  [ -n "$run" ] && [ -n "$st" ] && [ -n "$text" ] || {
+    echo "usage: ops.sh verdict <run> <status> \"<verdict>\" [\"logline\"]"
+    exit 1
+  }
+  python3 "$HERE/launch_run.py" update --run "$run" \
+    --set "status=$st" --set "verdict=$text" || exit 1
+  bash "$0" wandbnote "$run" "$text" \
+    || echo "(wandbnote failed — ledger verdict is recorded; continue)"
+  if [ -z "$line" ]; then
+    tr="$(entry_field "$run" track)"; tr="${tr:-joystick}"
+    line="[$tr] $run -> $st: $(printf '%s' "$text" | tr '\n' ' ' | head -c 220)"
+  fi
+  bash "$0" logline "$line"
+  ;;
+
 triage)  # triage — "is anything being lost/ignored?" in one table:
   # every W&B run from the last N hours (default 6) vs ledger verdict,
   # W&B OUTCOME note, and watcher processed-state. Built 08-09 after

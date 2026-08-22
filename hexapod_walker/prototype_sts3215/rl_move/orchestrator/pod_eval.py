@@ -33,6 +33,7 @@ wandb.env).
 """
 from __future__ import annotations
 
+import datetime
 import json
 import os
 import pathlib
@@ -80,6 +81,22 @@ SESSION_TIMEOUT_S = 900
 # candidates are EXPECTED to fail it until the fine-tune stage closes
 # the fixed-heading -> randomized-session gap.
 JOYGATE_TIMEOUT_S = 3600
+
+
+def core_synced(run: str) -> None:
+    """Sentinel: the CORE prestage evals (gate + own-DR) are settled —
+    synced, skipped, or impossible. The watcher defers a finished run's
+    triage cycle until this file exists (operator 08-22: cycles spent
+    ~5 min/run sleep-polling for eval artifacts, and verdicts written
+    off half-synced reports caused the longrun17 premature-verdict
+    race). Written BEFORE the informational session/joygate passes,
+    which a verdict never waits on."""
+    p = PROTO / "logs/ckpt_eval" / (run.replace("-", "_") + "_prestage.synced")
+    try:
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(datetime.datetime.now().isoformat(timespec="seconds"))
+    except OSError as exc:
+        print(f"prestage sentinel write failed: {exc!r}")
 
 
 def kexec(pod: str, cmd: str, timeout: int = 60) -> subprocess.CompletedProcess:
@@ -165,6 +182,7 @@ def main() -> int:
     entry = entry or fallback
     if entry is None:
         print(f"no ledger entry with extra_args for {run}")
+        core_synced(run)  # nothing to wait for; don't stall the cycle
         return 1
     pod = entry["pod"]
     args = list(entry["extra_args"])
@@ -210,6 +228,7 @@ def main() -> int:
     ckpt = find_checkpoint(pod, run, task)
     if ckpt is None:
         print(f"no checkpoint for {run} on {pod} — nothing to eval")
+        core_synced(run)  # nothing to wait for; don't stall the cycle
         return 1
 
     run_us = run.replace("-", "_")
@@ -320,6 +339,10 @@ def main() -> int:
         fh.close()
         print(f"{tag}: rc={rc}{note} artifacts -> {out_rel}")
         worst = max(worst, abs(rc))
+
+    # Core passes settled (synced or skipped): the verdict cycle may
+    # spawn now. Session + joygate below are informational riders.
+    core_synced(run)
 
     if session:
         side, partner_name, out_rel, logpath, p, fh = session

@@ -96,6 +96,24 @@ another cycle's are off-limits. Coordination is mechanical (launcher
 lock, ledger lock, snapshot git lock); a REFUSED from the launcher is
 normal traffic, not an error to fight.
 
+## Exact commands — never rediscover these
+
+Work from `hexapod_walker/prototype_sts3215/`. The helper script is
+`rl_move/orchestrator/ops.sh` — THIS path, always; never `./ops.sh`,
+never `find` for it. If you compose a new slow/tricky command, add it
+TO ops.sh instead of hand-rolling it next time.
+
+- Triage: `ops.sh review <run>` (one-shot read), `ops.sh report
+  <run|report.json>` (standard table), `ops.sh verdict` (step 2).
+- W&B: the prestage already cached `logs/experiments/<run>/`
+  `wandb_summary.json` + `wandb_history.csv` (every key, every step) —
+  read those files. Do NOT write `wandb.Api()` history queries (one
+  cycle burned five turns fumbling key names; the keys look like
+  `eval/dr0/walk_det/*`).
+- Video: eval artifact dirs already hold contact sheets + mp4s; for
+  any other video, `ops.sh frames <video.mp4> [n]` — never hand-write
+  ffmpeg filter chains.
+
 **Shutdown protocol:** between runs — after recording each verdict,
 before the next run's triage — check
 `test -f rl_move/orchestrator/WRAPUP`. If it exists: record everything
@@ -138,13 +156,13 @@ docs — read what the current decision needs, then act.
    training run only on behavioral impossibility WITH flat reward, or
    numerical blowup.
 
-2. **Record it (minutes, not essays).**
-   - `launch_run.py update --run <name> --set status=... verdict="1-2
-     lines" hardware_ready=...` (never hand-edit experiments.json).
-   - `ops.sh wandbnote <run> "<paragraph>"` — OUTCOME paragraph at the
-     top: result in plain words -> evidence -> why -> what's next.
-   - RL_LOG.md gets 1 line per cycle via
-     `ops.sh logline "[<track>] c<N>: <runs->verdicts>; <direction>"`.
+2. **Record it (ONE command, minutes, not essays).**
+   - `rl_move/orchestrator/ops.sh verdict <run> <status> "<verdict
+     text>" ["logline"]` — one shot fans out the ledger update, the
+     W&B OUTCOME note, and the RL_LOG line. Verdict text: result in
+     plain words -> evidence -> why -> what's next. Never hand-edit
+     experiments.json; extra fields (`hardware_ready=...`) go through
+     `launch_run.py update --set`.
    - A PASS updates `rl_docs/SKILLS.md` (one row) in the same cycle; a
      verdict that changes a track's story refreshes that track's
      STATUS.md and, if campaign-level, `STATUS.md`.
