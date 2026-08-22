@@ -6,32 +6,25 @@ wins. Run-level evidence lives in `rl_docs/runs/`, `RL_LOG.md`, and W&B.
 
 ## WAITING-ON
 
-- [operator] Fast-gait fork (since 08-21 ~23:5x UTC, still open): a
-  4th lever is now refuted. `cw-dep-bcgait3-speedbc1-cont1` (the
-  operator's +4M "just keep training" order, fb 20260822T000318Z)
-  FINISHED and FAILED worse than its parent: rollout reward "recovery"
-  was purely episodes getting shorter (per-tick reward stayed
-  net-negative); our own pinned-speed panel on the final checkpoint
-  shows 48/48 episodes falling (parent was 34/48), a new sacrificed-leg
-  pathology, and direction/speed obedience unimproved. A 5th lever —
-  the operator's 08-22 gait-phase/direction-first order
-  (fb_20260822T000627 + focus note) — was executed same-night as
-  `cw-dep-bcgait4-phasedir1` and ALSO FAILED as an RL lever: 2M PPO on
-  a phase-conditioned clone drifted back to the overspeed-forward
-  attractor and lost rear headings (matched clone control: dir_err med
-  35.6->67.3, speed 0.068->0.139, slip/m 1.81->4.17) — though the
-  phase input kept ZERO falls (unlike every prior fast-RL arm). BIG
-  POSITIVE: the phase-conditioned BC CLONE ITSELF
+- [operator] Fast-gait fork (open; updated 08-22 ~01:0x UTC): FIVE RL
+  levers now refuted. 4th: `cw-dep-bcgait3-speedbc1-cont1` (+4M order,
+  fb 20260822T000318Z) FAILED WORSE than its parent — the reward
+  "recovery" was shrinking episodes (48/48 falls vs 34/48, new
+  sacrificed-leg pathology, no obedience gain). 5th: the 08-22
+  gait-phase/direction-first order (fb_20260822T000627) executed as
+  `cw-dep-bcgait4-phasedir1` — 2M PPO on a phase-conditioned clone
+  drifted back to the overspeed-forward attractor and lost rear
+  headings (matched clone control: dir_err med 35.6->67.3, speed
+  0.068->0.139, slip/m 1.81->4.17), though the phase input kept ZERO
+  falls (first fast-RL arm that didn't collapse). BIG POSITIVE: the
+  phase-conditioned BC CLONE ITSELF
   (`ppo_goal_cw_bcgait_init_fullprof_phase1`, committed) passes the
-  operator's ENTIRE direction-first curriculum with ZERO RL at the new
-  measured plant: all fixed headings incl. rear (prog 0.65-0.76,
-  slip/m 1.6-2.0, zero falls) AND irregular heading changes + stops
-  (prog 0.70-0.78, zero falls) at fixed 0.08 cmd (SKILLS row).
-  Refuted RL levers: faster cadence, k_walk_cmd_track,
-  speed-obs+charges, more training steps, phase-obs+fixed-speed.
-  Operator decision: adopt the BC clone as the fast-gait candidate
-  (next rungs: DR hardening panel, board-side command-gated phase
-  clock in the runner), order a different RL pricing, or park.
+  ENTIRE direction-first curriculum with ZERO RL at the measured
+  plant: all fixed headings incl. rear (prog 0.65-0.76, slip/m
+  1.6-2.0, zero falls) AND irregular heading changes + stops (prog
+  0.70-0.78, zero falls) at fixed 0.08 cmd (SKILLS row). Decision:
+  adopt the zero-RL clone as the candidate (next: DR panel +
+  board-side command-gated phase clock CODE), new RL pricing, or park.
 - [operator, bench-parked] Calibrated plant values (updated 08-22):
   the operator's measured-tibia commit (a4beb8af, tibia 128->150 mm)
   is now IN the sim plant/gait IK — walk stance stands ~169 mm (was
@@ -101,34 +94,21 @@ hardware.
 
 ## Live Work
 
-Nothing training. `cw-dep-bcgait3-speedbc1` (08-21 speed-conditioned-BC
-fast-gait lever) and its operator-ordered +4M continuation `-cont1`
-both FINISHED and FAILED; `-cont1` FAILED WORSE (48/48 falls vs
-parent's 34/48, new sacrificed-leg pathology, no obedience gain — the
-reward "recovery" was the predicted episode-length artifact, not real
-behavior). The operator's 08-22 gait-phase/direction-first order was
-executed the same night (`cw-dep-bcgait4-phasedir1`, teacher grid +
-phase clone + clone preflight + 2M RL + matched-control gate all in
-one cycle): the RL arm FAILED (overspeed attractor returns, rear
-headings lost — but zero falls, the phase input works as an
-anti-collapse anchor), while the phase-conditioned BC clone PASSED
-the full direction-first curriculum with zero RL (see WAITING-ON +
-SKILLS). Five fast-gait RL levers now refuted (cadence, tracking
-price, speed-obs+charges, more steps, phase-obs+fixed-speed); fork is
-operator-gated with a concrete zero-RL candidate on the table. Fast
-walking itself still exists (`fastbc1`: zero falls, straight, 2x
-overspeed); the deployed answer is untouched. The operator's 08-21 from-scratch ANTI-SLIP
-walking experiment (order 20260821T133626Z) ran and FAILED honestly:
-`cw-nobc-slipwalk1-r1` (no BC anchor, one fixed forward command, no speed
-target, hard structural loaded-slip charge, anti-park travel floor) froze
-— 0.001 m of travel per 15 s episode, 0.34 m of foot scuffing, four legs
-unused, zero falls only because nothing moved. Importantly the reward was
-NOT the culprit: the new SLIPWALK MDP_PREFLIGHT bank (green before launch)
-prices real walking 300-2000 points above marching, parking and skating
-under that exact stack, so this is an exploration failure from a blank
-init. Sub-line stopped per the operator's own instruction; the new
-default-off reward pieces stay in the repo. Details:
-`rl_docs/tracks/nobc/STATUS.md`. DOWNLOAD_ANSWER unchanged.
+Nothing training. The whole 08-21/22 fast-gait chain is verdicted:
+`speedbc1` FAILED, its +4M continuation `-cont1` FAILED WORSE (reward
+"recovery" = shrinking episodes), and the operator's 08-22
+phase/direction order was executed end-to-end in one cycle
+(`cw-dep-bcgait4-phasedir1`: teacher grid + phase clone + 2M RL +
+matched-control gate) — RL FAILED again, but the zero-RL phase clone
+PASSED the full direction-first curriculum (see WAITING-ON + SKILLS).
+Fork operator-gated with a concrete zero-RL candidate. Fast walking
+itself still exists (`fastbc1`: zero falls, straight, 2x overspeed);
+the deployed answer is untouched. The 08-21 from-scratch ANTI-SLIP
+experiment (`cw-nobc-slipwalk1-r1`, order 20260821T133626Z) FAILED
+honestly: froze at 0.001 m travel despite a preflight-proven-correct
+reward — an exploration failure from a blank init, sub-line stopped
+per the operator's instruction (`rl_docs/tracks/nobc/STATUS.md`).
+DOWNLOAD_ANSWER unchanged.
 
 ## Current Findings
 
