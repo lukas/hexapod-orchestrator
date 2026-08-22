@@ -3,9 +3,13 @@
 
 Serves one auto-refreshing HTML page answering "what is the agent doing
 RIGHT NOW" without kubectl spelunking: watcher on/paused/off, in-flight
-decision cycles (and what they're triaging), per-pod fleet census,
-backlog queue, every launched run from the ledger, Claude token usage
-(summed from ~/.claude transcripts), and recent watcher log lines.
+decision cycles with their LIVE streamed narration, pending kicks,
+per-pod fleet census, backlog queue, every launched run from the
+ledger, Claude token usage (summed from ~/.claude transcripts), and
+recent watcher log lines. Drill-downs (token-gated like the dashboard):
+/cycle/<stamp> = one cycle's full narration + exact prompt + raw event
+stream (auto-refreshes while the cycle runs); /run/<name> = a run's
+complete ledger history, the cycles that worked on it, its story doc.
 
 Run on the controller pod (tmux session `statusweb`):
     python3 rl_move/orchestrator/status_server.py          # port 8090
@@ -174,21 +178,25 @@ def watcher_state() -> dict:
             "restart_last": restart[0] if pause and restart else ""}
 
 
-def _cycle_registry_status() -> dict[str, str]:
-    """log filename -> status from watch_loop's cycle registry
-    (running/done/failed/timeout); {} when the registry is absent."""
+def _cycle_registry_entries() -> list[dict]:
+    """watch_loop's cycle registry (cycles.json): one dict per spawned
+    cycle with label/model/pid/log paths/status; [] when absent."""
     try:
         entries = json.loads((CYCLE_DIR / "cycles.json").read_text())
-        return {pathlib.Path(e.get("log", "")).name: e.get("status", "")
-                for e in entries if isinstance(e, dict) and e.get("log")}
+        return [e for e in entries if isinstance(e, dict)]
     except Exception:
-        return {}
+        return []
 
 
-def recent_cycle_logs(n: int = 8) -> list[dict]:
+def _registry_by_log() -> dict[str, dict]:
+    return {pathlib.Path(e.get("log", "")).name: e
+            for e in _cycle_registry_entries() if e.get("log")}
+
+
+def recent_cycle_logs(n: int = 10) -> list[dict]:
     logs = sorted(CYCLE_DIR.glob("cycle_*.log"),
                   key=lambda p: p.stat().st_mtime, reverse=True)[:n]
-    reg = _cycle_registry_status()
+    reg = _registry_by_log()
     out = []
     for p in logs:
         st = p.stat()
@@ -198,7 +206,8 @@ def recent_cycle_logs(n: int = 8) -> list[dict]:
         # is the done marker (registry status is the second witness).
         # Legacy pre-streaming logs wrote only at exit: content but
         # no marker and no registry row = done.
-        rstat = reg.get(p.name, "")
+        e = reg.get(p.name, {})
+        rstat = e.get("status", "")
         try:
             with p.open("rb") as fh:
                 streaming_fmt = b"=== CYCLE START" in fh.read(400)
@@ -211,13 +220,48 @@ def recent_cycle_logs(n: int = 8) -> list[dict]:
             state = "running"
         else:
             state = "done"
+        parts = p.stem.split("_", 2)
         out.append({
-            "label": p.stem.split("_", 2)[-1],
+            "stamp": parts[1] if len(parts) > 2 else p.stem,
+            "label": parts[-1],
             "when": datetime.datetime.fromtimestamp(st.st_mtime)
                     .strftime("%H:%M"),
             "state": state,
+            "model": (e.get("model") or "").replace("claude-", ""),
+            "dur_s": e.get("duration_s"),
+            "trigger": e.get("trigger", ""),
+            "started": e.get("started", ""),
+            "pid": e.get("pid"),
             "tail": tail[-3:],
+            # bigger live window for the dashboard's in-flight section
+            "live_tail": [t for t in read_tail(p, 12) if t.strip()]
+                         if state == "running" else [],
         })
+    return out
+
+
+# Pending kick files: the operator KICK focus note (HERE/KICK, consumed
+# by the watcher within ~2 s of its next wake) and the advisory MCP
+# kick queue. Mirrors watch_loop.KICK / mcp_server.KICK_DIR.
+KICK_FILE = HERE / "KICK"
+MCP_KICK_DIR = pathlib.Path(
+    os.environ.get("MCP_KICK_DIR")
+    or ("/workspace/llm_kicks" if pathlib.Path("/workspace").is_dir()
+        else PROTO / "logs" / "llm_kicks"))
+
+
+def pending_kicks() -> dict:
+    out = {"operator": "", "advisory": []}
+    try:
+        if KICK_FILE.exists():
+            out["operator"] = KICK_FILE.read_text(errors="replace")[:800]
+    except OSError:
+        pass
+    try:
+        out["advisory"] = sorted(
+            p.name for p in MCP_KICK_DIR.glob("kick_*.json"))
+    except OSError:
+        pass
     return out
 
 
@@ -457,6 +501,7 @@ def fast_worker() -> None:
                 "ledger": rows, "counts": counts,
                 "backlog": backlog_state(),
                 "cycle_budget": cycle_budget(),
+                "kicks": pending_kicks(),
                 "feedback": _mcp._feedback_entries()[:15],
                 "orch_tail": read_tail(ORCH_LOG, 14),
                 "rl_log_tail": read_tail(PROTO / "RL_LOG.md", 8),
@@ -557,7 +602,15 @@ padding:10px 14px}.card .n{font-size:22px;font-weight:700}
 .cpy{background:#21262d;color:#c9d1d9;border:1px solid #30363d;
 border-radius:6px;padding:2px 10px;font-size:12px;cursor:pointer}
 .cpy:hover{background:#30363d}
+a{color:#58a6ff;text-decoration:none}a:hover{text-decoration:underline}
+.tailpre{max-height:230px;overflow:auto;margin:4px 0 14px}
+.cychead{margin:14px 0 2px;font-size:13.5px}
 """
+
+
+def run_link(name) -> str:
+    """Run name -> drill-down link (ledger history, story, cycles)."""
+    return f"<a href='/run/{esc(name)}'>{esc(name)}</a>"
 
 
 def esc(s) -> str:
@@ -723,6 +776,14 @@ def render(base: str = "") -> str:
     ]:
         h.append(f"<div class='card'><div class='n'>{n}</div>"
                  f"<div class='l'>{l}</div></div>")
+    kicks = f.get("kicks", {"operator": "", "advisory": []})
+    n_kicks = ((1 if kicks.get("operator") else 0)
+               + len(kicks.get("advisory", [])))
+    if n_kicks:
+        h.append(f"<div class='card' style='border-color:#9e6a03'>"
+                 f"<div class='n'>{n_kicks}</div>"
+                 f"<div class='l'>kick(s) filed, waiting for a cycle"
+                 f"</div></div>")
     if cb.get("cap"):
         # amber when the rolling-24h budget is nearly spent — the watcher
         # idles an hour at a time once it hits the cap
@@ -776,7 +837,7 @@ def render(base: str = "") -> str:
                    "FAILED": "bad"}.get(st, "warn")
             h.append(f"<tr><td class='mono dim' style='white-space:nowrap'>"
                      f"{esc(when)}</td>"
-                     f"<td class='mono'>{esc(e.get('run'))}</td>"
+                     f"<td class='mono'>{run_link(e.get('run'))}</td>"
                      f"<td class='dim'>{esc(track_of_entry(e))}</td>"
                      f"<td class='dim'>{esc(e.get('phase', ''))}</td>"
                      f"<td class='{cls}'>{esc(st)}</td>"
@@ -827,7 +888,7 @@ def render(base: str = "") -> str:
         for p in pipeline:
             cls = ("ok" if p["state"].startswith(("in-cycle", "EVALUATING"))
                    else "warn")
-            h.append(f"<tr class='mono'><td>{esc(p['run'])}</td>"
+            h.append(f"<tr class='mono'><td>{run_link(p['run'])}</td>"
                      f"<td class='dim'>{esc(p.get('track', ''))}</td>"
                      f"<td class='{cls}'>{esc(p['state'])}</td></tr>")
         h.append("</table>")
@@ -835,16 +896,56 @@ def render(base: str = "") -> str:
         h.append("<div class='dim'>empty — every finished run has a "
                  "verdict</div>")
 
-    h.append("<h2>What it's thinking about (in-flight decision cycles)</h2>")
-    h.append("<div class='dim'>Each row is one live AI analysis session "
-             "(a “cycle”). It is assigned a few finished training runs, "
-             "reviews each one's eval numbers and videos, and writes a "
-             "pass/fail verdict to the ledger. “Doing now” is its current "
-             "step; the grey line is the actual command running.</div>")
-    if f.get("cycles"):
+    h.append("<h2>What it's thinking about (in-flight decision cycles, "
+             "live)</h2>")
+    h.append("<div class='dim'>Each block is one live AI session (a "
+             "“cycle”) streaming its narration — every thought and tool "
+             "call — as it works. The excerpt below is its newest output; "
+             "click the cycle name for the full log, its exact prompt, "
+             "and the raw event stream.</div>")
+    if n_kicks:
+        h.append("<div class='card' style='border-color:#9e6a03;"
+                 "margin-top:8px'><b class='warn'>kick(s) waiting for a "
+                 "cycle:</b>")
+        if kicks.get("operator"):
+            h.append(f"<pre style='margin:6px 0 0'>operator KICK:\n"
+                     f"{esc(kicks['operator'])}</pre>")
+        if kicks.get("advisory"):
+            h.append(f"<div class='dim mono'>advisory queue: "
+                     f"{esc(', '.join(kicks['advisory'][:8]))}</div>")
+        h.append("</div>")
+    running_rows = [c for c in f.get("cycle_logs", [])
+                    if c["state"] == "running"]
+    proc_by_pid = {c["pid"]: c for c in f.get("cycles", [])}
+    now_dt = datetime.datetime.now()
+    for c in running_rows:
+        age = ""
+        try:
+            mins = int((now_dt - datetime.datetime.fromisoformat(
+                c.get("started", ""))).total_seconds() // 60)
+            age = f" · running {mins} min"
+        except ValueError:
+            pass
+        pr = proc_by_pid.get(c.get("pid"), {})
+        doing = (f" · <b>{esc(pr['doing'])}</b>"
+                 if pr.get("doing") else "")
+        h.append(f"<div class='cychead mono'>"
+                 f"<a href='/cycle/{esc(c['stamp'])}'>{esc(c['label'])}"
+                 f"</a> <span class='dim'>· {esc(c.get('model') or '?')}"
+                 f"{age}</span>{doing}</div>")
+        if c.get("trigger"):
+            h.append(f"<div class='dim' style='font-size:12px'>trigger: "
+                     f"{esc(c['trigger'][:200])}</div>")
+        h.append(f"<pre class='tailpre'>"
+                 f"{esc(chr(10).join(c.get('live_tail', [])))}</pre>")
+    # cycle processes with no registry row (pre-registry watcher, or a
+    # cycle spawned outside the watcher): keep the old /proc-scan view.
+    reg_pids = {c.get("pid") for c in running_rows}
+    extra = [c for c in f.get("cycles", []) if c["pid"] not in reg_pids]
+    if extra:
         h.append("<table><tr><th>pid</th><th>age</th>"
                  "<th>runs it's analyzing</th><th>doing now</th></tr>")
-        for c in f["cycles"]:
+        for c in extra:
             cmd = (f"<br><span class='dim mono'>{esc(c['cmd'])}</span>"
                    if c.get("cmd") else "")
             h.append(f"<tr><td class='mono'>{c['pid']}</td>"
@@ -852,23 +953,29 @@ def render(base: str = "") -> str:
                      f"<td class='mono'>{esc(c['about'])}</td>"
                      f"<td><b>{esc(c.get('doing', ''))}</b>{cmd}</td></tr>")
         h.append("</table>")
-    else:
+    if not running_rows and not extra:
         h.append("<div class='dim'>none — watcher is between cycles</div>")
 
     h.append("<h2>Recent cycles</h2>")
     h.append("<div class='dim'>Cycles stream their narration live "
              "(every thought/tool call); a running row's “last output” "
-             "is what it is doing right now. Full logs: "
+             "is what it is doing right now. Click a cycle for its full "
+             "narration, prompt, and raw event stream (also: "
              "<span class='mono'>ops.sh cyclelog</span> / the MCP "
-             "<span class='mono'>cycle_log</span> tool.</div>")
-    h.append("<table><tr><th>time</th><th>state</th>"
-             "<th>runs</th><th>last output</th></tr>")
+             "<span class='mono'>cycle_log</span> tool).</div>")
+    h.append("<table><tr><th>time</th><th>state</th><th>model</th>"
+             "<th>took</th><th>cycle</th><th>last output</th></tr>")
     for c in f.get("cycle_logs", []):
         cls = ("warn" if c["state"] == "running"
                else "bad" if c["state"] in ("failed", "timeout") else "ok")
         tail = esc(" / ".join(t.strip() for t in c["tail"] if t.strip())[-160:])
+        dur = (f"{int(c['dur_s']) // 60}m" if c.get("dur_s")
+               else "…" if c["state"] == "running" else "")
         h.append(f"<tr><td>{c['when']}</td><td class='{cls}'>{c['state']}"
-                 f"</td><td class='mono'>{esc(c['label'][:70])}</td>"
+                 f"</td><td class='dim'>{esc(c.get('model') or '')}</td>"
+                 f"<td class='dim'>{dur}</td>"
+                 f"<td class='mono'><a href='/cycle/{esc(c['stamp'])}'>"
+                 f"{esc(c['label'][:70])}</a></td>"
                  f"<td class='dim'>{tail}</td></tr>")
     h.append("</table>")
 
@@ -909,7 +1016,8 @@ def render(base: str = "") -> str:
     for c in cen:
         if c.get("runs"):
             h.append(f"<tr class='mono'><td>{c['pod']}</td>"
-                     f"<td class='ok'>{esc(', '.join(c['runs']))}</td></tr>")
+                     f"<td class='ok'>"
+                     f"{', '.join(run_link(r) for r in c['runs'])}</td></tr>")
         elif c.get("runs") == []:
             h.append(f"<tr class='mono'><td>{c['pod']}</td>"
                      f"<td class='warn'>idle</td></tr>")
@@ -985,7 +1093,7 @@ def render(base: str = "") -> str:
             st = ("EVALUATING" if e["run"] in cyc_runs
                   else "TRAINED, EVAL PENDING")
             cls = "warn"
-        h.append(f"<tr class='mono'><td>{esc(e.get('run'))}</td>"
+        h.append(f"<tr class='mono'><td>{run_link(e.get('run'))}</td>"
                  f"<td class='dim'>{esc(track_of_entry(e))}</td>"
                  f"<td class='{cls}'>{esc(st)}</td>"
                  f"<td>{esc(e.get('pod', ''))}</td>"
@@ -1034,6 +1142,198 @@ def render(base: str = "") -> str:
 
     h.append("</body></html>")
     return "".join(h)
+
+
+# ---------------------------------------------------- drill-down pages
+# /cycle/<stamp-or-label> — one cycle's full streamed narration, exact
+# prompt, and raw event stream. /run/<name> — a run's complete ledger
+# history, related cycles, and its story doc. Both are token-gated like
+# the dashboard (operator 08-22: "more visibility + dig in").
+_SAFE_PART = re.compile(r"^[A-Za-z0-9._-]{2,120}$")
+
+
+def _page(title: str, body: list[str], refresh: int = 0,
+          scroll_end: bool = False) -> str:
+    meta = (f"<meta http-equiv='refresh' content='{refresh}'>"
+            if refresh else "")
+    tail = ("<script>window.scrollTo(0,document.body.scrollHeight);"
+            "</script>" if scroll_end else "")
+    return (f"<html><head><meta charset='utf-8'>{meta}"
+            f"<title>{esc(title)}</title><style>{CSS}</style></head>"
+            f"<body><div class='dim' style='margin-bottom:8px'>"
+            f"<a href='/'>&larr; dashboard</a></div>"
+            + "".join(body) + f"{tail}</body></html>")
+
+
+def _file_text(fp: pathlib.Path, cap: int | None) -> tuple[str, str]:
+    """(text, note). Reads the whole file, or the newest `cap` bytes
+    with a truncation note — narration logs are append-only so the
+    tail is the interesting end."""
+    try:
+        size = fp.stat().st_size
+    except OSError:
+        return "", f"({fp.name} not found)"
+    if cap is None or size <= cap:
+        return fp.read_text(errors="replace"), ""
+    with fp.open("rb") as fh:
+        fh.seek(size - cap)
+        text = fh.read().decode(errors="replace")
+    text = text.split("\n", 1)[-1]
+    return text, (f"(showing the newest {cap // 1000} kB of "
+                  f"{size // 1000} kB — append ?full=1 for everything)")
+
+
+def render_cycle_page(needle: str, part: str = "log",
+                      full: bool = False) -> str | None:
+    if not _SAFE_PART.match(needle):
+        return None
+    logs = sorted(CYCLE_DIR.glob("cycle_*.log"),
+                  key=lambda p: p.stat().st_mtime, reverse=True)
+    p = next((x for x in logs if needle in x.name), None)
+    if p is None:
+        return None
+    e = _registry_by_log().get(p.name, {})
+    status = e.get("status", "")
+    if not status:
+        t = [x for x in read_tail(p, 4) if x.strip()]
+        status = ("done" if any(x.startswith("=== CYCLE END") for x in t)
+                  else "?")
+    running = status == "running"
+    parts = p.stem.split("_", 2)
+    stamp, label = (parts[1], parts[2]) if len(parts) > 2 \
+        else (p.stem, p.stem)
+    prompt_p = p.with_name(p.stem + ".prompt.md")
+    raw_p = p.with_name(p.stem + ".jsonl")
+
+    if part == "prompt":
+        fp, cap = prompt_p, 300_000
+    elif part == "raw":
+        fp, cap = raw_p, (None if full else 300_000)
+    else:
+        part, fp, cap = "log", p, (None if full else 400_000)
+    text, note = _file_text(fp, cap)
+
+    cls = ("warn" if running
+           else "bad" if status in ("failed", "timeout") else "ok")
+    dur = e.get("duration_s")
+    took = f"{int(dur) // 60}m{int(dur) % 60:02d}s" if dur else ""
+    rc = e.get("rc")
+    body = [f"<h1 class='mono' style='font-size:17px'>cycle {esc(label)} "
+            f"<span class='{cls}'>[{esc(status)}"
+            f"{'' if rc in (None, 0) else f' rc={rc}'}]</span></h1>"]
+    meta_bits = [b for b in (
+        e.get("model", ""), f"started {e.get('started', '?')}",
+        f"took {took}" if took else "", f"pid {e.get('pid')}"
+        if running and e.get("pid") else "") if b]
+    body.append(f"<div class='dim'>{esc(' · '.join(meta_bits))}</div>")
+    if e.get("runs"):
+        body.append("<div class='dim'>runs: "
+                    + ", ".join(run_link(r) for r in e["runs"]) + "</div>")
+    if e.get("trigger"):
+        body.append(f"<div class='dim'>trigger: "
+                    f"{esc(e['trigger'][:300])}</div>")
+    nav = []
+    for pid, plabel in (("log", "narration"), ("prompt", "exact prompt"),
+                        ("raw", "raw events")):
+        cur = " style='font-weight:700;color:#c9d1d9'" if pid == part else ""
+        nav.append(f"<a href='/cycle/{esc(stamp)}?part={pid}'{cur}>"
+                   f"{plabel}</a>")
+    body.append("<div style='margin:8px 0'>" + " · ".join(nav)
+                + (" <span class='dim'>· live, auto-refreshes every 15 s"
+                   "</span>" if running and part == "log" else "")
+                + "</div>")
+    if note:
+        body.append(f"<div class='warn'>{esc(note)}</div>")
+    body.append(f"<pre>{esc(text)}</pre>")
+    if running and part == "log":
+        body.append("<div class='dim'>… cycle still running — newest "
+                    "output is above this line.</div>")
+    return _page(f"cycle {label}", body,
+                 refresh=15 if running and part == "log" else 0,
+                 scroll_end=part == "log")
+
+
+def render_run_page(run: str) -> str | None:
+    if not _SAFE_PART.match(run):
+        return None
+    try:
+        entries = json.loads((HERE / "experiments.json").read_text())
+    except Exception:
+        entries = []
+    rows = [e for e in entries
+            if isinstance(e, dict) and e.get("run") == run]
+    story = PROTO / "rl_docs" / "runs" / f"{run}.md"
+    cyc = [e for e in _cycle_registry_entries()
+           if run in (e.get("runs") or []) or run in (e.get("label") or "")]
+    if not rows and not cyc and not story.is_file():
+        return None
+    latest = rows[-1] if rows else {}
+    st = latest.get("status", "?")
+    cls = {"RUNNING": "ok", "FINISHED": "dim", "FAILED": "bad"}.get(st, "warn")
+    body = [f"<h1 class='mono' style='font-size:17px'>{esc(run)} "
+            f"<span class='{cls}'>[{esc(st)}]</span></h1>"]
+    bits = [f"track {track_of_entry(latest)}" if rows else "",
+            f"pod {latest.get('pod')}" if latest.get("pod") else "",
+            f"{len(rows)} ledger entr{'y' if len(rows) == 1 else 'ies'}"]
+    wandb_id = next((r.get("wandb_id") for r in reversed(rows)
+                     if r.get("wandb_id")), "")
+    body.append(f"<div class='dim'>{esc(' · '.join(b for b in bits if b))}"
+                + (f" · <a href='https://wandb.ai/l2k2/hexapod-balance/"
+                   f"runs/{esc(wandb_id)}'>W&amp;B run</a>"
+                   if wandb_id else "") + "</div>")
+
+    body.append("<h2>Ledger history (newest first — each entry is one "
+                "launch attempt / status change)</h2>")
+    for e in reversed(rows):
+        head = " · ".join(str(x) for x in (
+            e.get("created", "?")[:16], e.get("status", "?"),
+            f"{e.get('steps'):,} steps" if e.get("steps") else "",
+            "smoke" if e.get("smoke") else "",
+            e.get("phase", "")) if x)
+        body.append(f"<div class='card' style='margin:8px 0'>"
+                    f"<div class='mono'>{esc(head)}</div>")
+        for key, name in (("hypothesis", "hypothesis"), ("gate", "gate"),
+                          ("verdict", "verdict"), ("triage", "triage"),
+                          ("stop_reason", "stop reason"),
+                          ("hardware_ready", "hardware ready")):
+            v = str(e.get(key) or "").strip()
+            if v:
+                body.append(f"<div style='margin-top:4px'><span class="
+                            f"'dim'>{name}:</span> {esc(v)}</div>")
+        if e.get("parent"):
+            body.append(f"<div class='dim' style='margin-top:4px'>parent: "
+                        f"{run_link(e['parent'])}</div>")
+        body.append(f"<details><summary class='dim'>full entry (JSON)"
+                    f"</summary><pre>"
+                    f"{esc(json.dumps(e, indent=1)[:20000])}</pre>"
+                    f"</details></div>")
+    if not rows:
+        body.append("<div class='dim'>not in the ledger</div>")
+
+    body.append("<h2>Cycles that worked on this run</h2>")
+    if cyc:
+        body.append("<table><tr><th>started</th><th>cycle</th>"
+                    "<th>model</th><th>status</th><th>took</th></tr>")
+        for e in reversed(cyc):
+            dur = e.get("duration_s")
+            body.append(
+                f"<tr><td class='dim mono'>{esc(e.get('started', '?'))}"
+                f"</td><td class='mono'><a href='/cycle/"
+                f"{esc(e.get('stamp', ''))}'>{esc(e.get('label', '?'))}"
+                f"</a></td><td class='dim'>{esc(e.get('model', ''))}</td>"
+                f"<td>{esc(e.get('status', '?'))}</td>"
+                f"<td class='dim'>{f'{int(dur) // 60}m' if dur else ''}"
+                f"</td></tr>")
+        body.append("</table>")
+    else:
+        body.append("<div class='dim'>none recorded in the cycle registry "
+                    "(it only tracks cycles since 08-22)</div>")
+
+    if story.is_file():
+        body.append(f"<h2>Run story (rl_docs/runs/{esc(run)}.md)</h2>"
+                    f"<pre>{esc(story.read_text(errors='replace')[:300000])}"
+                    f"</pre>")
+    return _page(run, body)
 
 
 # -------------------------------------------------------- git doc sync
@@ -1463,6 +1763,27 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 self.wfile.write(body)
                 return
             body, ctype = out
+        elif u.path.startswith(("/cycle/", "/run/")):
+            from urllib.parse import unquote
+            q = parse_qs(u.query)
+            if u.path.startswith("/cycle/"):
+                page = render_cycle_page(
+                    unquote(u.path[len("/cycle/"):]).strip("/"),
+                    q.get("part", ["log"])[0],
+                    q.get("full", ["0"])[0] == "1")
+            else:
+                page = render_run_page(
+                    unquote(u.path[len("/run/"):]).strip("/"))
+            if page is None:
+                body = b"404: no such cycle/run"
+                self.send_response(404)
+                self.send_header("Content-Type", "text/plain")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+                return
+            body = page.encode()
+            ctype = "text/html; charset=utf-8"
         elif self.path.startswith("/json"):
             body = json.dumps(SNAP, default=str).encode()
             ctype = "application/json"
