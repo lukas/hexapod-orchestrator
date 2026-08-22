@@ -197,11 +197,13 @@ def registry_update(stamp: str, **fields) -> None:
 # which left cycles stuck behind Cursor plan usage limits.
 #
 # Model tiering (operator cost order, 08-09 evening: ~$23/cycle on
-# fable was "really too expensive"): routine triage runs on Sonnet 5
-# (1/5 the $/tok); a triage cycle that hits a dig-in trigger emits
+# fable was "really too expensive"; 08-22: idle kicks moved to the
+# cheap tier too — three deep-model idle kicks were ~1/3 of a day's
+# spend): routine triage AND idle kicks run on Sonnet 5 (1/5 the
+# $/tok); a triage cycle that hits a dig-in trigger emits
 # "DIG-IN: <run> — <why>" and exits, and reap_cycles() re-spawns just
-# those runs on Fable. Findings/idle-kick cycles (planning-shaped)
-# stay on Fable.
+# those runs on Fable. Findings cycles and operator kicks stay on
+# Fable.
 AGENT_MODEL_TRIAGE = "claude-sonnet-5"
 AGENT_MODEL_DEEP = "claude-fable-5"
 
@@ -767,10 +769,14 @@ def spawn_cycle(newly_finished: set[str], still_running: set[str],
             f"{', '.join(e.get('id', '?') for _, e in fb)}")
     if extra_prompt:
         cycle_prompt += extra_prompt
-    # Triage runs on the cheap tier; findings/idle-kick (planning-shaped)
-    # and dig-in escalations run deep.
+    # Model tiering: run-finish triage AND idle kicks run on the cheap
+    # tier (operator 08-22: the three overnight idle-kick sessions were
+    # ~1/3 of the day's spend at $16-28 each on the deep model; an idle
+    # kick mostly drains queues, which the triage tier does fine — it
+    # can leave a dig-in note in the docs for a deep cycle). Findings
+    # cycles (infra judgment) and dig-in escalations stay deep.
     if model is None:
-        model = AGENT_MODEL_TRIAGE if newly_finished else AGENT_MODEL_DEEP
+        model = AGENT_MODEL_DEEP if findings else AGENT_MODEL_TRIAGE
     # Sync with main first so the agent sees the operator's latest plan/log
     # edits and its later push can't be rejected as non-fast-forward.
     # Serialized against snapshot.sh's commit/rebase/push (and
