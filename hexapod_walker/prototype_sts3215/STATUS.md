@@ -13,17 +13,36 @@ wins. Run-level evidence lives in `rl_docs/runs/`, `RL_LOG.md`, and W&B.
   was purely episodes getting shorter (per-tick reward stayed
   net-negative); our own pinned-speed panel on the final checkpoint
   shows 48/48 episodes falling (parent was 34/48), a new sacrificed-leg
-  pathology, and direction/speed obedience unimproved. Refuted levers:
-  faster cadence, k_walk_cmd_track, speed-obs+charges, more training
-  steps. No further respec without a new operator-chosen lever.
-- [operator, bench-parked] Calibrated plant values (since 08-21): the
-  08-21 calibration commits (f7691024..9f9f27c7) add bench sweep
-  tooling only; fitted geometry/calibration READINGS live on the robot
-  (`calibration_report_*.json`, `geometry_manual.json`) and the robot
-  is unreachable from the fleet. Sim teacher/eval plant remains the
-  repo-nominal 08-07 sysid model. If the operator wants sim on
-  calibrated geometry, the readings need to be pulled into the repo
-  (per MCP addendum fb_20260821T224209).
+  pathology, and direction/speed obedience unimproved. A 5th lever —
+  the operator's 08-22 gait-phase/direction-first order
+  (fb_20260822T000627 + focus note) — was executed same-night as
+  `cw-dep-bcgait4-phasedir1` and ALSO FAILED as an RL lever: 2M PPO on
+  a phase-conditioned clone drifted back to the overspeed-forward
+  attractor and lost rear headings (matched clone control: dir_err med
+  35.6->67.3, speed 0.068->0.139, slip/m 1.81->4.17) — though the
+  phase input kept ZERO falls (unlike every prior fast-RL arm). BIG
+  POSITIVE: the phase-conditioned BC CLONE ITSELF
+  (`ppo_goal_cw_bcgait_init_fullprof_phase1`, committed) passes the
+  operator's ENTIRE direction-first curriculum with ZERO RL at the new
+  measured plant: all fixed headings incl. rear (prog 0.65-0.76,
+  slip/m 1.6-2.0, zero falls) AND irregular heading changes + stops
+  (prog 0.70-0.78, zero falls) at fixed 0.08 cmd (SKILLS row).
+  Refuted RL levers: faster cadence, k_walk_cmd_track,
+  speed-obs+charges, more training steps, phase-obs+fixed-speed.
+  Operator decision: adopt the BC clone as the fast-gait candidate
+  (next rungs: DR hardening panel, board-side command-gated phase
+  clock in the runner), order a different RL pricing, or park.
+- [operator, bench-parked] Calibrated plant values (updated 08-22):
+  the operator's measured-tibia commit (a4beb8af, tibia 128->150 mm)
+  is now IN the sim plant/gait IK — walk stance stands ~169 mm (was
+  ~147). This cycle's teacher grid re-validated the scripted tripod
+  clean at the new plant (0.06-0.10 m/s x 4 headings, zero falls,
+  slip/m 1.4-2.9). NOTE: every pre-08-22 lineage incl. the download
+  answer trained on the OLD 128 mm plant — cross-plant comparisons
+  need matched controls, and re-gating the download hierarchy on the
+  measured plant is an open [operator] call. Remaining calibration
+  READINGS (`calibration_report_*.json`, `geometry_manual.json`) still
+  live only on the unreachable robot (fb_20260821T224209).
 - [operator] Recover mode flip handling (since 08-20 ~23:00 UTC): the
   recover champion is packaged + sim-gate-verified through the
   deployment runner (see below), but flip (full inversion) is out of
@@ -87,11 +106,18 @@ fast-gait lever) and its operator-ordered +4M continuation `-cont1`
 both FINISHED and FAILED; `-cont1` FAILED WORSE (48/48 falls vs
 parent's 34/48, new sacrificed-leg pathology, no obedience gain — the
 reward "recovery" was the predicted episode-length artifact, not real
-behavior). Four fast-gait speed-obedience levers are now refuted
-(cadence, tracking price, speed-obs+charges, more steps); fork is
-operator-gated (see WAITING-ON). Fast walking itself still exists
-(`fastbc1`: zero falls, straight, 2x overspeed); the deployed answer
-is untouched. The operator's 08-21 from-scratch ANTI-SLIP
+behavior). The operator's 08-22 gait-phase/direction-first order was
+executed the same night (`cw-dep-bcgait4-phasedir1`, teacher grid +
+phase clone + clone preflight + 2M RL + matched-control gate all in
+one cycle): the RL arm FAILED (overspeed attractor returns, rear
+headings lost — but zero falls, the phase input works as an
+anti-collapse anchor), while the phase-conditioned BC clone PASSED
+the full direction-first curriculum with zero RL (see WAITING-ON +
+SKILLS). Five fast-gait RL levers now refuted (cadence, tracking
+price, speed-obs+charges, more steps, phase-obs+fixed-speed); fork is
+operator-gated with a concrete zero-RL candidate on the table. Fast
+walking itself still exists (`fastbc1`: zero falls, straight, 2x
+overspeed); the deployed answer is untouched. The operator's 08-21 from-scratch ANTI-SLIP
 walking experiment (order 20260821T133626Z) ran and FAILED honestly:
 `cw-nobc-slipwalk1-r1` (no BC anchor, one fixed forward command, no speed
 target, hard structural loaded-slip charge, anti-park travel floor) froze
@@ -107,14 +133,7 @@ default-off reward pieces stay in the repo. Details:
 ## Current Findings
 
 - Product baseline is still the stance/walk hierarchy above.
-- Fast actuator profile was the speed ceiling; the operator's 4-way A/B (train-through vs ramp-in, mid vs full dose) closes the question: all 4 canaries FAIL identically. No trained dose/onset combo has produced a deployable fast, steerable, low-slip gait.
-- `steer6-fasttrack1` full dose: speed improved, direction tracking and slip failed.
-- `steer7-middose1` half dose: cleaner than parent under the same profile but still not monotone/in-band and slip remains high.
-- V5 fast anti-skate curriculum + `reward.k_loadslip_excess` are implemented and tested.
-- Raw raised-profile transplants failed at step-0 B0, so the profile dose itself destabilizes the parent before V5 can help.
-- Profile ramp-in FAILED at both tested doses (`fastramp1`, `midramp1`): step-0 B0 already fails at the ramp's fitted start profile, and by 1M at target dose both spin in place (~44-52 deg heading error) with slip well over budget, reproducing steer6-style skating.
-- Train-through FAILED at both tested doses (`fastthru1`, `midthru1`): periodic B0 certs show falls trending WORSE not toward zero, and by 1M both dose 0/6 det+sto walk success, TERM walk_low_height/fell, dir_err 35-78 deg, slip/m 2.1-11.0. Same collapse-into-leg-splay pattern as the ramp-in arms.
-- The dose itself is the problem FOR TRANSPLANTED/WARM-STARTED policies, not its abruptness or onset style. 08-20 order reopened the fork via BC-INIT: the ordered faster-cadence teacher knob was refuted by preflight, but a fresh clone of the NATIVE-cadence teacher under the full profile DOES survive RL fine-tune (canary `cw-dep-bcgait2-fastbc1`: tall, clean 6-leg gait, zero falls, direction correct, but overspeeds command 2x). Its command-tracking hardening fix `cw-dep-bcgait2-fastbc1-track1` FAILED: overspeed got WORSE, not better (det 1.88x->2.10x, sto 1.20x->1.76x, own-DR sto 1.12x->1.92x). That pricing term is the wrong lever; no further respec without a new hypothesis (operator gate, q_20260820T2330Z).
+- Fast gait, full history compressed (details: CURRENT_TRUTHS + `rl_docs/tracks/hw/STATUS.md`): the raised servo profile destabilizes every WARM-STARTED/transplanted policy (4-way A/B: train-through + ramp-in x mid + full dose all FAIL identically); a fresh BC-INIT clone of the native-cadence teacher survives the full profile (`fastbc1` PASS but 2x overspeed); FIVE RL levers to make it obey are refuted (faster cadence at teacher level, k_walk_cmd_track, speed-obs+charges, +4M more steps, phase-obs+fixed-speed). NEW 08-22: the phase-conditioned BC clone with ZERO RL passes the whole direction-first curriculum (see WAITING-ON + SKILLS) — the standing fast-gait candidate is now imitation-only.
 - Post-lower rise remains the main stance/session contract decision: `postlower4` looks better only under remaining-rise semantics; promotion requires an operator contract call.
 - Recover/tangle: REOPENED by operator order 08-20 and made sim/deploy-ready the same cycle. Champion `predictive1b-pop3-s13` is packaged (policy zip + frozen encoder, relocatable loader — the zip alone is NOT loadable off-pod), the deployment runner obs contract (16x90 predictive context, plant-relative q, entry-hold reset history, LEVEL tilt ref, manual-command gating, stance-hold handoff) is implemented and test-locked, and the 23-rung ladder run THROUGH the runner reproduces the training-path gate exactly: DR-0 21/23 (misses: zero = documented scoring false-negative, flip = genuinely weak), own-DR 22/23 (flip only). Flip is out of envelope: 0/6 in a seed/contract isolation probe — not caused by the deployment contract. Recovery ships as an ADDITIONAL operator-requested mode; the rise+walk download answer is unchanged. Package + contract + blocker list: `rl_docs/RECOVER_DEPLOY.md`.
 - Coxa geometry sweep says coxa length is a yaw-margin/scrub lever, not a walking-speed lever; no sim pivot follows from it.
@@ -124,14 +143,15 @@ default-off reward pieces stay in the repo. Details:
 Open decisions that should not be resolved by autonomous doc rereads:
 
 - Post-lower contract: accept remaining-rise semantics generally, and decide whether to promote `postlower4` over `footlow2_hard1`.
-- Fast gait: OPEN again 08-21 — the ordered speed-conditioned-BC lever and its +4M continuation both failed their gates (see WAITING-ON); four speed-obedience levers now refuted; next lever is an operator choice.
+- Fast gait: OPEN — five RL levers refuted (see WAITING-ON); choose: adopt the zero-RL phase clone as the candidate (then DR panel + board phase-clock runner CODE), a new RL pricing, or park.
+- Measured plant: decide whether to re-gate/re-harden the download hierarchy on the new tibia-150 geometry (all pre-08-22 checkpoints trained on the old plant).
 - Hardware return: bench-promote the hierarchy or fall back to scripted stand/sit glides as appropriate.
 - Recover mode: flip handling (ship unsupported vs flip-hardening arm); hardware-side recover items parked for the bench.
 - Non-sprint tracks: arch/dynrep/quad/turn/nobc/multitask stay gated unless directly serving rise+walk download readiness or explicitly ordered.
 
 ## Track Snapshot
 
-- `hw`: mainline. Fast-gait speed-obedience fork operator-gated after `cw-dep-bcgait3-speedbc1` FAILED (third refuted lever). Product baseline unchanged.
+- `hw`: mainline. Fast-gait fork operator-gated after five refuted RL levers; zero-RL phase clone is the standing candidate. Product baseline unchanged.
 - `arch`: temporal/unified-controller research has useful partials but no deployment change.
 - `dynrep`: causal-transformer/dynamics representation work found partial walking signals but no replacement for the baseline.
 - `nobc`: from-scratch gait stays closed. The operator's 08-21 anti-slip/no-speed-target reopening ran one canary (`cw-nobc-slipwalk1-r1`) and it froze; the spec was preflight-proven correct, so the blocker is exploration from a blank init, and the sub-line is stopped.
