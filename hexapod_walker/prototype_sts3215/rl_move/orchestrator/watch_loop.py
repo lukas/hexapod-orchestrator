@@ -29,6 +29,10 @@ HERE = pathlib.Path(__file__).resolve().parent
 REPO = subprocess.check_output(
     ["git", "rev-parse", "--show-toplevel"], cwd=HERE, text=True
 ).strip()
+# Same host-wide lock snapshot.sh and status_server.py's doc-sync
+# puller use to serialize the commit/rebase/push section — see the
+# pre-cycle pull below for why this one needs it too (08-22).
+GIT_LOCK = "/workspace/git_snapshot.lock"
 PROMPT_PATH = HERE / "ORCHESTRATOR_PROMPT.md"
 PAUSE = HERE / "PAUSE"
 # Operator on-demand session (ops.sh cycle, 08-12): touching KICK — with
@@ -765,8 +769,20 @@ def spawn_cycle(newly_finished: set[str], still_running: set[str],
         model = AGENT_MODEL_TRIAGE if newly_finished else AGENT_MODEL_DEEP
     # Sync with main first so the agent sees the operator's latest plan/log
     # edits and its later push can't be rejected as non-fast-forward.
+    # Serialized against snapshot.sh's commit/rebase/push (and
+    # status_server.py's own doc-sync puller) with the same host-wide
+    # flock (08-22: this pull ran WITHOUT the lock while snapshot.sh's
+    # commit+pull+push held it, and two concurrent --autostash pulls
+    # raced on the stash slot — one process's rebase auto-unstashed a
+    # DIFFERENT, unrelated, hours-stale autostash and left the working
+    # tree mid-conflict with unmerged experiments.json, corrupting the
+    # shared ledger until a later cycle manually resolved it). Blocking
+    # (not -n) is correct here, unlike status_server's polling loop:
+    # this runs once right before spawning a cycle, so a brief wait for
+    # a concurrent snapshot to finish is normal and cheap.
     pull = subprocess.run(
-        ["git", "pull", "--rebase", "--autostash", "origin", "main"],
+        ["flock", GIT_LOCK, "git", "pull", "--rebase", "--autostash",
+         "origin", "main"],
         cwd=REPO, capture_output=True, text=True, timeout=300,
     )
     if pull.returncode != 0:
