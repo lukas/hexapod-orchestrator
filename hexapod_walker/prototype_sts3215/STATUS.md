@@ -1,20 +1,22 @@
 # STATUS - campaign dashboard
 
-Last updated: 2026-08-21 UTC. This is the operator-facing dashboard,
+Last updated: 2026-08-22 UTC. This is the operator-facing dashboard,
 not a history file. If this conflicts with `CURRENT_TRUTHS.md`, that file
 wins. Run-level evidence lives in `rl_docs/runs/`, `RL_LOG.md`, and W&B.
 
 ## WAITING-ON
 
-- [operator] Fast-gait speed obedience fork (since 08-21 ~23:5x UTC):
-  the ordered speed-conditioned-BC lever (`cw-dep-bcgait3-speedbc1`:
-  observable speed + tested overspeed/heading charges) FAILED its
-  pinned-speed gate on every axis — falls appeared (34/48 tilt_pitch
-  vs parent's zero), heading 58-80 deg off, speed still
-  command-invariant at 0.12-0.14 m/s. Third refuted lever on this fork
-  (after faster cadence and k_walk_cmd_track). STOP per the
-  pre-registered gate; no further fast-gait arms without an operator
-  choice of lever. Download answer unchanged.
+- Fast-gait fork: RUNNING, not waiting (since 08-22 ~00:2x UTC). The
+  operator overrode the speedbc1 pre-registered STOP (fb
+  20260822T000318Z) and ordered a +4M continuation to test whether the
+  late training-reward recovery continues and is real:
+  `cw-dep-bcgait3-speedbc1-cont1` on train-7. Cycle decomposition of
+  the parent says the recovery was an episode-length artifact
+  (per-tick reward worsened -2.95 -> -3.13, ep_len fell 317 -> 249,
+  pitch rose 4.7 -> 6.3 deg; speed/heading command-invariant all run)
+  — gate forces per-tick-vs-ep-len decomposition + pinned-speed
+  panels at each snapshot. Verdict will say behavioral improvement vs
+  reward-length artifact. Download answer unchanged either way.
 - [operator, bench-parked] Calibrated plant values (since 08-21): the
   08-21 calibration commits (f7691024..9f9f27c7) add bench sweep
   tooling only; fitted geometry/calibration READINGS live on the robot
