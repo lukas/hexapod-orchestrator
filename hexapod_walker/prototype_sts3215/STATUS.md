@@ -14,9 +14,12 @@ The operator reset the campaign to exactly two goals:
 2. `amp` - from-scratch AMP program (`rl_docs/AMP_LOCOMOTION.md`,
    no Isaac Lab). Gate: milestone M5, MuJoCo cross-engine transfer.
 
-The loop works until both gates are green: no operator pauses, tools
-get built in-cycle, and bad evals with rising reward mean continue
-and/or realign, not reflex fail. Out-of-scope runs are operator-kick
+The loop works until both gates are green: no operator pauses and
+tools get built in-cycle. Most visible operating rule: reward and eval
+must agree. If reward rises while eval is unsatisfactory and flat/down,
+audit reward/eval/simulator alignment before more same-recipe seeds or
+longer budget. Continue only when reward and eval improve together, or
+after an explicit alignment fix. Out-of-scope runs are operator-kick
 only.
 
 ## WAITING-ON

@@ -32,9 +32,12 @@ agent follow-ups.
 
 ## Binding rulings
 
-- **08-21 interpretation ruling:** bad evals + rising reward = go
-  longer and/or align the reward with the evals; never a reflex FAIL
-  (`RUN_INTERPRETATION_RULES.md`).
+- **08-22 reward/eval agreement ruling:** every triage first compares
+  reward trend with gate/eval trend. If reward rises while eval is
+  unsatisfactory and flat/down, stop same-recipe seeds/continuations
+  and audit reward/eval/simulator alignment. Continue only when reward
+  and eval are improving together, or after an explicit alignment arm
+  is built and banked (`RUN_INTERPRETATION_RULES.md`).
 - **No operator pauses:** assume-and-go with recorded assumptions;
   only physical-robot access and spend wait.
 - **Build the tools:** missing harnesses/banks/models are cycle work,

@@ -29,17 +29,17 @@ physical-robot access and spend approvals may wait. The operator may
 launch out-of-scope runs; triage them honestly, but agent launches go
 only to the two tracks.
 
-## Interpretation (operator, 08-21 — full text in
+## Interpretation (operator, 08-21/08-22 - full text in
 RUN_INTERPRETATION_RULES.md)
 
-Bad evals/canaries with training reward still rising is never a fail:
-the run is UNDERTRAINED (continue from the checkpoint) and/or the
-reward is MISALIGNED with the evals (fix the reward so its optimum is
-the gate behavior, encode the cheat in the semantics bank, relaunch).
-A genuine FAIL requires flat learning at adequate budget, or an
-aligned reward that still doesn't move the gate. Video outranks
-scalars in both directions: exploits mean misalignment, and a
-good-scoring bad-looking checkpoint means the metric is the bug.
+Every verdict first checks reward/eval agreement. If reward rises but
+the gate/eval is unsatisfactory and flat/down, presume reward/eval/sim
+misalignment and audit that objective before same-recipe seeds or
+longer budget. If reward and eval both improve, a continuation may be
+UNDERTRAINED. If both reward and eval are flat/bad, the signal or
+mechanism is stuck. Video outranks scalars in both directions:
+exploits mean misalignment, and a good-scoring bad-looking checkpoint
+means the metric, reward, or simulator is the bug.
 
 ## Phases and budgets (launcher-enforced: `launch_run.py --phase`)
 
@@ -69,9 +69,12 @@ every known cheat (park, freeze, flag-leg, tripod, paddle-creep,
 overspeed, sacrificed leg) with useful margin. A missing bank means
 build the bank first — that is SPECIFICATION work and it never trains.
 Every new exploit seen on video gets encoded in the bank BEFORE the
-reward is fixed. This is the mechanism that makes the 08-21 ruling
-safe: alignment is proven before budget is spent, so rising reward is
-meaningful evidence.
+reward is fixed. Reward/eval disagreement discovered after a run
+re-enters this SPECIFICATION step: compare reward decompositions on the
+parent/clone, best eval checkpoint, high-reward failed checkpoint, and
+known cheats, then fix reward, eval, or simulator until the scalar
+ranking matches the gate behavior. This is the mechanism that makes
+rising reward meaningful evidence.
 
 ## Designing runs
 

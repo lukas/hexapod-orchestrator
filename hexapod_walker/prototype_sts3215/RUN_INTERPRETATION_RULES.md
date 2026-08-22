@@ -1,27 +1,33 @@
-# RL Run Interpretation Rules (operator, 08-21 — binding)
+# RL Run Interpretation Rules (operator, 08-21/08-22 - binding)
 
 The triage checklist and verdict vocabulary for every finished run.
 Work the questions in order and record the table's verdict.
 
-## The 08-21 ruling (overrides everything below on conflict)
+## The 08-22 reward/eval agreement ruling (overrides everything below)
 
-**If a run stops (budget end, canary, kill) with bad evals but
-training reward still rising, that is NOT a fail.** It means one or
-both of:
+Every triage starts with one question: **do reward and eval agree?**
+Record reward trend and gate/eval trend as up / flat / down before
+proposing the next run.
 
-1. **UNDERTRAINED** — the run needs to go longer. Continue from the
-   last checkpoint.
-2. **MISALIGNED** — the reward is not aligned with the evals: the
-   policy is honestly maximizing what we priced, and what we priced is
-   not the gate behavior. Fix the reward so its optimum is the gate
-   behavior (encode the observed cheat in the mode's
-   `test_task_semantics.py` bank first), then relaunch or continue.
+**If eval is unsatisfactory and flat/down while reward is rising, the
+default verdict is MISALIGNED, not UNDERTRAINED.** The optimizer is
+probably succeeding at the wrong objective, or the eval is not the
+operator's desired behavior. Stop same-recipe seed sweeps and longer
+budget as the first response. Audit reward/eval/simulator alignment
+first.
 
-Choosing between them: if the video shows qualitatively right behavior
-still improving, continue. If the video shows an exploit or a stable
-wrong behavior earning rising reward, realign first — more steps buy
-more of the same exploit. When genuinely unsure, do both as a pair
-(continuation + realigned arm) and let the evidence decide.
+The alignment audit compares reward decompositions on at least: the
+parent/clone, the best gate checkpoint, a high-reward failed
+checkpoint, and obvious bad behaviors (park/freeze/wrong-way/sideways/
+drag/sacrifice/overspeed as relevant). Fix whichever part is wrong:
+reward, eval, or simulator/contact/servo modeling. Encode the observed
+cheat in the mode's `test_task_semantics.py` bank before relaunch.
+
+Continue for more budget only when reward and gate/eval metrics are
+improving together, or when video shows qualitatively right immature
+behavior and the eval trend is moving. If both reward and eval are
+flat/bad at adequate budget, treat it as a stuck signal/mechanism, not
+a seed-farming invitation.
 
 A run is a genuine FAIL only when (a) nothing is learning — reward AND
 task metrics flat with adequate budget — or (b) a reward already
@@ -44,14 +50,17 @@ Check BOTH training return and the pre-registered task metric.
 
 - Neither improves with adequate budget: **FAIL — hypothesis did not
   produce learning.**
-- Reward rising: apply the 08-21 ruling — this run is not a FAIL,
-  classify it UNDERTRAINED or MISALIGNED and act accordingly.
+- Reward rising but eval flat/down: **MISALIGNED** until proven
+  otherwise; audit reward/eval/sim before more same-recipe runs.
+- Reward rising and eval rising: may be **UNDERTRAINED**; continuation
+  is allowed by the registered rule.
 
 ## 2. Reward up, evals/task bad?
 
-**MISALIGNED and/or UNDERTRAINED (08-21 ruling)** — never a terminal
-verdict. The deliverable of this triage is a concrete next action:
-the continuation launch, or the reward change + bank row + relaunch.
+If eval is not improving, **MISALIGNED** is the default verdict. The
+deliverable is not "try more seeds"; it is a reward/eval/sim audit,
+bank row, and relaunch. If eval is improving too, classify as
+UNDERTRAINED and continue only under the registered continuation rule.
 
 ## 3. Does the video look physically correct? (behavioral phases)
 
@@ -80,8 +89,10 @@ clean pass. Guard the current track baselines.
 
 ## 7. When is more training justified?
 
-- Reward rising: yes, per the 08-21 ruling — unless the video shows a
-  reward-earning exploit, in which case align first, then continue.
+- Reward and eval both rising: yes, per the registered continuation
+  rule.
+- Reward rising while eval flat/down: no same-recipe continuation by
+  default; align first, then continue/relaunch.
 - Reward flat AND behavior wrong: no — change the mechanism or spec.
 
 ## Classification table
@@ -89,7 +100,8 @@ clean pass. Guard the current track baselines.
 | Training reward | Evals/task | Video | Verdict |
 |---|---|---|---|
 | flat | flat/bad | wrong | FAIL — hypothesis failed |
-| rising | bad | right behavior, immature | UNDERTRAINED — continue |
+| rising | flat/down bad | any | MISALIGNED — audit reward/eval/sim before more budget/seeds |
+| rising | improving but bad | right behavior, immature | UNDERTRAINED — continue |
 | rising | bad | exploit / stable wrong | MISALIGNED — realign reward with eval, relaunch/continue |
 | up | up | wrong | evaluator loophole — fix the eval |
 | up | up | good, protected skill down | skill interference |
@@ -104,5 +116,5 @@ clean pass. Guard the current track baselines.
 5. Training reward
 
 Reward is never sufficient evidence of success by itself — but rising
-reward with bad evals is always evidence the run deserves alignment
-work or more budget, not a burial.
+reward with flat/down bad evals is the loudest evidence to stop and
+audit objective alignment before spending more training budget.
