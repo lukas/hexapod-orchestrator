@@ -71,10 +71,14 @@ operator kick — the watcher wakes within seconds and spawns a
 deep-model session that does what your focus note asks. Each cycle
 counts against the rolling daily cycle budget. Guardrails
 (guardrails.yaml, the physical-robot prohibition) still bind every
-cycle. IMPORTANT: cycles are silent for 10-30 min while they work —
-poll orchestrator_activity (running cycles, INTENT ledger rows,
-watcher log) to watch progress instead of re-kicking; duplicate
-kicks just spawn cycles that rediscover the first one's work.
+cycle. Cycles STREAM their work live: every thought, tool command,
+and result lands in the cycle's narration log as it happens.
+orchestrator_activity shows each running cycle's latest narration
+plus pending kicks / INTENT rows / the watcher log;
+cycle_log('<stamp or label>') returns as much of one cycle's
+narration (or its exact prompt) as you want. Watch instead of
+re-kicking — duplicate kicks just spawn cycles that rediscover the
+first one's work.
 
 Obey-then-ask (operator 08-15): cycles EXECUTE operator orders even
 when they conflict with written rules (only typos, safety, or
@@ -596,6 +600,7 @@ def t_list_operator_questions() -> str:
 # constants as watch_loop.py / status_server.py on the controller).
 WATCHER_LOG = pathlib.Path("/workspace/orchestrator.log")
 CYCLE_LOG_DIR = pathlib.Path("/workspace/cycle_logs")
+CYCLE_REGISTRY = CYCLE_LOG_DIR / "cycles.json"  # watch_loop registry_update
 PAUSE_FLAG = HERE / "PAUSE"
 
 _SPAWN_RE = re.compile(
@@ -603,11 +608,41 @@ _SPAWN_RE = re.compile(
     r"\(log: (\S+)\)")
 
 
+def _cycle_registry() -> list[dict]:
+    """watch_loop.py's on-disk cycle registry (oldest first); [] when
+    absent (pre-registry deploys, laptop dev)."""
+    try:
+        entries = json.loads(CYCLE_REGISTRY.read_text())
+        return [e for e in entries if isinstance(e, dict)]
+    except Exception:
+        return []
+
+
+def _narration_tail(path_str: str, lines: int = 12,
+                    cap: int = 8000) -> list[str]:
+    """Last non-empty lines of a cycle's live narration log."""
+    try:
+        data = pathlib.Path(path_str).read_bytes()[-cap:]
+    except OSError:
+        return []
+    out = [ln for ln in data.decode(errors="replace").splitlines()
+           if ln.strip()]
+    return out[-lines:]
+
+
+def _mtime_age_s(path_str: str) -> int | None:
+    try:
+        return int(time.time() - pathlib.Path(path_str).stat().st_mtime)
+    except OSError:
+        return None
+
+
 def t_orchestrator_activity() -> str:
     """Live view: what the watcher and its decision cycles are doing
-    RIGHT NOW — poll this after kick_orchestrator instead of
-    re-kicking. (Operator 08-15: kicks were silently in-progress for
-    10-30 min and impatient clients kept filing duplicates.)"""
+    RIGHT NOW, including each running cycle's live narration (cycles
+    stream every thought/tool call into their log as they work —
+    2026-08-21 observability pass; before that they were silent until
+    exit and impatient clients kept filing duplicate kicks)."""
     out = ["# Orchestrator activity (live)"]
     now = time.time()
     # Watcher heartbeat: the loop logs every poll, so a stale log
@@ -636,31 +671,73 @@ def t_orchestrator_activity() -> str:
     out.append("pending kicks: " + ("; ".join(pending) or "none — every "
                "filed kick has been consumed by a cycle"))
 
-    # Decision cycles: parse recent spawn lines, keep pids still alive.
     lines = []
     try:
         lines = WATCHER_LOG.read_bytes()[-60_000:].decode(
             errors="replace").splitlines()
     except OSError:
         pass
-    alive, dead_recent = [], []
-    for ln in lines:
-        m = _SPAWN_RE.match(ln)
-        if not m:
-            continue
-        ts, pid, model, label, logp = m.groups()
-        entry = f"{label} (model {model}, spawned {ts})"
-        if pathlib.Path(f"/proc/{pid}").exists():
-            alive.append(entry + " — STILL RUNNING; cycles write their "
-                         "summary only at exit")
-        else:
-            dead_recent.append(entry + " — finished (see log_tail for "
-                               "its RL_LOG line)")
-    out.append("\nactive cycles (%d):" % len(alive))
-    out += ["- " + a for a in alive] or ["- none"]
-    if dead_recent:
-        out.append("\nrecently finished cycles:")
-        out += ["- " + d for d in dead_recent[-5:]]
+
+    reg = _cycle_registry()
+    if reg:
+        active = [e for e in reg if e.get("status") == "running"]
+        finished = [e for e in reg if e.get("status") != "running"]
+        out.append(f"\nactive cycles ({len(active)}):")
+        if not active:
+            out.append("- none")
+        for e in active:
+            pid = e.get("pid")
+            stale = (pid and pathlib.Path("/proc").is_dir()
+                     and not pathlib.Path(f"/proc/{pid}").exists())
+            head = (f"## {e.get('label')} (model {e.get('model')}, "
+                    f"started {e.get('started')}, pid {pid})")
+            if stale:
+                head += (" — PID GONE but not reaped: watcher likely "
+                         "restarted mid-cycle; treat as dead")
+            out.append(head)
+            trig = e.get("trigger", "")
+            if trig:
+                out.append(f"   trigger: {trig[:200]}")
+            last = _mtime_age_s(e.get("log", ""))
+            tail = _narration_tail(e.get("log", ""))
+            if tail:
+                out.append(f"   live narration (last write "
+                           f"{last if last is not None else '?'} s ago; "
+                           f"full log: cycle_log("
+                           f"'{e.get('stamp', '')}')):")
+                out += ["     " + ln for ln in tail]
+            else:
+                out.append("   (no narration yet — cycle just spawned)")
+        if finished:
+            out.append("\nrecently finished cycles (full narration via "
+                       "cycle_log('<stamp>')):")
+            for e in finished[-5:]:
+                dur = e.get("duration_s")
+                dur = f"{dur // 60}m{dur % 60:02d}s" \
+                    if isinstance(dur, int) else "?"
+                out.append(f"- {e.get('stamp')}_{e.get('label')}: "
+                           f"{e.get('status')} rc={e.get('rc')} in {dur}")
+    else:
+        # Pre-registry fallback: parse watcher-log spawn lines and
+        # check pid liveness (older deploy or laptop dev).
+        alive, dead_recent = [], []
+        for ln in lines:
+            m = _SPAWN_RE.match(ln)
+            if not m:
+                continue
+            ts, pid, model, label, logp = m.groups()
+            entry = f"{label} (model {model}, spawned {ts})"
+            if pathlib.Path(f"/proc/{pid}").exists():
+                alive.append(entry + " — RUNNING; live narration: "
+                             f"cycle_log('{pathlib.Path(logp).stem}')")
+            else:
+                dead_recent.append(entry + " — finished")
+        out.append("\nactive cycles (%d, from watcher-log fallback — "
+                   "no cycle registry on this host):" % len(alive))
+        out += ["- " + a for a in alive] or ["- none"]
+        if dead_recent:
+            out.append("\nrecently finished cycles:")
+            out += ["- " + d for d in dead_recent[-5:]]
 
     # Freshest ledger rows — INTENT means a cycle is mid-launch for
     # that run RIGHT NOW (row appears before the process is verified).
@@ -678,14 +755,66 @@ def t_orchestrator_activity() -> str:
     out.append("\nwatcher log tail:")
     out += ["  " + ln for ln in tail] or ["  (empty)"]
     out.append(
-        "\nHOW TO WAIT ON A KICK: a deep operator-kick cycle takes "
-        "10-30 min and is SILENT until it exits. If your kick's cycle "
-        "shows above as STILL RUNNING, or your run shows INTENT, it "
-        "is being worked on — do NOT re-kick (a duplicate cycle just "
-        "burns budget rediscovering the first one's work). Re-kick "
-        "only if the cycle finished without your item appearing "
-        "anywhere above or in log_tail.")
+        "\nHOW TO WAIT ON A KICK: your kick's cycle streams everything "
+        "it does into its narration log — the tail above updates live, "
+        "and cycle_log('<stamp>') returns as much of it as you want. "
+        "A cycle whose narration is advancing is working; do NOT "
+        "re-kick (a duplicate cycle just burns budget rediscovering "
+        "the first one's work). Re-kick only if the cycle finished "
+        "(=== CYCLE END) without addressing your item.")
     return _clip("\n".join(out))
+
+
+def t_cycle_log(cycle: str = "", tail_kb: int = 16,
+                part: str = "log") -> str:
+    """Narration log (or received prompt) of one decision cycle,
+    matched by substring against the cycle log filenames; default the
+    newest cycle. Live logs stream — poll to watch a cycle work."""
+    tail_kb = max(1, min(int(tail_kb), 200))
+    try:
+        logs = sorted(CYCLE_LOG_DIR.glob("cycle_*.log"),
+                      key=lambda p: p.stat().st_mtime, reverse=True)
+    except OSError:
+        logs = []
+    if not logs:
+        return ("no cycle logs on this host — cycles run on the "
+                "controller pod (laptop dev?).")
+    frag = (cycle or "").strip().removesuffix(".log")
+    matches = [p for p in logs if frag.lower() in p.stem.lower()] \
+        if frag else logs
+    if not matches:
+        recent = "\n".join(f"- {p.stem}" for p in logs[:15])
+        return (f"no cycle log matching {frag!r}. Recent cycles "
+                f"(newest first):\n{recent}")
+    p = matches[0]
+    if part == "prompt":
+        try:
+            return _clip(f"# prompt received by {p.stem}\n\n"
+                         + p.with_suffix(".prompt.md")
+                         .read_text(errors="replace"))
+        except OSError:
+            return (f"{p.stem} has no persisted prompt (cycle predates "
+                    f"the 08-21 observability pass).")
+    try:
+        data = p.read_bytes()
+    except OSError as e:
+        return f"cycle log {p.name} unreadable: {e}"
+    tail = data[-tail_kb * 1000:]
+    text = tail.decode(errors="replace")
+    if len(tail) < len(data):
+        text = (f"(showing newest {tail_kb} kB of "
+                f"{len(data) // 1000} kB — raise tail_kb for more)\n…"
+                + text.split("\n", 1)[-1])
+    nonempty = [ln for ln in text.splitlines() if ln.strip()]
+    state = ("FINISHED" if nonempty
+             and nonempty[-1].startswith("=== CYCLE END")
+             else "IN FLIGHT — this log is streaming; poll again for "
+                  "new lines")
+    others = [q.stem for q in matches[1:4]]
+    head = f"# {p.stem} [{state}]"
+    if others:
+        head += f"\n(other matches, newer first: {', '.join(others)})"
+    return _clip(f"{head}\n\n{text}")
 
 
 def t_kick_orchestrator(focus: str = "", author: str = "",
@@ -708,13 +837,15 @@ def t_kick_orchestrator(focus: str = "", author: str = "",
         return (f"OPERATOR-AUTHENTICATED — trusted operator kick filed; "
                 f"deep-model session, does what the focus note asks. "
                 f"({how}.) {_kick_state_note(n_ahead)} The watcher "
-                f"picks the KICK file up within ~2 s, but the cycle "
-                f"itself is SILENT for 10-30 min while it works (it "
-                f"writes its RL_LOG line only at exit). Poll "
-                f"orchestrator_activity to watch progress — your "
-                f"cycle listed as running, or your run at INTENT, "
-                f"means it IS being worked on; do NOT re-kick while "
-                f"that is true.")
+                f"picks the KICK file up within ~2 s, and the cycle "
+                f"STREAMS everything it does (thoughts, commands, "
+                f"results) into its narration log while it works "
+                f"(typically 10-30 min total). Watch it live: "
+                f"orchestrator_activity shows the newest narration "
+                f"lines of every running cycle, and "
+                f"cycle_log('operator-kick') returns the full log. A "
+                f"cycle whose narration is advancing is working — do "
+                f"NOT re-kick while that is true.")
     # Extreme flood guard ONLY — normal usage never sees a refusal.
     if n_ahead >= KICK_FLOOD_PENDING:
         return (f"flood guard: {n_ahead} kick requests are already "
@@ -860,13 +991,38 @@ TOOLS = [
      "args": {"limit": {"type": "integer",
                         "description": "entries to show (default 20)"}}},
     {"name": "orchestrator_activity",
-     "description": "Live watcher/cycle status: pending kicks, decision "
-                    "cycles currently running (with age/model/label), "
-                    "newest ledger rows including mid-launch INTENT "
-                    "entries, and the watcher log tail. POLL THIS after "
-                    "kick_orchestrator instead of re-kicking — deep "
-                    "cycles are silent for 10-30 min while they work.",
+     "description": "Live watcher/cycle status: pending kicks, every "
+                    "running decision cycle WITH the newest lines of "
+                    "its live narration (cycles stream each thought/"
+                    "tool call/result as they work), recently finished "
+                    "cycles, newest ledger rows including mid-launch "
+                    "INTENT entries, and the watcher log tail. POLL "
+                    "THIS after kick_orchestrator instead of "
+                    "re-kicking.",
      "fn": t_orchestrator_activity, "args": {}},
+    {"name": "cycle_log",
+     "description": "One decision cycle's live narration log — every "
+                    "assistant thought, tool command, and result "
+                    "preview, streamed as the cycle works, ending with "
+                    "'=== RESULT'/'=== CYCLE END' when it finishes. "
+                    "Match by substring of the cycle stamp/label from "
+                    "orchestrator_activity (default: newest cycle). "
+                    "part='prompt' returns the exact prompt the cycle "
+                    "received instead.",
+     "fn": t_cycle_log,
+     "args": {"cycle": {"type": "string",
+                        "description": "substring of the cycle stamp/"
+                                       "label, e.g. 'operator-kick' or "
+                                       "'20260821T032518' (empty = "
+                                       "newest cycle)"},
+              "tail_kb": {"type": "integer",
+                          "description": "kB of narration tail to "
+                                         "return (1-200, default 16)"},
+              "part": {"type": "string",
+                       "description": "'log' (default) for the live "
+                                      "narration; 'prompt' for the "
+                                      "exact prompt the cycle was "
+                                      "spawned with"}}},
     {"name": "list_operator_questions",
      "description": "The obey-then-ask log (OPERATOR_QUESTIONS.md): "
                     "rule conflicts that cycles hit while executing "

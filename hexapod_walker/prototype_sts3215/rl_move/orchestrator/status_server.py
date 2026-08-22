@@ -174,19 +174,49 @@ def watcher_state() -> dict:
             "restart_last": restart[0] if pause and restart else ""}
 
 
+def _cycle_registry_status() -> dict[str, str]:
+    """log filename -> status from watch_loop's cycle registry
+    (running/done/failed/timeout); {} when the registry is absent."""
+    try:
+        entries = json.loads((CYCLE_DIR / "cycles.json").read_text())
+        return {pathlib.Path(e.get("log", "")).name: e.get("status", "")
+                for e in entries if isinstance(e, dict) and e.get("log")}
+    except Exception:
+        return {}
+
+
 def recent_cycle_logs(n: int = 8) -> list[dict]:
     logs = sorted(CYCLE_DIR.glob("cycle_*.log"),
                   key=lambda p: p.stat().st_mtime, reverse=True)[:n]
+    reg = _cycle_registry_status()
     out = []
     for p in logs:
         st = p.stat()
+        tail = [t for t in read_tail(p, 6) if t.strip()]
+        # Since 08-21 cycles STREAM their narration into the log as
+        # they work; the renderer's last line "=== CYCLE END: <how>"
+        # is the done marker (registry status is the second witness).
+        # Legacy pre-streaming logs wrote only at exit: content but
+        # no marker and no registry row = done.
+        rstat = reg.get(p.name, "")
+        try:
+            with p.open("rb") as fh:
+                streaming_fmt = b"=== CYCLE START" in fh.read(400)
+        except OSError:
+            streaming_fmt = False
+        if (tail and tail[-1].startswith("=== CYCLE END")) \
+                or rstat in ("done", "failed", "timeout"):
+            state = rstat if rstat in ("failed", "timeout") else "done"
+        elif rstat == "running" or streaming_fmt or st.st_size == 0:
+            state = "running"
+        else:
+            state = "done"
         out.append({
             "label": p.stem.split("_", 2)[-1],
             "when": datetime.datetime.fromtimestamp(st.st_mtime)
                     .strftime("%H:%M"),
-            # claude -p writes output only at exit: empty file = in flight
-            "state": "running" if st.st_size == 0 else "done",
-            "tail": read_tail(p, 3) if st.st_size else [],
+            "state": state,
+            "tail": tail[-3:],
         })
     return out
 
@@ -825,10 +855,17 @@ def render(base: str = "") -> str:
     else:
         h.append("<div class='dim'>none — watcher is between cycles</div>")
 
-    h.append("<h2>Recent cycles</h2><table><tr><th>time</th><th>state</th>"
+    h.append("<h2>Recent cycles</h2>")
+    h.append("<div class='dim'>Cycles stream their narration live "
+             "(every thought/tool call); a running row's “last output” "
+             "is what it is doing right now. Full logs: "
+             "<span class='mono'>ops.sh cyclelog</span> / the MCP "
+             "<span class='mono'>cycle_log</span> tool.</div>")
+    h.append("<table><tr><th>time</th><th>state</th>"
              "<th>runs</th><th>last output</th></tr>")
     for c in f.get("cycle_logs", []):
-        cls = "warn" if c["state"] == "running" else "ok"
+        cls = ("warn" if c["state"] == "running"
+               else "bad" if c["state"] in ("failed", "timeout") else "ok")
         tail = esc(" / ".join(t.strip() for t in c["tail"] if t.strip())[-160:])
         h.append(f"<tr><td>{c['when']}</td><td class='{cls}'>{c['state']}"
                  f"</td><td class='mono'>{esc(c['label'][:70])}</td>"

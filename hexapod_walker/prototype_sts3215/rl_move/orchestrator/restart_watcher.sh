@@ -6,11 +6,14 @@
 #   nohup bash /workspace/restart_watcher.sh > /workspace/restart_watcher.log 2>&1 &
 #
 # NEVER `tmux kill-session` / kill the watcher directly: cycles are claude
-# subprocesses that only WRITE THEIR OUTPUT AT EXIT, so a hard restart
-# throws away the whole cycle's tokens and analysis, and the replacement
+# subprocesses mid-analysis — a hard kill throws away their un-saved work
+# (verdicts not yet written, launches half-placed) and the replacement
 # cycle re-triages the same runs. Three cycles died exactly this way on
-# 2026-08-09 (10:46/11:38/11:56 restarts). Copy lives in the repo; the
-# deployed copy is /workspace/restart_watcher.sh on the controller.
+# 2026-08-09 (10:46/11:38/11:56 restarts). Since 08-21 cycles STREAM
+# their narration into /workspace/cycle_logs/*.log as they work, so the
+# transcript survives a kill — but the wasted tokens and re-triage do
+# not, hence the wrap-up protocol below stands. Copy lives in the repo;
+# the deployed copy is /workspace/restart_watcher.sh on the controller.
 set -u
 ORCH=/workspace/weird_objects/hexapod_walker/prototype_sts3215/rl_move/orchestrator
 

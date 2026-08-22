@@ -71,11 +71,27 @@ the drain requires before treating a pod as a slot.
   cycle`). The `/workspace/llm_kicks/` advisory queue remains only to
   drain pre-gate entries: one triage-model session per request in the
   kick overflow pool, each counted in the daily budget.
+- **Watch a cycle live (08-21 observability pass):** cycles run with
+  `--output-format stream-json` piped through `cycle_render.py`, so
+  each `/workspace/cycle_logs/cycle_<stamp>_<label>.log` fills with a
+  readable narration AS THE CYCLE WORKS — every assistant thought,
+  tool command, result preview, then the final verdict + cost, ending
+  with `=== CYCLE END: <how> ===`. Siblings: `.prompt.md` (the exact
+  prompt the cycle received) and `.jsonl` (raw events).
+  `cycle_logs/cycles.json` is the watcher-maintained registry (one
+  row per cycle: label/model/pid/runs/paths, then rc/outcome).
+  From the Mac or the controller:
+  `ops.sh activity` (everything in one shot), `ops.sh cyclelog
+  [pattern]` (one cycle's narration), `ops.sh waitcycle [pattern]`
+  (follow live until it ends — the answer to kick-then-blind-poll).
+  Same data via MCP: `orchestrator_activity`, `cycle_log`.
 - **Restart the watcher:** ONLY via `restart_watcher.sh` (nohup'd on
   the controller). Hard-killing the tmux session murders in-flight
-  cycles, which only write their output at exit.
+  cycles — their narration survives on disk, but un-saved verdicts
+  and the spent tokens do not.
 - **Logs:** `/workspace/orchestrator.log` (watcher),
-  `/workspace/cycle_logs/` (cycles), `/tmp/train_<run>.log` (on pods).
+  `/workspace/cycle_logs/` (cycles, live-streaming),
+  `/tmp/train_<run>.log` (on pods).
 
 ## Safety
 

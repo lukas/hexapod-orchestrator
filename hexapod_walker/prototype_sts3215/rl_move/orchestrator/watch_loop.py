@@ -148,6 +148,45 @@ MAX_CONCURRENT_CYCLES = 4  # operator 08-09: 2 bottlenecked triage of 12 simulta
 KICK_OVERFLOW_SLOTS = 8
 CYCLE_TIMEOUT_S = 3 * 3600
 CYCLE_OUT_DIR = pathlib.Path("/workspace/cycle_logs")
+# Structured cycle registry (2026-08-21 observability pass): before
+# this, the active-cycle set lived ONLY in the watcher's memory, and
+# everything downstream (dashboard, MCP orchestrator_activity, ops.sh)
+# re-derived it from /proc scans and watcher-log regexes — which broke
+# for cycles spawned >60 kB of log ago and could not say what a dead
+# cycle had been assigned. The watcher now upserts one row per cycle
+# at spawn (label/model/pid/runs/log paths/trigger) and again at reap
+# (rc/outcome/duration). Readers treat it as advisory truth and fall
+# back to log parsing when it is missing (older deploys, laptop dev).
+CYCLE_REGISTRY = CYCLE_OUT_DIR / "cycles.json"
+CYCLE_REGISTRY_KEEP = 300  # rows retained; ~2 weeks at typical cadence
+
+
+def registry_update(stamp: str, **fields) -> None:
+    """Best-effort upsert of one cycle's row (keyed by spawn stamp).
+
+    Only the watcher's single main thread writes this file (spawn and
+    reap both happen there), so tmp+rename atomicity is enough for the
+    read-only consumers (status_server, mcp_server, ops.sh). Registry
+    trouble must never take down the loop."""
+    if not stamp:
+        return
+    try:
+        try:
+            entries = json.loads(CYCLE_REGISTRY.read_text())
+            assert isinstance(entries, list)
+        except Exception:
+            entries = []
+        for e in entries:
+            if isinstance(e, dict) and e.get("stamp") == stamp:
+                e.update(fields)
+                break
+        else:
+            entries.append({"stamp": stamp, **fields})
+        tmp = CYCLE_REGISTRY.with_name(CYCLE_REGISTRY.name + ".tmp")
+        tmp.write_text(json.dumps(entries[-CYCLE_REGISTRY_KEEP:], indent=1))
+        tmp.replace(CYCLE_REGISTRY)
+    except Exception as exc:
+        log(f"cycle registry update failed for {stamp}: {exc!r}")
 # Decision cycles run on Claude Code (headless) with the operator's own
 # Anthropic API key, billed directly to Anthropic. Cursor's CLI was
 # dropped because editor BYOK keys don't apply to headless sessions,
@@ -164,11 +203,21 @@ AGENT_MODEL_DEEP = "claude-fable-5"
 
 
 def agent_cmd(model: str) -> list[str]:
+    # stream-json (2026-08-21, operator: "way too opaque"): with
+    # `--output-format text` claude buffers ALL stdout until exit, so a
+    # cycle's log was a 0-byte file for its whole 10-30+ min life and
+    # every observer was reduced to blind polling. stream-json emits
+    # one NDJSON event per assistant message / tool call / tool result
+    # AS IT HAPPENS; spawn_cycle pipes it through cycle_render.py,
+    # which writes the live readable narration to the cycle .log (and
+    # the raw events to a sibling .jsonl). --verbose is REQUIRED by
+    # the CLI for stream-json with -p. Keep "claude -p --bare" as a
+    # prefix: restart_watcher.sh greps for exactly that.
     return [
         "claude", "-p", "--bare",
         "--model", model,
         "--dangerously-skip-permissions",
-        "--output-format", "text",
+        "--output-format", "stream-json", "--verbose",
     ]
 
 WANDB_PROJECT = "l2k2/hexapod-balance"
@@ -728,14 +777,47 @@ def spawn_cycle(newly_finished: set[str], still_running: set[str],
              or "-".join(sorted(newly_finished))
              or ("findings" if findings else "kick"))
     out = CYCLE_OUT_DIR / f"cycle_{stamp}_{label[:120]}.log"
-    with out.open("w") as fh:
-        proc = subprocess.Popen(
-            agent_cmd(model) + [cycle_prompt],
-            cwd=REPO, stdout=fh, stderr=subprocess.STDOUT, text=True,
+    raw = out.with_suffix(".jsonl")          # raw stream-json events
+    prompt_file = out.with_suffix(".prompt.md")
+    try:
+        # Persist the EXACT prompt this cycle received (trigger,
+        # findings, feedback, kick text). Before this the prompt lived
+        # only in /proc/<pid>/cmdline and vanished at exit, so "what
+        # was that cycle actually told?" was unanswerable.
+        prompt_file.write_text(cycle_prompt)
+    except OSError as exc:
+        log(f"cycle prompt persist failed: {exc!r}")
+    # Live narration pipeline (2026-08-21, see agent_cmd): claude's
+    # stream-json stdout (stderr merged in) flows through
+    # cycle_render.py, which appends readable lines to `out` as they
+    # happen and mirrors raw events to `raw`. The renderer inherits
+    # `out` (append) as ITS stdout/stderr so even a renderer crash
+    # lands in the cycle log. `proc` stays the claude process: the
+    # timeout kill, /proc scans, and restart_watcher.sh's pgrep all
+    # key on it; the renderer exits on its own when the pipe closes.
+    out.touch()  # budget counters glob cycle_*.log; exist from t0
+    proc = subprocess.Popen(
+        agent_cmd(model) + [cycle_prompt],
+        cwd=REPO, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+    )
+    with out.open("a") as render_fh:
+        render = subprocess.Popen(
+            [sys.executable, str(HERE / "cycle_render.py"),
+             "--out", str(out), "--raw", str(raw)],
+            cwd=REPO, stdin=proc.stdout,
+            stdout=render_fh, stderr=subprocess.STDOUT,
         )
+    proc.stdout.close()  # renderer owns the pipe; EOF propagates on exit
     log(f"cycle spawned pid={proc.pid} model={model} for: {label} (log: {out})")
+    registry_update(
+        stamp, label=label, model=model, pid=proc.pid,
+        runs=sorted(newly_finished), log=str(out), raw=str(raw),
+        prompt=str(prompt_file), trigger=" ".join(trigger.split())[:300],
+        started=datetime.datetime.now().isoformat(timespec="seconds"),
+        status="running")
     return {"proc": proc, "runs": set(newly_finished), "out": out,
-            "t0": time.time(), "label": label, "model": model}
+            "t0": time.time(), "label": label, "model": model,
+            "stamp": stamp, "render": render}
 
 
 def reap_cycles(active: list[dict], processed: set[str]) -> tuple[list[dict], int, int]:
@@ -748,22 +830,51 @@ def reap_cycles(active: list[dict], processed: set[str]) -> tuple[list[dict], in
     Escalation: a cheap-tier triage cycle that prints "DIG-IN: <run> — why"
     gets those runs re-spawned immediately on the deep model. Deep cycles
     never re-escalate (no loop)."""
+    def _drain_renderer(c: dict) -> None:
+        """Let cycle_render.py flush its final lines (RESULT text, the
+        CYCLE END marker) before anyone reads the log tail. It exits on
+        its own once the pipe closes; 30 s is generous."""
+        r = c.get("render")
+        if r is None:
+            return
+        try:
+            r.wait(timeout=30)
+        except Exception:
+            try:
+                r.kill()
+            except Exception:
+                pass
+
     still, n_ok, n_failed = [], 0, 0
     for c in active:
         rc = c["proc"].poll()
         if rc is None:
             if time.time() - c["t0"] > CYCLE_TIMEOUT_S:
                 c["proc"].kill()
+                try:  # reap the corpse; a zombie per timeout adds up
+                    c["proc"].wait(timeout=10)
+                except Exception:
+                    pass
+                _drain_renderer(c)
                 log(f"cycle {c['label']} exceeded {CYCLE_TIMEOUT_S}s; killed")
+                registry_update(
+                    c.get("stamp", ""), status="timeout", rc=None,
+                    ended=datetime.datetime.now().isoformat(timespec="seconds"),
+                    duration_s=int(time.time() - c["t0"]))
                 n_failed += 1
             else:
                 still.append(c)
             continue
+        _drain_renderer(c)
         try:
             tail = c["out"].read_text()[-4000:]
         except OSError:
             tail = "(cycle log unreadable)"
         log(f"cycle {c['label']} done rc={rc}; tail:\n{tail[-2000:]}")
+        registry_update(
+            c.get("stamp", ""), status="done" if rc == 0 else "failed",
+            rc=rc, ended=datetime.datetime.now().isoformat(timespec="seconds"),
+            duration_s=int(time.time() - c["t0"]))
         if rc == 0:
             processed |= c["runs"]
             n_ok += 1

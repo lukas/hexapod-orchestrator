@@ -24,6 +24,15 @@ list_procs() {  # list_procs <pod> — training/eval processes (pods have NO ps)
     done' 2>/dev/null || echo "(none or pod unreachable)"
 }
 
+remote_ops() {  # re-run this ops.sh subcommand ON the controller pod.
+  # The cycle logs / registry / watcher log live only there; these
+  # observability commands (activity, cyclelog, waitcycle) work from
+  # the operator Mac by re-execing themselves remotely. kubectl exec
+  # streams stdout, so even the live-follow waitcycle works.
+  exec kubectl exec hexapod-sweep-friction -- bash \
+    /workspace/weird_objects/hexapod_walker/prototype_sts3215/rl_move/orchestrator/ops.sh "$@"
+}
+
 entry_field() {  # entry_field <run> <field> — last LIVE entry wins
   # Prefer RUNNING/FINISHED/etc over REFUSED/KILLED husks: a late REFUSED
   # duplicate (pod race) otherwise poisons pod/log lookups (hit 08-09,
@@ -589,8 +598,69 @@ cycle)  # cycle ["focus text"] — OPERATOR: kick one decision session now.
     CTL=hexapod-sweep-friction
     printf '%s\n' "$note" | kubectl exec -i "$CTL" -- bash -c "cat > '$KICKPATH'" || exit 1
   fi
-  echo "KICK written — watcher spawns the session within ~5 min"
-  echo "watch: tail /workspace/orchestrator.log + /workspace/cycle_logs/cycle_*_operator-kick.log"
+  echo "KICK written — watcher picks it up within ~2 s"
+  echo "watch it live: ops.sh waitcycle operator-kick   (streams the session's narration until it ends)"
+  echo "or one-shot:   ops.sh activity | ops.sh cyclelog operator-kick"
+  ;;
+
+activity)  # activity — what the orchestrator is doing RIGHT NOW, in one
+  # shot: watcher heartbeat, pending kicks, every running cycle WITH
+  # the tail of its live narration (cycles stream every thought/tool
+  # call as they work — 2026-08-21 observability pass), recently
+  # finished cycles, newest ledger rows, watcher log tail. Works from
+  # the operator Mac or the controller. Same view as the MCP
+  # orchestrator_activity tool — one implementation, two doors.
+  [ -d /workspace/weird_objects ] || remote_ops "$@"
+  PYTHONPATH="$HERE" python3 -c \
+    "import mcp_server; print(mcp_server.t_orchestrator_activity())"
+  ;;
+
+cyclelog)  # cyclelog [pattern] [lines] — tail one cycle's live narration
+  # log (default: newest cycle, 60 lines). The log STREAMS while the
+  # cycle runs and ends with '=== CYCLE END: <how> ==='. pattern is a
+  # substring of the log name, e.g. operator-kick or 20260821T032518.
+  # Companion files: same name .prompt.md (exact prompt the cycle
+  # got) and .jsonl (raw stream-json events).
+  [ -d /workspace/weird_objects ] || remote_ops "$@"
+  pat="${2:-}"; n="${3:-60}"
+  f=$(ls -t /workspace/cycle_logs/cycle_*${pat}*.log 2>/dev/null | head -1)
+  [ -n "$f" ] || { echo "no cycle log matching '${pat:-any}'"; exit 1; }
+  echo "== $f =="
+  tail -n "$n" "$f"
+  tail -n 2 "$f" | grep -q '^=== CYCLE END' \
+    || echo "== (cycle still running — log is streaming; ops.sh waitcycle '${pat}' follows it live) =="
+  ;;
+
+waitcycle)  # waitcycle [pattern] [timeout_s] — FOLLOW a cycle's live
+  # narration until it ends (the fix for kick-then-blind-poll loops:
+  # `ops.sh cycle "focus"` then `ops.sh waitcycle operator-kick`
+  # streams everything the session does and returns when it exits).
+  # Picks the newest matching log without an END marker, waiting up
+  # to 120 s for one to spawn. Ctrl-C detaches; the cycle keeps
+  # running. Works from the operator Mac (kubectl exec streams).
+  [ -d /workspace/weird_objects ] || remote_ops "$@"
+  pat="${2:-}"; t="${3:-5400}"
+  find_active() {
+    for f in $(ls -t /workspace/cycle_logs/cycle_*${pat}*.log 2>/dev/null | head -5); do
+      tail -n 2 "$f" 2>/dev/null | grep -q '^=== CYCLE END' || { echo "$f"; return 0; }
+    done
+    return 1
+  }
+  el=0
+  until f=$(find_active); do
+    [ "$el" -eq 0 ] && echo "no active cycle matching '${pat:-any}' — waiting for one to spawn (KICK pickup is ~2 s)"
+    sleep 5; el=$((el+5))
+    [ "$el" -ge 120 ] && { echo "none appeared in 120 s; is a kick filed? (ops.sh activity)"; exit 1; }
+  done
+  echo "== following $f (Ctrl-C detaches; the cycle keeps running) =="
+  off=0; start=$(date +%s)
+  while :; do
+    size=$(wc -c < "$f" 2>/dev/null || echo 0)
+    [ "$size" -gt "$off" ] && { tail -c +"$((off+1))" "$f"; off=$size; }
+    tail -n 2 "$f" 2>/dev/null | grep -q '^=== CYCLE END' && { echo "== cycle ended =="; exit 0; }
+    [ $(( $(date +%s) - start )) -ge "$t" ] && { echo "TIMEOUT after ${t}s (cycle still running; re-run to keep following)"; exit 1; }
+    sleep 5
+  done
   ;;
 
 waitlog)  # waitlog <file> <regex> [timeout_s] — poll instead of sleep-and-pray
@@ -611,6 +681,9 @@ waitlog)  # waitlog <file> <regex> [timeout_s] — poll instead of sleep-and-pra
   echo "  waitlog <file> <regex> [t] |"
   echo "  logline \"line\" | frames <mp4> [n] | expdir <run> | wandbdump <run> |"
   echo "  wandbnote <run> \"paragraph\" | oplaunch <launch_run.py args...> |"
-  echo "  cycle [\"focus text\"] (operator: kick a decision session now)"
+  echo "  cycle [\"focus text\"] (operator: kick a decision session now) |"
+  echo "  activity (live watcher+cycle view w/ narration) |"
+  echo "  cyclelog [pat] [n] (tail one cycle's live narration) |"
+  echo "  waitcycle [pat] [t] (follow a cycle live until it ends)"
   ;;
 esac
