@@ -6,17 +6,16 @@ wins. Run-level evidence lives in `rl_docs/runs/`, `RL_LOG.md`, and W&B.
 
 ## WAITING-ON
 
-- Fast-gait fork: RUNNING, not waiting (since 08-22 ~00:2x UTC). The
-  operator overrode the speedbc1 pre-registered STOP (fb
-  20260822T000318Z) and ordered a +4M continuation to test whether the
-  late training-reward recovery continues and is real:
-  `cw-dep-bcgait3-speedbc1-cont1` on train-7. Cycle decomposition of
-  the parent says the recovery was an episode-length artifact
-  (per-tick reward worsened -2.95 -> -3.13, ep_len fell 317 -> 249,
-  pitch rose 4.7 -> 6.3 deg; speed/heading command-invariant all run)
-  — gate forces per-tick-vs-ep-len decomposition + pinned-speed
-  panels at each snapshot. Verdict will say behavioral improvement vs
-  reward-length artifact. Download answer unchanged either way.
+- [operator] Fast-gait fork (since 08-21 ~23:5x UTC, still open): a
+  4th lever is now refuted. `cw-dep-bcgait3-speedbc1-cont1` (the
+  operator's +4M "just keep training" order, fb 20260822T000318Z)
+  FINISHED and FAILED worse than its parent: rollout reward "recovery"
+  was purely episodes getting shorter (per-tick reward stayed
+  net-negative); our own pinned-speed panel on the final checkpoint
+  shows 48/48 episodes falling (parent was 34/48), a new sacrificed-leg
+  pathology, and direction/speed obedience unimproved. Refuted levers:
+  faster cadence, k_walk_cmd_track, speed-obs+charges, more training
+  steps. No further respec without a new operator-chosen lever.
 - [operator, bench-parked] Calibrated plant values (since 08-21): the
   08-21 calibration commits (f7691024..9f9f27c7) add bench sweep
   tooling only; fitted geometry/calibration READINGS live on the robot
@@ -83,15 +82,16 @@ hardware.
 
 ## Live Work
 
-Nothing training. `cw-dep-bcgait3-speedbc1` — the operator's 08-21
-fast-gait lever (order 20260821T224150Z: speed-conditioned BC +
-observable leg-odometry velocity + tested overspeed/heading charges) —
-FINISHED and FAILED its pinned-speed gate on every axis (falls 34/48
-vs parent's zero, dir err 58-80 deg, slip det 3.0-3.5 / sto 8-11, raw
-speed 0.12-0.14 m/s command-invariant). Pre-registered FAIL mode ->
-STOP; fork is operator-gated (see WAITING-ON). Fast walking itself
-still exists (`fastbc1`: zero falls, straight, 2x overspeed); the
-deployed answer is untouched. The operator's 08-21 from-scratch ANTI-SLIP
+Nothing training. `cw-dep-bcgait3-speedbc1` (08-21 speed-conditioned-BC
+fast-gait lever) and its operator-ordered +4M continuation `-cont1`
+both FINISHED and FAILED; `-cont1` FAILED WORSE (48/48 falls vs
+parent's 34/48, new sacrificed-leg pathology, no obedience gain — the
+reward "recovery" was the predicted episode-length artifact, not real
+behavior). Four fast-gait speed-obedience levers are now refuted
+(cadence, tracking price, speed-obs+charges, more steps); fork is
+operator-gated (see WAITING-ON). Fast walking itself still exists
+(`fastbc1`: zero falls, straight, 2x overspeed); the deployed answer
+is untouched. The operator's 08-21 from-scratch ANTI-SLIP
 walking experiment (order 20260821T133626Z) ran and FAILED honestly:
 `cw-nobc-slipwalk1-r1` (no BC anchor, one fixed forward command, no speed
 target, hard structural loaded-slip charge, anti-park travel floor) froze
@@ -124,7 +124,7 @@ default-off reward pieces stay in the repo. Details:
 Open decisions that should not be resolved by autonomous doc rereads:
 
 - Post-lower contract: accept remaining-rise semantics generally, and decide whether to promote `postlower4` over `footlow2_hard1`.
-- Fast gait: OPEN again 08-21 — the ordered speed-conditioned-BC lever failed its gate (see WAITING-ON); three speed-obedience levers now refuted; next lever is an operator choice.
+- Fast gait: OPEN again 08-21 — the ordered speed-conditioned-BC lever and its +4M continuation both failed their gates (see WAITING-ON); four speed-obedience levers now refuted; next lever is an operator choice.
 - Hardware return: bench-promote the hierarchy or fall back to scripted stand/sit glides as appropriate.
 - Recover mode: flip handling (ship unsupported vs flip-hardening arm); hardware-side recover items parked for the bench.
 - Non-sprint tracks: arch/dynrep/quad/turn/nobc/multitask stay gated unless directly serving rise+walk download readiness or explicitly ordered.

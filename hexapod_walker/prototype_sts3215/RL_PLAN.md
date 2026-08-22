@@ -57,20 +57,16 @@ and passes the promotion contract.
 
 ## Active Queue
 
-`cw-dep-bcgait3-speedbc1` (hw, discovery 2M, train-7): the operator's
-08-21 fast-gait lever — speed-conditioned BC from the native-cadence
-teacher under the full profile (band 0.06-0.10; 0.04/0.05 refuted at
-teacher preflight), mode-3 leg-odometry velocity obs (fixes the
-vel:=ref blindness behind the fastbc1 2x overspeed), tested
-overspeed/heading charges. Gate: pinned-speed panel in-band at every
-band, zero falls, six-leg, dir <=30 deg, slip in budget. PASS ladder:
-fixed headings -> irregular direction changes. Other 11 pods idle;
-backlog empty.
+Empty. `cw-dep-bcgait3-speedbc1` and its operator-ordered +4M
+continuation `-cont1` both finished and FAILED (see hw track STATUS);
+four fast-gait speed-obedience levers are now refuted (cadence,
+tracking price, speed-obs+charges, more steps). Fast-gait fork returns
+to the operator for a new lever. All pods idle; backlog empty.
 
 ## Open Operator Decisions
 
 - Post-lower rise contract: adopt remaining-rise semantics and/or promote `postlower4` over `footlow2_hard1`.
-- Fast gait: decision made 08-21 (order 20260821T224150Z, q CLOSED) — speed-conditioned BC + observable-speed obs contract; canary running. Returns to the operator only on a gate FAIL.
+- Fast gait: the 08-21 lever (order 20260821T224150Z) and its +4M continuation both FAILED their gates (4th refuted lever); returned to the operator for a new approach.
 - Hardware bench promotion after repair: test the hierarchy and decide whether to replace deployed stance/walk fallbacks.
 - Recover/tangle redesign: outside SIM SPRINT unless reopened.
 - Non-sprint tracks: remain gated unless directly relevant or explicitly ordered.
