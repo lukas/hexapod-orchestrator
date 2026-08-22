@@ -781,15 +781,18 @@ def spawn_cycle(newly_finished: set[str], still_running: set[str],
     # edits and its later push can't be rejected as non-fast-forward.
     # Serialized against snapshot.sh's commit/rebase/push (and
     # status_server.py's own doc-sync puller) with the same host-wide
-    # flock (08-22: this pull ran WITHOUT the lock while snapshot.sh's
-    # commit+pull+push held it, and two concurrent --autostash pulls
-    # raced on the stash slot — one process's rebase auto-unstashed a
-    # DIFFERENT, unrelated, hours-stale autostash and left the working
-    # tree mid-conflict with unmerged experiments.json, corrupting the
-    # shared ledger until a later cycle manually resolved it). Blocking
-    # (not -n) is correct here, unlike status_server's polling loop:
-    # this runs once right before spawning a cycle, so a brief wait for
-    # a concurrent snapshot to finish is normal and cheap.
+    # flock (08-22: this specific pull ran WITHOUT the lock while
+    # snapshot.sh held it elsewhere, and separately a cycle that same
+    # day corrupted the shared experiments.json/RL_LOG.md/STATUS.md by
+    # manually `git stash pop`-ing an unrelated hours-stale autostash
+    # against 10+ commits of newer history — both are real ways an
+    # unprotected git operation can leave the shared working tree in a
+    # conflicted state mid-cycle. This lock doesn't stop a deliberate
+    # manual stash pop, but it does close the unlocked-pull half of the
+    # exposure for free). Blocking (not -n) is correct here, unlike
+    # status_server's polling loop: this runs once right before
+    # spawning a cycle, so a brief wait for a concurrent snapshot to
+    # finish is normal and cheap.
     pull = subprocess.run(
         ["flock", GIT_LOCK, "git", "pull", "--rebase", "--autostash",
          "origin", "main"],
