@@ -1,8 +1,7 @@
 # STATUS - campaign dashboard
 
-Last updated: 2026-08-22 UTC. This is the operator-facing dashboard,
-not a history file. If this conflicts with `CURRENT_TRUTHS.md`, that file
-wins. Run-level evidence lives in `rl_docs/runs/`, `RL_LOG.md`, and W&B.
+Last updated: 2026-08-22 UTC. Operator-facing dashboard, not a history file.
+`CURRENT_TRUTHS.md` wins on conflict; run evidence in `rl_docs/runs/`, W&B.
 
 ## WAITING-ON
 
@@ -22,9 +21,16 @@ wins. Run-level evidence lives in `rl_docs/runs/`, `RL_LOG.md`, and W&B.
   ENTIRE direction-first curriculum with ZERO RL at the measured
   plant: all fixed headings incl. rear (prog 0.65-0.76, slip/m
   1.6-2.0, zero falls) AND irregular heading changes + stops (prog
-  0.70-0.78, zero falls) at fixed 0.08 cmd (SKILLS row). Decision:
-  adopt the zero-RL clone as the candidate (next: DR panel +
-  board-side command-gated phase clock CODE), new RL pricing, or park.
+  0.70-0.78, zero falls) at fixed 0.08 cmd (SKILLS row). SCOPING
+  (operator-keyed fb_20260822T003132, folded in 08-22 ~01:3x): the
+  phasedir1 FAIL refutes phase-RL with FULL +/-180 deg headings from
+  rung 1, NOT the phase input (zero falls) and NOT the operator's
+  intended STAGED curriculum (forward-only -> small heading set ->
+  full headings -> irregular changes), which is UNTRIED as an RL
+  lever; spec pre-registered in hw STATUS "Next". Decision: adopt the
+  zero-RL clone as the candidate (next: DR panel + board-side
+  command-gated phase clock CODE), staged-curriculum phase RL, new
+  RL pricing, or park.
 - [operator, bench-parked] Calibrated plant values (updated 08-22):
   the operator's measured-tibia commit (a4beb8af, tibia 128->150 mm)
   is now IN the sim plant/gait IK — walk stance stands ~169 mm (was
@@ -80,8 +86,7 @@ when the operator explicitly orders them.
 
 ## Download Answer
 
-Unchanged: use the hierarchical session composition in
-`rl_docs/DOWNLOAD_ANSWER.md`:
+Unchanged: the hierarchical session composition in `rl_docs/DOWNLOAD_ANSWER.md`:
 
 - stance: `ppo_goal_cw_stand_footlow2_hard1`
 - walk: `ppo_goal_cw_dep_bcgait1_hard1`
@@ -101,13 +106,12 @@ phase/direction order was executed end-to-end in one cycle
 (`cw-dep-bcgait4-phasedir1`: teacher grid + phase clone + 2M RL +
 matched-control gate) — RL FAILED again, but the zero-RL phase clone
 PASSED the full direction-first curriculum (see WAITING-ON + SKILLS).
-Fork operator-gated with a concrete zero-RL candidate. Fast walking
-itself still exists (`fastbc1`: zero falls, straight, 2x overspeed);
-the deployed answer is untouched. The 08-21 from-scratch ANTI-SLIP
-experiment (`cw-nobc-slipwalk1-r1`, order 20260821T133626Z) FAILED
-honestly: froze at 0.001 m travel despite a preflight-proven-correct
-reward — an exploration failure from a blank init, sub-line stopped
-per the operator's instruction (`rl_docs/tracks/nobc/STATUS.md`).
+Fork operator-gated with a concrete zero-RL candidate (and a
+pre-registered staged-RL option per fb_20260822T003132). Fast walking
+itself still exists (`fastbc1`: zero falls, straight, 2x overspeed).
+The 08-21 from-scratch anti-slip canary (`cw-nobc-slipwalk1-r1`)
+FAILED honestly — exploration failure from a blank init, sub-line
+stopped per operator (`rl_docs/tracks/nobc/STATUS.md`).
 DOWNLOAD_ANSWER unchanged.
 
 ## Current Findings
@@ -123,7 +127,7 @@ DOWNLOAD_ANSWER unchanged.
 Open decisions that should not be resolved by autonomous doc rereads:
 
 - Post-lower contract: accept remaining-rise semantics generally, and decide whether to promote `postlower4` over `footlow2_hard1`.
-- Fast gait: OPEN — five RL levers refuted (see WAITING-ON); choose: adopt the zero-RL phase clone as the candidate (then DR panel + board phase-clock runner CODE), a new RL pricing, or park.
+- Fast gait: OPEN — five RL levers refuted (see WAITING-ON, incl. the fb_20260822T003132 scoping: staged-curriculum phase RL is untried); choose: adopt the zero-RL phase clone (then DR panel + board phase-clock runner CODE), staged-curriculum phase RL, a new RL pricing, or park.
 - Measured plant: decide whether to re-gate/re-harden the download hierarchy on the new tibia-150 geometry (all pre-08-22 checkpoints trained on the old plant).
 - Hardware return: bench-promote the hierarchy or fall back to scripted stand/sit glides as appropriate.
 - Recover mode: flip handling (ship unsupported vs flip-hardening arm); hardware-side recover items parked for the bench.
