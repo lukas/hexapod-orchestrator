@@ -34,22 +34,32 @@ Last updated: 2026-08-22 UTC. Operator-facing dashboard, not a history file.
   answer for bench / fold into fast-gait fork. Remaining calibration
   READINGS still live only on the unreachable robot
   (fb_20260821T224209) [bench-parked].
-- [code] SEMANTICS BANKS RED AT HEAD (new, 08-22 ~03:2x UTC; blocks
-  ALL stance/walk launches incl. the fix arms above): full rise/lower/
-  walk bank run = 14 FAIL. Matched-control split: 4 are TIBIA-150-
-  CAUSED (pass at 128 mm, fail at 150): `rise_rock_feedback_levels_it`,
-  `trans_drag_honest_rise_keeps_full_pay`, and the WALK GAIT GATE pair
-  (`walk_gait_gate_keeps_honest_gait_income`,
-  `walk_gait_gate_collapses_flag_leg_income`) — at the measured plant
-  the walk reward's gait gate mis-orders honest-vs-flag-leg income.
-  10 fail on BOTH plants (pre-existing at HEAD harness; slipwalk bank
-  was proven green 08-21 ~13Z, so onset is in the 08-21/22 commit
-  window — quad rear-support commits 14cbf0de/ac22d050 are the prime
-  suspects; needs bisect). AGENT-DOABLE next: bisect onset, repair
-  tests-or-reward per root cause, banks green, then launch the fix
-  arms. NOTE: cw-dep-bcgait4-phasedir1 (walk, 2M PPO) trained at
-  tibia-150 with these walk banks unverified — its RL degradation may
-  be partly reward mis-ordering, re-read after repair.
+- [code] SEMANTICS BANK RESIDUE — 7 tibia-150 recalibration FAILs
+  (updated 08-22, bank bisect/REPAIR LANDED): the 08-21/22 breakage
+  was ROOT-CAUSED by bisect to 30660b51 ("measured stand geometry"),
+  NOT the quad commits: it switched the scripted-gait/IK knee output
+  to the robot's ABSOLUTE-tibia convention and the hardware default
+  stand home to +19/+28 absolute, while the MuJoCo knee hinge (and
+  every checkpoint) is femur-RELATIVE — every rl_move consumer of
+  desired_deg/_leg_ik/standing_pose was silently mis-posed (full bank
+  was 43 FAIL). FIXED at the boundary: `linux_control/
+  sim_gait_compat.py` (sim-relative adapters; hardware untouched) +
+  `_default_plant_deg` guard (near-singular +19/+9-rel default stand
+  NOT adopted; captured plants convert). Bank now 7 FAIL, ALL
+  reproduced at a4beb8af pre-convention => TRUE tibia-150 residue:
+  rise_valid_plant, score_replay (stale 128 mm rise ref npz),
+  rise_rock, trans_drag, getup_honest_ordering, recover_floor_rungs,
+  fastprof_obeying. sim_env/mode_seq/bc_anchor/walk suites green.
+  AGENT-DOABLE next: re-mint rise ref at tibia-150
+  (extract_rise_ref) + recalibrate the 5 other tests per root cause;
+  rise-family green unblocks the stance fix arm. NOTE: the walk-bank
+  family is GREEN => walk fix arm launched (see hw STATUS).
+  phasedir1 re-read UPGRADED: it trained on the corrupted sim
+  (061dfe69 contains 30660b51 — walk spawns + BC anchor mis-posed);
+  its RL-degradation verdict is env-confounded, candidate re-run on
+  the repaired sim before any phase-RL conclusion. The 08-22
+  plantgate 150-vs-128 DIFFERENTIAL stands (both arms shared the
+  harness), but its ABSOLUTE numbers predate the repair.
 - [operator] Recover mode flip handling (since 08-20 ~23:00 UTC): the
   recover champion is packaged + sim-gate-verified through the
   deployment runner (see below), but flip (full inversion) is out of
