@@ -25,9 +25,12 @@ only.
   root-caused to 30660b51, which leaked the robot's absolute-tibia
   knee convention into MuJoCo's femur-relative hinge frame. Boundary
   repair landed in `linux_control/sim_gait_compat.py`; bank is down
-  to 7 true tibia-150 recalibration failures. Next code item is
-  re-minting the rise reference and recalibrating the remaining tests;
-  that unblocks `cw-stand-footlow2-plant150-1`.
+  to 7 true tibia-150 recalibration failures. Re-minting the rise
+  reference turned out NOT to be a stale-file fix: the scripted
+  open-loop belly->plant blend in `extract_rise_ref.py` now falls on
+  every seed at tibia-150 (a timing retune makes it worse, not
+  better) — it needs an IK/foot-anchored blend. Unblocks
+  `cw-stand-footlow2-plant150-1`.
 - [operator, bench-parked] Physical promotion and calibration readings:
   the measured-plant numbers still live on the robot, and hardware
   promotion waits until bench work resumes.
@@ -36,13 +39,16 @@ only.
 
 ## Live work
 
-- `cw-dep-bcgait1-plant150-1` - walk champion re-hardening on the
-  measured tibia-150 plant. Launched after the convention-bank repair.
-- `cw-dep-bcgait4-phasedir2-staged-fwd` - operator-ordered staged
-  phase-RL rung A. Reward was realigned around stride-averaged course,
-  EMA overspeed band, clone-banded load/slip pricing, travel floor,
-  and phase-locked raw-dialect BC anchor. Preflight bank is green;
-  rungs B-D are pre-registered behind rung-A pass gates.
+- `cw-dep-bcgait1-plant150-1` - PASSED(core): walk champion
+  re-hardened on tibia-150, 0/6 falls DR-0+own-DR, session back-fall
+  fixed; promoted as the walk half of the tibia-150 deploy pair.
+- `cw-dep-bcgait4-phasedir2-staged-fwd` - rung A FAILED its
+  pre-registered progress floor (0.836x clone < 0.9x) despite zero
+  falls/6-6 gait/better dir_err; root cause: overspeed/loadslip
+  charges price stochastic per-tick noise, not stride-mean behavior.
+  Rungs B-D withheld pending a stride-EMA repricing.
+- `smoke-amp-asymcritic-mjx` - PASSED: `--asym-critic` ported from the
+  CPU trainer to the GPU/Warp trainer (AMP M0), verified on-pod.
 - Stance plant-150 arm remains blocked on the rise-bank residue above.
 
 ## Current findings
@@ -64,7 +70,8 @@ only.
 
 - `joystick`: mainline. Plant-150 walk fix and staged phase-RL rung A
   are live; rise-bank cleanup is the next code unblocker.
-- `amp`: charter adopted; M0 infrastructure is next.
+- `amp`: M0 IN PROGRESS — asym-critic ported to the GPU trainer this
+  cycle; discriminator/motion-library/joystick-env wiring is next.
 - `arch` / `dynrep` / `quad` / `turn` / `multitask`: secondary unless
   they directly serve rise+walk download readiness or are explicitly
   ordered.
