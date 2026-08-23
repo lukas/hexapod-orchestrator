@@ -48,6 +48,17 @@ behavior, architecture, or reward class.
 
 Check BOTH training return and the pre-registered task metric.
 
+**Weight-movement check (08-23, stdanneal45 forensics): a rising
+reward curve does NOT prove gradient steps happened.** Any run whose
+recipe changes the action-noise scale on a schedule (`--log-std-final`
+etc.) can show rising reward purely from shrinking noise on a FROZEN
+policy — both 08-23 amp anneal arms completed 2M steps with zero
+optimizer steps (SB3 `target_kl` early-stop fired before
+`optimizer.step()` every update). Before crediting learning on any
+noise-schedule run, confirm the checkpoint's non-log_std tensors
+differ from the parent/init (`zipfile`+`torch.load` tensor diff) or
+grep the train log for `Early stopping at step 0` on every update.
+
 - Neither improves with adequate budget: **FAIL — hypothesis did not
   produce learning.**
 - Reward rising but eval flat/down: **MISALIGNED** until proven
