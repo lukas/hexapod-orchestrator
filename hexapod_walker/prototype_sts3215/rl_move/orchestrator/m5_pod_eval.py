@@ -57,6 +57,7 @@ def main() -> int:
         pod = rest[0]
         rest = rest[1:]
     per_mode = "6"
+    walk_per_mode = ""
     suffix = ""
     extra_cfg: list[str] = []
     for a in rest:
@@ -64,6 +65,12 @@ def main() -> int:
             skip = a.split("=", 1)[1]
         elif a.startswith("--per-mode="):
             per_mode = a.split("=", 1)[1]
+        elif a.startswith("--walk-per-mode="):
+            # q_20260823T0700Z amendment: walk-section slip at the default
+            # per-mode 6 typically lands n_translating=3; pass e.g. 24 so
+            # slip medians are judged on >=6 translating episodes. Pair
+            # with --suffix to keep the base _m5 artifacts intact.
+            walk_per_mode = a.split("=", 1)[1]
         elif a.startswith("--suffix="):
             suffix = a.split("=", 1)[1]
         elif a.startswith("--cfg="):
@@ -109,6 +116,8 @@ def main() -> int:
            f". rl_move/sim/wandb.env 2>/dev/null; set +a; "
            f"python3 -m rl_move.sim.eval_amp_m5 {shlex.quote(ckpt)}"
            f" --out-dir {out_rel} --per-mode {shlex.quote(per_mode)} --seed 0"
+           + (f" --walk-per-mode {shlex.quote(walk_per_mode)}"
+              if walk_per_mode else "")
            + (f" --episode-seconds {ep}" if ep else "")
            + (f" --skip {shlex.quote(skip)}" if skip else "")
            + "".join(f" --cfg-set {shlex.quote(c)}" for c in cfgs)
