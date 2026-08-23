@@ -22,13 +22,16 @@ The campaign has three registered goals; two now read GATE GREEN:
    (2/12) and 5/6-6/7 family checkpoints shared one fall maneuver at
    a fixed held-out episode, traced to the trained push-force range
    (10-25N) rather than turn-in-place/fault. FIX FOUND AND CONFIRMED
-   ON A FRESH RETRAIN (08-23 ~10:3x): recalibrating
+   AT BOTH TIERS ON FRESH RETRAINS (08-23 ~10:3x-10:4x): recalibrating
    `dr.ext_push_n` to 5-18N gives 0/12 real falls on the fault+push
-   tier (`pushcont1-pushcal518`, vs the untouched range's own 4/12).
-   Whether the same recalibration also clears the FULL
-   turn+fault+push composition (the tipfrac05 family) — and does so
-   seed-robustly — is the open question a same-cycle 3-arm batch
-   (seed7/23/13) is answering; not yet promotable.
+   tier (`pushcont1-pushcal518`, vs the untouched range's own 4/12)
+   AND on the FULL turn+fault+push composition (`tipfrac05-pushcal518`,
+   seed=7: 0/12 real falls, vs `tipfrac05`'s own 2/12, video-confirmed
+   clean at the specific episode that toppled 5/6 of the seed batch).
+   Seed-robustness (the `-seed23`/`-seed13` twins, launched alongside)
+   still in flight; full `eval_amp_m5` cross-engine re-run on the
+   recalibrated checkpoint not yet done — not yet promotable pending
+   those two checks.
 3. `cpg` - **GATE GREEN (08-23)**: Berkeley-style low-dimensional
    gait search. Gate: a saved parameterized controller passes
    contextual walking/turning/stopping tests with zero falls and low
