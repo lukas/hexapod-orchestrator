@@ -44,6 +44,13 @@ The campaign has three registered goals; two now read GATE GREEN:
    Checkpoint is the M5 candidate champion (SKILLS.md row). Gate
    flips on the 4-seed pass-rate read (seed 17/23/29 twins RUNNING;
    >=3/4 incl. seed-7 original = DONE) — q_20260823T2110Z.**
+   **GATE GREEN (08-23 ~22:0x): the 4-seed replication sealed at
+   4/4 — s17 (prog 0.983/slip 2.661/tips 0.114-0.166), s23
+   (0.959/3.294/0.138-0.140), s29 (1.058/2.883/0.111-0.142, the
+   strongest read in program history), all zero-fall, all strips
+   clean. M5 champion: `ppo_goal_..._phasehz11_s29.zip`. Track DONE
+   at M5 per the brief; M6 hardware transfer is operator-owned
+   (amp/STATUS.md WAITING-ON).**
 3. `cpg` - **GATE GREEN (08-23)**: Berkeley-style low-dimensional
    gait search. Gate: a saved parameterized controller passes
    contextual walking/turning/stopping tests with zero falls and low
@@ -62,6 +69,9 @@ only.
 
 - [operator] Physical promotion, calibration readings, and hardware
   drive of the joystick/cpg champions: waits on bench access resuming.
+- [operator] AMP M6 hardware transfer of the M5 champion
+  (`ppo_goal_cw_amp_m4_turnfault_seq1_pushcont1_tipfrac05_pushcal518_phasehz11_s29.zip`):
+  physical-robot step, out of agent scope (M5 gate green 08-23).
 - [operator] Recover mode: decide whether to ship flip unsupported or
   order flip-hardening. Hardware-side recover checks are parked.
 - (none code-side: the tibia-150 rise-bank/RSI residue that used to
