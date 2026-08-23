@@ -9,7 +9,13 @@ tool, not a per-run standard eval); run it by hand when a verdict names
 it as the next step.
 
     python3 rl_move/orchestrator/m5_pod_eval.py <run> [pod] [--skip=a,b]
-        [--per-mode=N] [--suffix=name]
+        [--per-mode=N] [--suffix=name] [--cfg=k=v ...]
+
+--cfg=k=v (repeatable) appends EXTRA --cfg-set overrides AFTER the
+run's own derived cfg list (eval_amp_m5 is last-wins, 08-23) — for
+eval-only diagnostic probes (e.g. relaxing safety.max_delta_q_deg to
+test whether the action clamp binds turn rate). Always pair with
+--suffix so a probe never clobbers the run's real m5 read.
 
 --per-mode overrides the suite's episodes per mode (default 6; the
 q_20260823T0700Z sampling amendment uses 12 so the walk section's
@@ -52,6 +58,7 @@ def main() -> int:
         rest = rest[1:]
     per_mode = "6"
     suffix = ""
+    extra_cfg: list[str] = []
     for a in rest:
         if a.startswith("--skip="):
             skip = a.split("=", 1)[1]
@@ -59,6 +66,8 @@ def main() -> int:
             per_mode = a.split("=", 1)[1]
         elif a.startswith("--suffix="):
             suffix = a.split("=", 1)[1]
+        elif a.startswith("--cfg="):
+            extra_cfg.append(a.split("=", 1)[1])
 
     entry = None
     fallback = None
@@ -102,7 +111,8 @@ def main() -> int:
            f" --out-dir {out_rel} --per-mode {shlex.quote(per_mode)} --seed 0"
            + (f" --episode-seconds {ep}" if ep else "")
            + (f" --skip {shlex.quote(skip)}" if skip else "")
-           + "".join(f" --cfg-set {shlex.quote(c)}" for c in cfgs))
+           + "".join(f" --cfg-set {shlex.quote(c)}" for c in cfgs)
+           + "".join(f" --cfg-set {shlex.quote(c)}" for c in extra_cfg))
     print(f"m5: starting on {pod} -> {logpath}\n+ {cmd}")
     with open(logpath, "w") as fh:
         p = subprocess.run(["kubectl", "exec", pod, "--", "bash", "-c", cmd],
