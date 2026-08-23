@@ -771,11 +771,52 @@ def _launch_locked(g: dict, a: argparse.Namespace,
     checks["code_sha_local"] = local_sha
     checks["code_sha_pod"] = pod_sha or None
     if pod_sha != local_sha:
-        return refuse(entry, f"{a.pod} code marker "
-                             f"{pod_sha or 'MISSING'} != local HEAD "
-                             f"{local_sha}. Sync first: snapshot.sh "
-                             f"--sync {a.pod} (and snapshot/commit before "
-                             "that if the tree is dirty).")
+        # TOCTOU repair (2026-08-23): concurrent cycles snapshot
+        # orchestrator state (ledger/backlog/docs) every few minutes, so
+        # HEAD routinely advances between a launch's own snapshot+sync
+        # and this check. On 08-23 that race PARKED five launches in a
+        # row (pushhard1-noamp-n2040-c1 silently on 3x REFUSED, then
+        # both pushcur2 stage-3 arms and a concurrent cycle's
+        # turnfault acq1 r1-r3) while 10 GPU pods sat idle. If the
+        # pod's synced commit is an ANCESTOR of local HEAD and the
+        # delta touches ONLY non-training paths (orchestrator state,
+        # docs, logs, markdown), the pod runs the SAME training code:
+        # accept, and record the exact benign delta in the ledger.
+        # Any delta touching rl_move/sim, linux_control, or other code
+        # still refuses exactly as before.
+        stale_ok = False
+        if pod_sha:
+            anc = subprocess.run(
+                ["git", "-C", str(HERE), "merge-base", "--is-ancestor",
+                 pod_sha, local_sha],
+                capture_output=True, text=True, timeout=30)
+            if anc.returncode == 0:
+                try:
+                    delta = sh(["git", "-C", str(HERE), "diff",
+                                "--name-only", f"{pod_sha}..{local_sha}"])
+                except (subprocess.CalledProcessError,
+                        subprocess.TimeoutExpired):
+                    delta = None
+                if delta is not None:
+                    files = [f for f in delta.splitlines() if f.strip()]
+                    benign_prefixes = (
+                        "hexapod_walker/prototype_sts3215/rl_move/orchestrator/",
+                        "hexapod_walker/prototype_sts3215/rl_docs/",
+                        "hexapod_walker/prototype_sts3215/logs/",
+                    )
+                    stale_ok = all(
+                        f.startswith(benign_prefixes) or f.endswith(".md")
+                        for f in files)
+                    if stale_ok:
+                        checks["code_sha_stale_benign_delta"] = files[:50]
+        if not stale_ok:
+            return refuse(entry, f"{a.pod} code marker "
+                                 f"{pod_sha or 'MISSING'} != local HEAD "
+                                 f"{local_sha} and the delta is not "
+                                 "benign-orchestrator-only. Sync first: "
+                                 f"snapshot.sh --sync {a.pod} (and "
+                                 "snapshot/commit before that if the tree "
+                                 "is dirty).")
 
     # --- init-from checkpoint preflight (2026-08-09) -------------------------
     # snapshot.sh --sync deliberately EXCLUDES rl_move/sim/policies, so a
