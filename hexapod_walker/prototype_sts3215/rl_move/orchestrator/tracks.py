@@ -30,6 +30,8 @@ PREFIX_MAP = (
     ("paper-cpg-", "cpg"),
     ("cw-cpg-", "cpg"),
     ("cpg-", "cpg"),
+    ("cw-walkcurr-", "walkcurr"),
+    ("walkcurr-", "walkcurr"),
 )
 
 
