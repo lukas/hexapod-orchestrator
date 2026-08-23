@@ -78,10 +78,14 @@ only.
   are live; rise-bank cleanup is the next code unblocker.
 - `amp`: M0 IN PROGRESS — asym-critic ported to the GPU trainer this
   cycle; discriminator/motion-library/joystick-env wiring is next.
-- `cpg`: new first-class track. Contextual-250 CPG search already
-  found a zero-fall tetrapod winner across 5 headings + 2 turns;
-  next is a held-out 60 s CPG gate, controller artifact export, and
-  teacher-v2 A/B before any downstream swap.
+- `cpg`: **GATE GREEN (08-23)**. Held-out 60 s robust gate: full PASS
+  (all 5 panels, zero falls, yaw-trim artifact exported + web-UI/
+  drive-controller loaders built), and the teacher-adoption A/B is
+  measured: at matched 8M budget the CPG motion library is co-equal
+  to teacher_v2 as an AMP style source (cpgv1-acq1b det 1.35/0.77m
+  vs style05-budget2 1.21/0.71m, control ~flat vs its own 2M read —
+  CPG catch-up real, no superiority claim, no forced teacher swap).
+  Track work now maintenance-only; hardware drive is [operator].
 - `arch` / `dynrep` / `quad` / `turn` / `multitask`: secondary unless
   they directly serve rise+walk download readiness or are explicitly
   ordered.
