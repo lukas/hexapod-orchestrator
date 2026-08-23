@@ -215,6 +215,16 @@ podeval)  # podeval <run> [suffix] — run gate + own-DR evals ON the run's
   exec python3 "$HERE/pod_eval.py" "$@"
   ;;
 
+m5eval)  # m5eval <run> [pod] [--skip=a,b] — run the AMP M5 cross-engine
+  # suite (eval_amp_m5) for <run> ON A POD, deriving its own training
+  # cfg-set from the ledger (same logic as evalcmd), syncing code to
+  # the target pod first, and copying logs/ckpt_eval/<run>_m5/ back.
+  # Not part of the automatic prestage; call by hand when a verdict
+  # names "run eval_amp_m5" as the next step. Blocking (up to 1h).
+  shift
+  exec python3 "$HERE/m5_pod_eval.py" "$@"
+  ;;
+
 evalcmd)  # evalcmd <run> — print the exact-path harness eval command
   run="$2"
   python3 - "$run" <<'EOF'
@@ -700,7 +710,7 @@ waitlog)  # waitlog <file> <regex> [timeout_s] — poll instead of sleep-and-pra
   echo "subcommands: review <run> (START HERE for triage) | report <run|json> |"
   echo "  status | census | triage [hours] | procs <pod> | trainlog <run> [n] |"
   echo "  entry <run> | wandb <run> | pullckpt <run> | pushckpt <pod> <ckpt> |"
-  echo "  podeval <run> [sfx] | evalcmd <run> | drain | killrun <run> |"
+  echo "  podeval <run> [sfx] | m5eval <run> [pod] | evalcmd <run> | drain | killrun <run> |"
   echo "  waitlog <file> <regex> [t] |"
   echo "  logline \"line\" | frames <mp4> [n] | expdir <run> | wandbdump <run> |"
   echo "  wandbnote <run> \"paragraph\" | oplaunch <launch_run.py args...> |"
