@@ -8,7 +8,14 @@ read). Not part of the automatic prestage (m5 is a track-DONE-gate
 tool, not a per-run standard eval); run it by hand when a verdict names
 it as the next step.
 
-    python3 rl_move/orchestrator/m5_pod_eval.py <run> [pod] [--skip a,b]
+    python3 rl_move/orchestrator/m5_pod_eval.py <run> [pod] [--skip=a,b]
+        [--per-mode=N] [--suffix=name]
+
+--per-mode overrides the suite's episodes per mode (default 6; the
+q_20260823T0700Z sampling amendment uses 12 so the walk section's
+translating-episode count reaches n>=4 per pass). --suffix writes to
+logs/ckpt_eval/<run>_m5<suffix> so a resample never clobbers the
+original per-mode-6 read.
 
 pod defaults to the run's own ledger pod; pass an idle pod explicitly
 to run on free capacity instead of waiting for that pod to free up.
@@ -43,9 +50,15 @@ def main() -> int:
     if rest and not rest[0].startswith("--"):
         pod = rest[0]
         rest = rest[1:]
+    per_mode = "6"
+    suffix = ""
     for a in rest:
         if a.startswith("--skip="):
             skip = a.split("=", 1)[1]
+        elif a.startswith("--per-mode="):
+            per_mode = a.split("=", 1)[1]
+        elif a.startswith("--suffix="):
+            suffix = a.split("=", 1)[1]
 
     entry = None
     fallback = None
@@ -81,12 +94,12 @@ def main() -> int:
         return 1
 
     run_us = run.replace("-", "_")
-    out_rel = f"logs/ckpt_eval/{run_us}_m5"
-    logpath = f"/tmp/eval_{run}_m5.log"
+    out_rel = f"logs/ckpt_eval/{run_us}_m5{suffix}"
+    logpath = f"/tmp/eval_{run}_m5{suffix}.log"
     cmd = (f"cd {POD_PROTO} && set -a && "
            f". rl_move/sim/wandb.env 2>/dev/null; set +a; "
            f"python3 -m rl_move.sim.eval_amp_m5 {shlex.quote(ckpt)}"
-           f" --out-dir {out_rel} --per-mode 6 --seed 0"
+           f" --out-dir {out_rel} --per-mode {shlex.quote(per_mode)} --seed 0"
            + (f" --episode-seconds {ep}" if ep else "")
            + (f" --skip {shlex.quote(skip)}" if skip else "")
            + "".join(f" --cfg-set {shlex.quote(c)}" for c in cfgs))
