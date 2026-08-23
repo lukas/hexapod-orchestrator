@@ -99,6 +99,22 @@ rising reward meaningful evidence.
   change the hypothesis or the task spec, not the coefficient.
 - Matched-parent controls are mandatory for injected physics/sensor
   axes.
+- **Any manual `eval_yaw`/`eval_checkpoint` invocation you hand-write
+  (not `ops.sh`, not a harness that already bakes it in) MUST include
+  the checkpoint's own training `bus.write_speed`/`write_acc`/
+  `bus.servo_vel_max_counts_s=write_speed`/`safety.max_delta_q_deg`
+  cfg-sets.** Omitting them silently falls back to the gentle default
+  profile (write_speed=400/write_acc=20, ~4x slower slew), which reads
+  as a DIFFERENT, incomparable dynamics regime — not a small noise
+  band. Caught twice now (joystick stotight45 second-seed re-eval,
+  08-22; amp turnpush1-style05-acq1-r2 eval_yaw, 08-23 — the second
+  case produced a false PASS that had to be retracted after the
+  correctly-configured re-read showed the run was actually badly
+  turn-eroded, worse than the park fingerprint). `eval_amp_m5.py` and
+  the standard prestage gate always set this correctly; only ad hoc
+  hand-run commands are at risk — when in doubt, copy the checkpoint's
+  own `command` field's `--cfg-set bus.*`/`safety.max_delta_q_deg`
+  args verbatim rather than reconstructing them from memory.
 
 ## Reward routing
 
