@@ -76,8 +76,13 @@ only.
 
 - `joystick`: mainline. Plant-150 walk fix and staged phase-RL rung A
   are live; rise-bank cleanup is the next code unblocker.
-- `amp`: M0 IN PROGRESS — asym-critic ported to the GPU trainer this
-  cycle; discriminator/motion-library/joystick-env wiring is next.
+- `amp`: M4 nearly closed, ONE noise-scale episode from full M5
+  (08-23). Turn-exposure curriculum (`tipfrac` grid, dose-monotonic)
+  closed the turn+push cell: tipfrac05 passes m5 walk/yaw/push
+  isolated (tips 0.162/0.184), misses only fault-section gait_valid
+  9/12 vs 10 (parked carried-fault-leg flags, noise-scale). Seed/
+  budget/dose repro arms finished awaiting triage; M5-candidate
+  question q_20260823T0700Z. M6 hardware is [operator].
 - `cpg`: **GATE GREEN (08-23)**. Held-out 60 s robust gate: full PASS
   (all 5 panels, zero falls, yaw-trim artifact exported + web-UI/
   drive-controller loaders built), and the teacher-adoption A/B is
