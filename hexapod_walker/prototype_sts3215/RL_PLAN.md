@@ -1,10 +1,11 @@
-# RL Plan — three goals
+# RL Plan — four goals
 
-Reset by the operator 2026-08-21. This file is the current operating
-plan; history belongs in `archive/`, `RL_LOG.md`, and generated run
-docs. Keep this file under 150 lines.
+Reset by the operator 2026-08-21; `walkcurr` added by operator order
+2026-08-23. This file is the current operating plan; history belongs
+in `archive/`, `RL_LOG.md`, and generated run docs. Keep under 150
+lines.
 
-## The three goals (the only agent-driven work)
+## The four goals (the only agent-driven work)
 
 1. **`joystick`** — RL from the simple programmatic gait to real
    joystick control. DONE: 60 s randomized joystick script in MuJoCo,
@@ -23,8 +24,16 @@ docs. Keep this file under 150 lines.
    gates with zero falls and low slip, and any downstream teacher
    adoption is measured as an A/B fork. Track doc:
    `rl_docs/tracks/cpg/STATUS.md`.
+4. **`walkcurr`** — prior-free walking curriculum (Kawawa-2022
+   lineage, operator 08-23): from-scratch PPO, walk-only diet, fixed
+   forward first, rungs widen only on certified passes; reward
+   ranking proven by the WALKCURR_PF bank before every mechanism
+   launch; binding reward-vs-walk-eval triage rule. DONE: held-out
+   contextual walking panel, zero falls, directions followed, low
+   slip, six-leg gait, on video. Track doc:
+   `rl_docs/tracks/walkcurr/STATUS.md`.
 
-The loop does not stop until all three gates are green. The operator may
+The loop does not stop until all four gates are green. The operator may
 kick off out-of-scope runs; they are triaged honestly but spawn no
 agent follow-ups.
 
@@ -94,6 +103,14 @@ agent follow-ups.
 3. [TRANSFER] Generate `teacher_v2`/motion-library from the CPG winner
    and A/B against the current teacher at equal AMP budget before any
    downstream swap.
+
+### walkcurr — next arms
+
+1. [DISCOVERY] `cw-walkcurr-pf-fwd1` (2M, rung 1 fixed forward): did
+   real six-leg stepping emerge? Triage MUST read reward + walk-eval
+   trends together (track rule).
+2. On pass: rung 2 small heading set respec; on aligned fail: dig-in,
+   never seed-sweep.
 
 ## Inherited assets (active tracks)
 
