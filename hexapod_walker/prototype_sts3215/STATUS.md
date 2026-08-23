@@ -36,7 +36,14 @@ The campaign has three registered goals; two now read GATE GREEN:
    12/12 vs 9/12), but walk-slip and yaw-tip both slip just past
    their own strict bars (3.67 vs 3.5; 0.2157/0.2351 vs 0.20) with
    zero falls/terminations and video-clean gait — not yet
-   promotable.
+   promotable. **BREAK (08-23 ~21:0x): the cadence dose-curve found
+   the fix — slowing the gait phase clock 1.33->1.1 Hz (`-phasehz11`,
+   single lever) gives the first FULL amp-m5-v1 PASS that survives
+   scrutiny: yaw tips 0.1451/0.1453, walk det_prog 0.893 / det_slip
+   3.131 at n=28, push+fault green, 0 falls anywhere, strips clean.
+   Checkpoint is the M5 candidate champion (SKILLS.md row). Gate
+   flips on the 4-seed pass-rate read (seed 17/23/29 twins RUNNING;
+   >=3/4 incl. seed-7 original = DONE) — q_20260823T2110Z.**
 3. `cpg` - **GATE GREEN (08-23)**: Berkeley-style low-dimensional
    gait search. Gate: a saved parameterized controller passes
    contextual walking/turning/stopping tests with zero falls and low
