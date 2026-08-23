@@ -28,10 +28,15 @@ The campaign has three registered goals; two now read GATE GREEN:
    AND on the FULL turn+fault+push composition (`tipfrac05-pushcal518`,
    seed=7: 0/12 real falls, vs `tipfrac05`'s own 2/12, video-confirmed
    clean at the specific episode that toppled 5/6 of the seed batch).
-   Seed-robustness (the `-seed23`/`-seed13` twins, launched alongside)
-   still in flight; full `eval_amp_m5` cross-engine re-run on the
-   recalibrated checkpoint not yet done — not yet promotable pending
-   those two checks.
+   Seed-robustness: `-seed23` twin PASSES (0/12 falls, matches
+   seed7); `-seed13` still in flight. Full `eval_amp_m5` cross-engine
+   re-run on the recalibrated checkpoint is DONE and `m5_pass=false`
+   (a genuine trade, not a clean promotion): push/fault sections both
+   IMPROVE (fault clears its bar for the first time on this lineage,
+   12/12 vs 9/12), but walk-slip and yaw-tip both slip just past
+   their own strict bars (3.67 vs 3.5; 0.2157/0.2351 vs 0.20) with
+   zero falls/terminations and video-clean gait — not yet
+   promotable.
 3. `cpg` - **GATE GREEN (08-23)**: Berkeley-style low-dimensional
    gait search. Gate: a saved parameterized controller passes
    contextual walking/turning/stopping tests with zero falls and low
