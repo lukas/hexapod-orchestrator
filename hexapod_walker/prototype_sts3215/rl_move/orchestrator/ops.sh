@@ -559,13 +559,43 @@ killrun)  # killrun <run> — kill a run's training procs on its pod.
   run="$2"
   pod="$(entry_field "$run" pod)"
   [ -n "$pod" ] || { echo "no pod in ledger for $run"; exit 1; }
+  # 08-23: killrun used to be a SILENT NO-OP when the scan matched
+  # nothing (e.g. the kill raced the trainer spawn) and never
+  # re-verified — cw-...-wzmask2-gyroxyz was ledger-KILLED while its
+  # trainer ran to full budget. Now: report match count, wait, re-scan,
+  # and exit nonzero unless the re-scan is clean AND we killed >=1 proc
+  # (a zero-match kill exits 2 so the caller knows nothing died).
   kubectl exec "$pod" -- bash -c '
+    n=0
     for d in /proc/[0-9]*; do
       p=${d#/proc/}; [ "$p" = "$$" ] && continue
       c=$(tr "\0" " " < "$d/cmdline" 2>/dev/null)
-      case "$c" in *"--run-name $1 "*|*"--run-name=$1 "*|*"--run-name $1"|*"--run-name=$1") echo "kill $p: ${c:0:80}"; kill "$p";; esac
-    done' _ "$run"
-  echo "remember: launch_run.py update --run $run --set status=KILLED 'verdict=...'"
+      case "$c" in *"--run-name $1 "*|*"--run-name=$1 "*|*"--run-name $1"|*"--run-name=$1") echo "kill $p: ${c:0:80}"; kill "$p"; n=$((n+1));; esac
+    done
+    echo "killed_count=$n"
+    [ "$n" -gt 0 ] || exit 2
+    sleep 5
+    for d in /proc/[0-9]*; do
+      p=${d#/proc/}; [ "$p" = "$$" ] && continue
+      c=$(tr "\0" " " < "$d/cmdline" 2>/dev/null)
+      case "$c" in *"--run-name $1 "*|*"--run-name=$1 "*|*"--run-name $1"|*"--run-name=$1") echo "SURVIVOR $p (kill -9): ${c:0:80}"; kill -9 "$p";; esac
+    done
+    sleep 2
+    for d in /proc/[0-9]*; do
+      p=${d#/proc/}; [ "$p" = "$$" ] && continue
+      c=$(tr "\0" " " < "$d/cmdline" 2>/dev/null)
+      case "$c" in *"--run-name $1 "*|*"--run-name=$1 "*|*"--run-name $1"|*"--run-name=$1") echo "STILL ALIVE $p — KILL FAILED"; exit 3;; esac
+    done
+    echo "verified dead"' _ "$run"
+  rc=$?
+  if [ $rc -eq 2 ]; then
+    echo "NOTHING MATCHED on $pod — the trainer may not have spawned yet (launch race) or already exited."
+    echo "Do NOT mark KILLED on this evidence alone: re-run killrun after ~60s and check W&B run state."
+  elif [ $rc -ne 0 ]; then
+    echo "KILL NOT VERIFIED (rc=$rc) — do not ledger-mark KILLED until a re-scan is clean."
+  fi
+  echo "remember: launch_run.py update --run $run --set status=KILLED 'verdict=...' (only after 'verified dead')"
+  exit $rc
   ;;
 
 oplaunch)  # oplaunch <launch_run.py args...> — run a launcher command ON
