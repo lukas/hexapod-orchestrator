@@ -99,8 +99,20 @@ if ! git diff --cached --quiet; then
 fi
 # Integrate anything the operator pushed from elsewhere before we push.
 git pull --rebase --autostash origin main
+# Retry-safe tagging (08-23, s1r1-c1 retry dig-in): a `respec --now`
+# launch that snapshots and THEN gets REFUSED (e.g. the pod code-marker
+# TOCTOU race) leaves exp/<run> behind, and the old hard-exit here made
+# every retry of the same run name mechanically impossible. Tags are
+# append-only provenance — never delete/move one; a retry gets a
+# suffixed tag exp/<run>-snapN instead. The ledger's code_sha_local is
+# the authoritative launch SHA either way.
 if git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null; then
-  echo "tag ${TAG} already exists" >&2; exit 1
+  N=2
+  while git rev-parse -q --verify "refs/tags/${TAG}-snap${N}" >/dev/null; do
+    N=$((N + 1))
+  done
+  echo "tag ${TAG} already exists (earlier refused/failed launch attempt); tagging ${TAG}-snap${N}" >&2
+  TAG="${TAG}-snap${N}"
 fi
 git tag "${TAG}"
 # One retry: an operator push can still land between the rebase and the
