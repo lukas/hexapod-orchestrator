@@ -19,8 +19,16 @@ The campaign has three registered goals; two now read GATE GREEN:
    no Isaac Lab). Gate: milestone M5, MuJoCo cross-engine transfer.
    First full M5 pass landed (tipfrac05) but a same-day correction
    found the champion is NOT zero-fall on its own hazard-free gate
-   (2/12) and 5/6 family checkpoints share one fall maneuver at a
-   fixed held-out episode — DIG-IN open, not yet promotable.
+   (2/12) and 5/6-6/7 family checkpoints shared one fall maneuver at
+   a fixed held-out episode, traced to the trained push-force range
+   (10-25N) rather than turn-in-place/fault. FIX FOUND AND CONFIRMED
+   ON A FRESH RETRAIN (08-23 ~10:3x): recalibrating
+   `dr.ext_push_n` to 5-18N gives 0/12 real falls on the fault+push
+   tier (`pushcont1-pushcal518`, vs the untouched range's own 4/12).
+   Whether the same recalibration also clears the FULL
+   turn+fault+push composition (the tipfrac05 family) — and does so
+   seed-robustly — is the open question a same-cycle 3-arm batch
+   (seed7/23/13) is answering; not yet promotable.
 3. `cpg` - **GATE GREEN (08-23)**: Berkeley-style low-dimensional
    gait search. Gate: a saved parameterized controller passes
    contextual walking/turning/stopping tests with zero falls and low
