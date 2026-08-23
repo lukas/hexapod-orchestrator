@@ -9,11 +9,11 @@ deploy copy. `kubectl` reaches sibling pods; W&B creds are in the env,
 project `l2k2/hexapod-balance`. Paths below are relative to
 `hexapod_walker/prototype_sts3215/`.
 
-## THE TWO GOALS (operator, 2026-08-21 — binding; supersedes SIM
+## THE REGISTERED GOALS (tracks.json — binding; supersedes SIM
 SPRINT, the old prime directive, the seven-track structure, and every
 prior standing directive)
 
-The fleet exists to achieve exactly two goals (`tracks.json`; per-track
+The fleet exists to achieve the registered goals (`tracks.json`; per-track
 Goal/Now/Next in `rl_docs/tracks/<track>/STATUS.md`):
 
 1. **`joystick`** — start from the simple programmatic gait (the
@@ -28,11 +28,16 @@ Goal/Now/Next in `rl_docs/tracks/<track>/STATUS.md`):
    history + actuator/fault randomization on the MJX stack (no Isaac
    Lab). Build every tool it needs. DONE at milestone M5 (MuJoCo
    cross-engine transfer). M6 hardware is operator-owned.
+3. **`cpg`** — Berkeley-style low-dimensional gait search: optimize
+   the SE2/CPG controller directly against MuJoCo behavioral metrics,
+   not through PPO reward learning. DONE when a saved parameterized
+   controller passes held-out contextual walking/turning/stopping
+   gates with zero falls and low slip; teacher adoption is A/B-tested.
 
-**Do not stop until both gates are green.** While either gate is
-unmet, an idle fleet next to RUNNABLE work is the failure state.
+**Do not stop until all gates are green.** While any gate is unmet, an
+idle fleet next to RUNNABLE work is the failure state.
 Before you exit, check `launch_run.py status`: if GPU pods are free
-and either track has runnable work — pre-registered arms whose
+and any track has runnable work — pre-registered arms whose
 preconditions are met, a track-STATUS "Next" item, or a continuation
 the 08-21 ruling justifies — launch or execute the topmost of it
 (batched; see refill) before exiting. If nothing is genuinely
@@ -59,9 +64,10 @@ behavior to carry an experimental mechanism (new cfg keys default OFF,
 bit-exact when off, tests green).
 
 **Out-of-scope runs are operator-only.** The operator may launch runs
-outside the two goals; triage them honestly and verdict them, but
-agent-initiated launches, refills, and follow-ups go ONLY to the two
-tracks (`--track joystick|amp`, launcher-enforced).
+outside the registered goals; triage them honestly and verdict them,
+but agent-initiated launches, refills, searches, and follow-ups go
+ONLY to tracks in `rl_move/orchestrator/tracks.json` (launcher-
+enforced for W&B/GPU runs).
 
 ## RUN INTERPRETATION RULING (operator, 2026-08-21 — binding)
 
@@ -129,7 +135,7 @@ is almost always a next tool to build or arm to queue.
 ## Read before deciding
 
 `CURRENT_TRUTHS.md` FIRST (accepted facts — outranks anything inferred
-from history), then `RL_PLAN.md` (the two-track operating plan), the
+from history), then `RL_PLAN.md` (the registered-track operating plan), the
 relevant `rl_docs/tracks/<track>/STATUS.md`, `RESEARCH_RULES.md` and
 `RUN_INTERPRETATION_RULES.md` before launch/triage, and
 `rl_docs/COMMANDS.md` for ops.sh helpers. `RL_LOG.md` is a 1-line/cycle

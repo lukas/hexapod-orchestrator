@@ -910,8 +910,8 @@ TOOLS = [
                                         "FINISHED, RUNNING, FAILED, "
                                         "REFUSED"},
               "track": {"type": "string",
-                        "description": "research-track id: joystick or "
-                                       "amp (tracks.json)"},
+                        "description": "research-track id from "
+                                       "tracks.json"},
               "contains": {"type": "string",
                            "description": "substring matched against the "
                                           "whole ledger entry"},

@@ -8,5 +8,10 @@
     "name": "AMP locomotion from scratch",
     "doc": "rl_docs/tracks/amp/STATUS.md",
     "goal": "Implement the AMP program in rl_docs/AMP_LOCOMOTION.md: adversarial motion priors + massively parallel PPO + privileged critic + observation history + actuator/fault randomization, trained from scratch on the existing MJX GPU stack (no Isaac Lab). The demonstration gait is training data, not the controller. Build every tool it needs (motion library, discriminator, GRU actor, joystick command env, eval suite) and do not pause on operator input. DONE when milestone M5 (MuJoCo cross-engine transfer of the M2-M4 policy) passes per the brief; M6 hardware deployment is operator-owned."
+  },
+  "cpg": {
+    "name": "Berkeley-style CPG gait search",
+    "doc": "rl_docs/tracks/cpg/STATUS.md",
+    "goal": "Treat the Yang/Levine microrobot result as its own locomotion path: optimize a low-dimensional SE2FootGait/CPG controller with direct MuJoCo behavioral scoring instead of PPO reward learning. DONE when the best parameterized controller passes a held-out contextual gait gate with zero falls, low loaded-foot slip, correct headings, turns, stops/restarts, and enough robustness to become either a deployable deterministic controller or a pre-registered teacher/motion-library source. Downstream adoption into joystick or AMP must be measured as an A/B fork, not a silent teacher swap."
   }
 }

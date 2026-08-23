@@ -1,20 +1,23 @@
 # STATUS - campaign dashboard
 
-Last updated: 2026-08-22 ~04:4x UTC. Operator-facing dashboard,
+Last updated: 2026-08-23. Operator-facing dashboard,
 not a history file. `CURRENT_TRUTHS.md` wins on conflict. Run-level
 evidence lives in `rl_docs/runs/`, `RL_LOG.md`, and W&B.
 
 ## Current ruling
 
-The operator reset the campaign to exactly two goals:
+The campaign now has three active goals:
 
 1. `joystick` - RL from the scripted gait to joystick control.
    Gate: 60 s randomized joystick script in MuJoCo, zero falls,
    directions followed, slip/m within the teacher band.
 2. `amp` - from-scratch AMP program (`rl_docs/AMP_LOCOMOTION.md`,
    no Isaac Lab). Gate: milestone M5, MuJoCo cross-engine transfer.
+3. `cpg` - Berkeley-style low-dimensional gait search. Gate: a saved
+   parameterized controller passes contextual walking/turning/stopping
+   tests with zero falls and low slip; any teacher swap is A/B tested.
 
-The loop works until both gates are green: no operator pauses and
+The loop works until all gates are green: no operator pauses and
 tools get built in-cycle. Most visible operating rule: reward and eval
 must agree. If reward rises while eval is unsatisfactory and flat/down,
 audit reward/eval/simulator alignment before more same-recipe seeds or
@@ -75,6 +78,10 @@ only.
   are live; rise-bank cleanup is the next code unblocker.
 - `amp`: M0 IN PROGRESS — asym-critic ported to the GPU trainer this
   cycle; discriminator/motion-library/joystick-env wiring is next.
+- `cpg`: new first-class track. Contextual-250 CPG search already
+  found a zero-fall tetrapod winner across 5 headings + 2 turns;
+  next is a held-out 60 s CPG gate, controller artifact export, and
+  teacher-v2 A/B before any downstream swap.
 - `arch` / `dynrep` / `quad` / `turn` / `multitask`: secondary unless
   they directly serve rise+walk download readiness or are explicitly
   ordered.

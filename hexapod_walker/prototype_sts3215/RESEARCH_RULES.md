@@ -15,19 +15,19 @@ objections. File conflicts in
 `rl_move/orchestrator/OPERATOR_QUESTIONS.md` and keep moving; encode
 answers back into these docs and close the question.
 
-## Prime directive (operator, 08-21)
+## Prime directive
 
-The fleet pursues exactly two goals — the `joystick` and `amp` track
-gates in `rl_move/orchestrator/tracks.json` — and does not stop until
-both are green. Every launch answers: which gap between the current
-state and this track's DONE gate does this run close? Idle pods next
-to an unmet gate are the failure state; there is almost always a tool
-to build, an alignment bank to write, a continuation to fund, or the
-next milestone arm to queue. Do not park lines waiting on the
-operator: assume-and-go with a recorded assumption. Only
+The fleet pursues the registered track gates in
+`rl_move/orchestrator/tracks.json` and does not stop until all are
+green. Every launch or CPU search answers: which gap between the
+current state and this track's DONE gate does this work close? Idle
+capacity next to an unmet gate is the failure state; there is almost
+always a tool to build, an alignment bank to write, a continuation to
+fund, or the next milestone arm to queue. Do not park lines waiting on
+the operator: assume-and-go with a recorded assumption. Only
 physical-robot access and spend approvals may wait. The operator may
-launch out-of-scope runs; triage them honestly, but agent launches go
-only to the two tracks.
+launch out-of-scope runs; triage them honestly, but agent follow-ups
+go only to registered tracks.
 
 ## Interpretation (operator, 08-21/08-22 - full text in
 RUN_INTERPRETATION_RULES.md)
@@ -85,6 +85,10 @@ rising reward meaningful evidence.
   motion-prior dataset. Follow the wave discipline of
   `rl_docs/AMP_LOCOMOTION.md` §10/§17: change one or two meaningful
   dimensions per wave, select on videos + tracking/stability metrics.
+- `cpg` track: do not convert the Berkeley-style result into PPO seed
+  sweeps. Use `rl_move.sim.paper_cpg_search` and direct behavioral
+  scoring over low-dimensional gait parameters. Any teacher or
+  motion-library adoption is a measured A/B fork; no silent swap.
 - Pre-register the gate and both outcomes (if-true / if-false) before
   launch. Coupled bundles are permitted when the mechanism requires
   them; pre-registration and honest verdicts still bind.
@@ -126,10 +130,13 @@ assume it.
 
 ## Process
 
-- Launches only via `launch_run.py` (capacity, code-SHA gate, ledger,
-  phase gate, `--track joystick|amp`). Ledger edits only via
-  `launch_run.py update`. One RL_LOG line per cycle via
-  `ops.sh logline`. Clones via `launch_run.py respec`.
+- W&B/GPU launches only via `launch_run.py` (capacity, code-SHA gate,
+  ledger, phase gate, `--track <registered-track>`). CPG CPU searches
+  run through `rl_move.sim.paper_cpg_search` with JSON artifacts and
+  must still be snapshotted, logged, and summarized in the `cpg`
+  track doc. Ledger edits only via `launch_run.py update`. One RL_LOG
+  line per cycle via `ops.sh logline`. Clones via
+  `launch_run.py respec`.
 - Code changes: cfg-gated, default off, bit-exact when off, tests
   green, `snapshot.sh` before anything trains on them.
 - Every analysis ends in a decision that changes the next experiment,

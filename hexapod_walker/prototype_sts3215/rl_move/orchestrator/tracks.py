@@ -1,13 +1,11 @@
-"""Research-track registry (operator two-track reset, 2026-08-21).
+"""Research-track registry.
 
-The campaign runs exactly TWO tracks (operator order 2026-08-21):
-`joystick` (RL from the programmatic teacher gait to joystick control)
-and `amp` (from-scratch AMP program, rl_docs/AMP_LOCOMOTION.md). All
-runs live in ONE W&B project (tags, not separate projects); each run
-is tagged `track:<id>`. tracks.json is the single source of truth;
-this module is the one shared accessor.
+The campaign's active tracks live in tracks.json. All W&B-backed runs
+share ONE project (tags, not separate projects); each run is tagged
+`track:<id>`. tracks.json is the single source of truth; this module
+is the one shared accessor.
 
-Containment rule: agent-initiated launches go only to these two
+Containment rule: agent-initiated follow-ups go only to registered
 tracks. Operator-launched out-of-scope runs are triaged honestly but
 never spawn agent follow-ups.
 """
@@ -29,6 +27,9 @@ TAG_PREFIX = "track:"
 PREFIX_MAP = (
     ("cw-amp-", "amp"),
     ("mjx-amp-", "amp"),
+    ("paper-cpg-", "cpg"),
+    ("cw-cpg-", "cpg"),
+    ("cpg-", "cpg"),
 )
 
 

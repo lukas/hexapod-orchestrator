@@ -1,10 +1,10 @@
-# RL Plan — two goals
+# RL Plan — three goals
 
 Reset by the operator 2026-08-21. This file is the current operating
 plan; history belongs in `archive/`, `RL_LOG.md`, and generated run
 docs. Keep this file under 150 lines.
 
-## The two goals (the only agent-driven work)
+## The three goals (the only agent-driven work)
 
 1. **`joystick`** — RL from the simple programmatic gait to real
    joystick control. DONE: 60 s randomized joystick script in MuJoCo,
@@ -16,8 +16,15 @@ docs. Keep this file under 150 lines.
    needed tools; never pause on operator input). DONE: milestone M5
    (MuJoCo cross-engine transfer). M6 hardware is operator-owned.
    Track doc: `rl_docs/tracks/amp/STATUS.md`.
+3. **`cpg`** — Berkeley-style low-dimensional gait search: optimize
+   the scripted SE2/CPG controller directly against the behavioral
+   gate, not via PPO reward learning. DONE: a saved parameterized
+   controller passes held-out contextual walking/turning/stopping
+   gates with zero falls and low slip, and any downstream teacher
+   adoption is measured as an A/B fork. Track doc:
+   `rl_docs/tracks/cpg/STATUS.md`.
 
-The loop does not stop until both gates are green. The operator may
+The loop does not stop until all three gates are green. The operator may
 kick off out-of-scope runs; they are triaged honestly but spawn no
 agent follow-ups.
 
@@ -75,7 +82,20 @@ agent follow-ups.
    no-AMP ablation, recurrent vs fixed-history, ±AMP weight. Select
    on videos + tracking/stability.
 
-## Inherited assets (both tracks)
+### cpg — next arms
+
+1. [SPECIFICATION] Build a reusable CPG gate harness for the
+   contextual winner: 60 s held-out headings, turns, stops/restarts,
+   slip/contact metrics, videos/contact sheets, and a single JSON
+   verdict.
+2. [HARDENING] Re-evaluate the contextual-250 winner under DR-0 and a
+   modest robustness panel; save a named controller artifact if it
+   passes.
+3. [TRANSFER] Generate `teacher_v2`/motion-library from the CPG winner
+   and A/B against the current teacher at equal AMP budget before any
+   downstream swap.
+
+## Inherited assets (active tracks)
 
 - Scripted tripod teacher verified clean at the measured tibia-150
   plant (0.06–0.10 m/s × 4 headings, zero falls, slip/m 1.4–2.9, full
