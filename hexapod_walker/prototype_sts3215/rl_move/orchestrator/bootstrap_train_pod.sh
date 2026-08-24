@@ -31,15 +31,10 @@ for POD in "$@"; do
   kubectl --kubeconfig "$KC" exec "$POD" -- bash -c '
     set -e
     apt-get update -qq && apt-get install -y -qq libosmesa6 libegl1 libgl1 ffmpeg rsync procps > /dev/null
-    # uv when available (same pins, parallel downloads, fast resolver):
-    # bootstrap blocks launches via the .bootstrapped gate, so install
-    # speed is GPU time. Fall back to pip if uv cannot be installed.
-    pip install -q --no-cache-dir uv 2>/dev/null || true
-    if command -v uv >/dev/null 2>&1; then
-      INST="uv pip install -q --system --no-cache"
-    else
-      INST="pip install -q --no-cache-dir"
-    fi
+    # uv is part of the pod contract: launch_run.py and ops.sh run trainers
+    # and evals as `uv run python ...`, so a pod without uv is not launchable.
+    pip install -q --no-cache-dir uv
+    INST="uv pip install -q --system --no-cache"
     $INST torch==2.13.0+cpu --index-url https://download.pytorch.org/whl/cpu
     $INST '"$PKGS"'
     mkdir -p /workspace/prototype_sts3215
@@ -64,7 +59,7 @@ for POD in "$@"; do
   # pod can't receive launches while pip is still installing.
   kubectl --kubeconfig "$KC" exec "$POD" -- bash -c '
     cd /workspace/prototype_sts3215 && \
-    python -c "import mujoco, warp, jax, stable_baselines3, sb3_contrib, \
+    uv run python -c "import mujoco, warp, jax, stable_baselines3, sb3_contrib, \
 wandb; import mujoco.mjx; print(\"imports OK\", jax.devices())" && \
     touch /workspace/prototype_sts3215/.bootstrapped' \
     && echo "$POD READY" || echo "$POD smoke FAILED"

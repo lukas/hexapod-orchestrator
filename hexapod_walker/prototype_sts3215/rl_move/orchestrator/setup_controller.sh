@@ -46,12 +46,13 @@ git config --global user.email "orchestrator@users.noreply.github.com"
 [ -d /workspace/weird_objects ] || git clone --filter=blob:none \
     "https://$REPO_URL_BASE" /workspace/weird_objects
 
-pip install -q wandb pyyaml 2>/dev/null || true
+pip install -q --no-cache-dir uv
+uv pip install -q --system wandb pyyaml
 
 tmux kill-session -t orchestrator 2>/dev/null || true
 tmux new-session -d -s orchestrator \
   "source /root/orchestrator.env && cd /workspace/weird_objects && \
-   python3 hexapod_walker/prototype_sts3215/rl_move/orchestrator/watch_loop.py"
+   uv run python hexapod_walker/prototype_sts3215/rl_move/orchestrator/watch_loop.py"
 echo OK
 EOF
 

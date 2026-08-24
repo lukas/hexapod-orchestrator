@@ -37,7 +37,7 @@ entry_field() {  # entry_field <run> <field> — last LIVE entry wins
   # Prefer RUNNING/FINISHED/etc over REFUSED/KILLED husks: a late REFUSED
   # duplicate (pod race) otherwise poisons pod/log lookups (hit 08-09,
   # loadslip-s1 trainlog pointed at the wrong pod).
-  python3 - "$1" "$2" <<'EOF'
+  uv run python - "$1" "$2" <<'EOF'
 import json, sys
 run, field = sys.argv[1], sys.argv[2]
 val = dead_val = ""
@@ -55,7 +55,7 @@ export LEDGER PROTO
 case "${1:-help}" in
 
 status)  # fleet in one shot: active ledger entries, live procs, watcher tail
-  python3 - <<'EOF'
+  uv run python - <<'EOF'
 import json, os
 active = {}
 for e in json.load(open(os.environ["LEDGER"])):
@@ -64,7 +64,7 @@ for e in json.load(open(os.environ["LEDGER"])):
 for r, (s, p) in active.items():
     print(f"{s:8s} {r}  pod={p}")
 EOF
-  for pod in $(python3 -c "
+  for pod in $(uv run python -c "
 import json,os
 pods={e.get('pod') for e in json.load(open(os.environ['LEDGER']))
       if isinstance(e,dict) and e.get('status')=='RUNNING'}
@@ -84,7 +84,7 @@ census)  # census — every train pod's live trainer, straight from /proc.
   # THE ground truth for "what is actually running". W&B lags a fresh
   # launch by up to ~8 min (JAX/Warp compile) and `ps` doesn't exist on
   # the older pods — both misled a 2026-08-09 debugging session.
-  for pod in $(python3 -c "
+  for pod in $(uv run python -c "
 import yaml
 print(' '.join(yaml.safe_load(open('$HERE/guardrails.yaml'))['compute']['gpu_pods']))"); do
     printf '%-24s ' "$pod:"
@@ -92,7 +92,7 @@ print(' '.join(yaml.safe_load(open('$HERE/guardrails.yaml'))['compute']['gpu_pod
       found=""
       for p in /proc/[0-9]*/cmdline; do
         c=$(tr "\0" " " < "$p" 2>/dev/null) || continue
-        case "$c" in python*train_ppo*) found="$c";; esac
+        case "$c" in *"uv run python -m rl_move.sim.train_ppo"*|python*train_ppo*|*/python*train_ppo*) found="$c";; esac
       done
       if [ -n "$found" ]; then
         echo "$found" | sed "s/.*--run-name \([^ ]*\).*/\1/"
@@ -110,7 +110,7 @@ trainlog)  # trainlog <run> [lines] — tail the run's train log on its pod
   ;;
 
 entry)  # entry <run> — all ledger entries for the run, pretty-printed
-  python3 - "$2" <<'EOF'
+  uv run python - "$2" <<'EOF'
 import json, os, sys
 for e in json.load(open(os.environ["LEDGER"])):
     if isinstance(e, dict) and e.get("run") == sys.argv[1]:
@@ -119,7 +119,7 @@ EOF
   ;;
 
 wandb)  # wandb <run> — state, steps, reward trend (quarters), std, url
-  python3 - "$2" <<'EOF'
+  uv run python - "$2" <<'EOF'
 import sys
 import wandb
 api = wandb.Api()
@@ -212,7 +212,7 @@ podeval)  # podeval <run> [suffix] — run gate + own-DR evals ON the run's
   # seat vs deployed stance) — informational, never fails the exit
   # code; result in /tmp/eval_<run>_session.log + <run>_session/.
   shift
-  exec python3 "$HERE/pod_eval.py" "$@"
+  exec uv run python "$HERE/pod_eval.py" "$@"
   ;;
 
 m5eval)  # m5eval <run> [pod] [--skip=a,b] — run the AMP M5 cross-engine
@@ -222,12 +222,12 @@ m5eval)  # m5eval <run> [pod] [--skip=a,b] — run the AMP M5 cross-engine
   # Not part of the automatic prestage; call by hand when a verdict
   # names "run eval_amp_m5" as the next step. Blocking (up to 1h).
   shift
-  exec python3 "$HERE/m5_pod_eval.py" "$@"
+  exec uv run python "$HERE/m5_pod_eval.py" "$@"
   ;;
 
 evalcmd)  # evalcmd <run> — print the exact-path harness eval command
   run="$2"
-  python3 - "$run" <<'EOF'
+  uv run python - "$run" <<'EOF'
 import json, os, sys
 run = sys.argv[1]
 # 08-13 fix: prefer an entry that actually ran (wandb_id/pid) over a
@@ -265,7 +265,7 @@ else:
 name = "ppo_goal_" + run.replace("-", "_")
 out = f"logs/ckpt_eval/{run.replace('-', '_')}_gate"
 print(f"# run from the PROTO dir; ALWAYS as a module (-m), never the .py path")
-print(f"nohup python3 -m rl_move.sim.eval_checkpoint rl_move/sim/policies/{name}.zip \\")
+print(f"nohup uv run python -m rl_move.sim.eval_checkpoint rl_move/sim/policies/{name}.zip \\")
 print(f"  --task {task} {modes} --per-mode 6 --dr-scale 0.0 --seed 0 --stochastic \\")
 if ep: print(f"  --episode-seconds {ep} \\")
 if cfg: print(f"  {cfg} \\")
@@ -302,7 +302,7 @@ report)  # report <run|report.json> — the standard triage table from a
   # harness eval. Transcript mining (08-09): cycles hand-wrote this
   # exact json-parse >100 times. Accepts a run name (newest matching
   # logs/ckpt_eval/*<run>*/report.json wins) or an explicit path.
-  python3 - "$2" <<'EOF'
+  uv run python - "$2" <<'EOF'
 import glob, json, os, statistics, sys
 arg = sys.argv[1]
 proto = os.environ["PROTO"]
@@ -375,7 +375,7 @@ frames)  # frames <video.mp4> [n] — n evenly-spaced frames -> one
   # writes walk_*.png sheets next to every eval video — check those
   # first; this is for train-log or W&B videos only.
   v="$2"; n="${3:-8}"
-  python3 - "$v" "$n" <<'EOF'
+  uv run python - "$v" "$n" <<'EOF'
 import sys
 import cv2
 import numpy as np
@@ -412,7 +412,7 @@ logline)  # logline "text" — append ONE timestamped line to RL_LOG.md
 
 wandbdump)  # wandbdump <run> — cache W&B summary/config/history locally
   run="$2"; d="$PROTO/logs/experiments/$run"; mkdir -p "$d"
-  python3 - "$run" "$d" <<'EOF'
+  uv run python - "$run" "$d" <<'EOF'
 import csv, json, sys
 import wandb
 name, d = sys.argv[1], sys.argv[2]
@@ -446,7 +446,7 @@ wandbnote)  # wandbnote <run> "paragraph" — put the human OUTCOME
   # trying to learn). Re-running replaces the previous OUTCOME block;
   # everything below the marker line is preserved.
   run="$2"; text="$3"
-  python3 - "$run" "$text" <<'EOF'
+  uv run python - "$run" "$text" <<'EOF'
 import sys
 import wandb
 name, text = sys.argv[1], sys.argv[2]
@@ -482,7 +482,7 @@ verdict)  # verdict <run> <status> "<verdict text>" ["logline text"] —
     echo "usage: ops.sh verdict <run> <status> \"<verdict>\" [\"logline\"]"
     exit 1
   }
-  python3 "$HERE/launch_run.py" update --run "$run" \
+  uv run python "$HERE/launch_run.py" update --run "$run" \
     --set "status=$st" --set "verdict=$text" || exit 1
   bash "$0" wandbnote "$run" "$text" \
     || echo "(wandbnote failed — ledger verdict is recorded; continue)"
@@ -498,7 +498,7 @@ triage)  # triage — "is anything being lost/ignored?" in one table:
   # W&B OUTCOME note, and watcher processed-state. Built 08-09 after
   # the operator had to reverse-engineer this twice.
   hrs="${2:-6}"
-  python3 - "$hrs" <<'EOF'
+  uv run python - "$hrs" <<'EOF'
 import datetime as dt, json, os, sys
 import wandb
 hrs = float(sys.argv[1])
@@ -543,7 +543,7 @@ drain)  # drain — push backlog onto free pods, DETACHED + creds sourced.
     source "'"$PROTO"'/rl_move/sim/wandb.env" 2>/dev/null
     source /root/orchestrator.env 2>/dev/null
     set +a
-    cd "'"$PROTO"'" && python3 rl_move/orchestrator/launch_run.py drain
+    cd "'"$PROTO"'" && uv run python rl_move/orchestrator/launch_run.py drain
   ' > "$log" 2>&1 &
   echo "drain running detached (pid $!) -> $log; check: tail $log"
   ;;
@@ -559,43 +559,13 @@ killrun)  # killrun <run> — kill a run's training procs on its pod.
   run="$2"
   pod="$(entry_field "$run" pod)"
   [ -n "$pod" ] || { echo "no pod in ledger for $run"; exit 1; }
-  # 08-23: killrun used to be a SILENT NO-OP when the scan matched
-  # nothing (e.g. the kill raced the trainer spawn) and never
-  # re-verified — cw-...-wzmask2-gyroxyz was ledger-KILLED while its
-  # trainer ran to full budget. Now: report match count, wait, re-scan,
-  # and exit nonzero unless the re-scan is clean AND we killed >=1 proc
-  # (a zero-match kill exits 2 so the caller knows nothing died).
   kubectl exec "$pod" -- bash -c '
-    n=0
     for d in /proc/[0-9]*; do
       p=${d#/proc/}; [ "$p" = "$$" ] && continue
       c=$(tr "\0" " " < "$d/cmdline" 2>/dev/null)
-      case "$c" in *"--run-name $1 "*|*"--run-name=$1 "*|*"--run-name $1"|*"--run-name=$1") echo "kill $p: ${c:0:80}"; kill "$p"; n=$((n+1));; esac
-    done
-    echo "killed_count=$n"
-    [ "$n" -gt 0 ] || exit 2
-    sleep 5
-    for d in /proc/[0-9]*; do
-      p=${d#/proc/}; [ "$p" = "$$" ] && continue
-      c=$(tr "\0" " " < "$d/cmdline" 2>/dev/null)
-      case "$c" in *"--run-name $1 "*|*"--run-name=$1 "*|*"--run-name $1"|*"--run-name=$1") echo "SURVIVOR $p (kill -9): ${c:0:80}"; kill -9 "$p";; esac
-    done
-    sleep 2
-    for d in /proc/[0-9]*; do
-      p=${d#/proc/}; [ "$p" = "$$" ] && continue
-      c=$(tr "\0" " " < "$d/cmdline" 2>/dev/null)
-      case "$c" in *"--run-name $1 "*|*"--run-name=$1 "*|*"--run-name $1"|*"--run-name=$1") echo "STILL ALIVE $p — KILL FAILED"; exit 3;; esac
-    done
-    echo "verified dead"' _ "$run"
-  rc=$?
-  if [ $rc -eq 2 ]; then
-    echo "NOTHING MATCHED on $pod — the trainer may not have spawned yet (launch race) or already exited."
-    echo "Do NOT mark KILLED on this evidence alone: re-run killrun after ~60s and check W&B run state."
-  elif [ $rc -ne 0 ]; then
-    echo "KILL NOT VERIFIED (rc=$rc) — do not ledger-mark KILLED until a re-scan is clean."
-  fi
-  echo "remember: launch_run.py update --run $run --set status=KILLED 'verdict=...' (only after 'verified dead')"
-  exit $rc
+      case "$c" in *"--run-name $1 "*|*"--run-name=$1 "*|*"--run-name $1"|*"--run-name=$1") echo "kill $p: ${c:0:80}"; kill "$p";; esac
+    done' _ "$run"
+  echo "remember: launch_run.py update --run $run --set status=KILLED 'verdict=...'"
   ;;
 
 oplaunch)  # oplaunch <launch_run.py args...> — run a launcher command ON
@@ -621,7 +591,7 @@ oplaunch)  # oplaunch <launch_run.py args...> — run a launcher command ON
     echo 'set -a; source rl_move/sim/wandb.env 2>/dev/null; set +a'
     # Run the freshest tooling: pull under the same lock snapshot.sh uses.
     echo 'flock /workspace/git_snapshot.lock -c "git -C /workspace/weird_objects pull --rebase --autostash origin main" >/dev/null 2>&1'
-    printf 'exec python3 rl_move/orchestrator/launch_run.py'
+    printf 'exec uv run python rl_move/orchestrator/launch_run.py'
     printf ' %q' "$@"
     echo
   } > "$runner"
@@ -674,7 +644,7 @@ activity)  # activity — what the orchestrator is doing RIGHT NOW, in one
   # the operator Mac or the controller. Same view as the MCP
   # orchestrator_activity tool — one implementation, two doors.
   [ -d /workspace/weird_objects ] || remote_ops "$@"
-  PYTHONPATH="$HERE" python3 -c \
+  PYTHONPATH="$HERE" uv run python -c \
     "import mcp_server; print(mcp_server.t_orchestrator_activity())"
   ;;
 

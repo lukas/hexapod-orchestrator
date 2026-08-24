@@ -56,23 +56,15 @@ BACKLOG_LOCK = HERE / "backlog.json.lock"
 BACKLOG_FAILED = HERE / "backlog_failed.json"
 KUBECONFIG = str(Path.home() / ".kube" / "coreweave.yaml")
 # Established launch pattern on the training pods: module invocation from
-# the project root (NOT `python3 train_ppo_sim.py` from the sim dir).
+# the project root (NOT `uv run python train_ppo_sim.py` from the sim dir).
 WORKDIR = "/workspace/prototype_sts3215"
 TRAIN_MODULE = "rl_move.sim.train_ppo_sim"      # CPU sweep pods (legacy)
 TRAIN_MODULE_GPU = "rl_move.sim.train_ppo_mjx"  # GPU-MJX pods (default)
 TRAIN_MODULE_DYNREP = "rl_move.dynamics.train"
 TRAIN_MODULE_DYNREP_FRESH = "rl_move.dynamics.fresh_pipeline"
 GPU_TORCH_PYTHON = "/workspace/venv_torchgpu/bin/python"
+UV_PYTHON = "uv run python"
 WANDB_PROJECT = "l2k2/hexapod-balance"
-# Trained-policy control cadence contract (operator order 2026-08-24,
-# fb_20260824T174619_c49b7e: "make all new models use 100hz"). Every
-# NEW PPO/MJX launch trains at control.hz=100: if the passthrough args
-# carry no --cfg-set control.hz=..., the launcher INJECTS the default
-# (so respecs of legacy 25 Hz runs convert instead of silently staying
-# old-rate); an EXPLICIT non-100 value is REFUSED unless the launch
-# passes --allow-legacy-control-hz (deliberate, audited legacy/eval
-# path — recorded in ledger checks). dynrep trainers are exempt (not
-# control policies). Keep in sync with rl_move/config.yaml control.hz.
 DEFAULT_TRAIN_CONTROL_HZ = 100.0
 # Research tracks (operator, 08-11): every launch belongs to one of
 # tracks.json's tracks; the run gets W&B tag `track:<id>` and the
@@ -201,7 +193,9 @@ _TRAINER_SCAN_SCRIPT = (
     "for p in {proc}/[0-9]*; do c=$(tr '\\0' ' ' < $p/cmdline 2>/dev/null); "
     "case \"$c\" in " +
     "|".join(
-        f"python*' -m {m}'*|*/python*' -m {m}'*" for m in TRAINER_MODULES
+        f"python*' -m {m}'*|*/python*' -m {m}'*|"
+        f"uv' run python -m {m}'*|*/uv' run python -m {m}'*"
+        for m in TRAINER_MODULES
     ) +
     ") case \"$c\" in *' -c '*) ;; *) echo \"$c\";; esac;; esac; done | sort -u"
 )
@@ -224,7 +218,8 @@ def pod_trainers(pod: str) -> list[str]:
                 name = toks[i + 1]
             if t == "--name" and i + 1 < len(toks):
                 name = toks[i + 1]
-        names.append(name)
+        if name not in names:
+            names.append(name)
     return names
 
 
@@ -451,46 +446,44 @@ def naming_correction(run: str) -> str | None:
             f"in config/tags/notes; see /workspace/llm_feedback/{ref}.json)")
 
 
+def _cfg_set_value(extra: list[str], dotted: str) -> str | None:
+    for i, tok in enumerate(extra):
+        if tok == "--cfg-set" and i + 1 < len(extra):
+            key, eq, val = extra[i + 1].partition("=")
+            if eq and key == dotted:
+                return val
+    return None
+
+
+def _with_default_control_hz(extra: list[str], entry: dict,
+                             *, is_dynrep: bool) -> list[str] | int:
+    """All new PPO/MJX policies train at the campaign contract rate."""
+    if is_dynrep:
+        return extra
+    got = _cfg_set_value(extra, "control.hz")
+    if got is None:
+        hz_s = f"{DEFAULT_TRAIN_CONTROL_HZ:g}"
+        entry.setdefault("checks", {})["control_hz_defaulted"] = hz_s
+        return [*extra, "--cfg-set", f"control.hz={hz_s}"]
+    try:
+        hz = float(got)
+    except ValueError:
+        return refuse(entry, f"bad control.hz cfg-set: {got!r}")
+    if abs(hz - DEFAULT_TRAIN_CONTROL_HZ) > 1e-9:
+        return refuse(entry, f"new PPO launches must train at "
+                             f"control.hz={DEFAULT_TRAIN_CONTROL_HZ:g} "
+                             f"(got {got}); use a separate explicit "
+                             "legacy/eval path for old 25 Hz checkpoints")
+    entry.setdefault("checks", {})["control_hz_defaulted"] = "explicit"
+    return extra
+
+
 def refuse(entry: dict, reason: str) -> int:
     print(f"REFUSED: {reason}")
     entry["status"] = "REFUSED"
     entry["refused_reason"] = reason
     upsert_entry(entry)
     return 1
-
-
-def enforce_control_hz(extra: list[str], *, allow_legacy: bool = False
-                       ) -> tuple[list[str], float | None, str | None]:
-    """100 Hz trained-cadence contract for new PPO launches (operator
-    2026-08-24, fb_20260824T174619_c49b7e — see DEFAULT_TRAIN_CONTROL_HZ).
-
-    Returns (extra_args, effective_hz, refusal_or_None):
-      * no --cfg-set control.hz=...  -> inject the 100 Hz default;
-      * explicit 100                 -> pass;
-      * explicit other value         -> REFUSE unless allow_legacy
-        (deliberate legacy/eval path, recorded in ledger checks).
-    Pure function so the smoke test can exercise it without a launch.
-    """
-    vals = [extra[i + 1].split("=", 1) for i, v in enumerate(extra)
-            if v == "--cfg-set" and i + 1 < len(extra)
-            and extra[i + 1].split("=", 1)[0].strip() == "control.hz"]
-    if not vals:
-        new = [*extra, "--cfg-set", f"control.hz={DEFAULT_TRAIN_CONTROL_HZ:g}"]
-        return new, DEFAULT_TRAIN_CONTROL_HZ, None
-    raw = vals[-1][1] if len(vals[-1]) > 1 else ""
-    try:
-        hz = float(raw)
-    except ValueError:
-        return extra, None, f"unparseable --cfg-set control.hz={raw!r}"
-    if abs(hz - DEFAULT_TRAIN_CONTROL_HZ) > 1e-9 and not allow_legacy:
-        return extra, hz, (
-            f"control.hz={hz:g} != {DEFAULT_TRAIN_CONTROL_HZ:g}: all new "
-            "PPO models train at 100 Hz (operator 2026-08-24, "
-            "fb_20260824T174619_c49b7e). A deliberate legacy-rate run "
-            "must pass --allow-legacy-control-hz and record why. "
-            "Remember legacy 25 Hz also needs safety.max_delta_q_deg=1.5 "
-            "to keep the 37.5 deg/s physical slew.")
-    return extra, hz, None
 
 
 def cmd_launch(g: dict, a: argparse.Namespace, extra: list[str]) -> int:
@@ -655,19 +648,11 @@ def _launch_locked(g: dict, a: argparse.Namespace,
         n_envs = gpu["n_envs"] if is_gpu else comp["n_envs"]
         extra = [*extra, "--n-envs", str(n_envs)]
         entry["extra_args"] = extra
-    if not is_dynrep:
-        # 100 Hz trained-cadence contract (see enforce_control_hz /
-        # DEFAULT_TRAIN_CONTROL_HZ): inject the default when absent,
-        # refuse explicit legacy rates without the audited flag.
-        allow_legacy = bool(getattr(a, "allow_legacy_control_hz", False))
-        extra, hz_val, hz_err = enforce_control_hz(
-            extra, allow_legacy=allow_legacy)
-        entry["extra_args"] = extra
-        if hz_err:
-            return refuse(entry, hz_err)
-        checks["control_hz"] = hz_val
-        if allow_legacy:
-            checks["legacy_control_hz_override"] = True
+    ensured = _with_default_control_hz(extra, entry, is_dynrep=is_dynrep)
+    if isinstance(ensured, int):
+        return ensured
+    extra = ensured
+    entry["extra_args"] = extra
 
     # --- live capacity checks (never trust remembered facts) ---------------
     # Machines spin up and down; an unreachable pod is a REFUSAL (pick
@@ -675,11 +660,18 @@ def _launch_locked(g: dict, a: argparse.Namespace,
     try:
         limit = pod_cpu_limit(a.pod)
         trainers = pod_trainers(a.pod)
+        uv_python = kexec(
+            a.pod,
+            f"cd {WORKDIR} && command -v uv >/dev/null 2>&1 && "
+            "uv run python -c 'import sys; print(sys.executable)'",
+            timeout=30,
+        ).strip().splitlines()[-1]
     except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
         return refuse(entry, f"{a.pod} unreachable during live checks "
                              f"(node may have spun down): {e}")
     checks["cpu_limit"] = limit
     checks["existing_trainers"] = trainers
+    checks["uv_python"] = uv_python
     if is_gpu:
         # GPU pods: the H200 is the unit — exactly ONE trainer per pod,
         # no sharing, no core math. cgroup requests partition the node,
@@ -955,15 +947,15 @@ def _launch_locked(g: dict, a: argparse.Namespace,
         if not _torch_cap.is_capable(a.pod):
             runtime_candidates = [GPU_TORCH_PYTHON]
         else:
-            runtime_candidates = [GPU_TORCH_PYTHON, "python3"]
+            runtime_candidates = [GPU_TORCH_PYTHON, UV_PYTHON]
         runtime = ""
         runtime_error = None
         for candidate in runtime_candidates:
             try:
                 info = kexec(
                     a.pod,
-                    f"test -x $(command -v {candidate} 2>/dev/null || "
-                    f"echo {candidate}) && {candidate} -c "
+                    f"command -v {shlex.quote(candidate.split()[0])} >/dev/null 2>&1 && "
+                    f"{candidate} -c "
                     "'import torch; assert torch.cuda.is_available(); "
                     "print(torch.__version__, torch.cuda.get_device_name())'"
                 ).strip()
@@ -1001,7 +993,7 @@ def _launch_locked(g: dict, a: argparse.Namespace,
         name_flag = "--name"
     else:
         module = TRAIN_MODULE_GPU if is_gpu else TRAIN_MODULE
-        python = "python"
+        python = UV_PYTHON
         name_flag = "--run-name"
     # shlex.quote every passthrough token: notes/cfg values with shell
     # metacharacters (parens, semicolons) used to splice raw into the
@@ -1075,13 +1067,17 @@ def _pod_trainer_pid(pod: str, run: str) -> str | None:
     pod_trainers(); run names are [a-z0-9-] so direct interpolation
     into the case pattern is safe."""
     script = (
+        "best=''; fallback=''; "
         "for p in /proc/[0-9]*; do c=$(tr '\\0' ' ' < $p/cmdline "
         "2>/dev/null); case \"$c\" in *' -m rl_move.sim.train_ppo_'*"
         f"'--run-name {run} '*|*' -m rl_move.dynamics.train '*"
         f"'--name {run} '*|*' -m rl_move.dynamics.fresh_pipeline '*"
         f"'--name {run} '*|*' -m rl_move.dynamics.train_ppo_transfer '*"
-        f"'--name {run} '*) case \"$c\" in *' -c '*) ;; *) "
-        "echo ${p#/proc/};; esac;; esac; done"
+        f"'--name {run} '*) case \"$c\" in *' -c '*) ;; "
+        "*'uv run python '*) fallback=${p#/proc/};; "
+        "*) best=${p#/proc/}; break;; esac;; esac; done; "
+        "[ -n \"$best\" ] && echo \"$best\" || "
+        "{ [ -n \"$fallback\" ] && echo \"$fallback\" || true; }"
     )
     try:
         out = kexec(pod, script).strip().splitlines()
@@ -1206,7 +1202,9 @@ def _verify_started(g: dict, a: argparse.Namespace, ctx: dict) -> int:
         poll = 30
         outer_cap = 1200.0  # absolute safety net regardless of CPU signal
         elapsed = 0.0
-        prev_cpu = _pod_pid_cputime(a.pod, pid)
+        work_pid = _pod_trainer_pid(a.pod, a.run) or pid
+        checks["trainer_pid"] = work_pid
+        prev_cpu = _pod_pid_cputime(a.pod, work_pid)
         flat_streak = 0
         s2 = s1
         while elapsed < outer_cap:
@@ -1222,13 +1220,15 @@ def _verify_started(g: dict, a: argparse.Namespace, ctx: dict) -> int:
                 entry["wandb_id"] = active_wb_id
                 s1 = current_wb.get("global_step") or 0
                 s2 = s1
-                prev_cpu = _pod_pid_cputime(a.pod, pid)
+                work_pid = _pod_trainer_pid(a.pod, a.run) or work_pid
+                checks["trainer_pid"] = work_pid
+                prev_cpu = _pod_pid_cputime(a.pod, work_pid)
                 flat_streak = 0
                 continue
             s2 = current_wb.get("global_step") or 0
             if s2 > s1:
                 break
-            cur_cpu = _pod_pid_cputime(a.pod, pid)
+            cur_cpu = _pod_pid_cputime(a.pod, work_pid)
             still_computing = (cur_cpu is not None and prev_cpu is not None
                                 and cur_cpu > prev_cpu + 50)  # >0.5 CPU-s
             prev_cpu = cur_cpu
@@ -1784,8 +1784,14 @@ def _free_gpu_pods(g: dict) -> list[str]:
             # A pod without the .bootstrapped marker is schedulable but
             # not training-ready (deps mid-install); it is NOT a slot
             # yet — bootstrap_train_pod.sh writes the marker last.
-            ready = kexec(pod, "test -f /workspace/prototype_sts3215/"
-                               ".bootstrapped && echo OK || true").strip()
+            ready = kexec(
+                pod,
+                "test -f /workspace/prototype_sts3215/.bootstrapped && "
+                "cd /workspace/prototype_sts3215 && "
+                "command -v uv >/dev/null 2>&1 && "
+                "uv run python -c 'import sys' >/dev/null && "
+                "echo OK || true",
+            ).strip()
             if ready == "OK" and not pod_trainers(pod):
                 free.append(pod)
         except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
@@ -2182,11 +2188,6 @@ def main() -> int:
                          "or preflight PASS that licenses this run")
     lp.add_argument("--smoke", action="store_true",
                     help="short validation run: W&B disabled, non-cw name")
-    lp.add_argument("--allow-legacy-control-hz", action="store_true",
-                    help="permit an explicit --cfg-set control.hz != 100 "
-                         "(deliberate legacy/eval path; recorded in ledger "
-                         "checks — all new models are 100 Hz per operator "
-                         "2026-08-24)")
     lp.add_argument("--allow-slow", action="store_true",
                     help="override the free-cores check (record why!)")
     lp.add_argument("--dry-run", action="store_true")

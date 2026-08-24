@@ -165,6 +165,12 @@ def _kexec(pod: str, script: str, timeout: int = 120) -> str:
     ).stdout
 
 
+def _ensure_uv(pod: str) -> None:
+    """Install uv if a training pod predates the uv launcher contract."""
+    _kexec(pod, "command -v uv >/dev/null 2>&1 || "
+                "pip install -q --no-cache-dir uv", timeout=300)
+
+
 def _ensure_extra_cuda_libs(pod: str) -> list[str]:
     """Install any of EXTRA_CUDA_LIBS the pod can't already import.
 
@@ -178,11 +184,12 @@ def _ensure_extra_cuda_libs(pod: str) -> list[str]:
         "nvidia-curand-cu12": "nvidia.curand.lib",
         "nvidia-nvtx-cu12": "nvidia.nvtx.lib",
     }
+    _ensure_uv(pod)
     installed = []
     for pkg, ver in EXTRA_CUDA_LIBS.items():
         probe = f"import {mod_of[pkg]}" if pkg in mod_of else f"import {pkg}"
         try:
-            _kexec(pod, f"python3 -c {shlex.quote(probe)}", timeout=30)
+            _kexec(pod, f"uv run python -c {shlex.quote(probe)}", timeout=30)
             continue  # already importable, leave it alone
         except subprocess.CalledProcessError:
             pass
@@ -199,11 +206,12 @@ def _parse_probe(stdout: str, marker: str) -> dict:
 
 
 def _run_smoke(pod: str, full: bool) -> dict:
-    out = _parse_probe(_kexec(pod, f"python3 -c {shlex.quote(_LIGHT_SMOKE_PY)}"),
+    _ensure_uv(pod)
+    out = _parse_probe(_kexec(pod, f"uv run python -c {shlex.quote(_LIGHT_SMOKE_PY)}"),
                        "CAPPROBE_JSON:")
     if full and not out.get("torch_error") and out.get("torch_cuda_available"):
         out.update(_parse_probe(
-            _kexec(pod, f"python3 -c {shlex.quote(_FULL_SMOKE_PY)}"),
+            _kexec(pod, f"uv run python -c {shlex.quote(_FULL_SMOKE_PY)}"),
             "FULLPROBE_JSON:"))
     return out
 
