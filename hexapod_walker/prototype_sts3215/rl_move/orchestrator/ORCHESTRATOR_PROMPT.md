@@ -85,6 +85,32 @@ when nothing is learning (reward AND task metrics flat with adequate
 budget) or when an aligned reward with adequate budget still doesn't
 move the gate. Full checklist: `RUN_INTERPRETATION_RULES.md`.
 
+## SIM MODEL CHANGE (2026-08-24 — read before launching or resuming)
+
+The sim robot now has TWO model families, selected by cfg
+`env.model_source` (`rl_move/sim/servo_model.py:resolve_model_source`):
+
+- `mesh` (the new DEFAULT) / `mesh_mjx`: mesh-accurate model generated
+  from the real CAD (`mesh_mujoco/`) — corrected kinematics (hip-pitch
+  axis at the true +38 mm coxa anchor, radial foot line, exact 150 mm
+  knee→foot) AND as-built masses: **3.50 kg total vs the legacy 2.104 kg**
+  (real servo/battery/bearing/screw weights + infill-corrected prints;
+  audited against BuildViz `get_mass_properties`). On pods the generated
+  mesh assets don't exist, so `mesh` automatically loads the checked-in
+  primitive-collision twin `mesh_mujoco/hexapod_mesh_mjx.xml` — same
+  kinematics/masses/inertia, cheap fitted-primitive contacts, MJX-ready.
+- `primitive`: the legacy `mujoco_prototype` model, bit-identical to
+  pre-08-24 behavior.
+
+**CONTINUITY RULE (binding):** any resume, warm-start (`respec --from`),
+or eval of a checkpoint whose lineage predates 2026-08-24 MUST set
+`env.model_source=primitive`. The families do NOT transfer — same obs
+layout, very different dynamics (+66 % mass, shifted hip axis). New
+lineages just take the default and should note the source in the run
+notes. The calibrated behavior test suite pins itself to `primitive`
+(`tests/conftest.py` via `HEXAPOD_MODEL_SOURCE`); mesh-family coverage
+is `tests/test_model_source.py`.
+
 ## Machinery — do not rebuild or wait on it
 
 The watcher pre-stages checkpoint pulls + W&B dumps for every finished
