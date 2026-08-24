@@ -64,6 +64,16 @@ TRAIN_MODULE_DYNREP = "rl_move.dynamics.train"
 TRAIN_MODULE_DYNREP_FRESH = "rl_move.dynamics.fresh_pipeline"
 GPU_TORCH_PYTHON = "/workspace/venv_torchgpu/bin/python"
 WANDB_PROJECT = "l2k2/hexapod-balance"
+# Trained-policy control cadence contract (operator order 2026-08-24,
+# fb_20260824T174619_c49b7e: "make all new models use 100hz"). Every
+# NEW PPO/MJX launch trains at control.hz=100: if the passthrough args
+# carry no --cfg-set control.hz=..., the launcher INJECTS the default
+# (so respecs of legacy 25 Hz runs convert instead of silently staying
+# old-rate); an EXPLICIT non-100 value is REFUSED unless the launch
+# passes --allow-legacy-control-hz (deliberate, audited legacy/eval
+# path — recorded in ledger checks). dynrep trainers are exempt (not
+# control policies). Keep in sync with rl_move/config.yaml control.hz.
+DEFAULT_TRAIN_CONTROL_HZ = 100.0
 # Research tracks (operator, 08-11): every launch belongs to one of
 # tracks.json's tracks; the run gets W&B tag `track:<id>` and the
 # ledger entry a "track" field. tracks.py is the single accessor.
@@ -449,6 +459,40 @@ def refuse(entry: dict, reason: str) -> int:
     return 1
 
 
+def enforce_control_hz(extra: list[str], *, allow_legacy: bool = False
+                       ) -> tuple[list[str], float | None, str | None]:
+    """100 Hz trained-cadence contract for new PPO launches (operator
+    2026-08-24, fb_20260824T174619_c49b7e — see DEFAULT_TRAIN_CONTROL_HZ).
+
+    Returns (extra_args, effective_hz, refusal_or_None):
+      * no --cfg-set control.hz=...  -> inject the 100 Hz default;
+      * explicit 100                 -> pass;
+      * explicit other value         -> REFUSE unless allow_legacy
+        (deliberate legacy/eval path, recorded in ledger checks).
+    Pure function so the smoke test can exercise it without a launch.
+    """
+    vals = [extra[i + 1].split("=", 1) for i, v in enumerate(extra)
+            if v == "--cfg-set" and i + 1 < len(extra)
+            and extra[i + 1].split("=", 1)[0].strip() == "control.hz"]
+    if not vals:
+        new = [*extra, "--cfg-set", f"control.hz={DEFAULT_TRAIN_CONTROL_HZ:g}"]
+        return new, DEFAULT_TRAIN_CONTROL_HZ, None
+    raw = vals[-1][1] if len(vals[-1]) > 1 else ""
+    try:
+        hz = float(raw)
+    except ValueError:
+        return extra, None, f"unparseable --cfg-set control.hz={raw!r}"
+    if abs(hz - DEFAULT_TRAIN_CONTROL_HZ) > 1e-9 and not allow_legacy:
+        return extra, hz, (
+            f"control.hz={hz:g} != {DEFAULT_TRAIN_CONTROL_HZ:g}: all new "
+            "PPO models train at 100 Hz (operator 2026-08-24, "
+            "fb_20260824T174619_c49b7e). A deliberate legacy-rate run "
+            "must pass --allow-legacy-control-hz and record why. "
+            "Remember legacy 25 Hz also needs safety.max_delta_q_deg=1.5 "
+            "to keep the 37.5 deg/s physical slew.")
+    return extra, hz, None
+
+
 def cmd_launch(g: dict, a: argparse.Namespace, extra: list[str]) -> int:
     """Checks + process start are serialized; verification is NOT.
 
@@ -611,6 +655,19 @@ def _launch_locked(g: dict, a: argparse.Namespace,
         n_envs = gpu["n_envs"] if is_gpu else comp["n_envs"]
         extra = [*extra, "--n-envs", str(n_envs)]
         entry["extra_args"] = extra
+    if not is_dynrep:
+        # 100 Hz trained-cadence contract (see enforce_control_hz /
+        # DEFAULT_TRAIN_CONTROL_HZ): inject the default when absent,
+        # refuse explicit legacy rates without the audited flag.
+        allow_legacy = bool(getattr(a, "allow_legacy_control_hz", False))
+        extra, hz_val, hz_err = enforce_control_hz(
+            extra, allow_legacy=allow_legacy)
+        entry["extra_args"] = extra
+        if hz_err:
+            return refuse(entry, hz_err)
+        checks["control_hz"] = hz_val
+        if allow_legacy:
+            checks["legacy_control_hz_override"] = True
 
     # --- live capacity checks (never trust remembered facts) ---------------
     # Machines spin up and down; an unreachable pod is a REFUSAL (pick
@@ -2125,6 +2182,11 @@ def main() -> int:
                          "or preflight PASS that licenses this run")
     lp.add_argument("--smoke", action="store_true",
                     help="short validation run: W&B disabled, non-cw name")
+    lp.add_argument("--allow-legacy-control-hz", action="store_true",
+                    help="permit an explicit --cfg-set control.hz != 100 "
+                         "(deliberate legacy/eval path; recorded in ledger "
+                         "checks — all new models are 100 Hz per operator "
+                         "2026-08-24)")
     lp.add_argument("--allow-slow", action="store_true",
                     help="override the free-cores check (record why!)")
     lp.add_argument("--dry-run", action="store_true")

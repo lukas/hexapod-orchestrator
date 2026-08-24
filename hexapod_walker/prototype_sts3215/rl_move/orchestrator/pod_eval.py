@@ -204,6 +204,15 @@ def main() -> int:
     # eval_checkpoint's.
     cfgs = [c for c in cfgs
             if not c.split("=", 1)[0].strip().startswith("goal.mode_seq")]
+    # Rate-contract pin (2026-08-24 control.hz 25->100 default flip,
+    # fb_20260824T174619_c49b7e): since the flip the launcher injects an
+    # explicit control.hz cfg-set into EVERY PPO launch, so a ledger
+    # entry with no control.hz key ALWAYS means "trained at the old
+    # 25 Hz default". Pin it (plus the matching 1.5 deg/tick slew =
+    # 37.5 deg/s) so a re-eval on a post-flip code deploy doesn't
+    # silently step the env at 100 Hz under a 25 Hz checkpoint.
+    if not any(c.split("=", 1)[0].strip() == "control.hz" for c in cfgs):
+        cfgs += ["control.hz=25", "safety.max_delta_q_deg=1.5"]
     # 08-11 (cw-uni-flag-a1-r1/h2 triage): a joint_walk task with an
     # explicit --goal-mix (e.g. "hold=0.2,rise=0.4,lower=0.4") may never
     # train walk at all — hardcoding "--modes walk" silently evals a mode
