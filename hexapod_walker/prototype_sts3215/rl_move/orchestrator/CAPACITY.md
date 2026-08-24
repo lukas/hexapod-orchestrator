@@ -1,8 +1,8 @@
 # Cluster capacity — run the script, never guess
 
 ```sh
-python3 rl_move/orchestrator/capacity.py          # live truth, human table
-python3 rl_move/orchestrator/capacity.py --json   # machine-readable
+uv run python rl_move/orchestrator/capacity.py          # live truth, human table
+uv run python rl_move/orchestrator/capacity.py --json   # machine-readable
 ```
 
 That script is THE canonical answer to "what machines exist, what's

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """THE canonical cluster-capacity report. Run this; never guess.
 
-    python3 rl_move/orchestrator/capacity.py          # human table
-    python3 rl_move/orchestrator/capacity.py --json   # machine-readable
+    uv run python rl_move/orchestrator/capacity.py          # human table
+    uv run python rl_move/orchestrator/capacity.py --json   # machine-readable
 
 Live truth, queried from the cluster every time: nodes, GPUs, train
 pods, what's running where, and how many slots are FREE right now.

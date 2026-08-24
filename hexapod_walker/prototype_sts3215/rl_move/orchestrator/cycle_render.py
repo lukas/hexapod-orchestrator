@@ -31,7 +31,7 @@ Contract with the rest of the system (do not break):
 
 Usage (spawned by watch_loop.py; hand-testable):
     claude -p ... --output-format stream-json --verbose "prompt" \
-        | python3 cycle_render.py --out cycle_X.log --raw cycle_X.jsonl
+        | uv run python cycle_render.py --out cycle_X.log --raw cycle_X.jsonl
 """
 from __future__ import annotations
 

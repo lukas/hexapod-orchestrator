@@ -52,7 +52,7 @@ while ps aux | grep "claude -p --bare" | grep -v grep >/dev/null; do
   if [ $((i % 2)) -eq 0 ]; then
     (set -a; source "$ORCH/../sim/wandb.env" 2>/dev/null;
      source /root/orchestrator.env 2>/dev/null; set +a
-     cd "$ORCH/../.." && python3 rl_move/orchestrator/launch_run.py drain \
+     cd "$ORCH/../.." && uv run python rl_move/orchestrator/launch_run.py drain \
        >> /tmp/pause_drain.log 2>&1) || true
   fi
 done
@@ -60,7 +60,7 @@ log "cycles ended"
 
 cd /workspace/weird_objects
 git pull --rebase --autostash origin main
-python3 -c "import ast; ast.parse(open('$ORCH/watch_loop.py').read())" || {
+uv run python -c "import ast; ast.parse(open('$ORCH/watch_loop.py').read())" || {
   log "watch_loop.py failed to parse; leaving old watcher running"
   rm -f "$ORCH/PAUSE" "$ORCH/WRAPUP"
   exit 1
@@ -71,7 +71,7 @@ sleep 2
 rm -f "$ORCH/PAUSE" "$ORCH/WRAPUP"
 tmux new-session -d -s orchestrator \
   "source /root/orchestrator.env && cd /workspace/weird_objects && \
-   python3 hexapod_walker/prototype_sts3215/rl_move/orchestrator/watch_loop.py"
+   uv run python hexapod_walker/prototype_sts3215/rl_move/orchestrator/watch_loop.py"
 sleep 5
 if tmux has-session -t orchestrator 2>/dev/null; then
   log "RESTARTED ok (tmux session up)"

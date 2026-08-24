@@ -74,7 +74,12 @@ agent follow-ups.
    clone `ppo_goal_cw_bcgait_init_fullprof_phase1` with the aligned
    reward; a walk-champion-lineage arm as control. Continue while
    reward and gate metrics rise together.
-3. [HARDENING] Widen command envelope; DR to own-DR zero-fall; then
+3. [ACQUISITION] Kawawa-Beaudan/Zakhor 2022 prior-free baseline:
+   `rl_move.sim.kawawa2022_recipe` launches a fresh LSTM(64), ELU
+   128/64/32, position-target walker with loaded calibration, no BC
+   anchor, no gait clock, friction/push DR, and reward/eval disagreement
+   as a hard stop.
+4. [HARDENING] Widen command envelope; DR to own-DR zero-fall; then
    run the DONE gate panel.
 
 ### amp — next arms (brief §17)

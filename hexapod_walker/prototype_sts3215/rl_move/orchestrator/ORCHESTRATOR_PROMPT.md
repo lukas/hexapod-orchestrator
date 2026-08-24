@@ -95,7 +95,7 @@ it, never re-run it) on the run's own pod (run your own extra evals
 there too — `kubectl exec` or `ops.sh podeval`, never the controller). It runs post-launch checkups
 (~5 min after each launch) and continuously drains `backlog.json` into
 free GPU slots via the self-repairing launcher. Capacity questions:
-`python3 rl_move/orchestrator/capacity.py` — never re-derive slots.
+`uv run python rl_move/orchestrator/capacity.py` — never re-derive slots.
 
 Cycles run CONCURRENTLY. Runs your "## This cycle" section marks as
 another cycle's are off-limits. Coordination is mechanical (launcher
@@ -108,6 +108,8 @@ Work from `hexapod_walker/prototype_sts3215/`. The helper script is
 `rl_move/orchestrator/ops.sh` — THIS path, always; never `./ops.sh`,
 never `find` for it. If you compose a new slow/tricky command, add it
 TO ops.sh instead of hand-rolling it next time.
+Use `uv run python ...`, `uv run python -m ...`, or `uv run pytest ...`
+for local/project Python; do not use bare `python3`.
 
 - Triage: `ops.sh review <run>` (one-shot read), `ops.sh report
   <run|report.json>` (standard table), `ops.sh verdict` (step 2).

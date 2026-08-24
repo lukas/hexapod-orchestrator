@@ -23,7 +23,7 @@ STATUS_TOKEN also still grants the lane. Spend/token numbers and pod
 names stay off the tools (same policy as /llm, operator 08-13).
 
 Standalone for development/testing only:
-    python3 rl_move/orchestrator/mcp_server.py   # port 8091
+    uv run python rl_move/orchestrator/mcp_server.py   # port 8091
 """
 from __future__ import annotations
 

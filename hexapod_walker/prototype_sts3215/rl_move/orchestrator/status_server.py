@@ -12,7 +12,7 @@ stream (auto-refreshes while the cycle runs); /run/<name> = a run's
 complete ledger history, the cycles that worked on it, its story doc.
 
 Run on the controller pod (tmux session `statusweb`):
-    python3 rl_move/orchestrator/status_server.py          # port 8090
+    uv run python rl_move/orchestrator/status_server.py          # port 8090
 
 View from the laptop:
     kubectl --kubeconfig=$HOME/.kube/coreweave.yaml \

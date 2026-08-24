@@ -8,7 +8,7 @@ read). Not part of the automatic prestage (m5 is a track-DONE-gate
 tool, not a per-run standard eval); run it by hand when a verdict names
 it as the next step.
 
-    python3 rl_move/orchestrator/m5_pod_eval.py <run> [pod] [--skip=a,b]
+    uv run python rl_move/orchestrator/m5_pod_eval.py <run> [pod] [--skip=a,b]
         [--per-mode=N] [--suffix=name] [--cfg=k=v ...]
 
 --cfg=k=v (repeatable) appends EXTRA --cfg-set overrides AFTER the
@@ -114,7 +114,7 @@ def main() -> int:
     logpath = f"/tmp/eval_{run}_m5{suffix}.log"
     cmd = (f"cd {POD_PROTO} && set -a && "
            f". rl_move/sim/wandb.env 2>/dev/null; set +a; "
-           f"python3 -m rl_move.sim.eval_amp_m5 {shlex.quote(ckpt)}"
+           f"uv run python -m rl_move.sim.eval_amp_m5 {shlex.quote(ckpt)}"
            f" --out-dir {out_rel} --per-mode {shlex.quote(per_mode)} --seed 0"
            + (f" --walk-per-mode {shlex.quote(walk_per_mode)}"
               if walk_per_mode else "")

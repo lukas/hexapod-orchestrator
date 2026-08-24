@@ -12,7 +12,7 @@ pods. State that matters (results, decisions, lineage) lives in the repo;
 this file only remembers which finished runs were already handled.
 
 Run on the controller pod inside tmux:
-    python3 rl_move/orchestrator/watch_loop.py
+    uv run python rl_move/orchestrator/watch_loop.py
 Kill switch: `touch rl_move/orchestrator/PAUSE` (loop idles until removed).
 """
 import datetime
@@ -633,7 +633,7 @@ def prestage_finished(run: str) -> None:
                 # (pod_eval writes the _prestage.synced sentinel itself
                 # as soon as the CORE passes settle — the joygate rider
                 # can run another hour after that, hence the timeout.)
-                r = sh(f"python3 {HERE / 'pod_eval.py'} {run}",
+                r = sh(f"uv run python {HERE / 'pod_eval.py'} {run}",
                        timeout=7500)
                 out = ((r.stdout or "") + (r.stderr or "")).strip()
                 log(f"prestage {run}: pod evals rc={r.returncode} "

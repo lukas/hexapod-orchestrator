@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Run a finished run's standard post-training evals ON ITS OWN POD.
 
-    python3 rl_move/orchestrator/pod_eval.py <run> [tag-suffix]
+    uv run python rl_move/orchestrator/pod_eval.py <run> [tag-suffix]
 
 Operator directive 2026-08-10: eval compute must not pile up on the
 controller (measured: 5 concurrent triage evals at ~4.5 cores each on a
@@ -81,6 +81,26 @@ SESSION_TIMEOUT_S = 900
 # candidates are EXPECTED to fail it until the fine-tune stage closes
 # the fixed-heading -> randomized-session gap.
 JOYGATE_TIMEOUT_S = 3600
+LEGACY_CONTROL_HZ = 25.0
+LEGACY_MAX_DELTA_Q_DEG = 1.5
+
+
+def _cfg_key(cfg: str) -> str:
+    return cfg.split("=", 1)[0].strip()
+
+
+def _has_cfg_key(cfgs: list[str], key: str) -> bool:
+    return any(_cfg_key(c) == key for c in cfgs)
+
+
+def legacy_eval_cfgs(cfgs: list[str]) -> list[str]:
+    """Replay old unstamped runs under the 25 Hz contract they trained with."""
+    out = list(cfgs)
+    if not _has_cfg_key(out, "control.hz"):
+        out.append(f"control.hz={LEGACY_CONTROL_HZ:g}")
+    if not _has_cfg_key(out, "safety.max_delta_q_deg"):
+        out.append(f"safety.max_delta_q_deg={LEGACY_MAX_DELTA_Q_DEG:g}")
+    return out
 
 # 08-24 100 Hz CADENCE FIX (found on cw-arch-hist16-dep1-c1-
 # joyfullcurr13-v7-hz100-r2): PASS_TIMEOUT_S/JOYGATE_TIMEOUT_S were
@@ -236,8 +256,7 @@ def main() -> int:
     # 25 Hz default". Pin it (plus the matching 1.5 deg/tick slew =
     # 37.5 deg/s) so a re-eval on a post-flip code deploy doesn't
     # silently step the env at 100 Hz under a 25 Hz checkpoint.
-    if not any(c.split("=", 1)[0].strip() == "control.hz" for c in cfgs):
-        cfgs += ["control.hz=25", "safety.max_delta_q_deg=1.5"]
+    cfgs = legacy_eval_cfgs(cfgs)
     control_hz = BASELINE_HZ
     for c in cfgs:
         k, _, v = c.partition("=")
@@ -288,7 +307,7 @@ def main() -> int:
             continue
         cmd = (f"cd {POD_PROTO} && set -a && "
                f". rl_move/sim/wandb.env 2>/dev/null; set +a; "
-               f"python3 -m rl_move.sim.eval_checkpoint {shlex.quote(ckpt)}"
+               f"uv run python -m rl_move.sim.eval_checkpoint {shlex.quote(ckpt)}"
                f" --task {task} {modes} --per-mode 6 --dr-scale {drv}"
                f" --seed 0 --stochastic"
                + (f" --episode-seconds {ep}" if ep else "")
@@ -320,7 +339,7 @@ def main() -> int:
                           else (partner, ckpt))
                 s_log = f"/tmp/eval_{run}_session.log"
                 s_cmd = (f"cd {POD_PROTO} && mkdir -p {s_out_rel} && "
-                         f"python3 -m rl_move.sim.eval_session"
+                         f"uv run python -m rl_move.sim.eval_session"
                          f" --stance {shlex.quote(st)}"
                          f" --walk {shlex.quote(wk)}"
                          f" --out {s_out_rel}/report.json"
@@ -345,7 +364,7 @@ def main() -> int:
             j_log = f"/tmp/eval_{run}_joygate.log"
             j_cmd = (f"cd {POD_PROTO} && set -a && "
                      f". rl_move/sim/wandb.env 2>/dev/null; set +a; "
-                     f"python3 -m rl_move.sim.eval_joystick_gate "
+                     f"uv run python -m rl_move.sim.eval_joystick_gate "
                      f"{shlex.quote(ckpt)} --own-dr-scale {dr}"
                      + "".join(f" --extra-cfg-set {shlex.quote(c)}"
                                for c in cfgs)
