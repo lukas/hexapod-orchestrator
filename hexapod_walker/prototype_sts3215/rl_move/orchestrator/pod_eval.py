@@ -82,6 +82,31 @@ SESSION_TIMEOUT_S = 900
 # the fixed-heading -> randomized-session gap.
 JOYGATE_TIMEOUT_S = 3600
 
+# 08-24 100 Hz CADENCE FIX (found on cw-arch-hist16-dep1-c1-
+# joyfullcurr13-v7-hz100-r2): PASS_TIMEOUT_S/JOYGATE_TIMEOUT_S were
+# calibrated for the 25 Hz / 15s-episode baseline. A run trained at
+# control.hz=100 with 60s episodes needs (100/25)*(60/15) = 16x the
+# sim-tick count per episode of that baseline — wall-clock scales with
+# it (video-every-1 rendering dominates, ~5 min/episode observed at
+# 100Hz/60s vs seconds at 25Hz/60s) and the fixed 2700s pass timeout
+# silently kills the job with rc=-1 BEFORE all 12 (6 det + 6 sto)
+# episodes finish. Worse: pod_eval's copy-back only runs in the
+# rc==0 branch, so a timeout kill loses the ENTIRE pass (no
+# report.json, no partial credit) even though most episodes had
+# already rendered on the pod. Scale both timeouts by the actual
+# control.hz/episode-seconds product vs this same 25Hz/15s baseline
+# (floor of 1x — never SHRINKS the budget for cheaper configs).
+BASELINE_HZ = 25.0
+BASELINE_EP_S = 15.0
+
+
+def eval_timeout_scale(control_hz: float | None, episode_s: float | None) -> float:
+    """Pure, testable: timeout multiplier vs the 25Hz/15s baseline the
+    pass timeouts were calibrated for. Never below 1.0."""
+    hz = control_hz if control_hz else BASELINE_HZ
+    ep_s = episode_s if episode_s else BASELINE_EP_S
+    return max(1.0, (hz / BASELINE_HZ) * (ep_s / BASELINE_EP_S))
+
 
 def core_synced(run: str) -> None:
     """Sentinel: the CORE prestage evals (gate + own-DR) are settled —
@@ -213,6 +238,15 @@ def main() -> int:
     # silently step the env at 100 Hz under a 25 Hz checkpoint.
     if not any(c.split("=", 1)[0].strip() == "control.hz" for c in cfgs):
         cfgs += ["control.hz=25", "safety.max_delta_q_deg=1.5"]
+    control_hz = BASELINE_HZ
+    for c in cfgs:
+        k, _, v = c.partition("=")
+        if k.strip() == "control.hz":
+            try:
+                control_hz = float(v)
+            except ValueError:
+                pass
+    timeout_scale = eval_timeout_scale(control_hz, float(ep) if ep else None)
     # 08-11 (cw-uni-flag-a1-r1/h2 triage): a joint_walk task with an
     # explicit --goal-mix (e.g. "hold=0.2,rise=0.4,lower=0.4") may never
     # train walk at all — hardcoding "--modes walk" silently evals a mode
@@ -327,7 +361,7 @@ def main() -> int:
     worst = 0
     for tag, out_rel, logpath, p, fh in jobs:
         try:
-            rc = p.wait(timeout=PASS_TIMEOUT_S)
+            rc = p.wait(timeout=PASS_TIMEOUT_S * timeout_scale)
         except subprocess.TimeoutExpired:
             p.kill()
             rc = -1
@@ -390,7 +424,7 @@ def main() -> int:
     if joygate:
         out_rel, logpath, p, fh = joygate
         try:
-            rc = p.wait(timeout=JOYGATE_TIMEOUT_S)
+            rc = p.wait(timeout=JOYGATE_TIMEOUT_S * timeout_scale)
         except subprocess.TimeoutExpired:
             p.kill()
             rc = -1
