@@ -456,8 +456,22 @@ def _cfg_set_value(extra: list[str], dotted: str) -> str | None:
 
 
 def _with_default_control_hz(extra: list[str], entry: dict,
-                             *, is_dynrep: bool) -> list[str] | int:
-    """All new PPO/MJX policies train at the campaign contract rate."""
+                             *, is_dynrep: bool,
+                             allow_legacy: bool = False) -> list[str] | int:
+    """All new PPO/MJX policies train at the campaign contract rate.
+
+    ``allow_legacy`` (2026-08-24, certfreeze-v9 dig-in — the
+    `--allow-legacy-control-hz` escape hatch CURRENT_TRUTHS documents
+    as already landed with the 08-24 100 Hz ruling was, on inspection,
+    never actually wired into this function; every non-100 explicit
+    value was a hard REFUSE with no way through it, so a deliberate,
+    already-precedented legacy-rate isolation run (certfreeze-v8's own
+    control.hz=25 pin, recorded in OPERATOR_QUESTIONS.md 08-24 ~20:0x)
+    could not be REPRODUCED via the normal launch/respec path).
+    Default False preserves the exact prior behavior (hard refuse) —
+    bit-exact when omitted; passing it only changes the outcome for an
+    EXPLICIT non-100 --cfg-set control.hz=..., never the no-key
+    default-100-injection path above."""
     if is_dynrep:
         return extra
     got = _cfg_set_value(extra, "control.hz")
@@ -470,10 +484,18 @@ def _with_default_control_hz(extra: list[str], entry: dict,
     except ValueError:
         return refuse(entry, f"bad control.hz cfg-set: {got!r}")
     if abs(hz - DEFAULT_TRAIN_CONTROL_HZ) > 1e-9:
-        return refuse(entry, f"new PPO launches must train at "
-                             f"control.hz={DEFAULT_TRAIN_CONTROL_HZ:g} "
-                             f"(got {got}); use a separate explicit "
-                             "legacy/eval path for old 25 Hz checkpoints")
+        if not allow_legacy:
+            return refuse(entry, f"new PPO launches must train at "
+                                 f"control.hz={DEFAULT_TRAIN_CONTROL_HZ:g} "
+                                 f"(got {got}); pass "
+                                 "--allow-legacy-control-hz for a "
+                                 "deliberate, recorded legacy-rate "
+                                 "isolation run, or use a separate "
+                                 "explicit legacy/eval path for old "
+                                 "25 Hz checkpoints")
+        entry.setdefault("checks", {})["control_hz_defaulted"] = (
+            f"explicit-legacy-{got}")
+        return extra
     entry.setdefault("checks", {})["control_hz_defaulted"] = "explicit"
     return extra
 
@@ -648,7 +670,9 @@ def _launch_locked(g: dict, a: argparse.Namespace,
         n_envs = gpu["n_envs"] if is_gpu else comp["n_envs"]
         extra = [*extra, "--n-envs", str(n_envs)]
         entry["extra_args"] = extra
-    ensured = _with_default_control_hz(extra, entry, is_dynrep=is_dynrep)
+    ensured = _with_default_control_hz(
+        extra, entry, is_dynrep=is_dynrep,
+        allow_legacy=bool(getattr(a, "allow_legacy_control_hz", False)))
     if isinstance(ensured, int):
         return ensured
     extra = ensured
@@ -1580,6 +1604,8 @@ def cmd_backlog(a: argparse.Namespace, extra: list[str]) -> int:
                       "evidence": getattr(a, "evidence", ""),
                       "track": (getattr(a, "track", "")
                                 or _tracks.infer(a.run)),
+                      "allow_legacy_control_hz": bool(getattr(
+                          a, "allow_legacy_control_hz", False)),
                       "extra_args": extra, "attempts": 0, "added": now()})
         _write_backlog(items)
     print(f"queued {a.run} ({len(items)} item(s) in backlog)")
@@ -1718,7 +1744,9 @@ def cmd_respec(g: dict, a: argparse.Namespace) -> int:
             parent=a.parent or a.source, hypothesis=a.hypothesis,
             gate=a.gate, phase=a.phase or entry.get("phase", ""),
             evidence=a.evidence or entry.get("evidence", ""),
-            track=track, trainer=trainer)
+            track=track, trainer=trainer,
+            allow_legacy_control_hz=getattr(
+                a, "allow_legacy_control_hz", False))
         return cmd_backlog(ns, args)
 
     # --now: direct launch, skipping the backlog. snapshot -> sync ->
@@ -1750,7 +1778,9 @@ def cmd_respec(g: dict, a: argparse.Namespace) -> int:
         phase=a.phase or entry.get("phase", ""),
         evidence=a.evidence or entry.get("evidence", ""),
         track=track, trainer=trainer,
-        operator_override=a.operator_override)
+        operator_override=a.operator_override,
+        allow_legacy_control_hz=getattr(
+            a, "allow_legacy_control_hz", False))
     return cmd_launch(g, ns, args)
 
 
@@ -1894,6 +1924,8 @@ def cmd_drain(g: dict, a: argparse.Namespace) -> int:
                "--phase", it.get("phase", ""),
                "--evidence", it.get("evidence", ""),
                "--track", it.get("track", ""),
+               *(["--allow-legacy-control-hz"]
+                 if it.get("allow_legacy_control_hz") else []),
                "--", *xa]
         r = subprocess.run(cmd, capture_output=True, text=True,
                            timeout=1800)
@@ -2128,6 +2160,9 @@ def main() -> int:
     bp.add_argument("--trainer", choices=("ppo", "dynrep", "dynrep-fresh"),
                     default="ppo", help="trainer family to preserve through "
                          "the backlog drain")
+    bp.add_argument("--allow-legacy-control-hz", action="store_true",
+                    help="see `launch --allow-legacy-control-hz`; carried "
+                         "through drain's own launch subprocess")
     rp = sub.add_parser("respec", help="queue a follow-up by cloning a "
                                        "ledger entry's args with overrides")
     rp.add_argument("--from", dest="source", required=True,
@@ -2164,6 +2199,10 @@ def main() -> int:
                     help="research track; default: the SOURCE run's track "
                          "(containment rule) — override only for an "
                          "escalated cross-track insight")
+    rp.add_argument("--allow-legacy-control-hz", action="store_true",
+                    help="see `launch --allow-legacy-control-hz`; needed "
+                         "whenever the source (or an --arg/--cfg override) "
+                         "pins an explicit non-100 control.hz")
     lp = sub.add_parser("launch")
     lp.add_argument("--trainer",
                     choices=("ppo", "dynrep", "dynrep-fresh"),
@@ -2190,6 +2229,13 @@ def main() -> int:
                     help="short validation run: W&B disabled, non-cw name")
     lp.add_argument("--allow-slow", action="store_true",
                     help="override the free-cores check (record why!)")
+    lp.add_argument("--allow-legacy-control-hz", action="store_true",
+                    help="permit an EXPLICIT non-100 --cfg-set "
+                         "control.hz=... (08-24 ruling default is 100; "
+                         "this is for a deliberate, recorded legacy-rate "
+                         "isolation run, e.g. matching a 25 Hz parent to "
+                         "isolate an unrelated lever — record why in "
+                         "OPERATOR_QUESTIONS.md/the hypothesis)")
     lp.add_argument("--dry-run", action="store_true")
     lp.add_argument("--operator-override", default="",
                     help="OPERATOR-ONLY: reason string that bypasses "
