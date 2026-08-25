@@ -66,6 +66,15 @@ GPU_TORCH_PYTHON = "/workspace/venv_torchgpu/bin/python"
 UV_PYTHON = "uv run python"
 WANDB_PROJECT = "l2k2/hexapod-balance"
 DEFAULT_TRAIN_CONTROL_HZ = 100.0
+# SIM MODEL FAMILIES continuity guard (2026-08-25, gaitgate-scratch1
+# triage dig-in): commit 47110285 flipped servo_model.resolve_model_source's
+# default from (implicitly) primitive to "mesh" at this instant. Any
+# ledger entry created strictly BEFORE this timestamp with no explicit
+# env.model_source cfg-set trained/resolved on the primitive family
+# (the mesh code did not exist yet); any entry AT/AFTER it with no
+# explicit cfg-set silently resolves to mesh. Mirrors DEFAULT_TRAIN_CONTROL_HZ's
+# role for the analogous control.hz continuity guard below.
+MESH_DEFAULT_FLIP_UTC = "2026-08-24T23:24:13+00:00"
 # Research tracks (operator, 08-11): every launch belongs to one of
 # tracks.json's tracks; the run gets W&B tag `track:<id>` and the
 # ledger entry a "track" field. tracks.py is the single accessor.
@@ -500,6 +509,90 @@ def _with_default_control_hz(extra: list[str], entry: dict,
     return extra
 
 
+def _normalize_model_source(src: str) -> str:
+    """mesh and mesh_mjx are the same family for continuity purposes
+    (mesh_mjx just forces the primitive-collision twin everywhere,
+    same kinematics/masses/inertia as mesh); primitive is distinct."""
+    s = (src or "").strip().lower()
+    return "primitive" if s == "primitive" else "mesh"
+
+
+def _lineage_model_source(run: str, _depth: int = 0) -> str | None:
+    """Walk a --parent chain to find the effective model family the
+    lineage actually trained on, mirroring _lineage_field's pattern.
+
+    Returns "mesh" / "primitive", or None if the chain runs off the
+    ledger (e.g. a hand-placed legacy checkpoint with no ledger entry)
+    before either an explicit env.model_source is found or a
+    parent-less root is reached — callers should skip the check
+    rather than block on an unknown lineage.
+    """
+    if not run or _depth > 30:
+        return None
+    ents = [e for e in load_ledger() if isinstance(e, dict)
+            and e.get("run") == run and e.get("extra_args")]
+    if not ents:
+        return None
+    ran = [e for e in ents if e.get("wandb_id") or e.get("checks", {}).get("pid")]
+    entry = ran[-1] if ran else ents[-1]
+    got = _cfg_set_value(entry["extra_args"], "env.model_source")
+    if got is not None:
+        return _normalize_model_source(got)
+    parent = entry.get("parent", "")
+    if parent:
+        inherited = _lineage_model_source(parent, _depth + 1)
+        if inherited is not None:
+            return inherited
+    created = entry.get("created", "")
+    if created:
+        return "primitive" if created < MESH_DEFAULT_FLIP_UTC else "mesh"
+    return None
+
+
+def _check_model_source_continuity(extra: list[str], entry: dict,
+                                    parent: str, *,
+                                    allow_mismatch: bool = False
+                                    ) -> int | None:
+    """Continuation/warm-start continuity guard (2026-08-25 — the
+    gaitgate-scratch1/-cont1 dig-in found the SIM MODEL CHANGE
+    continuity rule (CURRENT_TRUTHS: any resume of a pre-08-24
+    checkpoint MUST set env.model_source=primitive) had ZERO code
+    enforcement, unlike the analogous control.hz rule — a --parent
+    launch with no explicit env.model_source cfg-set silently
+    inherits whatever servo_model.resolve_model_source's CODE DEFAULT
+    is at run time ("mesh" since commit 47110285), regardless of what
+    family the checkpoint being warm-started actually trained on.
+    Returns None if OK (or lineage unknown — never block on an
+    un-traceable chain), else calls refuse() and returns 1."""
+    if not parent:
+        return None
+    requested = _normalize_model_source(
+        _cfg_set_value(extra, "env.model_source") or "mesh")
+    implied = _lineage_model_source(parent)
+    if implied is None:
+        entry.setdefault("checks", {})["model_source_lineage"] = "unknown"
+        return None
+    if implied != requested:
+        if not allow_mismatch:
+            return refuse(
+                entry,
+                f"--parent {parent}'s lineage trained on the "
+                f"{implied!r} model family but this launch resolves to "
+                f"{requested!r} (no matching --cfg-set "
+                "env.model_source=... found on the resume) -- the "
+                "families do NOT transfer (different kinematics/mass); "
+                "pass --cfg-set "
+                f"env.model_source={implied} to continue that family, "
+                "or --allow-model-source-mismatch for a deliberate, "
+                "recorded cross-family transfer experiment")
+        entry.setdefault("checks", {})["model_source_lineage"] = (
+            f"explicit-mismatch-{implied}-to-{requested}")
+        return None
+    entry.setdefault("checks", {})["model_source_lineage"] = (
+        f"{implied}-matched")
+    return None
+
+
 def refuse(entry: dict, reason: str) -> int:
     print(f"REFUSED: {reason}")
     entry["status"] = "REFUSED"
@@ -677,6 +770,11 @@ def _launch_locked(g: dict, a: argparse.Namespace,
         return ensured
     extra = ensured
     entry["extra_args"] = extra
+    model_source_refuse = _check_model_source_continuity(
+        extra, entry, getattr(a, "parent", ""),
+        allow_mismatch=bool(getattr(a, "allow_model_source_mismatch", False)))
+    if model_source_refuse is not None:
+        return model_source_refuse
 
     # --- live capacity checks (never trust remembered facts) ---------------
     # Machines spin up and down; an unreachable pod is a REFUSAL (pick
@@ -1616,6 +1714,8 @@ def cmd_backlog(a: argparse.Namespace, extra: list[str]) -> int:
                                 or _tracks.infer(a.run)),
                       "allow_legacy_control_hz": bool(getattr(
                           a, "allow_legacy_control_hz", False)),
+                      "allow_model_source_mismatch": bool(getattr(
+                          a, "allow_model_source_mismatch", False)),
                       "extra_args": extra, "attempts": 0, "added": now()})
         _write_backlog(items)
     print(f"queued {a.run} ({len(items)} item(s) in backlog)")
@@ -1756,7 +1856,9 @@ def cmd_respec(g: dict, a: argparse.Namespace) -> int:
             evidence=a.evidence or entry.get("evidence", ""),
             track=track, trainer=trainer,
             allow_legacy_control_hz=getattr(
-                a, "allow_legacy_control_hz", False))
+                a, "allow_legacy_control_hz", False),
+            allow_model_source_mismatch=getattr(
+                a, "allow_model_source_mismatch", False))
         return cmd_backlog(ns, args)
 
     # --now: direct launch, skipping the backlog. snapshot -> sync ->
@@ -1790,7 +1892,9 @@ def cmd_respec(g: dict, a: argparse.Namespace) -> int:
         track=track, trainer=trainer,
         operator_override=a.operator_override,
         allow_legacy_control_hz=getattr(
-            a, "allow_legacy_control_hz", False))
+            a, "allow_legacy_control_hz", False),
+        allow_model_source_mismatch=getattr(
+            a, "allow_model_source_mismatch", False))
     return cmd_launch(g, ns, args)
 
 
@@ -1936,6 +2040,8 @@ def cmd_drain(g: dict, a: argparse.Namespace) -> int:
                "--track", it.get("track", ""),
                *(["--allow-legacy-control-hz"]
                  if it.get("allow_legacy_control_hz") else []),
+               *(["--allow-model-source-mismatch"]
+                 if it.get("allow_model_source_mismatch") else []),
                "--", *xa]
         r = subprocess.run(cmd, capture_output=True, text=True,
                            timeout=1800)
@@ -2173,6 +2279,9 @@ def main() -> int:
     bp.add_argument("--allow-legacy-control-hz", action="store_true",
                     help="see `launch --allow-legacy-control-hz`; carried "
                          "through drain's own launch subprocess")
+    bp.add_argument("--allow-model-source-mismatch", action="store_true",
+                    help="see `launch --allow-model-source-mismatch`; "
+                         "carried through drain's own launch subprocess")
     rp = sub.add_parser("respec", help="queue a follow-up by cloning a "
                                        "ledger entry's args with overrides")
     rp.add_argument("--from", dest="source", required=True,
@@ -2213,6 +2322,10 @@ def main() -> int:
                     help="see `launch --allow-legacy-control-hz`; needed "
                          "whenever the source (or an --arg/--cfg override) "
                          "pins an explicit non-100 control.hz")
+    rp.add_argument("--allow-model-source-mismatch", action="store_true",
+                    help="see `launch --allow-model-source-mismatch`; "
+                         "needed for a deliberate cross-family transfer "
+                         "respec (rare -- families do not transfer)")
     lp = sub.add_parser("launch")
     lp.add_argument("--trainer",
                     choices=("ppo", "dynrep", "dynrep-fresh"),
@@ -2246,6 +2359,17 @@ def main() -> int:
                          "isolation run, e.g. matching a 25 Hz parent to "
                          "isolate an unrelated lever — record why in "
                          "OPERATOR_QUESTIONS.md/the hypothesis)")
+    lp.add_argument("--allow-model-source-mismatch", action="store_true",
+                    help="permit a --parent warm-start whose lineage's "
+                         "implied model family (env.model_source, "
+                         "inferred from the parent chain's own explicit "
+                         "cfg-sets or, absent any, whether the root "
+                         "predates the 2026-08-24 mesh-default flip) "
+                         "differs from this launch's own resolved family "
+                         "-- the SIM MODEL CHANGE continuity rule says "
+                         "families do NOT transfer; this is for a "
+                         "deliberate, recorded cross-family transfer "
+                         "experiment, not a default")
     lp.add_argument("--dry-run", action="store_true")
     lp.add_argument("--operator-override", default="",
                     help="OPERATOR-ONLY: reason string that bypasses "
