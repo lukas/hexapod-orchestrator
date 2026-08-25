@@ -1231,6 +1231,27 @@ def _pod_pid_cputime(pod: str, pid: str) -> int | None:
         return None
 
 
+def _budget_reached(budget: int, wb_step: int, pod: str, log: str) -> bool:
+    """True when a run's rollout loop has completed its full step budget
+    (the wrap-up / eval-drain window), judged by EITHER the live W&B
+    step OR the trainer log's last reported total_timesteps. The W&B
+    summary step can lag the budget during wrap-up because the
+    background eval thread logs at its own (older) step — observed
+    08-25 on holdheight-rung3-acq8m-s1: W&B read 6.0M while the log's
+    SB3 table showed total_timesteps 8,060,928 of an 8M budget."""
+    if not budget:
+        return False
+    if wb_step >= budget:
+        return True
+    try:
+        raw = kexec(pod, "grep -o 'total_timesteps *| *[0-9]*' "
+                         f"{log} 2>/dev/null | tail -1 | "
+                         "grep -o '[0-9]*$' || true").strip()
+        return bool(raw) and int(raw) >= budget
+    except (subprocess.CalledProcessError, ValueError):
+        return False
+
+
 def _extra_int(extra_args: list, flag: str, default: int) -> int:
     """Read an integer value passed as `--flag value` in an extra_args list."""
     if flag in extra_args:
@@ -1530,6 +1551,31 @@ def cmd_checkup(g: dict, a: argparse.Namespace) -> int:
                 f"intentionally waiting at recovery-population B"
                 f"{int(barrier['bucket'])} start barrier at global_step "
                 f"{s2}; ready is published and start is not yet released")
+        elif s2 <= s1 and _budget_reached(int(entry.get("steps") or 0),
+                                          s2, pod, log):
+            # WRAP-UP WINDOW, not a stall (same idea as the launch
+            # verifier's "finished_during_verification" guard): a fast
+            # GPU run completes its whole rollout budget in minutes,
+            # then spends several more in the skip-if-busy eval-thread
+            # drain + final eval/video/checkpoint/W&B sync, during
+            # which global_step legitimately freezes and the log
+            # pauses. Two healthy runs were false-SUSPECTed in this
+            # window on 08-25 (stancemix-tuckclock1-s1 23:29,
+            # holdheight-rung3-acq8m 23:40), each burning a deep-model
+            # cycle. W&B's summary step can even LAG the budget here
+            # (the eval thread logs at its own older step — s1 twin
+            # read 6.0M while the log's total_timesteps showed 8.06M),
+            # so _budget_reached also reads the trainer log's last
+            # total_timesteps. Process-alive was already verified
+            # above; a run that dies in wrap-up is still caught by the
+            # watcher's finish handling (no completion marker -> no
+            # prestage), not silenced by this guard.
+            facts["placement"] = "budget reached; wrap-up window"
+            facts["note"] = (
+                f"rollout budget {int(entry.get('steps') or 0)} reached "
+                "(W&B or log total_timesteps) with trainer process alive "
+                "— training loop complete, run is in eval-drain/finalize, "
+                "not stalled")
         elif s2 <= s1:
             # W&B logs once per PPO iteration, and an iteration's wall
             # time is floored by its rollout (n_envs * n_steps). Small-
