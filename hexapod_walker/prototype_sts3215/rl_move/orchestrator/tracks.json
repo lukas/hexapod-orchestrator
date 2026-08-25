@@ -18,5 +18,10 @@
     "name": "Berkeley-style CPG gait search",
     "doc": "rl_docs/tracks/cpg/STATUS.md",
     "goal": "Treat the Yang/Levine microrobot result as its own locomotion path: optimize a low-dimensional SE2FootGait/CPG controller with direct MuJoCo behavioral scoring instead of PPO reward learning. DONE when the best parameterized controller passes a held-out contextual gait gate with zero falls, low loaded-foot slip, correct headings, turns, stops/restarts, and enough robustness to become either a deployable deterministic controller or a pre-registered teacher/motion-library source. Downstream adoption into joystick or AMP must be measured as an A/B fork, not a silent teacher swap."
+  },
+  "standwalk": {
+    "name": "Mesh-era stance retrain, then teacher distillation into walking",
+    "doc": "rl_docs/tracks/standwalk/STATUS.md",
+    "goal": "Operator registration 08-24 evening. Stage 1: retrain the best rising-and-lowering (stance) capability on the NEW mesh model family at 100 Hz. The legacy stance champion ppo_goal_cw_stance_dr10 is a primitive-family 25 Hz policy and CANNOT be resumed or warm-started (families do not transfer) - rerun/adapt its recipe with env.model_source=mesh + control.hz=100. Stage-1 gate: rise/hold/lower panel on mesh, n>=12, det+sto, DR-0 + own-DR, zero falls/tips, quiet hold, rise/lower tracking comparable to the legacy champion's band (re-measured on mesh). Stage 2: use the stage-1 policy as a TEACHER and distill rise/lower plus the best walking behavior (joystick champion lineage stotight45-seed13, or its mesh-era successor via pre-registered adoption) into ONE mesh-family 100 Hz policy. DONE when that single policy, starting from sit, rises, follows a randomized 60-second joystick command script with ZERO falls, directions followed, and slip/m within the joystick band (<=~2.9), then lowers back to sit - held-out panel, n>=12, det+sto, DR-0 and own-DR."
   }
 }

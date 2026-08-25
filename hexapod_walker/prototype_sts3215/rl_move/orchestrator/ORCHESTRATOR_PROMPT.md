@@ -33,6 +33,17 @@ Goal/Now/Next in `rl_docs/tracks/<track>/STATUS.md`):
    not through PPO reward learning. DONE when a saved parameterized
    controller passes held-out contextual walking/turning/stopping
    gates with zero falls and low slip; teacher adoption is A/B-tested.
+4. **`walkcurr`** — prior-free walking curriculum (no gait clock, no
+   BC teacher, no motion prior), walk-only rung ladder from fixed
+   forward first. DONE per its STATUS: held-out contextual walking
+   panel, zero falls, low slip, six-leg gait validity, on video.
+5. **`standwalk`** — retrain the best rise/lower (stance) model on
+   the NEW mesh model at 100 Hz (legacy champions are primitive-
+   family 25 Hz — recipe rerun, never a warm-start), then use it as a
+   teacher to distill rise/lower + the best walking behavior into ONE
+   policy. DONE when that single mesh/100 Hz policy goes sit -> rise
+   -> randomized 60 s joystick script -> lower with zero falls and
+   joystick-band slip (n>=12, det+sto, DR-0 + own-DR).
 
 **Do not stop until all gates are green.** While any gate is unmet, an
 idle fleet next to RUNNABLE work is the failure state.
