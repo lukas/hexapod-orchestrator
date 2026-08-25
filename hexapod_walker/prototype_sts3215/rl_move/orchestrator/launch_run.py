@@ -804,12 +804,22 @@ def _launch_locked(g: dict, a: argparse.Namespace,
                                  "--allow-slow and record why.")
 
     # --- duplicate + concurrency checks -------------------------------------
+    # Skip UNREACHABLE pods the same way `status` already does (2026-08-25,
+    # gaitgate-cont1 launch dig-in): hexapod-sweep-friction going briefly
+    # slow/unresponsive under its own CPU sweep load made `kexec`'s 60s
+    # timeout raise `subprocess.TimeoutExpired`, which this loop did NOT
+    # catch (every other kexec call site in this file already catches
+    # `(CalledProcessError, TimeoutExpired)` together) -- an uncaught
+    # exception here crashed EVERY launch/respec attempt fleet-wide
+    # whenever any one pod (even one irrelevant to the target) was slow to
+    # exec into, not just a refusal for that one pod. Bit-exact when every
+    # pod responds in time.
     for pod in comp["pods"] + gpu_pods:
         try:
             if a.run in pod_trainers(pod):
                 return refuse(entry, f"a process for {a.run} already exists "
                                      f"on {pod}")
-        except subprocess.CalledProcessError:
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
             pass
     if not a.smoke:
         if wandb_name_exists(a.run):
