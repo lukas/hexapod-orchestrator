@@ -94,12 +94,33 @@ def _has_cfg_key(cfgs: list[str], key: str) -> bool:
 
 
 def legacy_eval_cfgs(cfgs: list[str]) -> list[str]:
-    """Replay old unstamped runs under the 25 Hz contract they trained with."""
+    """Replay old unstamped runs under the 25 Hz contract they trained with.
+
+    BUG FIX (08-26, standheight-rung5-acq8m triage): the two pins used
+    to be independent ``if`` checks, so a ledger entry with an EXPLICIT
+    ``control.hz=100`` (every post-08-24 launch) but no explicit
+    ``safety.max_delta_q_deg`` (the overwhelmingly common case — the
+    100 Hz contract's 0.375 already lives in config.yaml's own
+    default, so launches correctly never restate it) still hit the
+    second ``if`` alone and got the LEGACY 25 Hz slew (1.5 deg/tick =
+    150 deg/s) force-added — 4x looser than the 0.375 deg/tick
+    (37.5 deg/s) contract those policies actually trained under. This
+    silently ran every automated gate/owncfg/session/joygate pass for
+    every 100 Hz run since the flip (161 launches at last count) under
+    the wrong motor contract instead of the config default that would
+    otherwise have been correct. The two pins are only valid TOGETHER
+    (a ledger entry with no control.hz key at all means "pre-flip,
+    trained at 25 Hz" per the flip's own invariant) — gate the second
+    pin on the SAME missing-control.hz condition as the first, so an
+    explicit (non-legacy) control.hz leaves max_delta_q_deg for
+    config.yaml's own default (or whatever the run itself set) instead
+    of overriding it.
+    """
     out = list(cfgs)
     if not _has_cfg_key(out, "control.hz"):
         out.append(f"control.hz={LEGACY_CONTROL_HZ:g}")
-    if not _has_cfg_key(out, "safety.max_delta_q_deg"):
-        out.append(f"safety.max_delta_q_deg={LEGACY_MAX_DELTA_Q_DEG:g}")
+        if not _has_cfg_key(out, "safety.max_delta_q_deg"):
+            out.append(f"safety.max_delta_q_deg={LEGACY_MAX_DELTA_Q_DEG:g}")
     return out
 
 # 08-24 100 Hz CADENCE FIX (found on cw-arch-hist16-dep1-c1-
