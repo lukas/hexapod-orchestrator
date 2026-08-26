@@ -1591,17 +1591,56 @@ def cmd_checkup(g: dict, a: argparse.Namespace) -> int:
             pid = _pod_trainer_pid(
                 pod, live_names[0] if live_names else a.run)
             cpu = [_pod_pid_cputime(pod, pid) if pid else None]
+            # GPU proof-of-work (08-26 fix, third false SUSPECT on this
+            # class: anchor1-s1 wrongly killed, anchor2-s1 flagged while
+            # HEALTHY and finishing cleanly at 2.03M): warp/MJX trainers
+            # park their host threads on GPU sync during compile+rollout,
+            # so cumulative CPU time goes flat on a pod whose GPU is
+            # flat-out busy, and the W&B summary step lags by minutes
+            # (read 4096 at a measured 11k fps). On a GPU pod the honest
+            # no-work signal is the GPU itself: sample utilization in the
+            # same 30 s sleeps; ANY sample >= 15 % means the run is
+            # computing. A genuinely hung process shows 0 % everywhere
+            # and is still caught.
+            gpu_util: list[int] = []
+
+            def _gpu_sample() -> None:
+                try:
+                    out = kexec(pod, "nvidia-smi --query-gpu=utilization"
+                                     ".gpu --format=csv,noheader,nounits"
+                                     " 2>/dev/null || true").strip()
+                    if out:
+                        gpu_util.append(int(out.splitlines()[0]))
+                except Exception:
+                    pass
+
+            _gpu_sample()
             for _ in range(2):
                 time.sleep(30)
                 cpu.append(_pod_pid_cputime(pod, pid) if pid else None)
+                _gpu_sample()
             deltas = [b - a2 for a2, b in zip(cpu, cpu[1:])
                       if a2 is not None and b is not None]
             computing = bool(deltas) and all(d > 50 for d in deltas)
             facts["cpu_centisec_deltas"] = deltas
-            if computing:
-                facts["note"] = ("global_step flat in 45s window but "
-                                 "trainer CPU busy — long-rollout "
-                                 "iteration cadence, not a stall")
+            facts["gpu_util_samples"] = gpu_util
+            gpu_busy = (pod in g["compute"].get("gpu_pods", [])
+                        and any(u >= 15 for u in gpu_util))
+            # Log-race guard (08-26, same incident): the log grew 2 s
+            # before the anchor2-s1 finding printed — size1/size2
+            # straddled a legitimately quiet stretch. Re-stat after the
+            # 60 s CPU/GPU window; any growth since size1 = alive.
+            try:
+                size3 = int(kexec(pod, f"stat -c %s {log}").strip())
+            except Exception:
+                size3 = size2
+            log_grew_late = size3 > size1
+            if computing or gpu_busy or log_grew_late:
+                facts["note"] = (
+                    "global_step flat in 45s window but run shows work: "
+                    f"cpu_busy={computing} gpu_busy={gpu_busy} "
+                    f"log_grew_late={log_grew_late} — trainer cadence/"
+                    "W&B summary lag, not a stall")
             else:
                 problems.append(f"W&B global_step stalled at {s2}")
                 if log_stalled:
