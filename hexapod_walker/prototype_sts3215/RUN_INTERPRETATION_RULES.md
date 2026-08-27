@@ -118,6 +118,21 @@ clean pass. Guard the current track baselines.
 | up | up | good, protected skill down | skill interference |
 | up | up | good | PASS / harden |
 
+## Checkup "stall" false-alarm fingerprint (recurring; 3rd hit 08-27)
+
+Before killing a "hung" MJX trainer, RE-POLL W&B run state (`wandb.Api()`
+run `.state` + `summary.global_step`) and wait a few minutes. W&B summary
+sync lags badly during training (a checkup can read step 4096 while the
+pod log shows 1M+), and end-of-run finalization looks exactly like a
+deadlock from outside: log frozen at the last eval line, ~0 CPU, 0% GPU,
+every thread futex-parked, for 5-10 min — then the run flips to
+`finished` with the full-budget checkpoint saved and W&B synced.
+Confirmed false alarms: bcanchor0p5 (08-25), anchor1-s1 (08-26, was
+wrongly killed), anchor13-walkretaincoef1-base + -s1 (08-27, both
+"stalled at 1M", both finished cleanly at 2.03M minutes later). Only
+kill when the process is provably wedged AND W&B still says `running`
+with global_step far below budget after the re-poll.
+
 ## Order of evidence
 
 1. Correct physical behavior (video)
