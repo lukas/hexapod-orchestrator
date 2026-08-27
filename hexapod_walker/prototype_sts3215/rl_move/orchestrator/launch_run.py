@@ -1492,7 +1492,19 @@ def cmd_checkup(g: dict, a: argparse.Namespace) -> int:
                   else [t for t in trainers if t == a.run])
     facts["process_alive"] = bool(live_names)
     if not facts["process_alive"]:
-        tail = kexec(pod, f"tail -c 2000 {log} 2>/dev/null || true")
+        # 08-27 (anchor10-percoreclip checkup false-DEAD): a 2000-byte
+        # tail was ALREADY once widened for exactly this reason (see
+        # the note below) but a fast MJX canary's own W&B postamble
+        # (artifact upload lines + the full "Run history"/"Run
+        # summary" key dump, dozens of SCORE/canary/train/* scalars on
+        # a run with obs.mode_onehot + dual-core diagnostics logging)
+        # can push well past 2000 bytes on its own — this exact run
+        # measured 2107 bytes AFTER the "[mjx-train] done" marker,
+        # missing the old window by 107 bytes and reporting DEAD on a
+        # cleanly finished run. Widened with real margin (8000B); the
+        # regex below still only fires on the specific completion
+        # banner text, so a wider window costs nothing behaviorally.
+        tail = kexec(pod, f"tail -c 8000 {log} 2>/dev/null || true")
         # A missing process is NOT necessarily a death: short runs and
         # canary auto-stops complete before/within the checkup window.
         # Completion markers: CPU trainer "[train] N steps in Ts → ckpt"
