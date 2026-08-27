@@ -274,6 +274,41 @@ print(f"# then: ops.sh waitlog /tmp/eval_{run}.log 'artifacts|Traceback' 1800")
 EOF
   ;;
 
+sessioncmd)  # sessioncmd <run> — print the long mixed-control session
+  # gate command (eval_mixed_session: 60s + 180s env-native mode_seq
+  # sessions, operator 08-27) carrying the run's own cfg stack from
+  # the ledger. Run it on the run's pod (kubectl exec after
+  # snapshot.sh --sync), never the controller.
+  run="$2"
+  uv run python - "$run" <<'EOF'
+import json, os, sys
+run = sys.argv[1]
+entry = None
+fallback = None
+for e in json.load(open(os.environ["LEDGER"])):
+    if isinstance(e, dict) and e.get("run") == run and e.get("extra_args"):
+        fallback = e
+        if e.get("wandb_id") or e.get("checks", {}).get("pid"):
+            entry = e
+entry = entry or fallback
+args = entry["extra_args"] if entry else []
+def val(flag, default=None):
+    return args[args.index(flag) + 1] if flag in args else default
+task = val("--task", "joint_walk")
+dr = val("--dr-scale", "0.0")
+cfg = " ".join(f"--extra-cfg-set {args[i+1]}"
+               for i, a in enumerate(args) if a == "--cfg-set")
+name = "ppo_goal_" + run.replace("-", "_")
+out = f"logs/ckpt_eval/{run.replace('-', '_')}_mixedsession"
+print("# run from the PROTO dir on the run's pod (module form, detached)")
+print(f"nohup uv run python -m rl_move.sim.eval_mixed_session rl_move/sim/policies/{name}.zip \\")
+print(f"  --task {task} --own-dr-scale {dr} --n 6 --episode-seconds 60 --long-seconds 180 --video \\")
+if cfg: print(f"  {cfg} \\")
+print(f"  --out-dir {out} > /tmp/mixedsession_{run}.log 2>&1 &")
+print(f"# then: ops.sh waitlog /tmp/mixedsession_{run}.log 'verdict written|Traceback' 7200")
+EOF
+  ;;
+
 expdir)  # expdir <run> — per-experiment log dir with summary.md template
   run="$2"; d="$PROTO/logs/experiments/$run"
   mkdir -p "$d"
