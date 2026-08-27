@@ -129,7 +129,11 @@ every thread futex-parked, for 5-10 min — then the run flips to
 `finished` with the full-budget checkpoint saved and W&B synced.
 Confirmed false alarms: bcanchor0p5 (08-25), anchor1-s1 (08-26, was
 wrongly killed), anchor13-walkretaincoef1-base + -s1 (08-27, both
-"stalled at 1M", both finished cleanly at 2.03M minutes later). Only
+"stalled at 1M", both finished cleanly at 2.03M minutes later),
+anchor14-walkretaincoef1-rescue-s1 (08-27 17:42 checkup, 4th hit:
+checkup read summary global_step=4096 while the pod log showed 1M+;
+re-poll showed 1,003,520/running, run finished cleanly at 2.03M
+seven minutes later — zero intervention needed). Only
 kill when the process is provably wedged AND W&B still says `running`
 with global_step far below budget after the re-poll.
 
