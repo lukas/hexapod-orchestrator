@@ -582,6 +582,60 @@ def mark_triage(run: str, value: str, only_if_unset: bool = False) -> None:
         log(f"mark_triage({run}) failed: {exc!r}")
 
 
+PRESTAGE_WRAPPER_TIMEOUT_S = 7500  # floor: legacy 25Hz/15s-episode default
+
+
+def _prestage_wrapper_timeout(run: str) -> int:
+    """Scale the prestage subprocess's own wall-clock budget the same
+    way `pod_eval.py` scales ITS internal per-pass waits (Next -1.86,
+    2026-08-27: a flat 7500s here was tighter than a full control.hz=100/
+    30s-episode 4-mode joint panel + joygate rider actually takes,
+    silently truncating a still-healthy pod eval mid-flight — the copy-
+    back is lost even though the remote process keeps computing fine;
+    every standwalk stage-2 cycle since has had to notice and re-sync by
+    hand). Reads the same `control.hz`/`--episode-seconds` this run
+    launched with straight from the ledger and reuses `pod_eval.py`'s
+    own `eval_timeout_scale` so the two stay numerically consistent.
+    Pure lookup, best-effort: any miss (no ledger entry, bad ledger
+    field) falls back to the untouched flat floor — never SHRINKS the
+    old budget for a run this can't read.
+    """
+    try:
+        import pod_eval  # local module, HERE is already on sys.path
+        entries = [e for e in json.loads(LEDGER.read_text())
+                   if e.get("run") == run and e.get("extra_args")]
+        if not entries:
+            return PRESTAGE_WRAPPER_TIMEOUT_S
+        args = list(entries[-1]["extra_args"])
+
+        def val(flag: str, default=None):
+            return args[args.index(flag) + 1] if flag in args else default
+
+        ep = val("--episode-seconds")
+        control_hz = pod_eval.BASELINE_HZ
+        for i, a in enumerate(args):
+            if a == "--cfg-set" and i + 1 < len(args):
+                k, _, v = args[i + 1].partition("=")
+                if k.strip() == "control.hz":
+                    try:
+                        control_hz = float(v)
+                    except ValueError:
+                        pass
+        scale = pod_eval.eval_timeout_scale(
+            control_hz, float(ep) if ep else None)
+        # Worst case pod_eval.py's own process outlives: gate+owncfg run
+        # IN PARALLEL (each may wait up to PASS_TIMEOUT_S*scale) then the
+        # joygate/session rider runs AFTER (sequential, up to
+        # JOYGATE_TIMEOUT_S*scale) before the subprocess exits — budget
+        # for both stages plus headroom, never below the historical floor.
+        worst = pod_eval.PASS_TIMEOUT_S * scale + pod_eval.JOYGATE_TIMEOUT_S * scale
+        return max(PRESTAGE_WRAPPER_TIMEOUT_S, int(worst + 1800))
+    except Exception as exc:
+        log(f"_prestage_wrapper_timeout({run}) failed: {exc!r} "
+            f"(using flat floor)")
+        return PRESTAGE_WRAPPER_TIMEOUT_S
+
+
 def prestage_finished(run: str) -> None:
     """Mechanically prep a finished run BEFORE its verdict cycle spawns.
 
@@ -632,9 +686,13 @@ def prestage_finished(run: str) -> None:
                 # a daemon thread and the cycle waits on the log.
                 # (pod_eval writes the _prestage.synced sentinel itself
                 # as soon as the CORE passes settle — the joygate rider
-                # can run another hour after that, hence the timeout.)
+                # can run another hour after that, hence the timeout.
+                # Scaled per-run (Next -1.86 fix, 08-27): a flat 7500s
+                # under-budgeted a control.hz=100/30s-episode joint panel
+                # that legitimately takes ~1h35-1h50m of CORE wait alone
+                # plus a joygate rider on top.)
                 r = sh(f"uv run python {HERE / 'pod_eval.py'} {run}",
-                       timeout=7500)
+                       timeout=_prestage_wrapper_timeout(run))
                 out = ((r.stdout or "") + (r.stderr or "")).strip()
                 log(f"prestage {run}: pod evals rc={r.returncode} "
                     f"{out[-400:]}")
