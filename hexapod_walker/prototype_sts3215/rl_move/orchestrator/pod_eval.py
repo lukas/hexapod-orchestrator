@@ -188,6 +188,31 @@ def push_local(pod: str, name: str) -> str | None:
     return None
 
 
+def remote_eval_running(pod: str, out_rel: str, module: str = "rl_move.sim.eval_checkpoint") -> bool:
+    """True if a live `module` process on `pod` already targets `out_rel`
+    (matched on the `--out`/`--out-dir` token, whichever the caller's
+    output path shows up under). 2026-08-27 (standwalk
+    anchor14-rescue-acq8m idle-kick): pod_eval's old idempotency check
+    only looked at whether the CONTROLLER-side artifact dir already
+    exists (i.e. a finished pass already synced back) — a pass still
+    mid-flight on the pod (the normal state for anything with per-mode
+    video, 1-2h+) is invisible to that check, so re-invoking
+    `ops.sh podeval`/pod_eval.py on the same run silently launched a
+    SECOND eval process hammering the same GPU-pod CPUs and writing
+    episode files into the same output dir concurrently (observed: two
+    live 4-process eval_checkpoint trees on one pod, ~28 cores of
+    contention, racing writes into logs/ckpt_eval/<run>_gate/). Grep
+    the pod's own process table for the exact out-path token before
+    starting a new one."""
+    try:
+        cp = kexec(pod, f"ps -eo args= | grep {shlex.quote(module)} | "
+                         f"grep -F -- {shlex.quote(out_rel)}",
+                   timeout=30)
+    except subprocess.TimeoutExpired:
+        return False  # pod slow/unreachable; let the caller proceed as before
+    return cp.returncode == 0 and bool(cp.stdout.strip())
+
+
 def find_checkpoint(pod: str, run: str, task: str) -> str | None:
     names = ["ppo_goal_" + run.replace("-", "_") + ".zip"]
     names += [f"ppo_mjx_{t}_{run}.zip"
@@ -326,6 +351,12 @@ def main() -> int:
         if local_out.exists():
             print(f"{tag}: {out_rel} already on controller — skipping")
             continue
+        if remote_eval_running(pod, out_rel):
+            print(f"{tag}: eval_checkpoint already RUNNING on {pod} for "
+                  f"{out_rel} — NOT launching a duplicate; poll "
+                  f"{logpath} / kubectl exec {pod} -- ps aux for it "
+                  f"instead of re-invoking podeval")
+            continue
         cmd = (f"cd {POD_PROTO} && set -a && "
                f". rl_move/sim/wandb.env 2>/dev/null; set +a; "
                f"uv run python -m rl_move.sim.eval_checkpoint {shlex.quote(ckpt)}"
@@ -350,6 +381,9 @@ def main() -> int:
         # leaves an empty dir behind and must stay retryable.
         if (PROTO / s_out_rel / "report.json").is_file():
             print(f"session: {s_out_rel} already on controller — skipping")
+        elif remote_eval_running(pod, s_out_rel, "rl_move.sim.eval_session"):
+            print(f"session: eval already RUNNING on {pod} for {s_out_rel}"
+                  " — NOT launching a duplicate")
         else:
             partner = push_local(pod, partner_name)
             if partner is None:
@@ -381,6 +415,9 @@ def main() -> int:
         # aggregate), so a half-finished attempt stays retryable.
         if (PROTO / j_out_rel / "gate_verdict.json").is_file():
             print(f"joygate: {j_out_rel} already on controller — skipping")
+        elif remote_eval_running(pod, j_out_rel, "rl_move.sim.eval_joystick_gate"):
+            print(f"joygate: eval already RUNNING on {pod} for {j_out_rel}"
+                  " — NOT launching a duplicate")
         else:
             j_log = f"/tmp/eval_{run}_joygate.log"
             j_cmd = (f"cd {POD_PROTO} && set -a && "
