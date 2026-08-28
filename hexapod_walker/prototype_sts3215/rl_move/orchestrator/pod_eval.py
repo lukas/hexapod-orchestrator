@@ -236,16 +236,26 @@ def push_local(pod: str, name: str) -> str | None:
     return None
 
 
-def remote_report_exists(pod: str, out_rel: str) -> bool:
-    """Does the pod already hold a finished report.json for out_rel?
+def remote_report_exists(pod: str, out_rel: str,
+                          filename: str = "report.json") -> bool:
+    """Does the pod already hold a finished completion file for out_rel?
 
     Used to distinguish an ORPHANED finished pass (the process exited,
     result sitting on the pod, nobody copied it back) from a genuinely
     not-yet-attempted one — the former must be reaped (copy-back only),
     never relaunched (see the 08-28 orphaned-result comment at the call
     site: relaunching silently discards a finished result and burns
-    another full eval's worth of pod compute)."""
-    remote_report = f"{POD_PROTO}/{out_rel}/report.json"
+    another full eval's worth of pod compute). `filename` defaults to
+    the core gate/owncfg passes' `report.json`; mixedsession's own
+    completion file is `session_verdict.json` (2026-08-28, same bug
+    class found live in the mixedsession auto-launch block: it only
+    checked "already on controller" and "still running", with no
+    orphaned-remote-result branch, so it silently relaunched a full
+    dr0+owndr+dr0_long mixedsession pass on top of one that had ALREADY
+    finished on the pod — confirmed live on cw-standwalk-unified1-mix-
+    {long-s0,long-s1}, both re-running from a fresh dr0 pass while a
+    complete session_verdict.json already sat on the same pod)."""
+    remote_report = f"{POD_PROTO}/{out_rel}/{filename}"
     return kexec(pod, f"test -f {shlex.quote(remote_report)}").returncode == 0
 
 
@@ -534,6 +544,14 @@ def main() -> int:
                                   "rl_move.sim.eval_mixed_session"):
             print(f"mixedsession: eval already RUNNING on {pod} for "
                   f"{ms_out_rel} — NOT launching a duplicate")
+        elif remote_report_exists(pod, ms_out_rel, "session_verdict.json"):
+            # Orphaned-result reap (see remote_report_exists docstring):
+            # finished remotely, nobody copied it back — copy-back
+            # only, never relaunch.
+            print(f"mixedsession: {ms_out_rel} finished on {pod} with "
+                  f"nobody watching — reaping (copy-back only, no "
+                  f"relaunch)")
+            mixedsession = (ms_out_rel, ms_log, None, None)
         else:
             ms_cfg = "".join(f" --extra-cfg-set {shlex.quote(c)}"
                               for c in all_cfgs)
@@ -680,30 +698,54 @@ def main() -> int:
 
     if mixedsession:
         out_rel, logpath, p, fh = mixedsession
-        try:
-            rc = p.wait(timeout=MIXEDSESSION_TIMEOUT_S)
-        except subprocess.TimeoutExpired:
-            p.kill()
-            rc = -1
-        if rc in (0, 1):
-            # eval_mixed_session writes session_verdict.json on both
-            # PASS (0) and FAIL (1); anything else died before
-            # aggregating.
+        if p is None:
+            # Reap-only path (orphaned remote result, see the launch
+            # site) — nothing to wait on, just copy it back.
+            rc = 0
             (PROTO / out_rel).parent.mkdir(parents=True, exist_ok=True)
             subprocess.run(
                 ["kubectl", "cp", f"{pod}:{POD_PROTO}/{out_rel}",
                  str(PROTO / out_rel)],
                 capture_output=True, text=True, timeout=600)
+        else:
+            try:
+                rc = p.wait(timeout=MIXEDSESSION_TIMEOUT_S)
+            except subprocess.TimeoutExpired:
+                p.kill()
+                rc = -1
+            if rc in (0, 1):
+                # eval_mixed_session writes session_verdict.json on
+                # both PASS (0) and FAIL (1); anything else died before
+                # aggregating.
+                (PROTO / out_rel).parent.mkdir(parents=True, exist_ok=True)
+                subprocess.run(
+                    ["kubectl", "cp", f"{pod}:{POD_PROTO}/{out_rel}",
+                     str(PROTO / out_rel)],
+                    capture_output=True, text=True, timeout=600)
         has_v = (PROTO / out_rel / "session_verdict.json").is_file()
-        if rc == 0 and has_v:
+        if p is None and has_v:
+            try:
+                gate_pass = json.loads(
+                    (PROTO / out_rel / "session_verdict.json")
+                    .read_text())["gate"]["pass"]
+            except (OSError, KeyError, ValueError):
+                gate_pass = None
+            status = ("MIXED-SESSION PASS (reaped)" if gate_pass
+                       else "MIXED-SESSION FAIL (reaped)" if gate_pass
+                       is not None else "REAPED (verdict unreadable)")
+        elif rc == 0 and has_v:
             status = "MIXED-SESSION PASS"
         elif rc == 1 and has_v:
             status = "MIXED-SESSION FAIL"
         else:
             status = f"ERROR rc={rc}"
         line = f"MIXEDSESSION: {status} artifacts -> {out_rel}"
-        fh.write(f"\nSYNCED {line}\n")
-        fh.close()
+        if fh:
+            fh.write(f"\nSYNCED {line}\n")
+            fh.close()
+        else:
+            with open(logpath, "a") as lf:
+                lf.write(f"SYNCED {line}\n")
         print(line)
         # Informational only: never folds into pod_eval's exit code
         # (this run's own PASS/FAIL is a ledger-gate judgment call for
