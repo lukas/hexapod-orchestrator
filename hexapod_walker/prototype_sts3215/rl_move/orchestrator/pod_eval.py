@@ -181,6 +181,22 @@ def eval_timeout_scale(control_hz: float | None, episode_s: float | None) -> flo
     return max(1.0, (hz / BASELINE_HZ) * (ep_s / BASELINE_EP_S))
 
 
+def core_pass_synced(local_out: pathlib.Path) -> bool:
+    """Is a gate/owncfg pass's artifact dir a COMPLETE synced copy?
+
+    Bug found 08-28 (unified1-mix triage): the pass loop used to check
+    bare `local_out.exists()`, so a partial/interrupted copy-back (a
+    hand `kubectl cp` grabbed mid-flight, a truncated sync) — a
+    directory with videos but no `report.json` — was silently treated
+    as "already on controller", which wrote the prestage sentinel and
+    released a verdict cycle to judge an incomplete panel. Every other
+    pass in this file (session/mixedsession/joygate) already keys on
+    its own completion file for exactly this reason; key gate/owncfg
+    on `report.json` too, consistently.
+    """
+    return (local_out / "report.json").is_file()
+
+
 def core_synced(run: str) -> None:
     """Sentinel: the CORE prestage evals (gate + own-DR) are settled —
     synced, skipped, or impossible. The watcher defers a finished run's
@@ -412,7 +428,7 @@ def main() -> int:
     for tag, drv, logpath in passes:
         out_rel = f"logs/ckpt_eval/{run_us}_{tag}{suffix}"
         local_out = PROTO / out_rel
-        if local_out.exists():
+        if core_pass_synced(local_out):
             print(f"{tag}: {out_rel} already on controller — skipping")
             continue
         if remote_eval_running(pod, out_rel):
