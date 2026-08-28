@@ -474,6 +474,40 @@ logline)  # logline "text" — append ONE timestamped line to RL_LOG.md
   tail -1 "$PROTO/RL_LOG.md"
   ;;
 
+manualdrive)  # manualdrive <run> <out-dir> [extra manual_drive_session args...]
+  # Scripted human-like drive session (rl_move/sim/manual_drive_session)
+  # with the run's OWN --cfg-set stack pulled from the ledger and its
+  # prestaged checkpoint — the 08-28 sessions were hand-rolled and the
+  # cfg stack went unrecorded; this makes them reproducible. Extra args
+  # (--seed N, --rise-start flat, --skip-hold, --stochastic, ...) pass
+  # through.
+  run="$2"; outdir="$3"; shift 3 || { echo "usage: ops.sh manualdrive <run> <out-dir> [args...]"; exit 1; }
+  mapfile -t cfgs < <(uv run python - "$run" <<'EOF'
+import json, os, sys
+run = sys.argv[1]
+for e in json.load(open(os.environ["LEDGER"])):
+    if isinstance(e, dict) and e.get("run") == run:
+        args = e.get("extra_args", [])
+        ck = None
+        for i, a in enumerate(args):
+            if a == "--cfg-set":
+                print(args[i + 1])
+            if a == "--out-name":
+                ck = args[i + 1]
+        if ck:
+            print(f"CKPT rl_move/sim/policies/{ck}.zip")
+        break
+EOF
+)
+  ckpt=""; cargs=()
+  for c in "${cfgs[@]}"; do
+    case "$c" in CKPT\ *) ckpt="${c#CKPT }";; *) cargs+=(--cfg-set "$c");; esac
+  done
+  [ -n "$ckpt" ] && [ -f "$PROTO/$ckpt" ] || { echo "checkpoint not found for $run: '$ckpt'"; exit 1; }
+  cd "$PROTO" && uv run python -m rl_move.sim.manual_drive_session "$ckpt" \
+    "${cargs[@]}" --out-dir "$outdir" "$@"
+  ;;
+
 wandbdump)  # wandbdump <run> — cache W&B summary/config/history locally
   run="$2"; d="$PROTO/logs/experiments/$run"; mkdir -p "$d"
   uv run python - "$run" "$d" <<'EOF'
