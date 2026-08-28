@@ -215,6 +215,35 @@ podeval)  # podeval <run> [suffix] — run gate + own-DR evals ON the run's
   exec uv run python "$HERE/pod_eval.py" "$@"
   ;;
 
+pollreap)  # pollreap <run> [interval_s=300] [max_min=180] — for a run
+  # whose gate/owncfg is STILL genuinely computing on its pod with no
+  # local supervisor left alive to copy it back (the original prestage
+  # wrapper's own timeout gave up while the eval was legitimately still
+  # running long video-every=1 panels can take 1.5-2h+). A single
+  # `podeval` call only WAITS on passes it itself just launched; a pass
+  # already running elsewhere is a no-op `continue` (see pod_eval.py's
+  # `remote_report_exists` reap path, 08-28) — so something has to
+  # re-invoke it periodically until that pass's process exits and its
+  # report.json shows up, or it will sit finished-but-uncollected on
+  # the pod forever. Run this ONE time, backgrounded+detached
+  # (`setsid nohup ... &disown`), right after noticing a run's core
+  # evals are orphaned like this — never spawn a second one for the
+  # same run (podeval itself is idempotent, but two polling loops just
+  # waste kubectl-exec round trips).
+  run="$2"; interval="${3:-300}"; max_min="${4:-180}"
+  end=$(( $(date +%s) + max_min*60 ))
+  while [ "$(date +%s)" -lt "$end" ]; do
+    out=$(uv run python "$HERE/pod_eval.py" "$run" 2>&1)
+    echo "$out"
+    if ! echo "$out" | grep -q "already RUNNING"; then
+      echo "pollreap $run: no pass still running remotely — done"
+      exit 0
+    fi
+    sleep "$interval"
+  done
+  echo "pollreap $run: gave up after ${max_min}min, still running remotely"
+  ;;
+
 m5eval)  # m5eval <run> [pod] [--skip=a,b] — run the AMP M5 cross-engine
   # suite (eval_amp_m5) for <run> ON A POD, deriving its own training
   # cfg-set from the ledger (same logic as evalcmd), syncing code to
