@@ -203,10 +203,37 @@ def remote_eval_running(pod: str, out_rel: str, module: str = "rl_move.sim.eval_
     live 4-process eval_checkpoint trees on one pod, ~28 cores of
     contention, racing writes into logs/ckpt_eval/<run>_gate/). Grep
     the pod's own process table for the exact out-path token before
-    starting a new one."""
+    starting a new one.
+
+    SELF-MATCH FIX (2026-08-28, idle-kick, found while chasing the
+    acq8m session pass's missing log): `kubectl exec pod -- bash -c
+    "ps -eo args= | grep MODULE | grep -F -- OUT_REL"` runs as its OWN
+    process on the pod with that exact pipeline text as its argv, so
+    `ps -eo args=` lists the wrapper (and each intermediate `grep`
+    child) alongside any real target — and since the wrapper's argv
+    literally contains both search strings, it ALWAYS self-matches,
+    making this function report "running" unconditionally regardless
+    of whether anything is really running (confirmed live: `ps -eo
+    args= | grep eval_session | grep -F -- totally-made-up-string`
+    returned rc=0, matching only its own invocation). This is why the
+    acq8m session pass silently never launched — no log, no crash, no
+    real process, just a permanent false "already RUNNING". Every
+    process in this pipeline (the `bash -c` wrapper and both `grep`
+    children) has the literal word "grep" in its own argv; a genuine
+    `eval_checkpoint`/`eval_session` target never does — so filter
+    those lines out before deciding. (The prior fix's own unit tests
+    mocked `kexec` entirely, which is why they passed despite this:
+    they never exercised a real shell self-matching itself.) Also adds
+    `ww` (unlimited width) to `ps`: some `ps` builds still truncate the
+    `args=` column even though it's usually unbounded once
+    stdout isn't a tty, which can silently cut a long out_rel/module
+    match in half and hide a real running process — cheap belt-and-
+    suspenders alongside the self-match fix, not required to fix the
+    grep bug itself."""
     try:
-        cp = kexec(pod, f"ps -eo args= | grep {shlex.quote(module)} | "
-                         f"grep -F -- {shlex.quote(out_rel)}",
+        cp = kexec(pod, f"ps ww -eo args= | grep {shlex.quote(module)} | "
+                         f"grep -F -- {shlex.quote(out_rel)} | "
+                         f"grep -v grep",
                    timeout=30)
     except subprocess.TimeoutExpired:
         return False  # pod slow/unreachable; let the caller proceed as before
