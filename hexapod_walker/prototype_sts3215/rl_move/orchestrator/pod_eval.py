@@ -84,6 +84,38 @@ JOYGATE_TIMEOUT_S = 3600
 LEGACY_CONTROL_HZ = 25.0
 LEGACY_MAX_DELTA_Q_DEG = 1.5
 
+# MIXED-SESSION gate auto-launch (2026-08-28, standwalk unified1-mix
+# gap): two independent triage cycles (04:4x on -long-s1, 04:5x on
+# -long-s0) found the SAME hole by hand — a "unified command-
+# following" recipe (env-native `goal.mode_seq>0`: chained rise/walk/
+# lower/hold sessions with joystick-style resampled walk commands)
+# needs `rl_move.sim.eval_mixed_session` for its OWN pre-registered
+# gate (session terminations-per-episode / completion fraction), but
+# that instrument was never wired into pod_eval's auto-prestage — only
+# `eval_checkpoint`/`eval_session` were. Both cycles worked around it
+# by hand-running `ops.sh sessioncmd` on the pod; this wires the same
+# command in here so the NEXT arm in this lineage (there will be more
+# — this is an active wave) doesn't need a human/agent to notice and
+# re-derive it every time. Timeout matches `ops.sh sessioncmd`'s own
+# documented `waitlog ... 7200` convention (60s+180s sessions, video,
+# on the 100 Hz mesh contract this recipe always trains under).
+MIXEDSESSION_TIMEOUT_S = 7200
+
+
+def mode_seq_frac(cfgs: list[str]) -> float:
+    """Value of ``goal.mode_seq`` in an UNSTRIPPED cfg-set list, else
+    0.0 (pure/testable — the trigger for the mixed-session auto-launch
+    below). A malformed/non-numeric value counts as unset (0.0) rather
+    than crashing pod_eval on a bad ledger entry."""
+    for c in cfgs:
+        k, _, v = c.partition("=")
+        if k.strip() == "goal.mode_seq":
+            try:
+                return float(v)
+            except ValueError:
+                return 0.0
+    return 0.0
+
 
 def _cfg_key(cfg: str) -> str:
     return cfg.split("=", 1)[0].strip()
@@ -312,6 +344,11 @@ def main() -> int:
     ep = val("--episode-seconds", "15" if task == "joint_walk" else None)
     dr = float(val("--dr-scale", "0") or 0)
     cfgs = [args[i + 1] for i, a in enumerate(args) if a == "--cfg-set"]
+    # Unstripped/unpinned copy for the MIXED-SESSION gate below — that
+    # harness scores the run's own env-native mode_seq sequencing, so
+    # (unlike eval_checkpoint's forced-single-mode `cfgs` right below)
+    # it needs the FULL cfg stack, mode_seq keys included.
+    all_cfgs = list(cfgs)
     # 08-14 (cw-arch-modeseq1-r1 dig-in): NEVER carry the sequence-diet
     # keys into the forced-single-mode harness eval. With
     # goal.mode_seq>0 the env samples sequence episodes BEFORE the
@@ -434,6 +471,41 @@ def main() -> int:
                       f"{partner_name}) -> {s_log}")
                 session = (side, partner_name, s_out_rel, s_log, s_p, s_fh)
 
+    # MIXED-SESSION gate (see MIXEDSESSION_TIMEOUT_S comment block
+    # above): the env-native mode_seq sequencing candidates' own gate.
+    # Independent of `session`/`side` above — a joint-mode dual-core
+    # policy is EXPECTED to fail eval_session's single-mode partner-
+    # pairing obs contract (informational there); this is the
+    # instrument its own pre-registered gate actually needs.
+    mixedsession = None  # (out_rel, logpath, proc, fh)
+    if mode_seq_frac(all_cfgs) > 0:
+        ms_out_rel = f"logs/ckpt_eval/{run_us}_mixedsession{suffix}"
+        ms_log = f"/tmp/mixedsession_{run}.log"
+        if (PROTO / ms_out_rel / "session_verdict.json").is_file():
+            print(f"mixedsession: {ms_out_rel} already on controller "
+                  "— skipping")
+        elif remote_eval_running(pod, ms_out_rel,
+                                  "rl_move.sim.eval_mixed_session"):
+            print(f"mixedsession: eval already RUNNING on {pod} for "
+                  f"{ms_out_rel} — NOT launching a duplicate")
+        else:
+            ms_cfg = "".join(f" --extra-cfg-set {shlex.quote(c)}"
+                              for c in all_cfgs)
+            ms_cmd = (f"cd {POD_PROTO} && set -a && "
+                      f". rl_move/sim/wandb.env 2>/dev/null; set +a; "
+                      f"uv run python -m rl_move.sim.eval_mixed_session "
+                      f"{shlex.quote(ckpt)} --task {task} "
+                      f"--own-dr-scale {dr} --n 6 --episode-seconds 60 "
+                      f"--long-seconds 180 --video{ms_cfg} "
+                      f"--out-dir {ms_out_rel}")
+            ms_fh = open(ms_log, "w")
+            ms_p = subprocess.Popen(
+                ["kubectl", "exec", pod, "--", "bash", "-c", ms_cmd],
+                stdout=ms_fh, stderr=subprocess.STDOUT, text=True)
+            print(f"mixedsession: started on {pod} (own-dr {dr}) -> "
+                  f"{ms_log}")
+            mixedsession = (ms_out_rel, ms_log, ms_p, ms_fh)
+
     # Joystick DONE-gate (see JOYGATE_TIMEOUT_S comment block).
     joygate = None  # (out_rel, logpath, proc, fh)
     if side == "walk" and (entry.get("track") or tracks.infer(run)) == "joystick":
@@ -554,6 +626,37 @@ def main() -> int:
         fh.close()
         print(line)
         # Informational only: never folds into pod_eval's exit code.
+
+    if mixedsession:
+        out_rel, logpath, p, fh = mixedsession
+        try:
+            rc = p.wait(timeout=MIXEDSESSION_TIMEOUT_S)
+        except subprocess.TimeoutExpired:
+            p.kill()
+            rc = -1
+        if rc in (0, 1):
+            # eval_mixed_session writes session_verdict.json on both
+            # PASS (0) and FAIL (1); anything else died before
+            # aggregating.
+            (PROTO / out_rel).parent.mkdir(parents=True, exist_ok=True)
+            subprocess.run(
+                ["kubectl", "cp", f"{pod}:{POD_PROTO}/{out_rel}",
+                 str(PROTO / out_rel)],
+                capture_output=True, text=True, timeout=600)
+        has_v = (PROTO / out_rel / "session_verdict.json").is_file()
+        if rc == 0 and has_v:
+            status = "MIXED-SESSION PASS"
+        elif rc == 1 and has_v:
+            status = "MIXED-SESSION FAIL"
+        else:
+            status = f"ERROR rc={rc}"
+        line = f"MIXEDSESSION: {status} artifacts -> {out_rel}"
+        fh.write(f"\nSYNCED {line}\n")
+        fh.close()
+        print(line)
+        # Informational only: never folds into pod_eval's exit code
+        # (this run's own PASS/FAIL is a ledger-gate judgment call for
+        # the triage cycle, same treatment as session/joygate above).
     return 1 if worst else 0
 
 
