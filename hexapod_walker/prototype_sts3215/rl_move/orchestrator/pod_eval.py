@@ -236,6 +236,19 @@ def push_local(pod: str, name: str) -> str | None:
     return None
 
 
+def remote_report_exists(pod: str, out_rel: str) -> bool:
+    """Does the pod already hold a finished report.json for out_rel?
+
+    Used to distinguish an ORPHANED finished pass (the process exited,
+    result sitting on the pod, nobody copied it back) from a genuinely
+    not-yet-attempted one — the former must be reaped (copy-back only),
+    never relaunched (see the 08-28 orphaned-result comment at the call
+    site: relaunching silently discards a finished result and burns
+    another full eval's worth of pod compute)."""
+    remote_report = f"{POD_PROTO}/{out_rel}/report.json"
+    return kexec(pod, f"test -f {shlex.quote(remote_report)}").returncode == 0
+
+
 def remote_eval_running(pod: str, out_rel: str, module: str = "rl_move.sim.eval_checkpoint") -> bool:
     """True if a live `module` process on `pod` already targets `out_rel`
     (matched on the `--out`/`--out-dir` token, whichever the caller's
@@ -437,6 +450,23 @@ def main() -> int:
                   f"{logpath} / kubectl exec {pod} -- ps aux for it "
                   f"instead of re-invoking podeval")
             continue
+        # Orphaned-result check (bug found 08-28, unified1-mix triage):
+        # a pass can finish REMOTELY (report.json written, process
+        # exited) with nobody watching to copy it back — the original
+        # supervisor's own wrapper timeout gave up while the eval was
+        # still genuinely running (long video-every=1 panels can take
+        # 1.5-2h+), and every later invocation saw `remote_eval_running`
+        # -> False + no local copy -> would otherwise fall through to
+        # LAUNCHING A DUPLICATE, silently discarding the finished
+        # remote result and burning another 1.5-2h of pod compute for
+        # nothing. Reap it directly instead: if the pod's own
+        # report.json already exists, there is nothing to wait on, only
+        # a copy-back to do.
+        if remote_report_exists(pod, out_rel):
+            print(f"{tag}: {out_rel} finished on {pod} with nobody "
+                  f"watching — reaping (copy-back only, no relaunch)")
+            jobs.append((tag, out_rel, logpath, None, None))
+            continue
         cmd = (f"cd {POD_PROTO} && set -a && "
                f". rl_move/sim/wandb.env 2>/dev/null; set +a; "
                f"uv run python -m rl_move.sim.eval_checkpoint {shlex.quote(ckpt)}"
@@ -552,11 +582,15 @@ def main() -> int:
 
     worst = 0
     for tag, out_rel, logpath, p, fh in jobs:
-        try:
-            rc = p.wait(timeout=PASS_TIMEOUT_S * timeout_scale)
-        except subprocess.TimeoutExpired:
-            p.kill()
-            rc = -1
+        if p is None:
+            rc = 0  # reaped pass (see the orphaned-result check above):
+            # already finished remotely, nothing to wait on.
+        else:
+            try:
+                rc = p.wait(timeout=PASS_TIMEOUT_S * timeout_scale)
+            except subprocess.TimeoutExpired:
+                p.kill()
+                rc = -1
         note = ""
         if rc == 0:
             (PROTO / out_rel).parent.mkdir(parents=True, exist_ok=True)
@@ -570,8 +604,9 @@ def main() -> int:
                 cp_err = (cp.stderr or "").strip()
                 if cp_err:
                     note += f": {cp_err[-200:]}"
-        fh.write(f"\nSYNCED rc={rc}{note}: {out_rel}\n")
-        fh.close()
+        if fh is not None:
+            fh.write(f"\nSYNCED rc={rc}{note}: {out_rel}\n")
+            fh.close()
         print(f"{tag}: rc={rc}{note} artifacts -> {out_rel}")
         worst = max(worst, abs(rc))
 
