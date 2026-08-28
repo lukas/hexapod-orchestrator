@@ -625,10 +625,23 @@ def _prestage_wrapper_timeout(run: str) -> int:
             control_hz, float(ep) if ep else None)
         # Worst case pod_eval.py's own process outlives: gate+owncfg run
         # IN PARALLEL (each may wait up to PASS_TIMEOUT_S*scale) then the
-        # joygate/session rider runs AFTER (sequential, up to
-        # JOYGATE_TIMEOUT_S*scale) before the subprocess exits — budget
-        # for both stages plus headroom, never below the historical floor.
-        worst = pod_eval.PASS_TIMEOUT_S * scale + pod_eval.JOYGATE_TIMEOUT_S * scale
+        # joygate/session/mixedsession riders run AFTER (sequential, up
+        # to JOYGATE_TIMEOUT_S*scale then MIXEDSESSION_TIMEOUT_S*scale)
+        # before the subprocess exits — budget for every stage plus
+        # headroom, never below the historical floor.
+        #
+        # BUG FOUND 2026-08-28 (long-s1-cont1 triage, same cycle as the
+        # MIXEDSESSION_TIMEOUT_S*scale fix in pod_eval.py): this sum
+        # never included the mixedsession rider at all, so for a
+        # mode_seq run at this recipe's 100 Hz/60 s contract (scale=16)
+        # the wrapper's own budget (~29.5h incl. the fixed 1800s
+        # headroom) was SMALLER than pod_eval.py's own internal
+        # mixedsession wait (7200*16=32h even after that fix) — the
+        # outer wrapper would still truncate the still-healthy remote
+        # eval before the inner wait ever got the chance to. Add it.
+        worst = (pod_eval.PASS_TIMEOUT_S * scale
+                 + pod_eval.JOYGATE_TIMEOUT_S * scale
+                 + pod_eval.MIXEDSESSION_TIMEOUT_S * scale)
         return max(PRESTAGE_WRAPPER_TIMEOUT_S, int(worst + 1800))
     except Exception as exc:
         log(f"_prestage_wrapper_timeout({run}) failed: {exc!r} "

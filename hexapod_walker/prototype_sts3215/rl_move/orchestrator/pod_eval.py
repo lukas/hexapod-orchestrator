@@ -99,6 +99,22 @@ LEGACY_MAX_DELTA_Q_DEG = 1.5
 # re-derive it every time. Timeout matches `ops.sh sessioncmd`'s own
 # documented `waitlog ... 7200` convention (60s+180s sessions, video,
 # on the 100 Hz mesh contract this recipe always trains under).
+#
+# BUG FOUND 2026-08-28 (long-s1-cont1 triage): unlike PASS_TIMEOUT_S
+# and JOYGATE_TIMEOUT_S, this constant's own `p.wait()` call site never
+# multiplied by `timeout_scale` (the 100Hz-cadence/episode-length
+# factor derived a few lines above it — 16x for this recipe's 100 Hz/
+# 60 s contract). The three-pass dr0+owndr+dr0_long session this gate
+# actually runs was empirically observed taking ~4-5h wall clock
+# (unified1-mix-{s0,s1,long-s0,long-s1} triage, 08-28), 2-2.5x the
+# flat 7200 s (2h) this constant alone provides — every real
+# invocation was destined to hit `p.kill()` on the LOCAL supervisor
+# while the remote pass legitimately still had 2+ hours of work left.
+# (The kill only drops the local kubectl-exec connection; combined
+# with the `_safe_print` broken-pipe fix in eval_mixed_session.py the
+# remote process itself survives and keeps computing, but nothing
+# should rely on a local premature-timeout kill as the normal path.)
+# Scale it like the others at the call site.
 MIXEDSESSION_TIMEOUT_S = 7200
 
 
@@ -709,7 +725,7 @@ def main() -> int:
                 capture_output=True, text=True, timeout=600)
         else:
             try:
-                rc = p.wait(timeout=MIXEDSESSION_TIMEOUT_S)
+                rc = p.wait(timeout=MIXEDSESSION_TIMEOUT_S * timeout_scale)
             except subprocess.TimeoutExpired:
                 p.kill()
                 rc = -1

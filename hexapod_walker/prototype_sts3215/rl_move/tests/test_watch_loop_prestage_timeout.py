@@ -67,3 +67,29 @@ def test_never_shrinks_below_flat_floor_even_at_1x_scale(tmp_path,
     monkeypatch.setattr(watch_loop, "LEDGER", ledger)
     t = watch_loop._prestage_wrapper_timeout("baseline-run")
     assert t >= watch_loop.PRESTAGE_WRAPPER_TIMEOUT_S
+
+
+def test_budget_covers_pod_evals_own_mixedsession_wait(tmp_path,
+                                                        monkeypatch):
+    # BUG (2026-08-28, long-s1-cont1 triage): the `worst` sum never
+    # included the mixedsession rider's own (now-scaled) internal wait
+    # budget, so at this recipe's real 100 Hz/60 s scale (16x) the
+    # OUTER wrapper here (~29.5h before this fix) was smaller than
+    # pod_eval.py's OWN inner `MIXEDSESSION_TIMEOUT_S * scale` wait
+    # (32h) -- the outer wrapper would truncate a still-healthy remote
+    # mixedsession eval before the inner wait ever got the chance to.
+    # The wrapper's budget must be strictly >= pod_eval's own scaled
+    # mixedsession timeout for every recipe it covers.
+    import pod_eval
+    ledger = tmp_path / "experiments.json"
+    ledger.write_text(json.dumps([
+        {"run": "hz100-mixedsession-run", "extra_args": [
+            "--task", "joint_walk",
+            "--episode-seconds", "60",
+            "--cfg-set", "control.hz=100",
+        ]},
+    ]))
+    monkeypatch.setattr(watch_loop, "LEDGER", ledger)
+    t = watch_loop._prestage_wrapper_timeout("hz100-mixedsession-run")
+    scale = pod_eval.eval_timeout_scale(100.0, 60.0)
+    assert t >= pod_eval.MIXEDSESSION_TIMEOUT_S * scale
