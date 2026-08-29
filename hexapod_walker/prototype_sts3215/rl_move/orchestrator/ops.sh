@@ -30,7 +30,7 @@ remote_ops() {  # re-run this ops.sh subcommand ON the controller pod.
   # the operator Mac by re-execing themselves remotely. kubectl exec
   # streams stdout, so even the live-follow waitcycle works.
   exec kubectl exec hexapod-sweep-friction -- bash \
-    /workspace/weird_objects/hexapod_walker/prototype_sts3215/rl_move/orchestrator/ops.sh "$@"
+    /workspace/hexapod/hexapod_walker/prototype_sts3215/rl_move/orchestrator/ops.sh "$@"
 }
 
 entry_field() {  # entry_field <run> <field> — last LIVE entry wins
@@ -684,17 +684,17 @@ oplaunch)  # oplaunch <launch_run.py args...> — run a launcher command ON
   ts=$(date +%Y%m%d_%H%M%S); runner=/tmp/oplaunch_$ts.sh; log=/tmp/oplaunch_$ts.log
   {
     echo '#!/usr/bin/env bash'
-    echo 'cd /workspace/weird_objects/hexapod_walker/prototype_sts3215 || exit 1'
+    echo 'cd /workspace/hexapod/hexapod_walker/prototype_sts3215 || exit 1'
     echo 'source /root/orchestrator.env 2>/dev/null'
     echo 'set -a; source rl_move/sim/wandb.env 2>/dev/null; set +a'
     # Run the freshest tooling: pull under the same lock snapshot.sh uses.
-    echo 'flock /workspace/git_snapshot.lock -c "git -C /workspace/weird_objects pull --rebase --autostash origin main" >/dev/null 2>&1'
+    echo 'flock /workspace/git_snapshot.lock -c "git -C /workspace/hexapod pull --rebase --autostash origin main" >/dev/null 2>&1'
     printf 'exec uv run python rl_move/orchestrator/launch_run.py'
     printf ' %q' "$@"
     echo
   } > "$runner"
   done_pat='VERIFIED RUNNING|REFUSED|VERIFICATION FAILED|Traceback|snapshot failed|self-repair failed|no free GPU pod|queued '
-  if [ -d /workspace/weird_objects ]; then   # already on the controller
+  if [ -d /workspace/hexapod ]; then   # already on the controller
     nohup bash "$runner" > "$log" 2>&1 < /dev/null &
     echo "oplaunch running (pid $!) -> $log"
     bash "$0" waitlog "$log" "$done_pat" 1800 || exit 1
@@ -710,7 +710,7 @@ oplaunch)  # oplaunch <launch_run.py args...> — run a launcher command ON
       [ "$el" -ge 1800 ] && { echo "TIMEOUT after ${el}s; tail:"; kubectl exec "$CTL" -- tail -8 "$log"; exit 1; }
     done
     kubectl exec "$CTL" -- tail -15 "$log"
-    echo "record it: kubectl exec $CTL -- bash -c 'cd /workspace/weird_objects/hexapod_walker/prototype_sts3215 && ./rl_move/orchestrator/ops.sh logline \"...\"'"
+    echo "record it: kubectl exec $CTL -- bash -c 'cd /workspace/hexapod/hexapod_walker/prototype_sts3215 && ./rl_move/orchestrator/ops.sh logline \"...\"'"
   fi
   ;;
 
@@ -722,8 +722,8 @@ cycle)  # cycle ["focus text"] — OPERATOR: kick one decision session now.
   # the controller. The file survives polls until a slot/budget frees.
   shift
   note="${*:-}"
-  KICKPATH=/workspace/weird_objects/hexapod_walker/prototype_sts3215/rl_move/orchestrator/KICK
-  if [ -d /workspace/weird_objects ]; then      # already on the controller
+  KICKPATH=/workspace/hexapod/hexapod_walker/prototype_sts3215/rl_move/orchestrator/KICK
+  if [ -d /workspace/hexapod ]; then      # already on the controller
     printf '%s\n' "$note" > "$KICKPATH"
   else
     CTL=hexapod-sweep-friction
@@ -741,7 +741,7 @@ activity)  # activity — what the orchestrator is doing RIGHT NOW, in one
   # finished cycles, newest ledger rows, watcher log tail. Works from
   # the operator Mac or the controller. Same view as the MCP
   # orchestrator_activity tool — one implementation, two doors.
-  [ -d /workspace/weird_objects ] || remote_ops "$@"
+  [ -d /workspace/hexapod ] || remote_ops "$@"
   PYTHONPATH="$HERE" uv run python -c \
     "import mcp_server; print(mcp_server.t_orchestrator_activity())"
   ;;
@@ -752,7 +752,7 @@ cyclelog)  # cyclelog [pattern] [lines] — tail one cycle's live narration
   # substring of the log name, e.g. operator-kick or 20260821T032518.
   # Companion files: same name .prompt.md (exact prompt the cycle
   # got) and .jsonl (raw stream-json events).
-  [ -d /workspace/weird_objects ] || remote_ops "$@"
+  [ -d /workspace/hexapod ] || remote_ops "$@"
   pat="${2:-}"; n="${3:-60}"
   f=$(ls -t /workspace/cycle_logs/cycle_*${pat}*.log 2>/dev/null | head -1)
   [ -n "$f" ] || { echo "no cycle log matching '${pat:-any}'"; exit 1; }
@@ -769,7 +769,7 @@ waitcycle)  # waitcycle [pattern] [timeout_s] — FOLLOW a cycle's live
   # Picks the newest matching log without an END marker, waiting up
   # to 120 s for one to spawn. Ctrl-C detaches; the cycle keeps
   # running. Works from the operator Mac (kubectl exec streams).
-  [ -d /workspace/weird_objects ] || remote_ops "$@"
+  [ -d /workspace/hexapod ] || remote_ops "$@"
   pat="${2:-}"; t="${3:-5400}"
   find_active() {
     for f in $(ls -t /workspace/cycle_logs/cycle_*${pat}*.log 2>/dev/null | head -5); do

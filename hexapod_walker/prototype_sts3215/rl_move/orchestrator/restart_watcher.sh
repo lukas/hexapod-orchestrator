@@ -15,7 +15,7 @@
 # not, hence the wrap-up protocol below stands. Copy lives in the repo;
 # the deployed copy is /workspace/restart_watcher.sh on the controller.
 set -u
-ORCH=/workspace/weird_objects/hexapod_walker/prototype_sts3215/rl_move/orchestrator
+ORCH=/workspace/hexapod/hexapod_walker/prototype_sts3215/rl_move/orchestrator
 
 log() { echo "[$(date -u +%FT%TZ)] $*"; }
 
@@ -58,7 +58,7 @@ while ps aux | grep "claude -p --bare" | grep -v grep >/dev/null; do
 done
 log "cycles ended"
 
-cd /workspace/weird_objects
+cd /workspace/hexapod
 git pull --rebase --autostash origin main
 uv run python -c "import ast; ast.parse(open('$ORCH/watch_loop.py').read())" || {
   log "watch_loop.py failed to parse; leaving old watcher running"
@@ -70,7 +70,7 @@ tmux kill-session -t orchestrator 2>/dev/null
 sleep 2
 rm -f "$ORCH/PAUSE" "$ORCH/WRAPUP"
 tmux new-session -d -s orchestrator \
-  "source /root/orchestrator.env && cd /workspace/weird_objects && \
+  "source /root/orchestrator.env && cd /workspace/hexapod && \
    uv run python hexapod_walker/prototype_sts3215/rl_move/orchestrator/watch_loop.py"
 sleep 5
 if tmux has-session -t orchestrator 2>/dev/null; then

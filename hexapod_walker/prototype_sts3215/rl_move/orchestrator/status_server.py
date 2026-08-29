@@ -1807,7 +1807,7 @@ def main() -> int:
                          daemon=True).start()
     # Only on the controller: never auto-pull a laptop checkout (a dev
     # running this locally has uncommitted work in the working tree).
-    if str(REPO) == "/workspace/weird_objects":
+    if str(REPO) == "/workspace/hexapod":
         threading.Thread(target=git_sync_worker, daemon=True).start()
     srv = http.server.ThreadingHTTPServer(("0.0.0.0", PORT), Handler)
     print(f"status page on :{PORT}")

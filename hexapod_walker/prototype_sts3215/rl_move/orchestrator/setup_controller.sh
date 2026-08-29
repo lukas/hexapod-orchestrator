@@ -5,7 +5,7 @@ set -euo pipefail
 
 POD="${POD:-hexapod-sweep-friction}"
 KC="${KUBECONFIG:-$HOME/.kube/coreweave.yaml}"
-REPO_URL_BASE="github.com/lukas/weird_objects.git"
+REPO_URL_BASE="github.com/lukas/hexapod.git"
 
 read -r -s -p "GitHub fine-grained token (repo contents read/write): " GH_TOKEN; echo
 read -r -s -p "Cursor API key: " CURSOR_KEY; echo
@@ -43,15 +43,15 @@ printf 'https://x-access-token:%s@github.com\n' '$GH_TOKEN' > /root/.git-credent
 chmod 600 /root/.git-credentials
 git config --global user.name "hexapod-orchestrator"
 git config --global user.email "orchestrator@users.noreply.github.com"
-[ -d /workspace/weird_objects ] || git clone --filter=blob:none \
-    "https://$REPO_URL_BASE" /workspace/weird_objects
+[ -d /workspace/hexapod ] || git clone --filter=blob:none \
+    "https://$REPO_URL_BASE" /workspace/hexapod
 
 pip install -q --no-cache-dir uv
 uv pip install -q --system wandb pyyaml
 
 tmux kill-session -t orchestrator 2>/dev/null || true
 tmux new-session -d -s orchestrator \
-  "source /root/orchestrator.env && cd /workspace/weird_objects && \
+  "source /root/orchestrator.env && cd /workspace/hexapod && \
    uv run python hexapod_walker/prototype_sts3215/rl_move/orchestrator/watch_loop.py"
 echo OK
 EOF
