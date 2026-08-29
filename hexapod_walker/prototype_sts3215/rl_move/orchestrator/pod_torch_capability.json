@@ -33,7 +33,7 @@
       "torch_version": "2.11.0+cu128"
     },
     "torch_version": "2.11.0+cu128",
-    "verified_utc": "2026-08-15T19:16:18.459497+00:00"
+    "verified_utc": "2026-08-29T22:47:17.526876+00:00"
   },
   "hexapod-mjx-train-10": {
     "extra_cuda_libs_installed": [
@@ -192,11 +192,11 @@
     "smoke": {
       "jax_import_ok": true,
       "jax_version": "0.10.2",
-      "torch_cuda_available": false,
-      "torch_version": "2.13.0+cpu"
+      "torch_cuda_available": true,
+      "torch_version": "2.11.0+cu128"
     },
-    "torch_version": "2.13.0+cpu",
-    "verified_utc": "2026-08-24T18:50:17.865962+00:00"
+    "torch_version": "2.11.0+cu128",
+    "verified_utc": "2026-08-29T22:47:50.975551+00:00"
   },
   "hexapod-mjx-train-9": {
     "extra_cuda_libs_installed": [
