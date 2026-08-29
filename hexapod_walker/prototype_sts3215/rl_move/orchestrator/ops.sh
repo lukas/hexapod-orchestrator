@@ -380,8 +380,10 @@ if not paths:
     sys.exit(f"no report.json matching {arg} under logs/ckpt_eval/")
 for p in paths[-2:]:
     d = json.load(open(p))
+    _std = d.get("policy_std")
+    _std_s = f"{_std:.3f}" if _std is not None else "n/a (off-policy)"
     print(f"== {os.path.relpath(p, proto)}  dr={d.get('dr_scale')} "
-          f"std={round(d.get('policy_std', 0), 3)}")
+          f"std={_std_s}")
     for mode, eps in d["episodes"].items():
         for i, e in enumerate(eps):
             cells = [f"{mode}/{i}"]
