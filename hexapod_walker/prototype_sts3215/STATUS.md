@@ -33,32 +33,38 @@ Best current MuJoCo bundle candidate:
 scripted-or-learned tuck stand/lower +
 `cw-walk-allheading-mlp-singleframe-acq1-stdanneal`.
 
-Evidence: local full-mesh hybrid demo
-`logs/manual_drive/cw_walk_allheading_mlp_singleframe_stdanneal_hybrid_tuck_ux_human28/`
-completed stand -> walk -> lower with no termination, no sacrificed
-legs, `walk_progress_ratio=0.418`, `course_err_1s_med_deg=2.57`,
-`wrong_course_frac_1s=0.0`, `cur_max_a=2.64`. It is stable and
-directionally obedient, but still underpowered; speed authority is the
-weak axis.
+DELIVERED 08-30: `todaypolicy-mlpsf-tuck-v1` PACKAGED, all TODAY bars
+PASS on a fresh controller-side full-mesh regen
+(`logs/manual_drive/todaypolicy_mlpsf_tuck_v1_fullmesh/`): 0
+terminations, full_mesh, no sacrificed legs, course_err_1s med 2.42 /
+p90 6.98 / wrong 0.0, progress_ratio 0.418, cur 2.64/1.886 A. GO for
+controller handoff; durable evidence + GO/NO-GO + selector path in
+`rl_docs/tracks/todaypolicy/bundle_mlpsf_tuck_v1/`. Still speed-soft
+(teacher-ceiling); zero turn authority in this walk diet.
 
 Exported walk artifact:
 `linux_control/policies/walk_allheading_mlp_singleframe_acq1_stdanneal.json`.
 
 ## Active Training
 
-- `cw-walkteach-scripted-allhead-acq12m{,-s1}` are RUNNING after the
-  2/2 canary pair passed. They are the live best bet for a more
-  joystick-authoritative walk submodel.
-- `dualbc3-dagger-anchor14coef1-acq8m{,-s1}` passed its walk-own-scope
-  read, but mixed sit -> rise -> walk -> lower evals errored and need
-  triage before more single-policy spending.
+- `cw-walkteach-scripted-allhead-acq12m{,-s1}` FINISHED 08-30: 2/2
+  ACQUISITION PASS incl. the formal joystick gate, but authority is
+  teacher-ceiling-bound; `dualbc4_walkteach` teacher-adoption distill
+  is running (background CPU, controller).
+- `dualbc3-dagger-anchor14coef1-acq8m{,-s1}` mixedsession DONE-gate
+  reads did NOT error (08-30 ~17:5x triage): harnesses alive on
+  train-0/1, owndr sub-pass computing, session sub-pass pending.
+  Partial dr0: walk 0/6 success at ~40% of commanded speed, sto
+  collapse. No single-policy RL spend until the session reads land.
 
 ## Track Snapshot
 
-- `todaypolicy`: package a named composed bundle, compare scripted vs
-  learned tuck stand/lower, keep GO/NO-GO current.
-- `standwalk`: wait for walkteach acq12m and dualbc3 mixedsession
-  triage before the next single-policy distillation spend.
+- `todaypolicy`: DONE for 08-30 (bundle packaged, GO). Optional: swap
+  walk role if a walkteach-lineage export beats MLP-singleframe on the
+  identical UX suite; learned-vs-scripted tuck A/B.
+- `standwalk`: dualbc4_walkteach distill in flight; dualbc3
+  mixedsession session reads pending on train-0/1 — no distillation
+  spend until they land.
 - `walkcurr`: only prior-free mechanisms; no gait prior.
 - `joystick`, `amp`, `cpg`: green/maintenance unless the operator
   explicitly reopens them.
