@@ -1,146 +1,107 @@
-# RL Plan — four goals
+# RL Plan — six registered tracks
 
-Reset by the operator 2026-08-21; `walkcurr` added by operator order
-2026-08-23. This file is the current operating plan; history belongs
-in `archive/`, `RL_LOG.md`, and generated run docs. Keep under 150
-lines.
+Reset by operator 2026-08-21; `walkcurr` added 2026-08-23;
+`standwalk` and `todaypolicy` added during the mesh/100 Hz push.
+Binding track registry: `rl_move/orchestrator/tracks.json`. History
+belongs in `archive/`, `RL_LOG.md`, and generated run docs. Keep under
+150 lines.
 
-## The four goals (the only agent-driven work)
+## Tracks
 
-1. **`joystick`** — RL from the simple programmatic gait to real
-   joystick control. DONE: 60 s randomized joystick script in MuJoCo,
-   zero falls, directions followed, slip/m within the teacher band
-   (<=~2.9); n>=12 det+sto, DR-0 + own-DR, held-out commands.
-   Track doc: `rl_docs/tracks/joystick/STATUS.md`.
-2. **`amp`** — the from-scratch AMP program per
-   `rl_docs/AMP_LOCOMOTION.md` (no Isaac Lab; MJX stack; build all
-   needed tools; never pause on operator input). DONE: milestone M5
-   (MuJoCo cross-engine transfer). M6 hardware is operator-owned.
-   Track doc: `rl_docs/tracks/amp/STATUS.md`.
-3. **`cpg`** — Berkeley-style low-dimensional gait search: optimize
-   the scripted SE2/CPG controller directly against the behavioral
-   gate, not via PPO reward learning. DONE: a saved parameterized
-   controller passes held-out contextual walking/turning/stopping
-   gates with zero falls and low slip, and any downstream teacher
-   adoption is measured as an A/B fork. Track doc:
-   `rl_docs/tracks/cpg/STATUS.md`.
-4. **`walkcurr`** — prior-free walking curriculum (Kawawa-2022
-   lineage, operator 08-23): from-scratch PPO, walk-only diet, fixed
-   forward first, rungs widen only on certified passes; reward
-   ranking proven by the WALKCURR_PF bank before every mechanism
-   launch; binding reward-vs-walk-eval triage rule. DONE: held-out
-   contextual walking panel, zero falls, directions followed, low
-   slip, six-leg gait, on video. Track doc:
-   `rl_docs/tracks/walkcurr/STATUS.md`.
+1. `joystick` — RL from scripted gait to joystick control. Gate: 60 s
+   randomized MuJoCo joystick script, zero falls, directions followed,
+   teacher-band slip, held-out det+sto DR panels.
+2. `amp` — AMP from scratch per `rl_docs/AMP_LOCOMOTION.md`; done at
+   M5 MuJoCo transfer, M6 hardware operator-owned.
+3. `cpg` — direct low-dimensional CPG/SE2 controller search; teacher
+   adoption only by A/B.
+4. `walkcurr` — prior-free PPO walking: no gait clock, no BC teacher,
+   no motion prior; reward bank required.
+5. `standwalk` — keep trying to make ONE mesh/100 Hz policy for sit ->
+   rise -> joystick walk -> lower.
+6. `todaypolicy` — ship a working policy-controlled bundle today, using
+   explicit policy+state composition if that is what works. Does not
+   mark `standwalk` green.
 
-The loop does not stop until all four gates are green. The operator may
-kick off out-of-scope runs; they are triaged honestly but spawn no
-agent follow-ups.
+Each track has its live Goal/Now/Next page at
+`rl_docs/tracks/<track>/STATUS.md`. The loop does not stop until all
+registered gates are green. Out-of-scope operator runs get honest
+triage but no agent follow-ups.
 
-## Startup packet
+## Startup Packet
 
-1. `CURRENT_TRUTHS.md` — accepted facts; wins on conflict
+1. `CURRENT_TRUTHS.md`
 2. this file
 3. the relevant `rl_docs/tracks/<track>/STATUS.md`
-4. `RESEARCH_RULES.md` + `RUN_INTERPRETATION_RULES.md` before
-   launch/triage
-5. `rl_docs/COMMANDS.md` for helpers
+4. `RESEARCH_RULES.md` + `RUN_INTERPRETATION_RULES.md`
+5. `rl_docs/COMMANDS.md`
 
-## Binding rulings
+## Binding Rulings
 
-- **08-22 reward/eval agreement ruling:** every triage first compares
-  reward trend with gate/eval trend. If reward rises while eval is
-  unsatisfactory and flat/down, stop same-recipe seeds/continuations
-  and audit reward/eval/simulator alignment. Continue only when reward
-  and eval are improving together, or after an explicit alignment arm
-  is built and banked (`RUN_INTERPRETATION_RULES.md`).
-- **No operator pauses:** assume-and-go with recorded assumptions;
-  only physical-robot access and spend wait.
-- **Build the tools:** missing harnesses/banks/models are cycle work,
-  written, tested, and snapshotted before training on them.
+- Reward/eval agreement first. Bad eval plus rising reward means
+  reward/eval/simulator mismatch or justified continuation, never an
+  automatic same-recipe seed sweep.
+- No operator pauses except physical robot access and spend approvals.
+- Build missing tools/harnesses/banks/models in-cycle and test them.
+- New PPO/MJX policies use mesh-family 100 Hz unless a registered
+  legacy exception says otherwise.
 
-## Active queue
+## Active Queue
 
-### joystick — next arms
+### todaypolicy
 
-1. [SPECIFICATION] Build the 60 s joystick gate harness: randomized
-   held-out command scripts (speeds, headings incl. rear, turns,
-   stops, reverses), 60 s horizon, metrics = falls, heading obedience
-   (delta vs teacher-clone floor), slip/m, per-leg gait validity,
-   video. Plus a WALK/JOYSTICK semantics bank proving the training
-   reward ranks gate behavior above park/paddle/overspeed/
-   sacrificed-leg.
-2. [DISCOVERY→ACQUISITION] RL fine-tune from the phase-conditioned BC
-   clone `ppo_goal_cw_bcgait_init_fullprof_phase1` with the aligned
-   reward; a walk-champion-lineage arm as control. Continue while
-   reward and gate metrics rise together.
-3. [ACQUISITION] Kawawa-Beaudan/Zakhor 2022 prior-free baseline:
-   `rl_move.sim.kawawa2022_recipe` launches a fresh LSTM(64), ELU
-   128/64/32, position-target walker with loaded calibration, no BC
-   anchor, no gait clock, friction/push DR, and reward/eval disagreement
-   as a hard stop.
-4. [HARDENING] Widen command envelope; DR to own-DR zero-fall; then
-   run the DONE gate panel.
+1. Package `todaypolicy-mlpsf-tuck-v1`: tuck stand/lower plus exported
+   `walk_allheading_mlp_singleframe_acq1_stdanneal.json`, full-mesh
+   `ops.sh hybriddemo`, `transfer_manifest`, and GO/NO-GO summary.
+2. Compare scripted tuck against learned `stand_stancemix_tuckclock_scratch8m`
+   stand/lower in the same harness.
+3. When `cw-walkteach-scripted-allhead-acq12m{,-s1}` lands, compare it
+   against the mlp-singleframe bundle for joystick authority.
 
-### amp — next arms (brief §17)
+### standwalk
 
-1. [SPECIFICATION/CODE] M0: joystick-command env on MJX with
-   actor/critic obs split; GRU/history actor + deterministic
-   recurrent eval; fault-injection + push hooks.
-2. [SPECIFICATION/CODE] M1: motion library from the scripted teacher
-   (all command families + mirroring/speed/phase augmentation) with
-   validation metrics; AMP discriminator + replay + style reward.
-3. [CANARY] Smoke: PPO gradients flow, discriminator trains without
-   instant saturation.
-4. [ACQUISITION] Wave 1 on 8 pods: 3 seeds at task/style 0.5/0.5,
-   no-AMP ablation, recurrent vs fixed-history, ±AMP weight. Select
-   on videos + tracking/stability.
+1. Let `cw-walkteach-scripted-allhead-acq12m{,-s1}` run and triage the
+   authority/readiness gates.
+2. Triage `dualbc3-dagger-anchor14coef1-acq8m{,-s1}` mixedsession
+   errors before more unified-policy spending.
+3. Distill one policy only after the walk source and stance/lower
+   teacher are selected by evidence.
 
-### cpg — next arms
+### walkcurr
 
-1. [SPECIFICATION] Build a reusable CPG gate harness for the
-   contextual winner: 60 s held-out headings, turns, stops/restarts,
-   slip/contact metrics, videos/contact sheets, and a single JSON
-   verdict.
-2. [HARDENING] Re-evaluate the contextual-250 winner under DR-0 and a
-   modest robustness panel; save a named controller artifact if it
-   passes.
-3. [TRANSFER] Generate `teacher_v2`/motion-library from the CPG winner
-   and A/B against the current teacher at equal AMP budget before any
-   downstream swap.
+1. Continue only prior-free mechanisms. No BC, gait clock, motion prior,
+   or teacher shortcuts.
+2. On aligned fail: dig into reward/eval/simulator before seeds.
 
-### walkcurr — next arms
+### joystick / amp / cpg
 
-1. [DISCOVERY] `cw-walkcurr-pf-fwd1` (2M, rung 1 fixed forward): did
-   real six-leg stepping emerge? Triage MUST read reward + walk-eval
-   trends together (track rule).
-2. On pass: rung 2 small heading set respec; on aligned fail: dig-in,
-   never seed-sweep.
+1. Green or maintenance unless the operator reopens them.
+2. Keep their artifacts available as candidates or baselines for
+   `todaypolicy` and teachers/control arms for other tracks.
 
-## Inherited assets (active tracks)
+## Inherited Assets
 
-- Scripted tripod teacher verified clean at the measured tibia-150
-  plant (0.06–0.10 m/s × 4 headings, zero falls, slip/m 1.4–2.9, full
-  fast profile) — the joystick starting point and the amp motion-prior
-  seed.
-- Phase-conditioned BC clone passes the direction-first curriculum
-  with zero RL (see joystick track doc).
-- Download hierarchy baseline (`footlow2_hard1` + `bcgait1_hard1` +
-  session controller; det 0.967 / sto 0.853, n=600) — the fallback
-  deployable answer in `rl_docs/DOWNLOAD_ANSWER.md`.
-- MJX/Warp GPU stack: 12 H200 pods, ~4096 envs each, model DR,
-  canaries, eval/video, desync. Asym-critic flag exists.
+- Scripted tripod teacher: measured tibia-150 plant, 0.06-0.10 m/s,
+  zero falls, slip/m 1.4-2.9.
+- `cw-walk-allheading-mlp-singleframe-acq1-stdanneal`: best exported
+  full-mesh RL walk role today, stable but speed-soft.
+- `stand_stancemix_tuckclock_scratch8m{,_s1}` and scripted tuck:
+  current tuck stand/lower options.
+- `cw-walkteach-scripted-allhead-acq12m{,-s1}`: active candidate for a
+  more authoritative all-heading walk.
+- MJX/Warp GPU stack, model DR, eval/video, desync, and `ops.sh`
+  helpers.
 
-## Operator-owned items (parked, do not block the tracks)
+## Operator-Owned Items
 
-- Physical robot: bench promotion, calibration readings, any motion.
+- Physical robot motion, bench promotion, calibration, hardware drive.
 - Spend/capacity changes beyond guardrails.
-- Out-of-scope runs (recover mode, quad tricks, etc.) — operator
-  kicks only.
+- Product choices that require accepting an unsupported recover/flip
+  gap.
 
-## Documentation discipline
+## Documentation Discipline
 
 Replace stale narrative with current state. Budgets: `STATUS.md`
 <=100 lines, track STATUS <=120, this file <=150,
-`CURRENT_TRUTHS.md` <=80. One RL_LOG line per cycle via
+`CURRENT_TRUTHS.md` <=80. One `RL_LOG.md` line per cycle via
 `ops.sh logline`. Long audits go to `archive/`.

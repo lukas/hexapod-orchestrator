@@ -44,6 +44,15 @@ Goal/Now/Next in `rl_docs/tracks/<track>/STATUS.md`):
    policy. DONE when that single mesh/100 Hz policy goes sit -> rise
    -> randomized 60 s joystick script -> lower with zero falls and
    joystick-band slip (n>=12, det+sto, DR-0 + own-DR).
+6. **`todaypolicy`** — delivery track for a working policy-controlled
+   MuJoCo/controller candidate TODAY. It may compose explicit
+   policy+state pieces (scripted or learned tuck stand/lower, exported
+   RL walk, CPG fallback, browser/controller glue) instead of waiting
+   for a monolithic policy. DONE when one named bundle has a full-mesh
+   stand -> joystick-walk -> lower demo, exported controller-ready
+   policy artifacts, a `transfer_manifest`, and a GO/NO-GO summary.
+   This does NOT mark `standwalk` green; the single-policy work
+   continues in parallel.
 
 **Do not stop until all gates are green.** While any gate is unmet, an
 idle fleet next to RUNNABLE work is the failure state.

@@ -34,6 +34,9 @@ PREFIX_MAP = (
     ("walkcurr-", "walkcurr"),
     ("cw-standwalk-", "standwalk"),
     ("standwalk-", "standwalk"),
+    ("cw-todaypolicy-", "todaypolicy"),
+    ("cw-workingpolicy-", "todaypolicy"),
+    ("todaypolicy-", "todaypolicy"),
 )
 
 

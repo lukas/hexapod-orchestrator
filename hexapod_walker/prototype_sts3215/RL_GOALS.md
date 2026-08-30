@@ -1,8 +1,9 @@
 # What we are doing, in plain English
 
 We are training controllers for a hexapod robot in simulation, using
-cloud RL runs plus an autonomous experiment loop. As of 2026-08-21 the
-loop has exactly two goals and works until both are achieved.
+cloud RL runs plus an autonomous experiment loop. The binding list is
+`rl_move/orchestrator/tracks.json`; as of 2026-08-30 there are six
+registered tracks.
 
 ## Goal 1 — joystick control grown from the simple gait
 
@@ -26,6 +27,34 @@ We are not using Isaac Lab; the existing GPU simulation stack gets
 extended instead. The loop builds whatever tools this needs and does
 not wait for the operator.
 
+## Goal 3 — CPG/controller search
+
+Search a low-dimensional gait/controller space directly in MuJoCo as
+a pragmatic non-PPO path. Done means the saved controller handles
+walking, turning, stopping, and restarts with zero falls and low slip;
+any use as a teacher is tested as an A/B fork.
+
+## Goal 4 — prior-free walking
+
+Find out whether PPO from a random policy can discover a clean hexapod
+walk without a gait clock, BC teacher, or motion prior. Done means a
+prior-free policy passes a held-out contextual walking panel with
+six-leg gait validity, direction following, low slip, and no falls.
+
+## Goal 5 — one useful stand/walk policy
+
+Train a mesh/100 Hz policy that can do the whole job by itself: sit,
+rise, follow joystick commands, and lower. This is the hard research
+lane, and it continues even if a composed controller works first.
+
+## Goal 6 — a working policy bundle today
+
+Produce something useful to drive in MuJoCo now and transfer toward the
+robot later. This track may compose explicit policy+state pieces:
+tuck stand, RL walk, lower, CPG or scripted fallback, exported policy
+JSON, browser/controller selectors, and a transfer manifest. It is a
+delivery track; it does not declare the single-policy problem solved.
+
 ## What good means
 
 The video is the judge: smooth alternating-tripod walking, feet that
@@ -38,10 +67,10 @@ brought in line with the evals.
 ## Process, briefly
 
 A watcher notices finished runs and spawns agent cycles that triage,
-record verdicts, and launch the next work toward the two goals. While
-either goal is unmet, an idle fleet is a bug, not a rest state. Only
-the operator touches the physical robot or starts work outside these
-two goals.
+record verdicts, and launch the next work toward the registered
+tracks. While any track is unmet and runnable work exists, an idle
+fleet is a bug, not a rest state. Only the operator touches the
+physical robot or starts work outside the registered tracks.
 
 Primary docs: `CURRENT_TRUTHS.md` (facts), `RL_PLAN.md` (plan),
 `STATUS.md` (dashboard), `RESEARCH_RULES.md` +
