@@ -509,6 +509,59 @@ def _with_default_control_hz(extra: list[str], entry: dict,
     return extra
 
 
+DEFAULT_LOG_STD_FINAL = -3.0
+DEFAULT_LOG_STD_ANNEAL_FRAC = 1.0
+
+
+def _with_default_log_std_final(extra: list[str], entry: dict,
+                                *, phase: str,
+                                allow_off: bool = False) -> list[str]:
+    """Long-budget acquisition-phase PPO launches anneal train/std to a
+    fixed target by default (2026-08-30, 3rd independent from-scratch
+    rediscovery of the same bug on this recipe family: an unbounded
+    --log-std-init with no --log-std-final lets PPO's own entropy
+    incentive push action noise to a runaway std over tens of millions
+    of steps, crashing reward in the back half and collapsing the
+    stochastic-mode eval — already fixed three separate times by hand,
+    identically, for cw-walk-allheading-{mlp,tf,mlp-singleframe}-acq1;
+    CURRENT_TRUTHS: 'any future long-budget PPO acquisition launch
+    should set --log-std-final from the start').
+
+    Deliberately narrow (never touches a run this history hasn't
+    proven the fix on):
+      - only ``phase == "acquisition"`` (canary/discovery are short and
+        this never mattered there; hardening/composition/transfer
+        already inherit a source run's own explicit choice via respec
+        cloning the args verbatim);
+      - never on ``--algo sac`` (the trainer hard-refuses
+        --log-std-final for SAC — see train_ppo_mjx.py _sac_bad);
+      - never if --log-std-final / --log-std-anneal-core is already
+        present (respects an explicit choice, including an explicit
+        opt-out target);
+      - never on --gru-dual (the standwalk anchor4/6b lineage found
+        annealing one SHARED log_std across a dual walk+stance core
+        taxes walk while fixing stance — that fix is per-core
+        targeting via --log-std-anneal-core, a deliberate per-run
+        choice this default must not make for you).
+    Bit-exact when any of the above hold, or when ``allow_off``
+    (--allow-no-log-std-final) is passed.
+    """
+    if allow_off or phase != "acquisition":
+        return extra
+    if "--log-std-final" in extra or "--log-std-anneal-core" in extra:
+        return extra
+    if "--gru-dual" in extra or "--gru-experts" in extra:
+        return extra
+    if "--algo" in extra:
+        i = extra.index("--algo")
+        if i + 1 < len(extra) and extra[i + 1] == "sac":
+            return extra
+    entry.setdefault("checks", {})["log_std_final_defaulted"] = (
+        f"{DEFAULT_LOG_STD_FINAL:g}")
+    return [*extra, "--log-std-final", f"{DEFAULT_LOG_STD_FINAL:g}",
+            "--log-std-anneal-frac", f"{DEFAULT_LOG_STD_ANNEAL_FRAC:g}"]
+
+
 def _normalize_model_source(src: str) -> str:
     """mesh and mesh_mjx are the same family for continuity purposes
     (mesh_mjx just forces the primitive-collision twin everywhere,
@@ -770,6 +823,11 @@ def _launch_locked(g: dict, a: argparse.Namespace,
         return ensured
     extra = ensured
     entry["extra_args"] = extra
+    if not is_dynrep:
+        extra = _with_default_log_std_final(
+            extra, entry, phase=entry.get("phase", ""),
+            allow_off=bool(getattr(a, "allow_no_log_std_final", False)))
+        entry["extra_args"] = extra
     model_source_refuse = _check_model_source_continuity(
         extra, entry, getattr(a, "parent", ""),
         allow_mismatch=bool(getattr(a, "allow_model_source_mismatch", False)))
@@ -1813,6 +1871,8 @@ def cmd_backlog(a: argparse.Namespace, extra: list[str]) -> int:
                           a, "allow_legacy_control_hz", False)),
                       "allow_model_source_mismatch": bool(getattr(
                           a, "allow_model_source_mismatch", False)),
+                      "allow_no_log_std_final": bool(getattr(
+                          a, "allow_no_log_std_final", False)),
                       "extra_args": extra, "attempts": 0, "added": now()})
         _write_backlog(items)
     print(f"queued {a.run} ({len(items)} item(s) in backlog)")
@@ -1955,7 +2015,9 @@ def cmd_respec(g: dict, a: argparse.Namespace) -> int:
             allow_legacy_control_hz=getattr(
                 a, "allow_legacy_control_hz", False),
             allow_model_source_mismatch=getattr(
-                a, "allow_model_source_mismatch", False))
+                a, "allow_model_source_mismatch", False),
+            allow_no_log_std_final=getattr(
+                a, "allow_no_log_std_final", False))
         return cmd_backlog(ns, args)
 
     # --now: direct launch, skipping the backlog. snapshot -> sync ->
@@ -1991,7 +2053,9 @@ def cmd_respec(g: dict, a: argparse.Namespace) -> int:
         allow_legacy_control_hz=getattr(
             a, "allow_legacy_control_hz", False),
         allow_model_source_mismatch=getattr(
-            a, "allow_model_source_mismatch", False))
+            a, "allow_model_source_mismatch", False),
+        allow_no_log_std_final=getattr(
+            a, "allow_no_log_std_final", False))
     return cmd_launch(g, ns, args)
 
 
@@ -2139,6 +2203,8 @@ def cmd_drain(g: dict, a: argparse.Namespace) -> int:
                  if it.get("allow_legacy_control_hz") else []),
                *(["--allow-model-source-mismatch"]
                  if it.get("allow_model_source_mismatch") else []),
+               *(["--allow-no-log-std-final"]
+                 if it.get("allow_no_log_std_final") else []),
                "--", *xa]
         r = subprocess.run(cmd, capture_output=True, text=True,
                            timeout=1800)
@@ -2379,6 +2445,11 @@ def main() -> int:
     bp.add_argument("--allow-model-source-mismatch", action="store_true",
                     help="see `launch --allow-model-source-mismatch`; "
                          "carried through drain's own launch subprocess")
+    bp.add_argument("--allow-no-log-std-final", action="store_true",
+                    help="opt an acquisition-phase PPO launch OUT of the "
+                         "default --log-std-final -3.0 anneal (see "
+                         "_with_default_log_std_final); carried through "
+                         "drain's own launch subprocess")
     rp = sub.add_parser("respec", help="queue a follow-up by cloning a "
                                        "ledger entry's args with overrides")
     rp.add_argument("--from", dest="source", required=True,
@@ -2423,6 +2494,8 @@ def main() -> int:
                     help="see `launch --allow-model-source-mismatch`; "
                          "needed for a deliberate cross-family transfer "
                          "respec (rare -- families do not transfer)")
+    rp.add_argument("--allow-no-log-std-final", action="store_true",
+                    help="see `launch --allow-no-log-std-final`")
     lp = sub.add_parser("launch")
     lp.add_argument("--trainer",
                     choices=("ppo", "dynrep", "dynrep-fresh"),
@@ -2467,6 +2540,15 @@ def main() -> int:
                          "families do NOT transfer; this is for a "
                          "deliberate, recorded cross-family transfer "
                          "experiment, not a default")
+    lp.add_argument("--allow-no-log-std-final", action="store_true",
+                    help="opt an acquisition-phase PPO launch OUT of the "
+                         "default --log-std-final -3.0 anneal (2026-08-30: "
+                         "3 independent from-scratch instances of an "
+                         "unbounded train/std runaway crashing reward + "
+                         "sto-mode eval on long acquisition budgets, "
+                         "already fixed identically each time -- see "
+                         "_with_default_log_std_final); pass this only "
+                         "for a deliberate legacy/no-anneal isolation run")
     lp.add_argument("--dry-run", action="store_true")
     lp.add_argument("--operator-override", default="",
                     help="OPERATOR-ONLY: reason string that bypasses "
