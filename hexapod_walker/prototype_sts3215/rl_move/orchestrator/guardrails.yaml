@@ -56,7 +56,19 @@ compute:
     # verdicted). If a c2 member dies and the cohort must be re-run,
     # the relaunching cycle re-raises this to 100000000 citing the
     # same operator order, then restores again.
-    max_steps_per_run: 40000000
+    # TEMPORARY raise 40M->100M (operator order, MCP operator lane
+    # 20260830T035139Z, Lukas: overnight compute-heavy walkcurr
+    # population sweep, "bigger budget is fine", 8-12 arms at
+    # 80-150M): covers the 08-30 overnight wave
+    # cw-walkcurr-pf-{decleg-sv-s2/s3/s4/s5/s6,central-sv-s0}-b100m
+    # (6x100M PPO) + cw-walkcurr-sac-sv-tilt5-{s1-b20m,s2,s3,s4}
+    # (4x20M SAC). The same order also authorizes this single cycle
+    # to exceed max_new_gpu_steps_per_cycle (680M) and
+    # max_new_launches_per_cycle (10) — one-cycle exception, recorded
+    # here since those caps are agent-enforced. RESTORE to 40000000
+    # in the same cycle once all 10 arms are launched (any relaunch
+    # of a dead sweep member re-raises citing this same order).
+    max_steps_per_run: 100000000
     # At ~20k fps the CPU-pod eval cadence would fire every 10 s; the MJX
     # trainer's eval is skip-if-busy in a background thread, but keep it
     # sane. Never launch below these on a GPU pod:
