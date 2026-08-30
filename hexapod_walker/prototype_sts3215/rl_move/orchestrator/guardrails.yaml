@@ -68,17 +68,15 @@ compute:
     # here since those caps are agent-enforced. RESTORE to 40000000
     # in the same cycle once all 10 arms are launched (any relaunch
     # of a dead sweep member re-raises citing this same order).
-    # RE-RAISED to 150M 08-30 ~20:3x per the OPERATOR literature ruling
-    # (focus note 08-30, Lukas via Mac agent): walkcurr FINAL
-    # pre-registered literature-replication wave, 2 seeds, authorized
-    # 100-200M samples/seed, "GPUs idle; spend approved for this wave".
-    # Covers exactly cw-walkcurr-litrep-box-s0/-s1 at 150M. RESTORE
-    # CONDITION: once both arms are RUNNING-verified (or the wave is
-    # abandoned), the next cycle restores this to 40000000.
-    # (Historical: raised to 100M 08-30 for the b100m wave per MCP
-    # operator lane 20260830T035139Z, restored to 40M same day once
-    # all 10 arms were RUNNING-verified.)
-    max_steps_per_run: 150000000
+    # RESTORED to 40M 08-30 ~20:5x: the raise's own restore condition is
+    # met — both cw-walkcurr-litrep-box-s0/-s1 arms (operator literature
+    # ruling 08-30, final pre-registered wave, authorized 100-200M/seed,
+    # spend approved) are RUNNING-verified at 150M. If either dies and
+    # must be re-run, the relaunching cycle re-raises this to 150000000
+    # citing the same operator ruling, then restores again.
+    # (Historical: also raised to 100M 08-30 for the b100m wave per MCP
+    # operator lane 20260830T035139Z, restored the same way.)
+    max_steps_per_run: 40000000
     # At ~20k fps the CPU-pod eval cadence would fire every 10 s; the MJX
     # trainer's eval is skip-if-busy in a background thread, but keep it
     # sane. Never launch below these on a GPU pod:
