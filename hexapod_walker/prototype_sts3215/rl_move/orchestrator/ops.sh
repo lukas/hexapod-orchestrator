@@ -109,13 +109,18 @@ trainlog)  # trainlog <run> [lines] — tail the run's train log on its pod
   kubectl exec "$pod" -- tail -n "$n" "$log"
   ;;
 
-entry)  # entry <run> — all ledger entries for the run, pretty-printed
+entry)  # entry <run> [field] — all ledger entries for the run, pretty-
+  # printed; with a field name, just that field from the last live entry
+  # (e.g. `entry <run> extra_args`) — stop hand-rolling python3 -c
+  # parses of experiments.json (meta 08-30: 10-18 per heavy cycle).
+  if [ -n "${3:-}" ]; then entry_field "$2" "$3"; else
   uv run python - "$2" <<'EOF'
 import json, os, sys
 for e in json.load(open(os.environ["LEDGER"])):
     if isinstance(e, dict) and e.get("run") == sys.argv[1]:
         print(json.dumps(e, indent=1))
 EOF
+  fi
   ;;
 
 wandb)  # wandb <run> — state, steps, reward trend (quarters), std, url
@@ -580,8 +585,20 @@ verdict)  # verdict <run> <status> "<verdict text>" ["logline text"] —
   run="${2:-}"; st="${3:-}"; text="${4:-}"; line="${5:-}"
   [ -n "$run" ] && [ -n "$st" ] && [ -n "$text" ] || {
     echo "usage: ops.sh verdict <run> <status> \"<verdict>\" [\"logline\"]"
+    echo "       (FORCE=1 to overwrite an existing verdict)"
     exit 1
   }
+  # Race guard (meta 08-30): concurrent cycles double-verdicted
+  # decleg-sv-s2/s6-b100m with conflicting tallies. First verdict wins;
+  # a second writer gets told, skips the redundant fan-out, FORCE=1
+  # overrides deliberately (e.g. dig-in revising its own placeholder).
+  existing="$(entry_field "$run" verdict)"
+  if [ -n "$existing" ] && [ "${FORCE:-0}" != "1" ]; then
+    echo "REFUSED: $run already has a verdict (another cycle beat you):"
+    printf '%s\n' "$existing" | head -c 400; echo
+    echo "(FORCE=1 ops.sh verdict ... to overwrite)"
+    exit 1
+  fi
   uv run python "$HERE/launch_run.py" update --run "$run" \
     --set "status=$st" --set "verdict=$text" || exit 1
   bash "$0" wandbnote "$run" "$text" \

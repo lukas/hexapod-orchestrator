@@ -1289,6 +1289,44 @@ def _pod_pid_cputime(pod: str, pid: str) -> int | None:
         return None
 
 
+def _pod_run_cputime(pod: str, run: str, pid: str | None) -> int | None:
+    """Cumulative CPU-centiseconds summed over the trainer process AND
+    all its descendants (spawn-context mp eval/video workers, ffmpeg).
+    08-30 fix: in the end-of-run eval-drain window the main trainer
+    thread sleeps while mp children burn ~10 cores, so the old
+    single-PID sample read CPU-flat and false-SUSPECTed two healthy
+    canaries (anchor14coef1-canary{,-s1}) whose logs also print nothing
+    between the startup banner and the final '[mjx-train] done:' line.
+    The workers use mp spawn (cmdline is spawn_main, not the run name),
+    so descent from the trainer PID is the only reliable membership
+    test. Falls back to the single-PID read on any scan failure.
+    stat parsing strips the '(comm)' field before counting, so comms
+    with spaces can't shift the ppid/utime/stime columns."""
+    if not pid:
+        return None
+    script = (
+        f"set='|{pid}|'; changed=1; "
+        "while [ \"$changed\" = 1 ]; do changed=0; "
+        "for p in /proc/[0-9]*; do n=${p#/proc/}; "
+        "case \"$set\" in *\"|$n|\"*) continue;; esac; "
+        "r=$(sed 's/^[^)]*) //' $p/stat 2>/dev/null) || continue; "
+        "pp=${r#* }; pp=${pp%% *}; "
+        "case \"$set\" in *\"|$pp|\"*) set=\"$set$n|\"; changed=1;; esac; "
+        "done; done; "
+        "t=0; ok=0; for n in $(printf '%s' \"$set\" | tr '|' ' '); do "
+        "r=$(sed 's/^[^)]*) //' /proc/$n/stat 2>/dev/null) || continue; "
+        "s=$(printf '%s' \"$r\" | awk '{print $12+$13}'); "
+        "[ -n \"$s\" ] && t=$((t+s)) && ok=1; done; "
+        "[ $ok = 1 ] && echo $t || echo ''")
+    try:
+        out = kexec(pod, script).strip()
+        if out:
+            return int(out)
+    except (subprocess.CalledProcessError, ValueError):
+        pass
+    return _pod_pid_cputime(pod, pid)
+
+
 def _budget_reached(budget: int, wb_step: int, pod: str, log: str) -> bool:
     """True when a run's rollout loop has completed its full step budget
     (the wrap-up / eval-drain window), judged by EITHER the live W&B
@@ -1660,7 +1698,8 @@ def cmd_checkup(g: dict, a: argparse.Namespace) -> int:
             # CPU-flat; a slow-cadence healthy one keeps burning cores.
             pid = _pod_trainer_pid(
                 pod, live_names[0] if live_names else a.run)
-            cpu = [_pod_pid_cputime(pod, pid) if pid else None]
+            _cpu_name = live_names[0] if live_names else a.run
+            cpu = [_pod_run_cputime(pod, _cpu_name, pid)]
             # GPU proof-of-work (08-26 fix, third false SUSPECT on this
             # class: anchor1-s1 wrongly killed, anchor2-s1 flagged while
             # HEALTHY and finishing cleanly at 2.03M): warp/MJX trainers
@@ -1687,7 +1726,7 @@ def cmd_checkup(g: dict, a: argparse.Namespace) -> int:
             _gpu_sample()
             for _ in range(2):
                 time.sleep(30)
-                cpu.append(_pod_pid_cputime(pod, pid) if pid else None)
+                cpu.append(_pod_run_cputime(pod, _cpu_name, pid))
                 _gpu_sample()
             deltas = [b - a2 for a2, b in zip(cpu, cpu[1:])
                       if a2 is not None and b is not None]
@@ -1792,7 +1831,7 @@ def cmd_checkup(g: dict, a: argparse.Namespace) -> int:
     verdict = "SUSPECT" if problems else "HEALTHY"
     record(verdict, problems=problems)
     print(f"{verdict}: {a.run} on {pod} "
-          f"({facts.get('placement', 'smoke')}, fps={facts.get('fps', 'n/a')})")
+          f"({facts.get('placement', 'n/a')}, fps={facts.get('fps', 'n/a')})")
     for p in problems:
         print(f"  - {p}")
     return 0 if verdict == "HEALTHY" else 2
