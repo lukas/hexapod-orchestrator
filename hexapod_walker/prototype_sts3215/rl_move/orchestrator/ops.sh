@@ -489,7 +489,10 @@ manualdrive)  # manualdrive <run> <out-dir> [extra manual_drive_session args...]
   # (--seed N, --rise-start flat, --skip-hold, --stochastic, ...) pass
   # through.
   run="$2"; outdir="$3"; shift 3 || { echo "usage: ops.sh manualdrive <run> <out-dir> [args...]"; exit 1; }
-  mapfile -t cfgs < <(uv run python - "$run" <<'EOF'
+  cfgs=()
+  while IFS= read -r c; do
+    cfgs+=("$c")
+  done < <(uv run python - "$run" <<'EOF'
 import json, os, sys
 run = sys.argv[1]
 for e in json.load(open(os.environ["LEDGER"])):
@@ -513,6 +516,149 @@ EOF
   [ -n "$ckpt" ] && [ -f "$PROTO/$ckpt" ] || { echo "checkpoint not found for $run: '$ckpt'"; exit 1; }
   cd "$PROTO" && uv run python -m rl_move.sim.manual_drive_session "$ckpt" \
     "${cargs[@]}" --out-dir "$outdir" "$@"
+  ;;
+
+drivevideo)  # drivevideo <run> [out-dir] [drive_video args...] — clean
+  # walk-only MuJoCo joystick video for a checkpoint. This is the helper
+  # to use when the operator asks "show me driving <run> around": it pulls
+  # the checkpoint if needed, builds/verifies local full-mesh assets, carries
+  # the run's own cfg stack from the ledger, starts from a settled plant walk
+  # episode, and renders drive.mp4 + summary.json. Extra args pass through
+  # to rl_move.sim.drive_video (--script human|square|sweep, --policy-mode
+  # deterministic|stochastic, --seconds N, ...).
+  run="${2:-}"
+  [ -n "$run" ] || { echo "usage: ops.sh drivevideo <run> [out-dir] [args...]"; exit 1; }
+  shift 2
+  stamp=$(date +%Y%m%d_%H%M%S)
+  safe_run=$(printf '%s' "$run" | tr - _)
+  outdir="$PROTO/logs/manual_drive/${safe_run}_drivevideo_${stamp}"
+  if [ "${1:-}" != "" ] && [[ "${1:-}" != --* ]]; then
+    outdir="$1"
+    shift
+  fi
+  cfgs=()
+  while IFS= read -r c; do
+    cfgs+=("$c")
+  done < <(uv run python - "$run" <<'EOF'
+import json, os, sys
+run = sys.argv[1]
+entry = None
+fallback = None
+for e in json.load(open(os.environ["LEDGER"])):
+    if isinstance(e, dict) and e.get("run") == run and e.get("extra_args"):
+        fallback = e
+        if e.get("wandb_id") or e.get("checks", {}).get("pid"):
+            entry = e
+entry = entry or fallback
+if entry is None:
+    sys.exit(f"no ledger entry for {run}")
+args = entry.get("extra_args", [])
+ck = None
+task = "joint_walk"
+for i, a in enumerate(args):
+    if a == "--cfg-set":
+        print(f"CFG {args[i + 1]}")
+    elif a == "--out-name":
+        ck = args[i + 1]
+    elif a == "--task":
+        task = args[i + 1]
+if task != "joint_walk":
+    sys.exit(f"drivevideo is walk-only; run {run!r} has task {task!r}")
+if ck is None:
+    ck = "ppo_goal_" + run.replace("-", "_")
+print(f"CKPT rl_move/sim/policies/{ck}.zip")
+EOF
+)
+  ckpt=""; cargs=()
+  for c in "${cfgs[@]}"; do
+    case "$c" in CKPT\ *) ckpt="${c#CKPT }";; CFG\ *) cargs+=(--cfg-set "${c#CFG }");; esac
+  done
+  [ -n "$ckpt" ] || { echo "could not resolve checkpoint for $run"; exit 1; }
+  if [ ! -s "$PROTO/$ckpt" ]; then
+    bash "$0" pullckpt "$run" || exit 1
+  fi
+  if [ ! -f "$PROTO/mesh_mujoco/hexapod_mesh.xml" ] ||
+     ! find "$PROTO/mesh_mujoco/assets" -maxdepth 1 -name '*.stl' 2>/dev/null | grep -q .; then
+    (cd "$PROTO/mesh_mujoco" &&
+      uv run --with numpy --with scipy --with shapely --with trimesh \
+        python build_mesh_model.py --no-render) || exit 1
+  fi
+  cd "$PROTO" && uv run --with imageio --with imageio-ffmpeg --with pillow \
+    python -m rl_move.sim.drive_video "$ckpt" "${cargs[@]}" \
+    --out-dir "$outdir" "$@"
+  ;;
+
+hybriddemo)  # hybriddemo <run> [out-dir] [hybrid_demo args...] — full
+  # composable MuJoCo stand->RL-walk->lower demo. This is the helper to use
+  # when the operator asks for the transfer-shaped behavior, not just a
+  # walk-only rollout: baked STEP or learned stand-up, explicit walk-ready
+  # handoff, the run's own walk policy under joystick commands, then baked
+  # STEP-down or learned lower.
+  # It writes drive.mp4, composition.json, summary.json, ticks.json, and
+  # transfer_manifest.json. Extra args pass through to rl_move.sim.hybrid_demo
+  # (--script, --walk-seconds, --stand-mode, --stand-controller learned,
+  # --lower-controller learned, --policy-mode, ...).
+  run="${2:-}"
+  [ -n "$run" ] || { echo "usage: ops.sh hybriddemo <run> [out-dir] [args...]"; exit 1; }
+  shift 2
+  stamp=$(date +%Y%m%d_%H%M%S)
+  safe_run=$(printf '%s' "$run" | tr - _)
+  outdir="$PROTO/logs/manual_drive/${safe_run}_hybrid_${stamp}"
+  if [ "${1:-}" != "" ] && [[ "${1:-}" != --* ]]; then
+    outdir="$1"
+    shift
+  fi
+  cfgs=()
+  while IFS= read -r c; do
+    cfgs+=("$c")
+  done < <(uv run python - "$run" <<'EOF'
+import json, os, sys
+run = sys.argv[1]
+entry = None
+fallback = None
+for e in json.load(open(os.environ["LEDGER"])):
+    if isinstance(e, dict) and e.get("run") == run and e.get("extra_args"):
+        fallback = e
+        if e.get("wandb_id") or e.get("checks", {}).get("pid"):
+            entry = e
+entry = entry or fallback
+if entry is None:
+    sys.exit(f"no ledger entry for {run}")
+args = entry.get("extra_args", [])
+ck = None
+task = "joint_walk"
+for i, a in enumerate(args):
+    if a == "--cfg-set":
+        print(f"CFG {args[i + 1]}")
+    elif a == "--out-name":
+        ck = args[i + 1]
+    elif a == "--task":
+        task = args[i + 1]
+if task != "joint_walk":
+    sys.exit(f"hybriddemo currently composes a walk controller; "
+             f"run {run!r} has task {task!r}")
+if ck is None:
+    ck = "ppo_goal_" + run.replace("-", "_")
+print(f"CKPT rl_move/sim/policies/{ck}.zip")
+EOF
+)
+  ckpt=""; cargs=()
+  for c in "${cfgs[@]}"; do
+    case "$c" in CKPT\ *) ckpt="${c#CKPT }";; CFG\ *) cargs+=(--cfg-set "${c#CFG }");; esac
+  done
+  [ -n "$ckpt" ] || { echo "could not resolve checkpoint for $run"; exit 1; }
+  if [ ! -s "$PROTO/$ckpt" ]; then
+    bash "$0" pullckpt "$run" || exit 1
+  fi
+  if [ ! -f "$PROTO/mesh_mujoco/hexapod_mesh.xml" ] ||
+     ! find "$PROTO/mesh_mujoco/assets" -maxdepth 1 -name '*.stl' 2>/dev/null | grep -q .; then
+    (cd "$PROTO/mesh_mujoco" &&
+      uv run --with numpy --with scipy --with shapely --with trimesh \
+        python build_mesh_model.py --no-render) || exit 1
+  fi
+  cd "$PROTO" && uv run --with imageio --with imageio-ffmpeg --with pillow \
+    python -m rl_move.sim.hybrid_demo "$ckpt" "${cargs[@]}" \
+    --name "${run} hybrid" --out-dir "$outdir" "$@"
   ;;
 
 wandbdump)  # wandbdump <run> — cache W&B summary/config/history locally

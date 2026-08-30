@@ -133,6 +133,8 @@ def _authed(headers, query: str) -> bool:
 DOC_SKIP_DIRS = {".git", "logs", "wandb", "policies", "node_modules",
                  "__pycache__"}
 TEXT_CAP = 400_000  # bytes per tool result — keep well under context
+TRACK_STATUS_CAP = 55_000
+CAMPAIGN_DIGEST_CAP = 35_000
 
 # Feedback inbox: OUTSIDE the git checkout on the controller (so the
 # doc-sync `git pull` never trips over it — an untracked file in the
@@ -200,6 +202,27 @@ def _clip(text: str, cap: int = TEXT_CAP, what: str = "output") -> str:
             + f"\n\n[... {what} truncated at {cap // 1000} kB ...]")
 
 
+def _track_status_paths() -> list[pathlib.Path]:
+    """Per-track STATUS pages in registry order, then any unregistered docs."""
+    paths: list[pathlib.Path] = []
+    seen: set[pathlib.Path] = set()
+    try:
+        import tracks as _tracks
+        for v in _tracks.load().values():
+            p = (PROTO / v["doc"]).resolve()
+            if p.is_file() and p not in seen:
+                paths.append(p)
+                seen.add(p)
+    except Exception:
+        pass
+    for p in sorted((PROTO / "rl_docs" / "tracks").glob("*/STATUS.md")):
+        rp = p.resolve()
+        if rp not in seen:
+            paths.append(rp)
+            seen.add(rp)
+    return paths
+
+
 def _ledger() -> list[dict]:
     entries = json.loads((HERE / "experiments.json").read_text())
     latest: dict[str, dict] = {}
@@ -249,15 +272,28 @@ def _read_doc(rel: str) -> str | None:
 
 # --------------------------------------------------------------- tools
 def t_campaign_status() -> str:
-    parts = []
+    parts = [
+        "# Status source order\n\n"
+        "Per-track STATUS pages appear first and are the authoritative "
+        "source for a track's current state. The root STATUS.md digest is "
+        "included last for campaign-level context and may lag individual "
+        "track pages.\n"
+    ]
+    for p in _track_status_paths():
+        try:
+            body = p.read_text(errors="replace")
+        except OSError as e:
+            body = f"({p} unreadable: {e})"
+        parts.append(f"# Track: {p.parent.name}\n\n"
+                     + _clip(body, TRACK_STATUS_CAP,
+                             f"{p.parent.name} STATUS"))
     try:
-        parts.append("# Campaign digest (STATUS.md)\n\n"
-                     + (PROTO / "STATUS.md").read_text(errors="replace"))
+        body = (PROTO / "STATUS.md").read_text(errors="replace")
+        parts.append("# Campaign digest (STATUS.md; may lag tracks)\n\n"
+                     + _clip(body, CAMPAIGN_DIGEST_CAP,
+                             "campaign digest"))
     except OSError as e:
         parts.append(f"(STATUS.md unreadable: {e})")
-    for p in sorted((PROTO / "rl_docs" / "tracks").glob("*/STATUS.md")):
-        parts.append(f"# Track: {p.parent.name}\n\n"
-                     + p.read_text(errors="replace"))
     return _clip("\n\n---\n\n".join(parts))
 
 

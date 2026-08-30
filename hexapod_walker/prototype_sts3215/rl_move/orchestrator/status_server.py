@@ -6,7 +6,9 @@ RIGHT NOW" without kubectl spelunking: watcher on/paused/off, in-flight
 decision cycles with their LIVE streamed narration, pending kicks,
 per-pod fleet census, backlog queue, every launched run from the
 ledger, Claude token usage (summed from ~/.claude transcripts), and
-recent watcher log lines. Drill-downs (token-gated like the dashboard):
+recent watcher log lines. The same dashboard is officially available
+at /now and /research for a memorable bookmark. Drill-downs
+(token-gated like the dashboard):
 /cycle/<stamp> = one cycle's full narration + exact prompt + raw event
 stream (auto-refreshes while the cycle runs); /run/<name> = a run's
 complete ledger history, the cycles that worked on it, its story doc.
@@ -17,10 +19,10 @@ Run on the controller pod (tmux session `statusweb`):
 View from the laptop:
     kubectl --kubeconfig=$HOME/.kube/coreweave.yaml \
         port-forward hexapod-sweep-friction 8090:8090
-    open http://127.0.0.1:8090
+    open http://127.0.0.1:8090/now
 
 LLM-readable mirror (for GPT/Claude web fetchers assessing the
-campaign): /llms.txt is the index, /llm/{status,plan,log,runs,docs}.md
+campaign): /llms.txt is the index, /llm/{brief,status,plan,log,runs,docs}.md
 are plain markdown, /llm/doc/<path> serves any .md in the prototype
 tree. Those paths need NO token: they mirror a public GitHub repo, and
 GPT's URL-safety wrapper refuses keyed URLs. The dashboard and /json
@@ -584,6 +586,26 @@ body{background:#0d1117;color:#c9d1d9;font:14px/1.5 -apple-system,Segoe UI,
 sans-serif;margin:0;padding:24px;max-width:1100px;margin:auto}
 h1{font-size:20px;margin:0 0 4px}h2{font-size:15px;color:#8b949e;
 border-bottom:1px solid #21262d;padding-bottom:4px;margin:28px 0 10px}
+.brieftop{margin-top:16px;background:#121821;border:1px solid #30363d;
+border-radius:8px;padding:14px 16px}
+.briefsummary{font-size:15px;color:#e6edf3;margin:0 0 12px}
+.briefgrid{display:grid;grid-template-columns:repeat(auto-fit,
+minmax(260px,1fr));gap:10px}
+.topic{background:#161b22;border:1px solid #30363d;border-left:4px solid
+#58a6ff;border-radius:6px;padding:10px 12px;min-width:0}
+.topic.open{border-left-color:#d29922}.topic.green{border-left-color:#3fb950}
+.topic.wait{border-left-color:#a371f7}.topic.watch{border-left-color:#8b949e}
+.topichead{display:flex;align-items:center;justify-content:space-between;
+gap:8px;margin-bottom:4px}
+.topicname{font-weight:700;color:#e6edf3;overflow-wrap:anywhere}
+.badge{display:inline-block;border:1px solid #30363d;border-radius:999px;
+padding:1px 8px;font-size:11px;font-weight:700;color:#c9d1d9;
+white-space:nowrap;background:#21262d}
+.topic.active .badge{background:#1f6feb;color:#fff;border-color:#388bfd}
+.topic.open .badge{background:#9e6a03;color:#fff;border-color:#d29922}
+.topic.green .badge{background:#1a7f37;color:#fff;border-color:#3fb950}
+.topic.wait .badge{background:#6e40c9;color:#fff;border-color:#a371f7}
+.topic p{margin:6px 0 0}.topic .small{font-size:12.5px;color:#8b949e}
 .pill{display:inline-block;padding:2px 12px;border-radius:12px;
 font-weight:600;font-size:13px}
 .on{background:#1a7f37;color:#fff}.paused{background:#9e6a03;color:#fff}
@@ -633,7 +655,9 @@ def llm_url_groups(base: str) -> list[tuple[str, list[tuple[str, str]]]]:
                 for label, rel in entries if (PROTO / rel).is_file()]
     groups = [
         ("Start here (live index pages)", [
+            ("Human dashboard — latest research first", f"{base}/now"),
             ("LLM index — hand an agent THIS one", f"{base}/llms.txt"),
+            ("Research brief — latest per topic", f"{base}/llm/brief.md"),
             ("MCP endpoint (streamable HTTP — add as a remote MCP "
              "server WITH the operator MCP key; tools for "
              "ledger/metrics/docs)", f"{base}/mcp"),
@@ -681,11 +705,239 @@ def llm_url_groups(base: str) -> list[tuple[str, list[tuple[str, str]]]]:
     return [(g, items) for g, items in groups if items]
 
 
+TRACK_BRIEF_ORDER = ("standwalk", "walkcurr", "joystick", "amp", "cpg")
+DASHBOARD_PATHS = {"/", "/now", "/research", "/dashboard", "/status"}
+
+
+def _squash(s: str) -> str:
+    return re.sub(r"\s+", " ", s).strip()
+
+
+def _plain_md(s: str) -> str:
+    """Small markdown cleanup for first-viewport summaries."""
+    s = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", s)
+    s = re.sub(r"</?[^>]+>", "", s)
+    s = re.sub(r"(`+|\*\*|__|~~)", "", s)
+    s = re.sub(r"^\s*[-*+]\s+", "", s, flags=re.M)
+    return _squash(s)
+
+
+def _clip(s: str, limit: int = 520) -> str:
+    s = _plain_md(s)
+    if len(s) <= limit:
+        return s
+    head = s[:limit + 1]
+    cut = max(head.rfind(". "), head.rfind("; "), head.rfind(" - "))
+    if cut >= max(180, limit // 2):
+        return head[:cut + 1].strip()
+    return head[:limit - 3].rstrip() + "..."
+
+
+def _first_paragraph(text: str) -> str:
+    lines = text.splitlines()
+    i = 0
+    while i < len(lines) and (not lines[i].strip()
+                              or lines[i].lstrip().startswith("#")):
+        i += 1
+    para: list[str] = []
+    for line in lines[i:]:
+        if not line.strip():
+            if para:
+                break
+            continue
+        if line.lstrip().startswith("#"):
+            if para:
+                break
+            continue
+        para.append(line.strip())
+    return " ".join(para)
+
+
+def _now_block(text: str) -> str:
+    m = re.search(r"^## Now([^\n]*)\n(?P<body>.*?)(?=\n## |\Z)",
+                  text, flags=re.M | re.S)
+    if not m:
+        return ""
+    suffix = m.group(1).strip()
+    head = "Now" + (f" {suffix}" if suffix else "")
+    para = _first_paragraph(m.group("body"))
+    return _squash(f"{head}: {para}" if para else head)
+
+
+def latest_research_summary(text: str) -> str:
+    """Best short answer to 'what is the latest research here?'.
+
+    Track STATUS files use two styles: most put the newest dated update
+    directly after the title; walkcurr keeps a rule preface and puts the
+    live state under the first '## Now'. Prefer an explicit top update,
+    otherwise fall back to the newest Now block.
+    """
+    lead = _first_paragraph(text)
+    if lead.startswith(("Last updated:", "Update,")):
+        return _clip(lead)
+    now = _now_block(text)
+    return _clip(now or lead)
+
+
+def _track_badge(tid: str, text: str, recent: list[dict],
+                 pending: dict[str, str]) -> tuple[str, str]:
+    top = text[:12000].lower()
+    if any(e.get("status") == "RUNNING" for e in recent):
+        return "ACTIVE NOW", "active"
+    if any(e.get("run") in pending for e in recent):
+        return "ANALYZING", "active"
+    if tid == "walkcurr" and (
+            "needs a genuinely new mechanism" in top
+            or "every rule-(a)-legal lever" in top
+            or "every named non-bc lever" in top):
+        return "OPEN", "open"
+    if ("gate green" in top or "track goal met" in top
+            or "track gate green" in top or "done gate declared met" in top
+            or "maintenance-only" in top or "track stays done" in top):
+        if "waiting-on" in top and "[operator]" in top:
+            return "GREEN / OPERATOR", "wait"
+        return "GREEN", "green"
+    if "waiting-on" in top:
+        return "WAITING", "wait"
+    if "running" in top or "launched" in top:
+        return "ACTIVE", "active"
+    return "WATCH", "watch"
+
+
+def _track_where(tid: str, badge: str, recent: list[dict],
+                 pending: dict[str, str]) -> str:
+    running = [e.get("run", "") for e in recent
+               if e.get("status") == "RUNNING"][:3]
+    if running:
+        return "Running now: " + ", ".join(running) + "."
+    blocked = [e.get("run", "") for e in recent if e.get("run") in pending]
+    if blocked:
+        return "Analysis pending: " + ", ".join(blocked[:3]) + "."
+    if tid == "walkcurr":
+        return ("Open: prior-free discovery still has no promoted walker; "
+                "the next useful work is a bigger, rule-legal search or a "
+                "new mechanism.")
+    if badge.startswith("GREEN"):
+        return ("Gate met in simulation; remaining work is maintenance, "
+                "integration, or operator-owned hardware.")
+    if badge == "WAITING":
+        return "Waiting on an operator-owned step."
+    return "No live run in the newest ledger window."
+
+
+def research_brief(f: dict, pending: dict[str, str]) -> dict:
+    docs = f.get("status_docs", {})
+    rows = f.get("ledger", [])
+    try:
+        registry = _tracks.load()
+    except Exception:
+        registry = {}
+    seen: set[str] = set()
+    keys: list[str] = []
+    for key in TRACK_BRIEF_ORDER:
+        if key in docs:
+            keys.append(key)
+            seen.add(key)
+    for key in docs:
+        if key not in seen and key not in ("main", "tracks_err"):
+            keys.append(key)
+            seen.add(key)
+    topics = []
+    active, openish, green = [], [], []
+    for tid in keys:
+        d = docs.get(tid, {})
+        text = d.get("text", "")
+        recent = [e for e in rows if track_of_entry(e) == tid]
+        badge, cls = _track_badge(tid, text, recent, pending)
+        name = registry.get(tid, {}).get("name") or d.get("name", tid)
+        latest = latest_research_summary(text)
+        where = _track_where(tid, badge, recent, pending)
+        if cls == "active":
+            active.append(tid)
+        elif cls == "open":
+            openish.append(tid)
+        elif cls in ("green", "wait"):
+            green.append(tid)
+        topics.append({"id": tid, "name": name, "badge": badge, "cls": cls,
+                       "latest": latest, "where": where,
+                       "recent": recent[:3]})
+    bits = []
+    if active:
+        bits.append("Active now: " + ", ".join(active))
+    if openish:
+        bits.append("Open research: " + ", ".join(openish))
+    if green:
+        bits.append("Green / mostly maintenance: " + ", ".join(green))
+    summary = ". ".join(bits) + "." if bits else \
+        "No track summary is available yet; the first snapshot is collecting."
+    return {"summary": summary, "topics": topics}
+
+
+def render_research_brief(brief: dict) -> list[str]:
+    h = ["<section class='brieftop'>",
+         "<h2 style='margin:0 0 8px;border:none;color:#e6edf3'>"
+         "Research Brief</h2>",
+         f"<p class='briefsummary'>{esc(brief.get('summary', ''))}</p>",
+         "<div class='briefgrid'>"]
+    for t in brief.get("topics", []):
+        h.append(f"<article class='topic {esc(t.get('cls', 'watch'))}'>"
+                 f"<div class='topichead'><span class='topicname'>"
+                 f"{esc(t['id'])}</span><span class='badge'>"
+                 f"{esc(t['badge'])}</span></div>"
+                 f"<div class='small'>{esc(t['name'])}</div>"
+                 f"<p><b>Latest:</b> {esc(t['latest'])}</p>"
+                 f"<p><b>Where we are:</b> {esc(t['where'])}</p>")
+        recent = [e for e in t.get("recent", []) if e.get("run")]
+        if recent:
+            links = []
+            for e in recent[:2]:
+                links.append(f"{run_link(e['run'])} "
+                             f"<span class='dim'>({esc(e.get('status', '?'))})"
+                             f"</span>")
+            h.append("<p class='small'>Newest runs: " + " · ".join(links)
+                     + "</p>")
+        h.append("</article>")
+    h.append("</div></section>")
+    return h
+
+
+def research_brief_md(base: str = "", key: str = "") -> str:
+    f = SNAP.get("fast", {})
+    if not f:
+        return "# Research brief\n\n(snapshot still collecting)"
+    brief = research_brief(f, {})
+    lines = ["# Research brief", "", brief["summary"], ""]
+    for t in brief["topics"]:
+        lines.append(f"## {t['id']} - {t['badge']}")
+        lines.append(t["name"])
+        lines.append("")
+        lines.append(f"Latest: {t['latest']}")
+        lines.append("")
+        lines.append(f"Where we are: {t['where']}")
+        if base:
+            lines.append("")
+            lines.append(f"Track status doc: {base}/llm/doc/"
+                         f"rl_docs/tracks/{t['id']}/STATUS.md{key}")
+        lines.append("")
+    return "\n".join(lines)
+
+
 def render(base: str = "") -> str:
     f, s = SNAP.get("fast", {}), SNAP.get("slow", {})
     w = f.get("watcher", {})
     if not w:
-        return "<html><body>collecting first snapshot…</body></html>"
+        brief = {
+            "summary": ("Snapshot still collecting; the latest research "
+                        "brief will appear here in about 20 seconds."),
+            "topics": [],
+        }
+        return (f"<html><head><meta charset='utf-8'>"
+                f"<meta http-equiv='refresh' content='10'>"
+                f"<title>hexapod RL agent</title><style>{CSS}</style>"
+                f"</head><body><h1>Hexapod RL agent "
+                f"<span class='pill paused'>COLLECTING</span></h1>"
+                f"<div class='dim'>bookmark <a href='/now'>/now</a></div>"
+                f"{''.join(render_research_brief(brief))}</body></html>")
     if w["pause"]:
         pill, label = "paused", "PAUSED"
         sub = w.get("restart_last", "")
@@ -713,13 +965,8 @@ def render(base: str = "") -> str:
              f"</h1><div class='dim'>refreshed "
              f"{datetime.datetime.now().strftime('%H:%M:%S')} · page "
              f"auto-reloads every 30 s · fleet/token data every "
-             f"{SLOW_S} s{(' · ' + esc(sub)) if sub else ''}</div>")
-
-    # Why-is-this-blank box: every silent failure mode gets a sentence.
-    for wmsg in data_health(f, s):
-        h.append(f"<div class='card' style='border-color:#da3633;"
-                 f"margin-top:10px'><span class='bad'>&#9888; "
-                 f"{esc(wmsg)}</span></div>")
+             f"{SLOW_S} s · bookmark <a href='/now'>/now</a>"
+             f"{(' · ' + esc(sub)) if sub else ''}</div>")
 
     # finished on W&B but no verdict in the ledger = not yet analyzed.
     # W&B is the ground truth for "finished"; the triage field only adds
@@ -758,6 +1005,14 @@ def render(base: str = "") -> str:
     pipeline.sort(key=lambda p: p["run"])
     pending = {p["run"]: p["state"] for p in pipeline}
     n_pipe = len(pipeline)
+    h.extend(render_research_brief(research_brief(f, pending)))
+
+    # Why-is-this-blank box: every silent failure mode gets a sentence.
+    for wmsg in data_health(f, s):
+        h.append(f"<div class='card' style='border-color:#da3633;"
+                 f"margin-top:10px'><span class='bad'>&#9888; "
+                 f"{esc(wmsg)}</span></div>")
+
     h.append("<div class='grid' style='margin-top:14px'>")
     pipe_cls = "" if n_pipe <= 3 else " style='border-color:#9e6a03'"
     h.append(f"<div class='card'{pipe_cls}><div class='n'>{n_pipe}</div>"
@@ -1386,9 +1641,25 @@ def git_sync_worker() -> None:
 # doesn't need) — those stay on the HTML page and /json.
 
 def llm_status_md() -> str:
-    """Campaign STATUS.md + every per-track STATUS.md, concatenated."""
-    parts = []
-    for d in status_docs().values():
+    """Every per-track STATUS.md first, then campaign STATUS.md."""
+    docs = status_docs()
+    parts = [
+        "# Status source order\n\n"
+        "Per-track STATUS pages are listed first and are the authoritative "
+        "source for each track's current state. The campaign digest is "
+        "included last for cross-track context and may lag individual "
+        "track pages.\n"
+    ]
+    for key, d in docs.items():
+        if key in ("main", "tracks_err"):
+            continue
+        parts.append(f"# {d['name']}\n\n{d['text'].rstrip()}\n")
+    if "main" in docs:
+        d = docs["main"]
+        parts.append(f"# {d['name']} (may lag tracks)\n\n"
+                     f"{d['text'].rstrip()}\n")
+    if "tracks_err" in docs:
+        d = docs["tracks_err"]
         parts.append(f"# {d['name']}\n\n{d['text'].rstrip()}\n")
     return "\n\n".join(parts)
 
@@ -1561,8 +1832,12 @@ Live state: {live}.
 URLs are given as plain text (some LLM fetchers fail to follow
 markdown-style links). No authentication is required on any /llm URL.
 
+Research brief — a short human-readable answer to "what is the latest
+research on each topic, and where are we?":
+{base}/llm/brief.md{key}
+
 Campaign + per-track STATUS — the campaign digest plus each research
-track's current state; read this first for an overall assessment:
+track's current state; read this after the brief for the full detail:
 {base}/llm/status.md{key}
 
 Research plan — RL_PLAN.md, the plan the autonomous agents work from
@@ -1594,6 +1869,7 @@ the same public data.
 
 
 LLM_PAGES = {
+    "/llm/brief.md": lambda base, key: research_brief_md(base, key),
     "/llm/status.md": lambda base, key: llm_status_md(),
     "/llm/plan.md": lambda base, key: llm_plan_md(),
     "/llm/log.md": lambda base, key: llm_log_md(),
@@ -1784,9 +2060,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 return
             body = page.encode()
             ctype = "text/html; charset=utf-8"
-        elif self.path.startswith("/json"):
+        elif u.path == "/json":
             body = json.dumps(SNAP, default=str).encode()
             ctype = "application/json"
+        elif u.path in DASHBOARD_PATHS:
+            body = render(base).encode()
+            ctype = "text/html; charset=utf-8"
         else:
             body = render(base).encode()
             ctype = "text/html; charset=utf-8"
