@@ -67,10 +67,12 @@ Exported walk artifact:
   walk role if a walkteach-lineage export beats MLP-singleframe on the
   identical UX suite; learned-vs-scripted tuck A/B.
 - `standwalk`: turn-authority-on-a-BC-anchored-walker still unsolved.
-  3 mechanism classes FAILed (turndiet, turnpay/walkteach, turncap+RL)
-  and both anchor-coefficient doses (1.0/0.3 off 3.0) FAILed too
-  (08-31) — anchor DOSE exonerated. New targeted-gate mechanism
-  (`train.bc_anchor_walk_turn_skip`) canary in flight on train-2.
+  5 independent mechanism classes now FAILed (anchor dose 3.0/1.0/0.3,
+  turn-tick-targeted anchor skip, isolate_update revert, 4x entropy) —
+  every training-mechanism knob this lineage's own gate texts named is
+  exhausted (08-31). DIG-IN flagged: structural root-cause trace on
+  the raw `k_walk_yaw` per-tick reward/credit-assignment, not another
+  mechanism-knob canary.
 - `walkcurr`: RETIRED 08-31, DONE-negative scope finding (see above).
 - `joystick`, `amp`, `cpg`: green/maintenance unless the operator
   explicitly reopens them.
