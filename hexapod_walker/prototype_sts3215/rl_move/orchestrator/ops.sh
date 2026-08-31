@@ -819,6 +819,47 @@ drain)  # drain — push backlog onto free pods, DETACHED + creds sourced.
   echo "drain running detached (pid $!) -> $log; check: tail $log"
   ;;
 
+niceevals)  # niceevals <pod> — renice every rl_move.sim.eval_checkpoint
+  # process TREE on the pod (incl. its multiprocessing/ffmpeg children)
+  # to nice 19 so a co-located trainer wins every CPU contention while
+  # the evals still finish. Added 08-31: watcher flagged fps starvation
+  # (train-0 fps 2913 vs 5000 floor) — prestaged evals for FINISHED
+  # runs saturated the 24-core cgroup of a pod reused by a live
+  # trainer. Two traps encoded here: (1) renice per-THREAD — Linux
+  # setpriority(PRIO_PROCESS) only hits the thread-group leader and
+  # these evals burn 600%+ CPU in worker threads; (2) walk descendants
+  # by ppid ancestry, NEVER by matching spawn_main — the trainer's own
+  # host workers are spawn_main processes too and must keep priority.
+  pod="$2"
+  [ -n "$pod" ] || { echo "usage: ops.sh niceevals <pod>"; exit 1; }
+  kubectl exec "$pod" -- bash -c '
+    declare -A tree
+    add_desc() {
+      local d pp c
+      for d in /proc/[0-9]*; do
+        pp=$(sed "s/.*) //" "$d/stat" 2>/dev/null | awk "{print \$2}") || continue
+        if [ "$pp" = "$1" ]; then
+          c=${d#/proc/}
+          [ -n "${tree[$c]}" ] || { tree[$c]=1; add_desc "$c"; }
+        fi
+      done
+    }
+    for d in /proc/[0-9]*; do
+      p=${d#/proc/}; [ "$p" = "$$" ] && continue
+      c=$(tr "\0" " " < "$d/cmdline" 2>/dev/null)
+      case "$c" in *rl_move.sim.eval_checkpoint*)
+        [ -n "${tree[$p]}" ] || { tree[$p]=1; add_desc "$p"; };;
+      esac
+    done
+    n=0
+    for p in "${!tree[@]}"; do
+      for t in /proc/"$p"/task/[0-9]*; do
+        renice -n 19 -p "${t##*/}" >/dev/null 2>&1 && n=$((n+1))
+      done
+    done
+    echo "reniced $n threads across ${#tree[@]} eval-tree processes"'
+  ;;
+
 killrun)  # killrun <run> — kill a run's training procs on its pod.
   # Pods have no pkill, and a naive /proc scan matches ITSELF (the
   # scanning shell's own cmdline contains the run name — a cycle killed
