@@ -18,8 +18,12 @@ The campaign has six registered tracks in
 3. `cpg` - GATE GREEN (08-23): parameterized CPG controller passes its
    contextual walking/turning/stopping gate; maintenance/adoption
    comparisons only.
-4. `walkcurr` - OPEN/BLOCKED: prior-free PPO walking remains a separate
-   research question. Do not use BC/gait-clock shortcuts here.
+4. `walkcurr` - RETIRED (08-31): honest DONE-negative scope finding.
+   Both final literature-wave seeds (`litrep-box-s0/-s1`, 150M each)
+   plus every prior non-BC mechanism/architecture class land the same
+   static-stand basin. Prior-free discovery alone does not escape it
+   at this budget; walking is carried by `joystick`/`standwalk`'s
+   BC-anchored lineages instead. No further agent-initiated arms.
 5. `standwalk` - OPEN: continue the hard single-policy goal, one
    mesh/100 Hz policy for sit -> rise -> joystick walk -> lower.
 6. `todaypolicy` - NEW (08-30): delivery track for a working
@@ -67,7 +71,7 @@ Exported walk artifact:
   and both anchor-coefficient doses (1.0/0.3 off 3.0) FAILed too
   (08-31) — anchor DOSE exonerated. New targeted-gate mechanism
   (`train.bc_anchor_walk_turn_skip`) canary in flight on train-2.
-- `walkcurr`: only prior-free mechanisms; no gait prior.
+- `walkcurr`: RETIRED 08-31, DONE-negative scope finding (see above).
 - `joystick`, `amp`, `cpg`: green/maintenance unless the operator
   explicitly reopens them.
 
