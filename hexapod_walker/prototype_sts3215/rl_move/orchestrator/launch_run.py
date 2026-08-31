@@ -199,7 +199,12 @@ TRAINER_MODULES = [
 # (numeric-named dirs each holding a NUL-separated `cmdline` file) so the
 # real glob/case logic is exercised without touching a live pod.
 _TRAINER_SCAN_SCRIPT = (
-    "for p in {proc}/[0-9]*; do c=$(tr '\\0' ' ' < $p/cmdline 2>/dev/null); "
+    # mapfile (fork-free) instead of $(tr ...): the per-PID fork made the
+    # scan O(seconds-per-100k-PIDs); a zombie-bloated pod (meta 08-31:
+    # 313k unreaped git zombies on the controller) blew the 60s kexec
+    # timeout. Trailing space is appended to match tr's NUL->space output.
+    "for p in {proc}/[0-9]*; do A=(); mapfile -d '' A 2>/dev/null "
+    "< $p/cmdline || continue; c=\"${{A[*]}} \"; "
     "case \"$c\" in " +
     "|".join(
         f"python*' -m {m}'*|*/python*' -m {m}'*|"

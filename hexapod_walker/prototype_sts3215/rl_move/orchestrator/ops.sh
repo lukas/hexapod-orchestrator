@@ -429,6 +429,14 @@ review)  # review <run> — THE standard triage read in one command:
   run="$2"
   echo "##### ledger"
   st=$(entry_field "$run" status); gate=$(entry_field "$run" gate)
+  v_existing=$(entry_field "$run" verdict)
+  if [ -n "$v_existing" ] && [ "$v_existing" != "None" ]; then
+    # meta 08-31: 3 cycles re-derived evidence for runs a concurrent
+    # cycle had already verdicted. Say so FIRST so triage can stop here.
+    echo "=== ALREADY VERDICTED (status=$st) — do not re-triage ==="
+    echo "$v_existing"
+    echo "=== (only continue if you have NEW evidence; FORCE=1 to overwrite) ==="
+  fi
   echo "status=$st  pod=$(entry_field "$run" pod)"
   echo "gate: $gate"
   echo "##### wandb"
