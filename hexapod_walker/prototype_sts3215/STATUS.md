@@ -62,9 +62,11 @@ Exported walk artifact:
 - `todaypolicy`: DONE for 08-30 (bundle packaged, GO). Optional: swap
   walk role if a walkteach-lineage export beats MLP-singleframe on the
   identical UX suite; learned-vs-scripted tuck A/B.
-- `standwalk`: dualbc4_walkteach distill in flight; dualbc3
-  mixedsession session reads pending on train-0/1 — no distillation
-  spend until they land.
+- `standwalk`: turn-authority-on-a-BC-anchored-walker still unsolved.
+  3 mechanism classes FAILed (turndiet, turnpay/walkteach, turncap+RL)
+  and both anchor-coefficient doses (1.0/0.3 off 3.0) FAILed too
+  (08-31) — anchor DOSE exonerated. New targeted-gate mechanism
+  (`train.bc_anchor_walk_turn_skip`) canary in flight on train-2.
 - `walkcurr`: only prior-free mechanisms; no gait prior.
 - `joystick`, `amp`, `cpg`: green/maintenance unless the operator
   explicitly reopens them.
