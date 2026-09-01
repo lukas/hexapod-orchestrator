@@ -67,18 +67,18 @@ Exported walk artifact:
   walk role if a walkteach-lineage export beats MLP-singleframe on the
   identical UX suite; learned-vs-scripted tuck A/B.
 - `standwalk`: turn-authority-on-a-BC-anchored-walker still not fully
-  solved by RL, but 09-01 ~03:3x found the first genuinely durable
-  lever after 10 mechanism-class attempts: bounding PPO's realized
-  per-update KL (`--kl-rollback`) stacked on the actor-freeze/critic-
-  warmup holds `probe_turn_authority` FLAT from 10M to 38M instead of
-  eroding to the campaign's usual <0.05 floor — final wz_med
-  pos 0.068/0.068, neg **-0.109/-0.110, the first sign in the whole
-  campaign to clear the >=0.10 PASS bar**. Guard-only (no freeze)
-  reaches the same plateau faster but isn't durable alone (re-erodes
-  after ~24M) — both ingredients needed. A 2-arm tighter-cap (0.02)
-  dose bracket is running to try to close the remaining positive-sign
-  gap to full PASS. Mirror-augmented-BC-base work (below) is the
-  parallel, independent lever still on the board.
+  solved by RL. The entire update-size-constraint mechanism family
+  (actor-freeze/value-warmup/kl-rollback at 3 doses) is now CLOSED
+  (09-01, matched-drift confirmed n=4): it delays erosion but never
+  durably clears the >=0.10-both-signs bar beyond a
+  pos~0.075-0.09/neg~-0.10to-0.12 ceiling. New lever BUILT and
+  launched same day: a reward-decomposed (yaw-component) critic
+  (`rl_move/sim/yaw_critic.py`, 13/13 tests green) — a separate value
+  head + advantage trained only off the yaw reward, attacking the
+  probe_yaw_credit-diagnosed root cause (yaw credit drowned by the
+  dominant walk-forward reward in the one shared advantage). 2M
+  canary pair (`...-yawcredit-ctrl-canary` done, `...-yawcredit-
+  canary-rr1` training) not yet readable.
 - `walkcurr`: RETIRED 08-31, DONE-negative scope finding (see above).
 - `joystick`, `amp`, `cpg`: green/maintenance unless the operator
   explicitly reopens them.
