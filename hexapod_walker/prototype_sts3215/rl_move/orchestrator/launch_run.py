@@ -2127,25 +2127,44 @@ def _self_repair_pod(pod: str, extra_args: list[str]) -> str | None:
 
 
 def _free_gpu_pods(g: dict) -> list[str]:
-    free = []
+    # Pods with active watcher/prestage eval processes (eval_checkpoint /
+    # eval_mixed_session for the PREVIOUS run on that pod) go LAST: a
+    # trainer sharing the 24-28-core cgroup with a live eval stack runs
+    # at ~half fps (measured 09-01 on train-1: 2.4-3.3k vs the twin's
+    # 6.6-7.1k on a quiet pod; nice/renice does NOT help because the
+    # cgroup quota, not runqueue weighting, is the contention point).
+    # Soft preference only — never a refusal — so no capacity is lost
+    # when every pod happens to be running evals.
+    free: list[tuple[int, str]] = []
     for pod in g["compute"]["gpu_pods"]:
         try:
             # A pod without the .bootstrapped marker is schedulable but
             # not training-ready (deps mid-install); it is NOT a slot
             # yet — bootstrap_train_pod.sh writes the marker last.
-            ready = kexec(
+            out = kexec(
                 pod,
                 "test -f /workspace/prototype_sts3215/.bootstrapped && "
                 "cd /workspace/prototype_sts3215 && "
                 "command -v uv >/dev/null 2>&1 && "
                 "uv run python -c 'import sys' >/dev/null && "
-                "echo OK || true",
-            ).strip()
+                "echo OK || true; "
+                # count live eval procs (0 kexec round-trips extra)
+                "ls /proc 2>/dev/null | grep -E '^[0-9]+$' | while read p; "
+                "do tr '\\0' ' ' < /proc/$p/cmdline 2>/dev/null && echo; "
+                "done | grep -c 'rl_move\\.sim\\.eval_' || true",
+            ).strip().splitlines()
+            ready = out[0].strip() if out else ""
+            try:
+                evals = int(out[-1].strip()) if len(out) > 1 else 0
+            except ValueError:
+                evals = 0
             if ready == "OK" and not pod_trainers(pod):
-                free.append(pod)
+                free.append((1 if evals > 0 else 0, pod))
         except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
             continue  # Pending/unreachable pod: not a free slot right now
-    return free
+    # stable sort: guardrails order preserved within eval-quiet/eval-busy
+    free.sort(key=lambda t: t[0])
+    return [pod for _, pod in free]
 
 
 def cmd_drain(g: dict, a: argparse.Namespace) -> int:
