@@ -995,6 +995,22 @@ def _launch_locked(g: dict, a: argparse.Namespace,
             return refuse(entry, f"{n_running} experiments already running "
                                  f">= cap {comp['max_concurrent_runs']}")
         checks["running_experiments_before"] = n_running
+        # Twin guard (meta 09-01, see _twin_key): identical normalized
+        # train args + steps vs a RUNNING non-smoke entry = the same
+        # experiment launched twice under two names by concurrent cycles.
+        if not getattr(a, "allow_twin", False):
+            mine = _twin_key(extra, a.steps)
+            for e in load_ledger():
+                if (isinstance(e, dict) and e.get("status") == "RUNNING"
+                        and not e.get("smoke") and e.get("run") != a.run
+                        and _twin_key(e.get("extra_args"),
+                                      e.get("steps")) == mine):
+                    return refuse(entry,
+                                  f"config twin of RUNNING {e['run']} "
+                                  "(identical train args+steps; a seed twin "
+                                  "would differ in --seed — pass "
+                                  "--allow-twin only for a deliberate "
+                                  "replica)")
 
     # --- code-version gate (2026-08-09) -------------------------------------
     # Pods have no git; the only record of what code a pod runs is the
@@ -1351,6 +1367,33 @@ def _budget_reached(budget: int, wb_step: int, pod: str, log: str) -> bool:
         return bool(raw) and int(raw) >= budget
     except (subprocess.CalledProcessError, ValueError):
         return False
+
+
+def _twin_key(extra_args: list, steps) -> tuple:
+    """Normalized identity of a training config: multiset of (flag, value)
+    pairs minus --out-name (mirrors the run name) and --notes (free-text
+    documentation, not config — the 09-01 twin pair differed ONLY there),
+    plus steps. Seed twins differ in --seed, so they never collide. Used
+    by the launch-time twin guard (meta 09-01): two concurrent cycles
+    launched bit-identical configs under different names 7 min apart
+    (klroll-acq1 vs klrollctrl-acq1) and one had to be killed at 1M."""
+    toks = [str(x) for x in (extra_args or [])]
+    pairs, i = [], 0
+    while i < len(toks):
+        t = toks[i]
+        if t.startswith("--"):
+            v = ""
+            # value = next token unless it's another --flag (negative
+            # numbers like -0.8 don't start with --, so they're values)
+            if i + 1 < len(toks) and not toks[i + 1].startswith("--"):
+                v = toks[i + 1]
+                i += 1
+            if t not in ("--out-name", "--notes"):
+                pairs.append((t, v))
+        else:
+            pairs.append(("", t))
+        i += 1
+    return (tuple(sorted(pairs)), steps)
 
 
 def _extra_int(extra_args: list, flag: str, default: int) -> int:
@@ -2098,6 +2141,7 @@ def cmd_respec(g: dict, a: argparse.Namespace) -> int:
             a, "allow_legacy_control_hz", False),
         allow_model_source_mismatch=getattr(
             a, "allow_model_source_mismatch", False),
+        allow_twin=getattr(a, "allow_twin", False),
         allow_no_log_std_final=getattr(
             a, "allow_no_log_std_final", False))
     return cmd_launch(g, ns, args)
@@ -2559,6 +2603,8 @@ def main() -> int:
                          "respec (rare -- families do not transfer)")
     rp.add_argument("--allow-no-log-std-final", action="store_true",
                     help="see `launch --allow-no-log-std-final`")
+    rp.add_argument("--allow-twin", action="store_true",
+                    help="see `launch --allow-twin`")
     lp = sub.add_parser("launch")
     lp.add_argument("--trainer",
                     choices=("ppo", "dynrep", "dynrep-fresh"),
@@ -2585,6 +2631,10 @@ def main() -> int:
                     help="short validation run: W&B disabled, non-cw name")
     lp.add_argument("--allow-slow", action="store_true",
                     help="override the free-cores check (record why!)")
+    lp.add_argument("--allow-twin", action="store_true",
+                    help="permit a launch whose normalized train args+steps "
+                         "exactly match a RUNNING run's (deliberate replica; "
+                         "seed twins differ in --seed and never need this)")
     lp.add_argument("--allow-legacy-control-hz", action="store_true",
                     help="permit an EXPLICIT non-100 --cfg-set "
                          "control.hz=... (08-24 ruling default is 100; "

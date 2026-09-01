@@ -493,9 +493,15 @@ def main() -> int:
                   f"watching — reaping (copy-back only, no relaunch)")
             jobs.append((tag, out_rel, logpath, None, None))
             continue
+        # nice -n 19 (meta 09-01): prestage evals share a 24-28 core cgroup
+        # with the pod's NEXT trainer; 6 SUSPECT-fps checkup cycles in 24h
+        # (08-31 13:5x .. 09-01 08:5x) all root-caused to this contention.
+        # Spawn-time nice inherits to every worker thread/child (unlike
+        # retroactive renice, see ops.sh niceevals), so trainers win CPU
+        # while idle-pod evals still run full speed.
         cmd = (f"cd {POD_PROTO} && set -a && "
                f". rl_move/sim/wandb.env 2>/dev/null; set +a; "
-               f"uv run python -m rl_move.sim.eval_checkpoint {shlex.quote(ckpt)}"
+               f"nice -n 19 uv run python -m rl_move.sim.eval_checkpoint {shlex.quote(ckpt)}"
                f" --task {task} {modes} --per-mode 6 --dr-scale {drv}"
                f" --seed 0 --stochastic"
                + (f" --episode-seconds {ep}" if ep else "")
@@ -530,7 +536,7 @@ def main() -> int:
                           else (partner, ckpt))
                 s_log = f"/tmp/eval_{run}_session.log"
                 s_cmd = (f"cd {POD_PROTO} && mkdir -p {s_out_rel} && "
-                         f"uv run python -m rl_move.sim.eval_session"
+                         f"nice -n 19 uv run python -m rl_move.sim.eval_session"
                          f" --stance {shlex.quote(st)}"
                          f" --walk {shlex.quote(wk)}"
                          f" --out {s_out_rel}/report.json"
@@ -573,7 +579,7 @@ def main() -> int:
                               for c in all_cfgs)
             ms_cmd = (f"cd {POD_PROTO} && set -a && "
                       f". rl_move/sim/wandb.env 2>/dev/null; set +a; "
-                      f"uv run python -m rl_move.sim.eval_mixed_session "
+                      f"nice -n 19 uv run python -m rl_move.sim.eval_mixed_session "
                       f"{shlex.quote(ckpt)} --task {task} "
                       f"--own-dr-scale {dr} --n 6 --episode-seconds 60 "
                       f"--long-seconds 180 --video{ms_cfg} "
@@ -601,7 +607,7 @@ def main() -> int:
             j_log = f"/tmp/eval_{run}_joygate.log"
             j_cmd = (f"cd {POD_PROTO} && set -a && "
                      f". rl_move/sim/wandb.env 2>/dev/null; set +a; "
-                     f"uv run python -m rl_move.sim.eval_joystick_gate "
+                     f"nice -n 19 uv run python -m rl_move.sim.eval_joystick_gate "
                      f"{shlex.quote(ckpt)} --own-dr-scale {dr}"
                      + "".join(f" --extra-cfg-set {shlex.quote(c)}"
                                for c in cfgs)
