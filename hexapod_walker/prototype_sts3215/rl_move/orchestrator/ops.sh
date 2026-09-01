@@ -343,6 +343,46 @@ print(f"# then: ops.sh waitlog /tmp/mixedsession_{run}.log 'verdict written|Trac
 EOF
   ;;
 
+donegatecmd)  # donegatecmd <run> [rise_s=10] [walk_s=60] [lower_s=15] —
+  # print the single-cycle sit->rise->walk->lower DONE-gate session
+  # command (eval_done_gate_session, 09-01, standwalk) carrying the
+  # run's own cfg stack. Unlike sessioncmd's eval_mixed_session (which
+  # REPEATS rise<->walk<->lower for the whole episode — single-rise
+  # fragility compounds across those repeats into a misleadingly total
+  # session failure, see the 09-01 gradclip0p15-canary root-cause),
+  # this gives the DONE gate's literal ONE-cycle shape. Run on the
+  # run's pod (kubectl exec after snapshot.sh --sync), never the
+  # controller for a real n>=12 read (slow on CPU).
+  run="$2"; rise="${3:-10}"; walk="${4:-60}"; lower="${5:-15}"
+  uv run python - "$run" "$rise" "$walk" "$lower" <<'EOF'
+import json, os, sys
+run, rise, walk, lower = sys.argv[1:5]
+entry = None
+fallback = None
+for e in json.load(open(os.environ["LEDGER"])):
+    if isinstance(e, dict) and e.get("run") == run and e.get("extra_args"):
+        fallback = e
+        if e.get("wandb_id") or e.get("checks", {}).get("pid"):
+            entry = e
+entry = entry or fallback
+args = entry["extra_args"] if entry else []
+def val(flag, default=None):
+    return args[args.index(flag) + 1] if flag in args else default
+task = val("--task", "joint_walk")
+dr = val("--dr-scale", "0.0")
+cfg = " ".join(f"--extra-cfg-set {args[i+1]}"
+               for i, a in enumerate(args) if a == "--cfg-set")
+name = "ppo_goal_" + run.replace("-", "_")
+out = f"logs/ckpt_eval/{run.replace('-', '_')}_donegate"
+print("# run from the PROTO dir on the run's pod (module form, detached)")
+print(f"nohup uv run python -m rl_move.sim.eval_done_gate_session rl_move/sim/policies/{name}.zip \\")
+print(f"  --task {task} --own-dr-scale {dr} --n 8 --rise-s {rise} --walk-s {walk} --lower-s {lower} --video \\")
+if cfg: print(f"  {cfg} \\")
+print(f"  --out-dir {out} > /tmp/donegate_{run}.log 2>&1 &")
+print(f"# then: ops.sh waitlog /tmp/donegate_{run}.log 'verdict written|Traceback' 3600")
+EOF
+  ;;
+
 expdir)  # expdir <run> — per-experiment log dir with summary.md template
   run="$2"; d="$PROTO/logs/experiments/$run"
   mkdir -p "$d"
