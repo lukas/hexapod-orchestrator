@@ -66,17 +66,19 @@ Exported walk artifact:
 - `todaypolicy`: DONE for 08-30 (bundle packaged, GO). Optional: swap
   walk role if a walkteach-lineage export beats MLP-singleframe on the
   identical UX suite; learned-vs-scripted tuck A/B.
-- `standwalk`: turn-authority-on-a-BC-anchored-walker still unsolved by
-  RL (all 8 mechanism classes FAILed, closed 08-31). Pivoted off RL
-  entirely per the audit chain's own finding (dataset balanced, BC
-  loss symmetric, defect is in closed-loop compounding/optimization):
-  `mirror.MirrorPolicy` reflection gives the SAME raw pre-RL checkpoint
-  real turn authority on its frozen sign with ZERO training (08-31
-  ~11:1x) — one candidate fix (runtime reflection-select composition)
-  already measured working on the untouched weights. Now also running
-  a mirror-AUGMENTED re-distillation (`dualbc6_turncap_mirroraug`,
-  background CPU) testing whether training-time symmetric supervision
-  fixes the base checkpoint itself, no wrapper needed (08-31 ~11:3x).
+- `standwalk`: turn-authority-on-a-BC-anchored-walker still not fully
+  solved by RL, but 09-01 ~03:3x found the first genuinely durable
+  lever after 10 mechanism-class attempts: bounding PPO's realized
+  per-update KL (`--kl-rollback`) stacked on the actor-freeze/critic-
+  warmup holds `probe_turn_authority` FLAT from 10M to 38M instead of
+  eroding to the campaign's usual <0.05 floor — final wz_med
+  pos 0.068/0.068, neg **-0.109/-0.110, the first sign in the whole
+  campaign to clear the >=0.10 PASS bar**. Guard-only (no freeze)
+  reaches the same plateau faster but isn't durable alone (re-erodes
+  after ~24M) — both ingredients needed. A 2-arm tighter-cap (0.02)
+  dose bracket is running to try to close the remaining positive-sign
+  gap to full PASS. Mirror-augmented-BC-base work (below) is the
+  parallel, independent lever still on the board.
 - `walkcurr`: RETIRED 08-31, DONE-negative scope finding (see above).
 - `joystick`, `amp`, `cpg`: green/maintenance unless the operator
   explicitly reopens them.
