@@ -795,7 +795,8 @@ def _launch_locked(g: dict, a: argparse.Namespace,
                     "name the healthy canary and a comparable full-budget "
                     "learning precedent" if phase == "acquisition" else
                     "name the run/video where intended behavior was already "
-                    "seen, or the test_task_semantics/preflight PASS")
+                    "seen, or a robot_abs_tibia_v2 trajectory-bank/preflight "
+                    "PASS")
                 return refuse(entry, f"{phase} runs require --evidence: "
                                      f"{required}.")
             entry["evidence"] = evidence
