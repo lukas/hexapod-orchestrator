@@ -343,7 +343,7 @@ print(f"# then: ops.sh waitlog /tmp/mixedsession_{run}.log 'verdict written|Trac
 EOF
   ;;
 
-donegatecmd)  # donegatecmd <run> [rise_s=10] [walk_s=60] [lower_s=15] —
+donegatecmd)  # donegatecmd <run> [rise_s=10] [walk_s=60] [lower_s=15] [flat=0] —
   # print the single-cycle sit->rise->walk->lower DONE-gate session
   # command (eval_done_gate_session, 09-01, standwalk) carrying the
   # run's own cfg stack. Unlike sessioncmd's eval_mixed_session (which
@@ -353,10 +353,21 @@ donegatecmd)  # donegatecmd <run> [rise_s=10] [walk_s=60] [lower_s=15] —
   # this gives the DONE gate's literal ONE-cycle shape. Run on the
   # run's pod (kubectl exec after snapshot.sh --sync), never the
   # controller for a real n>=12 read (slow on CPU).
-  run="$2"; rise="${3:-10}"; walk="${4:-60}"; lower="${5:-15}"
-  uv run python - "$run" "$rise" "$walk" "$lower" <<'EOF'
+  # flat=1 (09-02 fix, see the 09-01 mixedsession-diet scoping bug AND
+  # its 09-02 recurrence on frameblend-canary-s1): forces a literal
+  # flat/sit rise start (goal.rise_flat_frac=1.0, rise_partial_frac=0,
+  # rise_start_bank_frac=0, rise_rsi_frac=0) instead of riding the
+  # checkpoint's own training-curriculum rise-start mix, and suffixes
+  # the out-dir _donegate_flatonly so it never collides with a plain
+  # (mixed-diet) read of the same checkpoint. The DONE gate is
+  # literally "from sit" — flat=1 is the correct default for any real
+  # gate verdict; flat=0 stays available for mechanism-robustness
+  # reads that want the training-mix diet on purpose.
+  run="$2"; rise="${3:-10}"; walk="${4:-60}"; lower="${5:-15}"; flat="${6:-0}"
+  uv run python - "$run" "$rise" "$walk" "$lower" "$flat" <<'EOF'
 import json, os, sys
-run, rise, walk, lower = sys.argv[1:5]
+run, rise, walk, lower, flat = sys.argv[1:6]
+flat = flat in ("1", "true", "True")
 entry = None
 fallback = None
 for e in json.load(open(os.environ["LEDGER"])):
@@ -372,8 +383,14 @@ task = val("--task", "joint_walk")
 dr = val("--dr-scale", "0.0")
 cfg = " ".join(f"--extra-cfg-set {args[i+1]}"
                for i, a in enumerate(args) if a == "--cfg-set")
+if flat:
+    cfg += (" --extra-cfg-set goal.rise_flat_frac=1.0"
+            " --extra-cfg-set goal.rise_partial_frac=0"
+            " --extra-cfg-set goal.rise_start_bank_frac=0"
+            " --extra-cfg-set goal.rise_rsi_frac=0")
 name = "ppo_goal_" + run.replace("-", "_")
-out = f"logs/ckpt_eval/{run.replace('-', '_')}_donegate"
+suffix = "_donegate_flatonly" if flat else "_donegate"
+out = f"logs/ckpt_eval/{run.replace('-', '_')}{suffix}"
 print("# run from the PROTO dir on the run's pod (module form, detached)")
 print(f"nohup uv run python -m rl_move.sim.eval_done_gate_session rl_move/sim/policies/{name}.zip \\")
 print(f"  --task {task} --own-dr-scale {dr} --n 8 --rise-s {rise} --walk-s {walk} --lower-s {lower} --video \\")
