@@ -74,11 +74,16 @@ Exported walk artifact:
   dynamics, no randomization). 09-02 ~05:0x root-caused it further by
   elimination (two clean A/B pod-eval diagnostics, zero training):
   NEITHER the commanded height-ramp RATE nor the TARGET HEIGHT changes
-  peak current — it's tied to the curl-up-from-flat rise motion itself
-  under the heavier 3.50kg mesh body, uniform across all 6 legs. Not
-  yet localized to a specific joint/phase; no reward/cfg fix proposed
-  yet (see `rl_docs/tracks/standwalk/STATUS.md` Next item 1). The
-  yaw-credit critic and turn-authority work from late 08-2026 is
+  peak current — it's the curl-up-from-flat rise motion itself under
+  the heavier 3.50kg mesh body. A follow-up per-joint trace LOCALIZED
+  it further: the FEMUR (hip-pitch/thigh) joint alone pins at the
+  2.5A safety cap in every surveyed episode (tibia hot-but-under-cap,
+  coxa comfortable) — matches the physics (femur bears the primary
+  stand-up lifting torque). No reward/cfg fix proposed yet; one more
+  comparison (legacy primitive-family femur cost) needed to choose
+  between raising the cap, repricing current, or a lighter curl-up
+  reference (see `rl_docs/tracks/standwalk/STATUS.md` Next item 1).
+  The yaw-credit critic and turn-authority work from late 08-2026 is
   paused behind this finding (a turn-authority bar measured through
   the same current fragility can't be trusted until item 1 closes).
 - `walkcurr`: RETIRED 08-31, DONE-negative scope finding (see above).
