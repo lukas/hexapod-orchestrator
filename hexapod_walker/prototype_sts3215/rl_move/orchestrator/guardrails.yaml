@@ -221,8 +221,8 @@ phases:
   #                continuable past the registered budget while reward
   #                and gate metrics rise (08-21 ruling).
   #   hardening / composition / transfer  require --evidence naming
-  #                where the correct behavior was already seen (run /
-  #                video / test_task_semantics PASS).
+  #                where the correct v2 behavior was already seen (run /
+  #                video / canonical trajectory-bank preflight PASS).
   # SPECIFICATION (reward/eval design, preflights, trajectory banks)
   # never trains and has no launch phase.
   discovery_max_steps: 2000000
