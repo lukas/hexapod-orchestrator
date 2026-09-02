@@ -50,7 +50,7 @@ for e in json.load(open(__import__("os").environ["LEDGER"])):
 print(val if val != "" else dead_val)
 EOF
 }
-export LEDGER PROTO
+export LEDGER PROTO HERE
 
 case "${1:-help}" in
 
@@ -396,7 +396,34 @@ print(f"nohup uv run python -m rl_move.sim.eval_done_gate_session rl_move/sim/po
 print(f"  --task {task} --own-dr-scale {dr} --n 8 --rise-s {rise} --walk-s {walk} --lower-s {lower} --video \\")
 if cfg: print(f"  {cfg} \\")
 print(f"  --out-dir {out} > /tmp/donegate_{run}.log 2>&1 &")
-print(f"# then: ops.sh waitlog /tmp/donegate_{run}.log 'verdict written|Traceback' 3600")
+print(f"# then REGISTER it and EXIT your cycle (the watcher kicks a cycle the"
+      f" moment the verdict lands — do NOT sleep-poll it):")
+print(f"# ops.sh evalpending add <pod> /workspace/prototype_sts3215/{out}/session_verdict.json {run.replace('-', '_')}{suffix}")
+EOF
+  ;;
+
+evalpending)  # evalpending add <pod> <remote_file> <label> | list — register a
+  # long on-pod eval job. The watcher holds idle kicks while any entry is in
+  # flight and spawns a cycle the moment the file exists on the pod (8h TTL).
+  # Register ANY slow detached on-pod eval this way instead of polling it.
+  sub="${2:-list}"; pod="${3:-}"; file="${4:-}"; label="${5:-}"
+  uv run python - "$sub" "$pod" "$file" "$label" <<'EOF'
+import datetime, json, os, sys
+sub, pod, file, label = sys.argv[1:5]
+path = os.path.join(os.environ["HERE"], "pending_evals.json")
+try:
+    entries = json.load(open(path))
+except (OSError, ValueError):
+    entries = []
+if sub == "add":
+    assert pod and file and label, "usage: evalpending add <pod> <remote_file> <label>"
+    entries = [e for e in entries if e.get("label") != label]
+    entries.append({"pod": pod, "file": file, "label": label,
+                    "added": datetime.datetime.now().isoformat(timespec="seconds")})
+    json.dump(entries, open(path, "w"), indent=1)
+    print(f"registered: {label} ({pod}:{file})")
+else:
+    print(json.dumps(entries, indent=1))
 EOF
   ;;
 
@@ -1080,7 +1107,7 @@ waitlog)  # waitlog <file> <regex> [timeout_s] — poll instead of sleep-and-pra
   echo "  status | census | triage [hours] | procs <pod> | trainlog <run> [n] |"
   echo "  entry <run> | wandb <run> | pullckpt <run> | pushckpt <pod> <ckpt> |"
   echo "  podeval <run> [sfx] | m5eval <run> [pod] | evalcmd <run> | drain | killrun <run> |"
-  echo "  waitlog <file> <regex> [t] |"
+  echo "  waitlog <file> <regex> [t] | evalpending add <pod> <file> <label> |"
   echo "  logline \"line\" | frames <mp4> [n] | expdir <run> | wandbdump <run> |"
   echo "  wandbnote <run> \"paragraph\" | oplaunch <launch_run.py args...> |"
   echo "  cycle [\"focus text\"] (operator: kick a decision session now) |"

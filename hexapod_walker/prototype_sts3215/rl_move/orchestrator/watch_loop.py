@@ -295,6 +295,54 @@ IDLE_KICK_POLLS = 3
 # (~4 h).
 IDLE_KICK_MAX_POLLS = 48  # 48 * 300 s = 4 h floor on kick cadence
 
+# Pending on-pod eval registry (meta 09-02). Cycles register long
+# on-pod eval jobs (`ops.sh evalpending add <pod> <remote_file>
+# <label>`); while any is in flight the idle loop HOLDS idle kicks
+# (measured 09-01/09-02: 6+ hand-polling kick cycles per eval panel),
+# and the moment a result file lands it kicks a cycle naming it
+# (measured: verdicts sat unread for hours awaiting the next kick).
+PENDING_EVALS = HERE / "pending_evals.json"
+PENDING_EVAL_TTL_S = 8 * 3600  # expiry so a dead eval can't deadlock kicks
+KUBECONFIG = str(pathlib.Path.home() / ".kube" / "coreweave.yaml")
+
+
+def check_pending_evals() -> tuple[list[dict], int]:
+    """Poll registered on-pod eval jobs.
+
+    Returns (ready_entries, n_still_in_flight); ready and expired
+    entries are pruned from the registry file.
+    """
+    try:
+        entries = json.loads(PENDING_EVALS.read_text())
+        assert isinstance(entries, list) and entries
+    except (OSError, ValueError, AssertionError):
+        return [], 0
+    ready: list[dict] = []
+    keep: list[dict] = []
+    now = time.time()
+    for e in entries:
+        try:
+            added = datetime.datetime.fromisoformat(e["added"]).timestamp()
+        except (KeyError, TypeError, ValueError):
+            added = now
+        if now - added > PENDING_EVAL_TTL_S:
+            log(f"pending eval {e.get('label')!r} expired (>8h); dropping")
+            continue
+        try:
+            rc = subprocess.run(
+                ["kubectl", "--kubeconfig", KUBECONFIG, "exec",
+                 str(e["pod"]), "--", "test", "-f", str(e["file"])],
+                capture_output=True, timeout=60).returncode
+        except (subprocess.TimeoutExpired, OSError, KeyError):
+            keep.append(e)  # pod unreachable: still in flight until TTL
+            continue
+        (ready if rc == 0 else keep).append(e)
+    try:
+        PENDING_EVALS.write_text(json.dumps(keep, indent=1) + "\n")
+    except OSError:
+        pass
+    return ready, len(keep)
+
 
 def idle_kick_threshold(streak: int) -> int:
     """Polls to wait before the next idle kick, given how many
@@ -1348,6 +1396,7 @@ def main() -> None:
                                "review/refill pass)") + "\n"))
                     active.append(handle)
 
+            eval_trigger = None
             if not newly and not findings:
                 if running or active:
                     idle_polls = 0
@@ -1362,22 +1411,47 @@ def main() -> None:
                     )
                     sleep_poll()
                     continue
-                idle_polls += 1
-                threshold = idle_kick_threshold(idle_kick_streak)
-                if idle_polls < threshold:
-                    log(
-                        f"nothing running, nothing new finished "
-                        f"(idle poll {idle_polls}/{threshold}"
-                        + (f", kick streak {idle_kick_streak})"
-                           if idle_kick_streak else ")")
-                    )
+                ready_evals, evals_in_flight = check_pending_evals()
+                if ready_evals:
+                    idle_polls = 0
+                    idle_kick_streak = 0
+                    names = ", ".join(str(e.get("label")) for e in ready_evals)
+                    log(f"on-pod eval result(s) ready: {names} — kicking")
+                    eval_trigger = (
+                        "No run just finished — this cycle fires because "
+                        "registered on-pod eval job(s) FINISHED and their "
+                        "result files are UNREAD:\n"
+                        + "".join(
+                            f"- {e.get('label')}: {e.get('pod')}:"
+                            f"{e.get('file')}\n" for e in ready_evals)
+                        + "Pull and read each result, record what it "
+                        "decides (track STATUS / RL_LOG / ledger verdict "
+                        "as appropriate), then apply the normal refill "
+                        "rules.\n")
+                elif evals_in_flight:
+                    log(f"{evals_in_flight} registered on-pod eval(s) "
+                        "still in flight; holding idle kicks")
                     sleep_poll()
                     continue
-                log("pods idle too long — kicking a cycle to resume the campaign"
-                    + (f" (idle-kick streak {idle_kick_streak + 1}, next "
-                       f"threshold {idle_kick_threshold(idle_kick_streak + 1)}"
-                       " polls)" if idle_kick_streak + 1 else ""))
-                idle_kick_streak += 1
+                else:
+                    idle_polls += 1
+                    threshold = idle_kick_threshold(idle_kick_streak)
+                    if idle_polls < threshold:
+                        log(
+                            f"nothing running, nothing new finished "
+                            f"(idle poll {idle_polls}/{threshold}"
+                            + (f", kick streak {idle_kick_streak})"
+                               if idle_kick_streak else ")")
+                        )
+                        sleep_poll()
+                        continue
+                    log("pods idle too long — kicking a cycle to resume the "
+                        "campaign"
+                        + (f" (idle-kick streak {idle_kick_streak + 1}, next "
+                           f"threshold "
+                           f"{idle_kick_threshold(idle_kick_streak + 1)}"
+                           " polls)" if idle_kick_streak + 1 else ""))
+                    idle_kick_streak += 1
             else:
                 idle_polls = 0
                 idle_kick_streak = 0
@@ -1438,7 +1512,12 @@ def main() -> None:
                                 if r in auto_started_all}
                 handle = spawn_cycle(batch, running,
                                      findings if i == 0 else "",
-                                     in_flight, auto_started)
+                                     in_flight, auto_started,
+                                     trigger_text=(eval_trigger
+                                                   if i == 0 else None),
+                                     label_override=("evalready"
+                                                     if eval_trigger and i == 0
+                                                     else None))
                 active.append(handle)
                 for r in sorted(batch):
                     mark_triage(
