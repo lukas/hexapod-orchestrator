@@ -67,25 +67,24 @@ Exported walk artifact:
   walk role if a walkteach-lineage export beats MLP-singleframe on the
   identical UX suite; learned-vs-scripted tuck A/B.
 - `standwalk`: the DONE-gate quartet/frameblend dig-in (09-01/09-02)
-  found the campaign's dominant blocker is NOT the switch/duration
-  mechanisms it was built to test: a sustained near-safety-cap
-  (2.5A) current during the rise-hold segment causes most
-  `over_current` terminations, present even at DR-0 (nominal
-  dynamics, no randomization). 09-02 ~05:0x root-caused it further by
-  elimination (two clean A/B pod-eval diagnostics, zero training):
-  NEITHER the commanded height-ramp RATE nor the TARGET HEIGHT changes
-  peak current — it's the curl-up-from-flat rise motion itself under
-  the heavier 3.50kg mesh body. A follow-up per-joint trace LOCALIZED
-  it further: the FEMUR (hip-pitch/thigh) joint alone pins at the
-  2.5A safety cap in every surveyed episode (tibia hot-but-under-cap,
-  coxa comfortable) — matches the physics (femur bears the primary
-  stand-up lifting torque). No reward/cfg fix proposed yet; one more
-  comparison (legacy primitive-family femur cost) needed to choose
-  between raising the cap, repricing current, or a lighter curl-up
-  reference (see `rl_docs/tracks/standwalk/STATUS.md` Next item 1).
-  The yaw-credit critic and turn-authority work from late 08-2026 is
-  paused behind this finding (a turn-authority bar measured through
-  the same current fragility can't be trusted until item 1 closes).
+  found the campaign's dominant blocker is a sustained near-safety-cap
+  (2.5A) FEMUR current during the rise, causing most `over_current`
+  terminations at DR-0. 09-02 ~05:3x closed the "one more comparison":
+  the SAME per-joint probe against the LEGACY primitive-family
+  (2.104kg) stance champion pins the femur at the identical ~2.64A cap
+  (8/8 episodes, 5/8 actually terminate) — mass is NOT the primary
+  driver, this is intrinsic to the curl-up-from-flat motion at both
+  body weights. Cheap follow-up: raising `safety.max_current_a`
+  2.5->2.9A (matching HARDWARE.md's recorded real "3A lab guard")
+  eliminated ALL terminations (0/8) on the same read-only probe,
+  current settling (not runaway) by episode end. The decisive full
+  DONE-gate-session read of this cap change is launched and in flight
+  (train-1, ETA ~1-2h) — next cycle reads it before any training
+  launch bakes the cap change in (see
+  `rl_docs/tracks/standwalk/STATUS.md` Next item 1;
+  `OPERATOR_QUESTIONS.md` records the assume-and-go reasoning). The
+  yaw-credit/turn-authority work stays paused behind this until it
+  closes.
 - `walkcurr`: RETIRED 08-31, DONE-negative scope finding (see above).
 - `joystick`, `amp`, `cpg`: green/maintenance unless the operator
   explicitly reopens them.
