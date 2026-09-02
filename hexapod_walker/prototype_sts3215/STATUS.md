@@ -66,20 +66,19 @@ Exported walk artifact:
 - `todaypolicy`: DONE for 08-30 (bundle packaged, GO). Optional: swap
   walk role if a walkteach-lineage export beats MLP-singleframe on the
   identical UX suite; learned-vs-scripted tuck A/B.
-- `standwalk`: dominant blocker is a sustained near-safety-cap (2.5A)
-  FEMUR current during the rise, causing most `over_current`
-  terminations at DR-0 — intrinsic to the curl-up-from-flat motion,
-  NOT mass-driven (09-02: legacy 2.104kg primitive-family checkpoint
-  pins at the identical ~2.64A cap) and NOT switch-handoff-driven
-  (09-02: frame-blend REFUTED, both seeds land MORE terminations than
-  their no-blend controls). Front-running lever: raise
-  `safety.max_current_a` 2.5->2.9A (matches HARDWARE.md's real "3A lab
-  guard"; zero-training probe shows 0/8 vs 5/8 terminations). Decisive
-  full DONE-gate-session read of the cap change is in flight (train-1,
-  ETA ~1-2h from 05:18) — next cycle reads it before any training
-  launch bakes the change in (`rl_docs/tracks/standwalk/STATUS.md`
-  Next item 1; `OPERATOR_QUESTIONS.md` has the assume-and-go
-  reasoning). Yaw-credit/turn-authority work stays paused behind this.
+- `standwalk`: the sustained near-safety-cap FEMUR current during rise
+  (intrinsic to the curl-up motion, not mass/switch-driven, see track
+  STATUS) is being fixed by raising `safety.max_current_a` 2.5->2.9A
+  (matches HARDWARE.md's real "3A lab guard"). Zero-training probe
+  (32/32 vs 24/32 terminations) and a read-only re-probe of two closed
+  turn-authority champions (09-02) both CONFIRM: the cap raise kills
+  spurious over-current falls AND improves walk quality (progress/
+  slip), while the turn-authority ceiling itself (direction_err
+  ~44-47°, wz_med ~0.08-0.19) is UNCHANGED by the cap — real, not
+  current-confounded. LANDED as training: cap29-acq1 + seed twin
+  launched 09-02 ~09:3x (38M each, train-1/train-3), not yet read.
+  Steering gap is now the track's clear largest remaining DONE-gate
+  distance (`rl_docs/tracks/standwalk/STATUS.md` Next item 2).
 - `walkcurr`: RETIRED 08-31, DONE-negative scope finding (see above).
 - `joystick`, `amp`, `cpg`: green/maintenance unless the operator
   explicitly reopens them.
