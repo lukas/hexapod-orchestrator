@@ -66,19 +66,21 @@ Exported walk artifact:
 - `todaypolicy`: DONE for 08-30 (bundle packaged, GO). Optional: swap
   walk role if a walkteach-lineage export beats MLP-singleframe on the
   identical UX suite; learned-vs-scripted tuck A/B.
-- `standwalk`: turn-authority-on-a-BC-anchored-walker still not fully
-  solved by RL. The entire update-size-constraint mechanism family
-  (actor-freeze/value-warmup/kl-rollback at 3 doses) is now CLOSED
-  (09-01, matched-drift confirmed n=4): it delays erosion but never
-  durably clears the >=0.10-both-signs bar beyond a
-  pos~0.075-0.09/neg~-0.10to-0.12 ceiling. New lever BUILT and
-  launched same day: a reward-decomposed (yaw-component) critic
-  (`rl_move/sim/yaw_critic.py`, 13/13 tests green) — a separate value
-  head + advantage trained only off the yaw reward, attacking the
-  probe_yaw_credit-diagnosed root cause (yaw credit drowned by the
-  dominant walk-forward reward in the one shared advantage). 2M
-  canary pair (`...-yawcredit-ctrl-canary` done, `...-yawcredit-
-  canary-rr1` training) not yet readable.
+- `standwalk`: the DONE-gate quartet/frameblend dig-in (09-01/09-02)
+  found the campaign's dominant blocker is NOT the switch/duration
+  mechanisms it was built to test: a sustained near-safety-cap
+  (2.5A) current during the rise-hold segment causes most
+  `over_current` terminations, present even at DR-0 (nominal
+  dynamics, no randomization). 09-02 ~05:0x root-caused it further by
+  elimination (two clean A/B pod-eval diagnostics, zero training):
+  NEITHER the commanded height-ramp RATE nor the TARGET HEIGHT changes
+  peak current — it's tied to the curl-up-from-flat rise motion itself
+  under the heavier 3.50kg mesh body, uniform across all 6 legs. Not
+  yet localized to a specific joint/phase; no reward/cfg fix proposed
+  yet (see `rl_docs/tracks/standwalk/STATUS.md` Next item 1). The
+  yaw-credit critic and turn-authority work from late 08-2026 is
+  paused behind this finding (a turn-authority bar measured through
+  the same current fragility can't be trusted until item 1 closes).
 - `walkcurr`: RETIRED 08-31, DONE-negative scope finding (see above).
 - `joystick`, `amp`, `cpg`: green/maintenance unless the operator
   explicitly reopens them.
