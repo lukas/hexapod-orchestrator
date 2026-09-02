@@ -66,25 +66,20 @@ Exported walk artifact:
 - `todaypolicy`: DONE for 08-30 (bundle packaged, GO). Optional: swap
   walk role if a walkteach-lineage export beats MLP-singleframe on the
   identical UX suite; learned-vs-scripted tuck A/B.
-- `standwalk`: the DONE-gate quartet/frameblend dig-in (09-01/09-02)
-  found the campaign's dominant blocker is a sustained near-safety-cap
-  (2.5A) FEMUR current during the rise, causing most `over_current`
-  terminations at DR-0. 09-02 ~05:3x closed the "one more comparison":
-  the SAME per-joint probe against the LEGACY primitive-family
-  (2.104kg) stance champion pins the femur at the identical ~2.64A cap
-  (8/8 episodes, 5/8 actually terminate) — mass is NOT the primary
-  driver, this is intrinsic to the curl-up-from-flat motion at both
-  body weights. Cheap follow-up: raising `safety.max_current_a`
-  2.5->2.9A (matching HARDWARE.md's recorded real "3A lab guard")
-  eliminated ALL terminations (0/8) on the same read-only probe,
-  current settling (not runaway) by episode end. The decisive full
-  DONE-gate-session read of this cap change is launched and in flight
-  (train-1, ETA ~1-2h) — next cycle reads it before any training
-  launch bakes the cap change in (see
-  `rl_docs/tracks/standwalk/STATUS.md` Next item 1;
-  `OPERATOR_QUESTIONS.md` records the assume-and-go reasoning). The
-  yaw-credit/turn-authority work stays paused behind this until it
-  closes.
+- `standwalk`: dominant blocker is a sustained near-safety-cap (2.5A)
+  FEMUR current during the rise, causing most `over_current`
+  terminations at DR-0 — intrinsic to the curl-up-from-flat motion,
+  NOT mass-driven (09-02: legacy 2.104kg primitive-family checkpoint
+  pins at the identical ~2.64A cap) and NOT switch-handoff-driven
+  (09-02: frame-blend REFUTED, both seeds land MORE terminations than
+  their no-blend controls). Front-running lever: raise
+  `safety.max_current_a` 2.5->2.9A (matches HARDWARE.md's real "3A lab
+  guard"; zero-training probe shows 0/8 vs 5/8 terminations). Decisive
+  full DONE-gate-session read of the cap change is in flight (train-1,
+  ETA ~1-2h from 05:18) — next cycle reads it before any training
+  launch bakes the change in (`rl_docs/tracks/standwalk/STATUS.md`
+  Next item 1; `OPERATOR_QUESTIONS.md` has the assume-and-go
+  reasoning). Yaw-credit/turn-authority work stays paused behind this.
 - `walkcurr`: RETIRED 08-31, DONE-negative scope finding (see above).
 - `joystick`, `amp`, `cpg`: green/maintenance unless the operator
   explicitly reopens them.
