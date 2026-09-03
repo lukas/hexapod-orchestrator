@@ -43,6 +43,21 @@ Do not summarize this first.
     assert "Phase-sv" not in summary
 
 
+def test_latest_research_result_uses_dated_done_section() -> None:
+    text = """# todaypolicy status
+
+Last updated: 2026-08-30. This is the delivery track.
+
+## DONE (2026-08-30): bundle-v1 PACKAGED, ALL BARS PASS
+
+The full-mesh demo had zero falls and all six legs cycling.
+"""
+    result = status_server.latest_research_result(text)
+    assert result["date"] == "2026-08-30"
+    assert result["headline"].startswith("DONE (2026-08-30)")
+    assert "zero falls" in result["headline"]
+
+
 def test_research_brief_renders_running_track_first(monkeypatch) -> None:
     monkeypatch.setattr(
         status_server._tracks,
@@ -79,9 +94,59 @@ def test_research_brief_renders_running_track_first(monkeypatch) -> None:
     assert "Active now: walkcurr" in brief["summary"]
 
     html = "".join(status_server.render_research_brief(brief))
-    assert "Research Brief" in html
+    assert "Research tracks" in html
+    assert "Latest result" in html
     assert "cw-walkcurr-overnight1" in html
     assert "/run/cw-walkcurr-overnight1" in html
+    assert "/llm/doc/rl_docs/tracks/walkcurr/STATUS.md" in html
+
+
+def test_research_brief_marks_retired_track_closed(monkeypatch) -> None:
+    monkeypatch.setattr(
+        status_server._tracks,
+        "load",
+        lambda: {
+            "walkcurr": {
+                "name": "Prior-free walking curriculum",
+                "status": "RETIRED: negative scope finding",
+            },
+        },
+    )
+    f = {
+        "status_docs": {
+            "walkcurr": {
+                "name": "walkcurr",
+                "text": ("# walkcurr\n\n## RETIRED (2026-08-31)\n\n"
+                         "The final seeds did not walk."),
+            },
+        },
+        "ledger": [],
+    }
+
+    brief = status_server.research_brief(f, {})
+    track = brief["topics"][0]
+    assert track["badge"] == "RETIRED"
+    assert track["cls"] == "retired"
+    assert "no further agent-initiated launches" in track["where"]
+    assert "Retired: walkcurr" in brief["summary"]
+
+
+def test_done_gate_heading_is_not_mistaken_for_done_track() -> None:
+    text = """# active track
+
+Last updated: 2026-09-03. A new experiment is running.
+
+## Next
+
+Read the experiment.
+
+## DONE gate
+
+This describes the future completion criteria.
+"""
+    badge, cls = status_server._track_badge("newtrack", text, [], {})
+    assert badge == "ACTIVE"
+    assert cls == "active"
 
 
 def test_llm_research_brief_links_to_track_status(monkeypatch) -> None:
@@ -122,6 +187,6 @@ def test_render_first_snapshot_still_has_research_brief(monkeypatch) -> None:
     monkeypatch.setitem(status_server.SNAP, "slow", {})
 
     body = status_server.render("https://hexapod.example")
-    assert "Research Brief" in body
+    assert "Research tracks" in body
     assert "Snapshot still collecting" in body
     assert "href='/now'" in body

@@ -583,21 +583,30 @@ def data_health(f: dict, s: dict) -> list[str]:
 # ---------------------------------------------------------------- html
 CSS = """
 body{background:#0d1117;color:#c9d1d9;font:14px/1.5 -apple-system,Segoe UI,
-sans-serif;margin:0;padding:24px;max-width:1100px;margin:auto}
+sans-serif;margin:0;padding:24px;max-width:1220px;margin:auto}
 h1{font-size:20px;margin:0 0 4px}h2{font-size:15px;color:#8b949e;
 border-bottom:1px solid #21262d;padding-bottom:4px;margin:28px 0 10px}
-.brieftop{margin-top:16px;background:#121821;border:1px solid #30363d;
-border-radius:8px;padding:14px 16px}
-.briefsummary{font-size:15px;color:#e6edf3;margin:0 0 12px}
+.brieftop{margin-top:20px;background:linear-gradient(145deg,#111b2b,#121821 45%,
+#11161f);border:1px solid #388bfd;border-radius:12px;padding:20px;
+box-shadow:0 0 0 1px #1f6feb22,0 14px 38px #0005}
+.briefhead{display:flex;align-items:flex-start;justify-content:space-between;
+gap:16px;margin-bottom:6px}.brieftitle{font-size:24px;line-height:1.15;
+margin:0;padding:0;border:0;color:#f0f6fc}.brieflabel,.resultlabel{color:#79c0ff;
+font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase}
+.trackcount{border:1px solid #388bfd66;border-radius:999px;color:#79c0ff;
+font-size:11px;font-weight:700;padding:3px 10px;white-space:nowrap}
+.briefsummary{font-size:15px;color:#e6edf3;margin:0 0 16px;max-width:920px}
 .briefgrid{display:grid;grid-template-columns:repeat(auto-fit,
-minmax(260px,1fr));gap:10px}
-.topic{background:#161b22;border:1px solid #30363d;border-left:4px solid
-#58a6ff;border-radius:6px;padding:10px 12px;min-width:0}
-.topic.open{border-left-color:#d29922}.topic.green{border-left-color:#3fb950}
-.topic.wait{border-left-color:#a371f7}.topic.watch{border-left-color:#8b949e}
-.topichead{display:flex;align-items:center;justify-content:space-between;
-gap:8px;margin-bottom:4px}
-.topicname{font-weight:700;color:#e6edf3;overflow-wrap:anywhere}
+minmax(390px,1fr));gap:12px}
+.topic{background:#161b22;border:1px solid #30363d;border-top:4px solid
+#58a6ff;border-radius:8px;padding:15px;min-width:0}
+.topic.open{border-top-color:#d29922}.topic.green{border-top-color:#3fb950}
+.topic.wait{border-top-color:#a371f7}.topic.watch{border-top-color:#8b949e}
+.topic.retired{border-top-color:#6e7681}.topichead{display:flex;
+align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px}
+.topicname{font-size:16px;font-weight:700;color:#f0f6fc;line-height:1.25;
+overflow-wrap:anywhere}.topicid{display:block;color:#8b949e;font-size:11px;
+font-family:ui-monospace,Menlo,monospace;margin-top:2px}
 .badge{display:inline-block;border:1px solid #30363d;border-radius:999px;
 padding:1px 8px;font-size:11px;font-weight:700;color:#c9d1d9;
 white-space:nowrap;background:#21262d}
@@ -605,7 +614,20 @@ white-space:nowrap;background:#21262d}
 .topic.open .badge{background:#9e6a03;color:#fff;border-color:#d29922}
 .topic.green .badge{background:#1a7f37;color:#fff;border-color:#3fb950}
 .topic.wait .badge{background:#6e40c9;color:#fff;border-color:#a371f7}
+.topic.retired .badge{background:#30363d;color:#c9d1d9;border-color:#6e7681}
+.latestresult{background:#0d1117;border:1px solid #30363d;border-radius:7px;
+padding:11px 12px}.resultmeta{display:flex;justify-content:space-between;
+align-items:center;gap:12px}.resultdate{color:#8b949e;font-size:11px;
+font-family:ui-monospace,Menlo,monospace}.resultcopy{color:#f0f6fc;
+font-size:14px;line-height:1.5;margin:5px 0 0}.currentstate{margin:11px 0 0;
+color:#c9d1d9}.currentstate b{color:#8b949e;font-size:11px;
+letter-spacing:.06em;text-transform:uppercase}.topicfoot{display:flex;
+align-items:flex-start;justify-content:space-between;gap:12px;margin-top:10px;
+font-size:12px}.newestruns{text-align:right;overflow-wrap:anywhere}
 .topic p{margin:6px 0 0}.topic .small{font-size:12.5px;color:#8b949e}
+@media(max-width:600px){body{padding:16px}.brieftop{padding:15px}
+.briefgrid{grid-template-columns:1fr}.briefhead{align-items:center}
+.topicfoot{display:block}.newestruns{text-align:left;margin-top:6px}}
 .pill{display:inline-block;padding:2px 12px;border-radius:12px;
 font-weight:600;font-size:13px}
 .on{background:#1a7f37;color:#fff}.paused{background:#9e6a03;color:#fff}
@@ -764,6 +786,42 @@ def _now_block(text: str) -> str:
     return _squash(f"{head}: {para}" if para else head)
 
 
+def _first_status_section(text: str) -> tuple[str, str]:
+    """Return the first h2 heading and its first paragraph.
+
+    A few track journals put a short administrative sentence at the top
+    and their actual newest result in a dated ``## DONE``/``## RETIRED``
+    section.  Treat those just like the more common top-of-file update.
+    """
+    m = re.search(r"^##\s+(?P<head>[^\n]+)\n(?P<body>.*?)(?=\n## |\Z)",
+                  text, flags=re.M | re.S)
+    if not m:
+        return "", ""
+    return m.group("head").strip(), _first_paragraph(m.group("body"))
+
+
+def _latest_research_block(text: str) -> str:
+    """Pick the newest result block without surfacing a rules preface."""
+    lead = _first_paragraph(text)
+    heading, paragraph = _first_status_section(text)
+    section_is_result = bool(re.match(
+        r"(?i)^(now|latest|update|done|retired|result)\b", heading))
+
+    if lead.startswith(("Last updated:", "Update,")):
+        # If the lead is only an administrative label, the first dated
+        # result section is more useful (todaypolicy uses this layout).
+        date_stripped = re.sub(r"(?i)^(last updated:|update,)\s*"
+                               r"20\d{2}-\d{2}-\d{2}[^.]*\.?\s*", "", lead)
+        if section_is_result and len(_plain_md(date_stripped)) < 100:
+            return _squash(f"{heading}: {paragraph}" if paragraph
+                           else heading)
+        return lead
+    if section_is_result:
+        return _squash(f"{heading}: {paragraph}" if paragraph else heading)
+    now = _now_block(text)
+    return now or lead
+
+
 def latest_research_summary(text: str) -> str:
     """Best short answer to 'what is the latest research here?'.
 
@@ -772,20 +830,52 @@ def latest_research_summary(text: str) -> str:
     live state under the first '## Now'. Prefer an explicit top update,
     otherwise fall back to the newest Now block.
     """
-    lead = _first_paragraph(text)
-    if lead.startswith(("Last updated:", "Update,")):
-        return _clip(lead)
-    now = _now_block(text)
-    return _clip(now or lead)
+    return _clip(_latest_research_block(text))
+
+
+def latest_research_result(text: str) -> dict[str, str]:
+    """Presentation fields for one track's latest-result callout."""
+    block = _latest_research_block(text)
+    plain = _plain_md(block)
+    date_match = re.search(r"\b(20\d{2}-\d{2}-\d{2})\b", plain)
+
+    # Track journals conventionally bold the one-line result headline.
+    # Prefer that over the surrounding evidence dump, while retaining a
+    # useful fallback for older/plain-text status documents.
+    bold = re.search(r"\*\*(?P<head>.+?)\*\*", block, flags=re.S)
+    heading, _ = _first_status_section(text)
+    if re.match(r"(?i)^(done|retired)\b", heading) and block.startswith(heading):
+        headline = _clip(block, 420)
+    elif bold:
+        # Include the evidence immediately after the bold headline; the
+        # headline alone is often phrased as "same result again".
+        headline = _clip(block[bold.start():], 420)
+    else:
+        without_stamp = re.sub(
+            r"(?i)^(?:last updated:|update,)\s*20\d{2}-\d{2}-\d{2}"
+            r"(?:\s+~?[0-9x:]+)?\s*[.(]*\s*", "", block)
+        headline = _clip(without_stamp, 420)
+    return {"headline": headline or "No result summary recorded yet.",
+            "date": date_match.group(1) if date_match else "date not recorded"}
 
 
 def _track_badge(tid: str, text: str, recent: list[dict],
-                 pending: dict[str, str]) -> tuple[str, str]:
+                 pending: dict[str, str], registry_status: str = ""
+                 ) -> tuple[str, str]:
     top = text[:12000].lower()
-    if any(e.get("status") == "RUNNING" for e in recent):
-        return "ACTIVE NOW", "active"
+    first_heading, _ = _first_status_section(text)
+    if "retired" in registry_status.lower() or re.match(
+            r"(?i)^RETIRED\b", first_heading):
+        return "RETIRED", "retired"
     if any(e.get("run") in pending for e in recent):
         return "ANALYZING", "active"
+    if any(e.get("status") == "RUNNING" for e in recent):
+        return "ACTIVE NOW", "active"
+    if "already-satisfied registered goal" in top or (
+            "core joystick done gate stays met" in top):
+        return "GREEN / POLISH", "green"
+    if re.match(r"(?i)^DONE\b(?!\s+gate\b)", first_heading):
+        return "DONE", "green"
     if tid == "walkcurr" and (
             "needs a genuinely new mechanism" in top
             or "every rule-(a)-legal lever" in top
@@ -806,22 +896,28 @@ def _track_badge(tid: str, text: str, recent: list[dict],
 
 def _track_where(tid: str, badge: str, recent: list[dict],
                  pending: dict[str, str]) -> str:
+    blocked = [e.get("run", "") for e in recent if e.get("run") in pending]
+    if blocked:
+        return "Analysis pending: " + ", ".join(blocked[:3]) + "."
     running = [e.get("run", "") for e in recent
                if e.get("status") == "RUNNING"][:3]
     if running:
         return "Running now: " + ", ".join(running) + "."
-    blocked = [e.get("run", "") for e in recent if e.get("run") in pending]
-    if blocked:
-        return "Analysis pending: " + ", ".join(blocked[:3]) + "."
+    if badge == "RETIRED":
+        return ("Closed with a negative scope finding; no further "
+                "agent-initiated launches.")
     if tid == "walkcurr":
         return ("Open: prior-free discovery still has no promoted walker; "
                 "the next useful work is a bigger, rule-legal search or a "
                 "new mechanism.")
-    if badge.startswith("GREEN"):
+    if badge.startswith("GREEN") or badge == "DONE":
         return ("Gate met in simulation; remaining work is maintenance, "
                 "integration, or operator-owned hardware.")
     if badge == "WAITING":
         return "Waiting on an operator-owned step."
+    if badge == "ACTIVE":
+        return ("Track status reports work in progress; no live run is "
+                "visible in the newest ledger window.")
     return "No live run in the newest ledger window."
 
 
@@ -843,31 +939,52 @@ def research_brief(f: dict, pending: dict[str, str]) -> dict:
             keys.append(key)
             seen.add(key)
     topics = []
-    active, openish, green = [], [], []
-    for tid in keys:
+    active_now, active, openish = [], [], []
+    waiting, green, retired = [], [], []
+    for order, tid in enumerate(keys):
         d = docs.get(tid, {})
         text = d.get("text", "")
         recent = [e for e in rows if track_of_entry(e) == tid]
-        badge, cls = _track_badge(tid, text, recent, pending)
-        name = registry.get(tid, {}).get("name") or d.get("name", tid)
-        latest = latest_research_summary(text)
+        track_meta = registry.get(tid, {})
+        badge, cls = _track_badge(
+            tid, text, recent, pending, track_meta.get("status", ""))
+        name = track_meta.get("name") or d.get("name", tid)
+        result = latest_research_result(text)
         where = _track_where(tid, badge, recent, pending)
         if cls == "active":
-            active.append(tid)
+            bucket = active_now if badge in ("ACTIVE NOW", "ANALYZING") \
+                else active
+            bucket.append(tid)
         elif cls == "open":
             openish.append(tid)
-        elif cls in ("green", "wait"):
+        elif cls == "wait":
+            waiting.append(tid)
+        elif cls == "green":
             green.append(tid)
+        elif cls == "retired":
+            retired.append(tid)
         topics.append({"id": tid, "name": name, "badge": badge, "cls": cls,
-                       "latest": latest, "where": where,
-                       "recent": recent[:3]})
+                       "latest": result["headline"],
+                       "latest_date": result["date"], "where": where,
+                       "doc": track_meta.get("doc")
+                       or f"rl_docs/tracks/{tid}/STATUS.md",
+                       "recent": recent[:3], "order": order})
+    priority = {"active": 0, "open": 1, "watch": 2, "wait": 3,
+                "green": 4, "retired": 5}
+    topics.sort(key=lambda t: (priority.get(t["cls"], 2), t["order"]))
     bits = []
+    if active_now:
+        bits.append("Active now: " + ", ".join(active_now))
     if active:
-        bits.append("Active now: " + ", ".join(active))
+        bits.append("Active research: " + ", ".join(active))
     if openish:
         bits.append("Open research: " + ", ".join(openish))
+    if waiting:
+        bits.append("Waiting: " + ", ".join(waiting))
     if green:
-        bits.append("Green / mostly maintenance: " + ", ".join(green))
+        bits.append("Green: " + ", ".join(green))
+    if retired:
+        bits.append("Retired: " + ", ".join(retired))
     summary = ". ".join(bits) + "." if bits else \
         "No track summary is available yet; the first snapshot is collecting."
     return {"summary": summary, "topics": topics}
@@ -875,18 +992,27 @@ def research_brief(f: dict, pending: dict[str, str]) -> dict:
 
 def render_research_brief(brief: dict) -> list[str]:
     h = ["<section class='brieftop'>",
-         "<h2 style='margin:0 0 8px;border:none;color:#e6edf3'>"
-         "Research Brief</h2>",
+         "<div class='briefhead'><div><div class='brieflabel'>"
+         "Latest campaign results</div><h2 class='brieftitle'>"
+         "Research tracks</h2></div>",
+         f"<span class='trackcount'>{len(brief.get('topics', []))} "
+         "TRACKS</span></div>",
          f"<p class='briefsummary'>{esc(brief.get('summary', ''))}</p>",
          "<div class='briefgrid'>"]
     for t in brief.get("topics", []):
         h.append(f"<article class='topic {esc(t.get('cls', 'watch'))}'>"
-                 f"<div class='topichead'><span class='topicname'>"
-                 f"{esc(t['id'])}</span><span class='badge'>"
+                 f"<div class='topichead'><div><span class='topicname'>"
+                 f"{esc(t['name'])}</span><span class='topicid'>"
+                 f"{esc(t['id'])}</span></div><span class='badge'>"
                  f"{esc(t['badge'])}</span></div>"
-                 f"<div class='small'>{esc(t['name'])}</div>"
-                 f"<p><b>Latest:</b> {esc(t['latest'])}</p>"
-                 f"<p><b>Where we are:</b> {esc(t['where'])}</p>")
+                 f"<div class='latestresult'><div class='resultmeta'>"
+                 f"<span class='resultlabel'>Latest result</span>"
+                 f"<span class='resultdate'>{esc(t['latest_date'])}</span>"
+                 f"</div><p class='resultcopy'>{esc(t['latest'])}</p></div>"
+                 f"<p class='currentstate'><b>Current state</b><br>"
+                 f"{esc(t['where'])}</p><div class='topicfoot'>"
+                 f"<a href='/llm/doc/{esc(t['doc'])}'>Full track status "
+                 f"&#8594;</a>")
         recent = [e for e in t.get("recent", []) if e.get("run")]
         if recent:
             links = []
@@ -894,9 +1020,9 @@ def render_research_brief(brief: dict) -> list[str]:
                 links.append(f"{run_link(e['run'])} "
                              f"<span class='dim'>({esc(e.get('status', '?'))})"
                              f"</span>")
-            h.append("<p class='small'>Newest runs: " + " · ".join(links)
-                     + "</p>")
-        h.append("</article>")
+            h.append("<span class='newestruns'><span class='dim'>Newest "
+                     "runs:</span> " + " · ".join(links) + "</span>")
+        h.append("</div></article>")
     h.append("</div></section>")
     return h
 
@@ -911,7 +1037,7 @@ def research_brief_md(base: str = "", key: str = "") -> str:
         lines.append(f"## {t['id']} - {t['badge']}")
         lines.append(t["name"])
         lines.append("")
-        lines.append(f"Latest: {t['latest']}")
+        lines.append(f"Latest ({t['latest_date']}): {t['latest']}")
         lines.append("")
         lines.append(f"Where we are: {t['where']}")
         if base:
@@ -927,8 +1053,8 @@ def render(base: str = "") -> str:
     w = f.get("watcher", {})
     if not w:
         brief = {
-            "summary": ("Snapshot still collecting; the latest research "
-                        "brief will appear here in about 20 seconds."),
+            "summary": ("Snapshot still collecting; the latest track "
+                        "results will appear here in about 20 seconds."),
             "topics": [],
         }
         return (f"<html><head><meta charset='utf-8'>"
