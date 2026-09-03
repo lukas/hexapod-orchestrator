@@ -12,7 +12,7 @@ import status_server  # noqa: E402
 
 def _reset_video_cache() -> None:
     status_server._video_index_cache.update(
-        {"at": 0.0, "targets": (), "videos": {}}
+        {"at": 0.0, "targets": (), "tracks": (), "videos": {}}
     )
 
 
@@ -29,13 +29,25 @@ def test_representative_video_prefers_gate_walk_and_longest_run(
     seed_dir.mkdir()
     (base_dir / "rise_sto_0.mp4").write_bytes(b"rise")
     (base_dir / "walk_det_0.mp4").write_bytes(b"walk")
+    (base_dir / "lower_det_0.mp4").write_bytes(b"lower")
     (seed_dir / "walk_det_0.mp4").write_bytes(b"seed")
 
     videos = status_server.representative_videos(
-        [base, seed], [base, seed])
+        [base, seed], [base, seed],
+        {base: "standwalk", seed: "joystick"})
 
-    assert videos[base]["path"] == "cw_demo_donegate/walk_det_0.mp4"
-    assert videos[seed]["path"] == "cw_demo_s1_donegate/walk_det_0.mp4"
+    assert [clip["label"] for clip in videos[base]["clips"]] == [
+        "stand up", "walk", "lower",
+    ]
+    assert [clip["path"] for clip in videos[base]["clips"]] == [
+        "cw_demo_donegate/rise_sto_0.mp4",
+        "cw_demo_donegate/walk_det_0.mp4",
+        "cw_demo_donegate/lower_det_0.mp4",
+    ]
+    assert videos[base]["missing"] == []
+    assert videos[seed]["clips"][0]["label"] == "joystick driving"
+    assert (videos[seed]["clips"][0]["path"]
+            == "cw_demo_s1_donegate/walk_det_0.mp4")
 
 
 def test_media_path_stays_inside_eval_video_dir(
@@ -65,13 +77,23 @@ def test_media_byte_ranges_support_video_seeking() -> None:
 
 def test_video_preview_is_clickable_and_url_encoded() -> None:
     markup = status_server.video_preview(
-        {"path": "a run/walk_det_0.mp4", "label": "walk <det>"})
-    assert "&#9654; preview" in markup
+        {"clips": [{"path": "a run/walk_det_0.mp4",
+                    "label": "joystick <driving>"}], "missing": []})
+    assert "&#9654; joystick &lt;driving&gt;" in markup
     assert "a%20run/walk_det_0.mp4" in markup
-    assert "walk &lt;det&gt;" in markup
     assert "preload='none'" in markup
 
     assert "not available" in status_server.video_preview(None)
+
+
+def test_video_preview_calls_out_missing_track_capabilities() -> None:
+    markup = status_server.video_preview({
+        "clips": [{"path": "a/rise_det_0.mp4", "label": "stand up"}],
+        "missing": ["walk", "lower"],
+    })
+
+    assert "&#9654; stand up (1/3)" in markup
+    assert "No clip yet: walk, lower" in markup
 
 
 def test_run_page_puts_behavior_preview_before_ledger(

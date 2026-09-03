@@ -76,8 +76,34 @@ EVAL_VIDEO_DIR = PROTO / "logs" / "ckpt_eval"
 VIDEO_REFRESH_S = 300
 VIDEO_MAX_BYTES = 32 * 1024 * 1024
 VIDEO_EXTENSIONS = {".mp4", ".webm", ".mov"}
+TRACK_VIDEO_CAPABILITIES = {
+    "joystick": (("joystick driving", ("walk", "drive", "track")),),
+    "standwalk": (
+        ("stand up", ("rise", "raise")),
+        ("walk", ("walk", "drive", "track")),
+        ("lower", ("lower", "sit")),
+    ),
+    "todaypolicy": (
+        ("stand up", ("rise", "raise", "stand")),
+        ("joystick walk", ("walk", "drive", "track")),
+        ("lower", ("lower", "sit", "tuck")),
+    ),
+    "amp": (
+        ("walk", ("walk", "drive", "track")),
+        ("turn", ("turn", "yaw")),
+        ("push recovery", ("push",)),
+        ("fault recovery", ("fault",)),
+    ),
+    "cpg": (
+        ("gait", ("walk", "drive", "track")),
+        ("turn", ("turn", "yaw")),
+    ),
+    "walkcurr": (("walking attempt", ("walk", "drive", "track")),),
+}
 _video_index_lock = threading.Lock()
-_video_index_cache: dict = {"at": 0.0, "targets": (), "videos": {}}
+_video_index_cache: dict = {
+    "at": 0.0, "targets": (), "tracks": (), "videos": {}
+}
 
 
 def read_tail(path: pathlib.Path, lines: int) -> list[str]:
@@ -377,8 +403,9 @@ def _video_score(path: pathlib.Path) -> int:
     return score
 
 
-def representative_videos(target_runs, known_runs=None) -> dict[str, dict]:
-    """Best small eval video for each requested run, cached for five min.
+def representative_videos(target_runs, known_runs=None,
+                          run_tracks=None) -> dict[str, dict]:
+    """Capability-matched eval videos for each run, cached for five min.
 
     Video artifacts are optional.  The controller currently has tens of
     thousands of episode reels, so scan only eval directories owned by the
@@ -389,9 +416,12 @@ def representative_videos(target_runs, known_runs=None) -> dict[str, dict]:
         return {}
     known = {str(r) for r in (known_runs or targets) if r}
     known.update(targets)
+    tracks = {str(k): str(v) for k, v in (run_tracks or {}).items()}
+    track_key = tuple((r, tracks.get(r, "")) for r in targets)
     now = time.time()
     with _video_index_lock:
         if (_video_index_cache["targets"] == targets
+                and _video_index_cache["tracks"] == track_key
                 and now - _video_index_cache["at"] < VIDEO_REFRESH_S):
             return dict(_video_index_cache["videos"])
 
@@ -420,24 +450,58 @@ def representative_videos(target_runs, known_runs=None) -> dict[str, dict]:
                         candidates[owner].append(
                             (_video_score(rel), dir_mtime, rel.as_posix(), path))
             for run, choices in candidates.items():
-                for _, _, rel, path in sorted(choices, reverse=True):
+                ranked = sorted(choices, reverse=True)
+                size_cache: dict[pathlib.Path, int] = {}
+
+                def clip(choice, capability):
+                    _, _, rel, path = choice
                     try:
-                        size = path.stat().st_size
+                        size = size_cache.setdefault(path, path.stat().st_size)
                     except OSError:
-                        continue
+                        return None
                     if not 0 < size <= VIDEO_MAX_BYTES:
-                        continue
+                        return None
                     rel_path = pathlib.PurePosixPath(rel)
-                    videos[run] = {
+                    return {
                         "path": rel,
-                        "label": f"{rel_path.parent.name}/{rel_path.name}",
+                        "label": capability,
+                        "artifact": (f"{rel_path.parent.name}/"
+                                     f"{rel_path.name}"),
                         "size": size,
                     }
-                    break
+
+                plan = TRACK_VIDEO_CAPABILITIES.get(tracks.get(run, ""), ())
+                selected, missing, used = [], [], set()
+                for capability, tokens in plan:
+                    found = None
+                    for choice in ranked:
+                        rel, path = choice[2], choice[3]
+                        if rel in used or not any(
+                                token in path.name.lower() for token in tokens):
+                            continue
+                        found = clip(choice, capability)
+                        if found:
+                            used.add(rel)
+                            selected.append(found)
+                            break
+                    if found is None:
+                        missing.append(capability)
+                if not selected:
+                    for choice in ranked:
+                        found = clip(choice, "behavior")
+                        if found:
+                            selected.append(found)
+                            if not plan:
+                                missing = []
+                            break
+                if selected:
+                    videos[run] = {"track": tracks.get(run, ""),
+                                   "clips": selected, "missing": missing}
         except OSError:
             pass
         _video_index_cache.update(
-            {"at": now, "targets": targets, "videos": videos})
+            {"at": now, "targets": targets, "tracks": track_key,
+             "videos": videos})
         return dict(videos)
 
 
@@ -626,8 +690,10 @@ def fast_worker() -> None:
     while True:
         try:
             rows, counts, slim = ledger_rows()
+            visible_tracks = {e.get("run"): track_of_entry(e) for e in rows
+                              if e.get("run")}
             run_videos = representative_videos(
-                (e.get("run") for e in rows), slim.keys())
+                (e.get("run") for e in rows), slim.keys(), visible_tracks)
             SNAP["fast"] = {
                 "latest": slim,
                 "at": time.time(),
@@ -785,12 +851,18 @@ a{color:#58a6ff;text-decoration:none}a:hover{text-decoration:underline}
 .tailpre{max-height:230px;overflow:auto;margin:4px 0 14px}
 .cychead{margin:14px 0 2px;font-size:13.5px}
 .runclip{min-width:84px}.runclip summary{color:#58a6ff;cursor:pointer;
-font-size:12px;white-space:nowrap}.runclip video{display:block;width:180px;
+font-size:12px;white-space:nowrap}.clipgrid{display:grid;
+grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px}
+.runclip .clipgrid{display:flex;max-width:65vw;gap:8px;margin-top:5px}
+.runclip .clipitem{width:180px;flex:0 0 180px}.runclip video{display:block;
+width:180px;
 max-width:32vw;aspect-ratio:16/9;object-fit:contain;background:#05080c;
-border:1px solid #30363d;border-radius:6px;margin-top:5px}
-.behaviorvideo{display:block;width:min(640px,100%);aspect-ratio:16/9;
+border:1px solid #30363d;border-radius:6px}.cliplabel{color:#e6edf3;
+font-size:12px;font-weight:700;margin-bottom:4px;text-transform:capitalize}
+.clipartifact{font-size:10.5px;color:#8b949e;margin-top:3px;
+overflow-wrap:anywhere}.behaviorvideo{display:block;width:100%;aspect-ratio:16/9;
 object-fit:contain;background:#05080c;border:1px solid #30363d;
-border-radius:9px}.videolabel{font-size:12px;color:#8b949e;margin-top:5px}
+border-radius:9px}.missingclips{font-size:12px;color:#8b949e;margin-top:7px}
 """
 
 
@@ -800,21 +872,39 @@ def run_link(name) -> str:
 
 
 def video_preview(video: dict | None, compact: bool = True) -> str:
-    """Inline player for an optional representative eval artifact."""
-    if not video or not video.get("path"):
+    """Track-aware set of inline players for optional eval artifacts."""
+    if not video:
         return "<span class='dim'>not available</span>"
-    url = "/media/" + urllib.parse.quote(str(video["path"]), safe="/")
-    label = esc(video.get("label") or pathlib.PurePosixPath(
-        str(video["path"])).name)
-    klass = " class='behaviorvideo'" if not compact else ""
+    clips = video.get("clips")
+    if clips is None and video.get("path"):  # pre-multi-clip snapshots
+        clips = [video]
+    if not clips:
+        return "<span class='dim'>not available</span>"
     preload = "none" if compact else "metadata"
-    player = (f"<video{klass} controls muted playsinline preload='{preload}' "
-              f"src='{esc(url)}' aria-label='Behavior preview: {label}'>"
-              f"Your browser cannot play this video.</video>")
+    players = []
+    for clip in clips:
+        url = "/media/" + urllib.parse.quote(str(clip["path"]), safe="/")
+        label = esc(clip.get("label") or "behavior")
+        artifact = esc(clip.get("artifact") or pathlib.PurePosixPath(
+            str(clip["path"])).name)
+        klass = " class='behaviorvideo'" if not compact else ""
+        players.append(
+            f"<div class='clipitem'><div class='cliplabel'>{label}</div>"
+            f"<video{klass} controls muted playsinline preload='{preload}' "
+            f"src='{esc(url)}' aria-label='{label} behavior preview'>"
+            f"Your browser cannot play this video.</video>"
+            f"<div class='clipartifact'>{artifact}</div></div>")
+    grid = "<div class='clipgrid'>" + "".join(players) + "</div>"
+    missing = [esc(x) for x in video.get("missing", [])]
+    missing_html = ("<div class='missingclips'>No clip yet: "
+                    + ", ".join(missing) + "</div>") if missing else ""
     if compact:
-        return ("<details class='runclip'><summary>&#9654; preview</summary>"
-                + player + "</details>")
-    return player + f"<div class='videolabel'>{label}</div>"
+        labels = " + ".join(esc(c.get("label") or "behavior") for c in clips)
+        total = len(clips) + len(missing)
+        coverage = f" ({len(clips)}/{total})" if missing else ""
+        return (f"<details class='runclip'><summary>&#9654; {labels}"
+                f"{coverage}</summary>{grid}{missing_html}</details>")
+    return grid + missing_html
 
 
 def esc(s) -> str:
@@ -1830,14 +1920,15 @@ def render_run_page(run: str) -> str | None:
     if video is None:
         known_runs = [e.get("run") for e in entries
                       if isinstance(e, dict) and e.get("run")]
-        video = representative_videos([run], known_runs).get(run)
+        video = representative_videos(
+            [run], known_runs, {run: track_of_entry(latest)}).get(run)
     body.append("<h2 id='behavior-preview'>Behavior preview</h2>")
     if video:
         body.append(video_preview(video, compact=False))
-        body.append("<div class='dim' style='margin-top:6px'>Representative "
-                    "canonical eval clip, selected automatically. Use the "
-                    "verdict below to interpret whether the behavior passed "
-                    "its gate.</div>")
+        body.append("<div class='dim' style='margin-top:6px'>Capability-"
+                    "matched canonical eval clips, selected automatically "
+                    "for this research track. Use the verdict below to "
+                    "interpret whether each behavior passed its gate.</div>")
     else:
         body.append("<div class='dim'>No local eval video has been copied "
                     "back for this run yet.</div>")
