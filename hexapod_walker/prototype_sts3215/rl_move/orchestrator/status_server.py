@@ -52,6 +52,7 @@ import subprocess
 import sys
 import threading
 import time
+import urllib.parse
 from concurrent.futures import ThreadPoolExecutor
 
 HERE = pathlib.Path(__file__).resolve().parent
@@ -71,6 +72,12 @@ SLOW_S = 120   # census (12 kubectl execs) + token scan
 
 SNAP: dict = {"fast": {}, "slow": {}}
 _token_cache: dict[str, tuple[float, int, dict]] = {}  # path -> (mtime, size, sums)
+EVAL_VIDEO_DIR = PROTO / "logs" / "ckpt_eval"
+VIDEO_REFRESH_S = 300
+VIDEO_MAX_BYTES = 32 * 1024 * 1024
+VIDEO_EXTENSIONS = {".mp4", ".webm", ".mov"}
+_video_index_lock = threading.Lock()
+_video_index_cache: dict = {"at": 0.0, "targets": (), "videos": {}}
 
 
 def read_tail(path: pathlib.Path, lines: int) -> list[str]:
@@ -327,6 +334,131 @@ def track_of_entry(e: dict) -> str:
     return e.get("track") or _tracks.infer(e.get("run", ""))
 
 
+def _eval_dir_owner(dirname: str, runs_by_snake: dict[str, str]) -> str:
+    """Map an eval directory to the longest matching ledger run name.
+
+    Longest-prefix matching matters for seed siblings: ``foo_s1_gate``
+    belongs to run ``foo-s1``, not the shorter parent run ``foo``.
+    """
+    parts = dirname.split("_")
+    for end in range(len(parts), 0, -1):
+        owner = runs_by_snake.get("_".join(parts[:end]))
+        if owner:
+            return owner
+    return ""
+
+
+def _video_score(path: pathlib.Path) -> int:
+    """Prefer canonical gates and an easy-to-read deterministic motion."""
+    rel = path.as_posix().lower()
+    name = path.name.lower()
+    score = 0
+    for token, points in (
+        ("donegate", 120), ("joygate", 115), ("mixedsession", 110),
+        ("session", 100), ("m5", 90), ("gate", 70), ("owncfg", 35),
+        ("local", -15), ("debug", -25),
+    ):
+        if token in rel:
+            score += points
+    for token, points in (
+        ("drive", 80), ("walk", 70), ("track", 65), ("turn", 55),
+        ("rise", 45), ("raise", 40), ("lower", 30), ("hold", 20),
+    ):
+        if token in name:
+            score += points
+            break
+    if "_det_" in name:
+        score += 25
+    elif "_sto_" in name:
+        score += 8
+    episode = re.search(r"_(\d+)\.[^.]+$", name)
+    if episode:
+        score += max(0, 12 - int(episode.group(1)))
+    return score
+
+
+def representative_videos(target_runs, known_runs=None) -> dict[str, dict]:
+    """Best small eval video for each requested run, cached for five min.
+
+    Video artifacts are optional.  The controller currently has tens of
+    thousands of episode reels, so scan only eval directories owned by the
+    runs visible in the dashboard and never make a missing reel an error.
+    """
+    targets = tuple(sorted({str(r) for r in target_runs if r}))
+    if not targets:
+        return {}
+    known = {str(r) for r in (known_runs or targets) if r}
+    known.update(targets)
+    now = time.time()
+    with _video_index_lock:
+        if (_video_index_cache["targets"] == targets
+                and now - _video_index_cache["at"] < VIDEO_REFRESH_S):
+            return dict(_video_index_cache["videos"])
+
+        videos: dict[str, dict] = {}
+        try:
+            runs_by_snake = {r.replace("-", "_"): r for r in known}
+            candidates: dict[str, list[tuple[int, float, str, pathlib.Path]]] = {
+                r: [] for r in targets
+            }
+            for eval_dir in EVAL_VIDEO_DIR.iterdir():
+                if not eval_dir.is_dir():
+                    continue
+                owner = _eval_dir_owner(eval_dir.name, runs_by_snake)
+                if owner not in candidates:
+                    continue
+                try:
+                    dir_mtime = eval_dir.stat().st_mtime
+                except OSError:
+                    dir_mtime = 0.0
+                for root, _, files in os.walk(eval_dir):
+                    for filename in files:
+                        path = pathlib.Path(root) / filename
+                        if path.suffix.lower() not in VIDEO_EXTENSIONS:
+                            continue
+                        rel = path.relative_to(EVAL_VIDEO_DIR)
+                        candidates[owner].append(
+                            (_video_score(rel), dir_mtime, rel.as_posix(), path))
+            for run, choices in candidates.items():
+                for _, _, rel, path in sorted(choices, reverse=True):
+                    try:
+                        size = path.stat().st_size
+                    except OSError:
+                        continue
+                    if not 0 < size <= VIDEO_MAX_BYTES:
+                        continue
+                    rel_path = pathlib.PurePosixPath(rel)
+                    videos[run] = {
+                        "path": rel,
+                        "label": f"{rel_path.parent.name}/{rel_path.name}",
+                        "size": size,
+                    }
+                    break
+        except OSError:
+            pass
+        _video_index_cache.update(
+            {"at": now, "targets": targets, "videos": videos})
+        return dict(videos)
+
+
+def _resolve_media_path(rel: str) -> pathlib.Path | None:
+    """Resolve one token-gated eval video without allowing traversal."""
+    if not rel or "\\" in rel:
+        return None
+    raw = pathlib.PurePosixPath(rel)
+    if raw.is_absolute() or ".." in raw.parts:
+        return None
+    path = (EVAL_VIDEO_DIR / pathlib.Path(*raw.parts)).resolve()
+    try:
+        if not path.is_relative_to(EVAL_VIDEO_DIR.resolve()):
+            return None
+        if path.suffix.lower() not in VIDEO_EXTENSIONS or not path.is_file():
+            return None
+    except OSError:
+        return None
+    return path
+
+
 def cycle_budget() -> dict:
     """How many decision cycles are left in the rolling-24h budget.
 
@@ -494,6 +626,8 @@ def fast_worker() -> None:
     while True:
         try:
             rows, counts, slim = ledger_rows()
+            run_videos = representative_videos(
+                (e.get("run") for e in rows), slim.keys())
             SNAP["fast"] = {
                 "latest": slim,
                 "at": time.time(),
@@ -501,6 +635,7 @@ def fast_worker() -> None:
                 "cycles": live_cycles(),
                 "cycle_logs": recent_cycle_logs(),
                 "ledger": rows, "counts": counts,
+                "run_videos": run_videos,
                 "backlog": backlog_state(),
                 "cycle_budget": cycle_budget(),
                 "kicks": pending_kicks(),
@@ -649,12 +784,37 @@ border-radius:6px;padding:2px 10px;font-size:12px;cursor:pointer}
 a{color:#58a6ff;text-decoration:none}a:hover{text-decoration:underline}
 .tailpre{max-height:230px;overflow:auto;margin:4px 0 14px}
 .cychead{margin:14px 0 2px;font-size:13.5px}
+.runclip{min-width:84px}.runclip summary{color:#58a6ff;cursor:pointer;
+font-size:12px;white-space:nowrap}.runclip video{display:block;width:180px;
+max-width:32vw;aspect-ratio:16/9;object-fit:contain;background:#05080c;
+border:1px solid #30363d;border-radius:6px;margin-top:5px}
+.behaviorvideo{display:block;width:min(640px,100%);aspect-ratio:16/9;
+object-fit:contain;background:#05080c;border:1px solid #30363d;
+border-radius:9px}.videolabel{font-size:12px;color:#8b949e;margin-top:5px}
 """
 
 
 def run_link(name) -> str:
     """Run name -> drill-down link (ledger history, story, cycles)."""
     return f"<a href='/run/{esc(name)}'>{esc(name)}</a>"
+
+
+def video_preview(video: dict | None, compact: bool = True) -> str:
+    """Inline player for an optional representative eval artifact."""
+    if not video or not video.get("path"):
+        return "<span class='dim'>not available</span>"
+    url = "/media/" + urllib.parse.quote(str(video["path"]), safe="/")
+    label = esc(video.get("label") or pathlib.PurePosixPath(
+        str(video["path"])).name)
+    klass = " class='behaviorvideo'" if not compact else ""
+    preload = "none" if compact else "metadata"
+    player = (f"<video{klass} controls muted playsinline preload='{preload}' "
+              f"src='{esc(url)}' aria-label='Behavior preview: {label}'>"
+              f"Your browser cannot play this video.</video>")
+    if compact:
+        return ("<details class='runclip'><summary>&#9654; preview</summary>"
+                + player + "</details>")
+    return player + f"<div class='videolabel'>{label}</div>"
 
 
 def esc(s) -> str:
@@ -1079,6 +1239,7 @@ def render(base: str = "") -> str:
     tok = s.get("tokens", {})
     counts = f.get("counts", {})
     backlog = f.get("backlog", {"queued": [], "failed": []})
+    run_videos = f.get("run_videos", {})
 
     icon = ("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' "
             "viewBox='0 0 100 100'><text y='.9em' font-size='90'>"
@@ -1197,7 +1358,7 @@ def render(base: str = "") -> str:
     if fired:
         h.append("<table><tr><th>launched (UTC)</th><th>run</th>"
                  "<th>track</th><th>phase</th><th>status</th>"
-                 "<th>why it was launched</th></tr>")
+                 "<th>video</th><th>why it was launched</th></tr>")
         for e in fired:
             when = e.get("created") or ""
             try:
@@ -1222,6 +1383,7 @@ def render(base: str = "") -> str:
                      f"<td class='dim'>{esc(track_of_entry(e))}</td>"
                      f"<td class='dim'>{esc(e.get('phase', ''))}</td>"
                      f"<td class='{cls}'>{esc(st)}</td>"
+                     f"<td>{video_preview(run_videos.get(e.get('run')))}</td>"
                      f"<td>{esc(why)}</td></tr>")
         h.append("</table>")
     else:
@@ -1462,7 +1624,7 @@ def render(base: str = "") -> str:
                                                key=lambda kv: -kv[1]))
                  + " — track goals in rl_docs/tracks/</p>")
     h.append("<table><tr><th>run</th><th>track</th><th>status</th>"
-             "<th>pod</th><th>created</th></tr>")
+             "<th>video</th><th>pod</th><th>created</th></tr>")
     for e in f.get("ledger", []):
         st = e.get("status", "?")
         cls = {"RUNNING": "ok", "FINISHED": "dim",
@@ -1477,6 +1639,7 @@ def render(base: str = "") -> str:
         h.append(f"<tr class='mono'><td>{run_link(e.get('run'))}</td>"
                  f"<td class='dim'>{esc(track_of_entry(e))}</td>"
                  f"<td class='{cls}'>{esc(st)}</td>"
+                 f"<td>{video_preview(run_videos.get(e.get('run')))}</td>"
                  f"<td>{esc(e.get('pod', ''))}</td>"
                  f"<td class='dim'>{esc((e.get('created') or '')[5:16])}</td></tr>")
     h.append("</table>")
@@ -1662,6 +1825,22 @@ def render_run_page(run: str) -> str | None:
                 + (f" · <a href='https://wandb.ai/l2k2/hexapod-balance/"
                    f"runs/{esc(wandb_id)}'>W&amp;B run</a>"
                    if wandb_id else "") + "</div>")
+
+    video = SNAP.get("fast", {}).get("run_videos", {}).get(run)
+    if video is None:
+        known_runs = [e.get("run") for e in entries
+                      if isinstance(e, dict) and e.get("run")]
+        video = representative_videos([run], known_runs).get(run)
+    body.append("<h2 id='behavior-preview'>Behavior preview</h2>")
+    if video:
+        body.append(video_preview(video, compact=False))
+        body.append("<div class='dim' style='margin-top:6px'>Representative "
+                    "canonical eval clip, selected automatically. Use the "
+                    "verdict below to interpret whether the behavior passed "
+                    "its gate.</div>")
+    else:
+        body.append("<div class='dim'>No local eval video has been copied "
+                    "back for this run yet.</div>")
 
     body.append("<h2>Ledger history (newest first — each entry is one "
                 "launch attempt / status change)</h2>")
@@ -2047,6 +2226,26 @@ def _load_token() -> str:
 TOKEN = _load_token()
 
 
+def _media_byte_range(header: str, size: int) -> tuple[int, int] | None:
+    """Parse a single HTTP byte range; None means send the whole file."""
+    if not header:
+        return None
+    m = re.fullmatch(r"bytes=(\d*)-(\d*)", header.strip())
+    if not m or not any(m.groups()) or size <= 0:
+        raise ValueError("invalid byte range")
+    first, last = m.groups()
+    if first:
+        start = int(first)
+        end = int(last) if last else size - 1
+        if start >= size or end < start:
+            raise ValueError("range outside file")
+        return start, min(end, size - 1)
+    length = int(last)
+    if length <= 0:
+        raise ValueError("invalid suffix range")
+    return max(0, size - length), size - 1
+
+
 class Handler(http.server.BaseHTTPRequestHandler):
     # MCP endpoint (mcp_server.py): PRIVATE since 08-15 — every
     # request must present the operator's MCP key (MCP_AUTH_KEY /
@@ -2109,6 +2308,64 @@ class Handler(http.server.BaseHTTPRequestHandler):
         return any(c.strip() == f"status_token={TOKEN}"
                    for c in cookies.split(";"))
 
+    def _serve_media(self, rel: str, send_body: bool = True) -> None:
+        """Serve a token-gated eval reel with browser seeking support."""
+        path = _resolve_media_path(rel)
+        if path is None:
+            self.send_response(404)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return
+        size = path.stat().st_size
+        try:
+            byte_range = _media_byte_range(self.headers.get("Range", ""), size)
+        except ValueError:
+            self.send_response(416)
+            self.send_header("Content-Range", f"bytes */{size}")
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return
+        start, end = byte_range or (0, size - 1)
+        ctype = {".mp4": "video/mp4", ".webm": "video/webm",
+                 ".mov": "video/quicktime"}[path.suffix.lower()]
+        self.send_response(206 if byte_range else 200)
+        self.send_header("Content-Type", ctype)
+        self.send_header("Accept-Ranges", "bytes")
+        self.send_header("Cache-Control", "private, max-age=300")
+        if byte_range:
+            self.send_header("Content-Range", f"bytes {start}-{end}/{size}")
+        self.send_header("Content-Length", str(end - start + 1))
+        self.end_headers()
+        if not send_body:
+            return
+        remaining = end - start + 1
+        try:
+            with path.open("rb") as fh:
+                fh.seek(start)
+                while remaining:
+                    chunk = fh.read(min(256 * 1024, remaining))
+                    if not chunk:
+                        break
+                    self.wfile.write(chunk)
+                    remaining -= len(chunk)
+        except (BrokenPipeError, ConnectionResetError):
+            pass  # the viewer scrubbed away or closed the player
+
+    def do_HEAD(self):  # noqa: N802
+        u = urllib.parse.urlparse(self.path)
+        if not u.path.startswith("/media/"):
+            self.send_response(405)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return
+        if not self._authed():
+            self.send_response(403)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return
+        self._serve_media(urllib.parse.unquote(u.path[len("/media/"):]),
+                          send_body=False)
+
     def do_GET(self):  # noqa: N802
         if self._is_mcp():  # GET /mcp -> 405 hint (POST-only transport)
             return self._serve_mcp()
@@ -2150,6 +2407,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.send_header("Location", u.path or "/")
             self.end_headers()
             return
+        if u.path.startswith("/media/"):
+            return self._serve_media(
+                urllib.parse.unquote(u.path[len("/media/"):]))
         host = self.headers.get("Host") or f"127.0.0.1:{PORT}"
         scheme = ("http" if host.split(":")[0] in
                   ("127.0.0.1", "localhost") else "https")
