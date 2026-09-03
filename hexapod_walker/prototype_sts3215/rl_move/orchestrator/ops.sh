@@ -392,8 +392,10 @@ name = "ppo_goal_" + run.replace("-", "_")
 suffix = "_donegate_flatonly" if flat else "_donegate"
 out = f"logs/ckpt_eval/{run.replace('-', '_')}{suffix}"
 print("# run from the PROTO dir on the run's pod (module form, detached)")
+print("# --shards 8: ~8x faster (09-03 meta; the 09-02 panel ran 14h serial).")
+print("#   Panels episode-match only same-shard-layout reads; gate semantics unchanged.")
 print(f"nohup uv run python -m rl_move.sim.eval_done_gate_session rl_move/sim/policies/{name}.zip \\")
-print(f"  --task {task} --own-dr-scale {dr} --n 8 --rise-s {rise} --walk-s {walk} --lower-s {lower} --video \\")
+print(f"  --task {task} --own-dr-scale {dr} --n 8 --shards 8 --rise-s {rise} --walk-s {walk} --lower-s {lower} --video \\")
 if cfg: print(f"  {cfg} \\")
 print(f"  --out-dir {out} > /tmp/donegate_{run}.log 2>&1 &")
 print(f"# then REGISTER it and EXIT your cycle (the watcher kicks a cycle the"

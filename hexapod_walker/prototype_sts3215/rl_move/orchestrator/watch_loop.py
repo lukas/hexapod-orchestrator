@@ -306,6 +306,44 @@ PENDING_EVAL_TTL_S = 8 * 3600  # expiry so a dead eval can't deadlock kicks
 KUBECONFIG = str(pathlib.Path.home() / ".kube" / "coreweave.yaml")
 
 
+def _own_code_hash() -> str:
+    import hashlib
+    return hashlib.sha256(pathlib.Path(__file__).read_bytes()).hexdigest()
+
+
+_CODE_HASH_AT_START = _own_code_hash()
+
+
+def maybe_autorestart_on_new_code() -> bool:
+    """Self-trigger the sanctioned restart script when watch_loop.py's
+    on-disk code differs from what this process started with. Metas
+    edit the watcher but may not restart it themselves — the 09-02
+    pending-eval registry sat INERT for 24h because its restart lived
+    only in a report no cycle reads. The script (restart_watcher.sh)
+    owns all the safety: WRAPUP+PAUSE, waiting out in-flight cycles,
+    parse check, tmux respawn. Returns True while a restart is due or
+    in flight (caller should just idle)."""
+    try:
+        if _own_code_hash() == _CODE_HASH_AT_START:
+            return False
+        import ast
+        ast.parse(pathlib.Path(__file__).read_text())
+    except Exception as e:  # unparseable new code / read race: stay up
+        log(f"stale-code check: new watch_loop.py not adoptable ({e}); "
+            "keeping current watcher")
+        return False
+    if subprocess.run(["pgrep", "-f", "restart_watcher.sh"],
+                      capture_output=True).returncode == 0:
+        return True  # restart already in flight; idle until it kills us
+    log("watch_loop.py changed on disk — self-triggering "
+        "restart_watcher.sh (nohup, detached)")
+    with open("/workspace/restart_watcher.log", "ab") as fh:
+        subprocess.Popen(
+            ["bash", str(HERE / "restart_watcher.sh")],
+            stdout=fh, stderr=fh, start_new_session=True)
+    return True
+
+
 def check_pending_evals() -> tuple[list[dict], int]:
     """Poll registered on-pod eval jobs.
 
@@ -1182,6 +1220,9 @@ def main() -> None:
 
             if PAUSE.exists():
                 log("PAUSE present; idling")
+                sleep_poll()
+                continue
+            if maybe_autorestart_on_new_code():
                 sleep_poll()
                 continue
             if not os.environ.get("ANTHROPIC_API_KEY"):
