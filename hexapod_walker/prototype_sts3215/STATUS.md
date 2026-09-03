@@ -1,6 +1,6 @@
 # STATUS - campaign dashboard
 
-Last updated: 2026-08-30 ~09:4x PT. Operator-facing dashboard, not a
+Last updated: 2026-09-03 ~23:0x. Operator-facing dashboard, not a
 history file. `CURRENT_TRUTHS.md` wins on conflict. Run-level evidence
 lives in `rl_docs/runs/`, `RL_LOG.md`, and W&B.
 
@@ -66,19 +66,22 @@ Exported walk artifact:
 - `todaypolicy`: DONE for 08-30 (bundle packaged, GO). Optional: swap
   walk role if a walkteach-lineage export beats MLP-singleframe on the
   identical UX suite; learned-vs-scripted tuck A/B.
-- `standwalk`: the sustained near-safety-cap FEMUR current during rise
-  (intrinsic to the curl-up motion, not mass/switch-driven, see track
-  STATUS) is being fixed by raising `safety.max_current_a` 2.5->2.9A
-  (matches HARDWARE.md's real "3A lab guard"). Zero-training probe
-  (32/32 vs 24/32 terminations) and a read-only re-probe of two closed
-  turn-authority champions (09-02) both CONFIRM: the cap raise kills
-  spurious over-current falls AND improves walk quality (progress/
-  slip), while the turn-authority ceiling itself (direction_err
-  ~44-47°, wz_med ~0.08-0.19) is UNCHANGED by the cap — real, not
-  current-confounded. LANDED as training: cap29-acq1 + seed twin
-  launched 09-02 ~09:3x (38M each, train-1/train-3), not yet read.
-  Steering gap is now the track's clear largest remaining DONE-gate
-  distance (`rl_docs/tracks/standwalk/STATUS.md` Next item 2).
+- `standwalk`: rise-stall branch CLOSED (genuine lineage fragility,
+  not an instrument defect). Steering/turn-authority is the track's
+  clear largest remaining DONE-gate distance: turn-in-place alone is
+  strong (wz ~0.18-0.25 on 0.25 cmd) but combined walk+turn ticks lose
+  most of it. Root cause now MEASURED (09-03): the SafetyLayer's
+  per-tick yaw slew clip (physically pinned 37.5°/s, must not be
+  raised) saturates ~48% of combined ticks vs ~0% of pure-turn at the
+  same |wz_cmd|. Four independent reward/BC-anchor mechanisms (turn-
+  skip, combined-tick anchor-skip, teacher-omega-boost, combined-tick
+  reward boost) are refuted; a new geometry lever
+  (`TripodGait.combined_yaw_arm_scale`, shrinks only the commanded yaw
+  excursion on combined ticks, zero effect on pure-turn) PASSED its
+  zero-training gate (+7-12% scripted-level combined wz, matched
+  clip-saturation drop) and a 4-cell RL canary is in flight
+  (`cap29-stdwalklohi-yawarm{1p5,2p0}{,-s1}`, unread).
+  Details/evidence: `rl_docs/tracks/standwalk/STATUS.md` Next item 2.
 - `walkcurr`: RETIRED 08-31, DONE-negative scope finding (see above).
 - `joystick`, `amp`, `cpg`: green/maintenance unless the operator
   explicitly reopens them.
