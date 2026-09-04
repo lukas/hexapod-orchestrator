@@ -376,6 +376,20 @@ evalcmdstress)  # evalcmdstress <run> [own_dr=0.5] [n=6] [episode_s=60] —
   # helper emits exactly ONE `--extra-cfg-set k1=v1 k2=v2 ...` with
   # every key space-separated (shell-quoted) after the flag — never
   # repeat the flag by hand.
+  # N-MISMATCH GOTCHA (found 09-04 x2: mlcontprice2 used --n 54,
+  # mlcontprice16 used --n 18 — both wrong): the harness runs 6
+  # behavioral buckets per outer pass (rise/walk/walk_startjitter x
+  # det/sto), so total episodes = 12*N (N per bucket, x2 outer passes
+  # dr0+ownDR). The canonical "matched 72-total" canary reads
+  # (mlcontprice8, acq8m, transtress) all used the DEFAULT n=6
+  # (12*6=72) — NOT n=18 or n=54, even though hypothesis prose
+  # sometimes says "n=18/mode/pass (72 total)", which is internally
+  # inconsistent (that phrasing conflates "mode" with the 2 named
+  # modes, ignoring the det/sto x walk_startjitter tripling). To match
+  # a prior 72-episode canary, DO NOT pass an --n override — the
+  # default IS the matched value. Only pass n>6 deliberately for a
+  # higher-power read, and then rate-normalize (fires/n_episodes)
+  # against the matched-72 comparator instead of comparing raw counts.
   # Prints progress to /tmp/cmdstress_<run>.log ON THE POD; poll with
   # `ops.sh waitlog` equivalent via kubectl exec cat, or just re-run
   # this (idempotent: eval_cmd_stress reuses an existing report.json).
