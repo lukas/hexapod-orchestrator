@@ -50,6 +50,23 @@ for e in json.load(open(__import__("os").environ["LEDGER"])):
 print(val if val != "" else dead_val)
 EOF
 }
+
+ensure_full_mesh() {
+  # The full robot mesh intentionally keeps generated electronics STLs out of
+  # git.  A clean Mac therefore needs these two factories before the main mesh
+  # builder; keep that prerequisite inside the operator workflow.
+  if [ ! -f "$PROTO/extra_stl/hex_raised_platform_110_h28_screen.stl" ]; then
+    (cd "$PROTO" && uv run --with numpy --with scipy --with shapely \
+      --with trimesh --with manifold3d --with matplotlib \
+      python tools/make_xtool_hex_raised_platform.py) || return 1
+  fi
+  if [ ! -f "$PROTO/mesh_mujoco/hexapod_mesh.xml" ] ||
+     ! find "$PROTO/mesh_mujoco/assets" -maxdepth 1 -name '*.stl' 2>/dev/null | grep -q .; then
+    (cd "$PROTO/mesh_mujoco" &&
+      uv run --with numpy --with scipy --with shapely --with trimesh \
+        python build_mesh_model.py --no-render) || return 1
+  fi
+}
 export LEDGER PROTO HERE
 
 case "${1:-help}" in
@@ -147,11 +164,24 @@ print(r.url)
 EOF
   ;;
 
-pullckpt)  # pullckpt <run> — fetch the run's checkpoint from its pod; md5
+pullckpt)  # pullckpt <run> — prefer durable controller, then training pod; md5
   run="$2"; pod=$(entry_field "$run" pod)
   [ -z "$pod" ] && { echo "no ledger entry for $run"; exit 1; }
   name="ppo_goal_$(echo "$run" | tr - _).zip"
   dest="$PROTO/rl_move/sim/policies/$name"
+  controller="hexapod-sweep-friction"
+  controller_src="/workspace/hexapod/hexapod_walker/prototype_sts3215/rl_move/sim/policies/$name"
+  # The controller copy is tied to the archived run. Training pods are reused
+  # and can later contain different weights under a historical filename.
+  kubectl cp --retries=5 "$controller:$controller_src" "$dest" 2>/dev/null
+  if [ -s "$dest" ]; then
+    echo "(recovered from durable controller: $controller_src)"
+    md5sum "$dest"
+    wc -c < "$dest" | awk '{print "size: "$1" bytes"}'
+    exit 0
+  fi
+  rm -f "$dest"
+  echo "durable controller copy missing; trying original training pod $pod"
   # NOTE: `kubectl cp` exits 0 even when the remote file is missing (the
   # remote tar fails internally and just warns to stderr) — check the
   # DEST FILE, never cp's own exit code (bit us silently before this fix).
@@ -183,7 +213,7 @@ pullckpt)  # pullckpt <run> — fetch the run's checkpoint from its pod; md5
       rm -f "$altdest"
     done
     if [ "$found" != 1 ]; then
-      echo "no checkpoint found under $name or any ppo_mjx_<task>_${run}.zip fallback on $pod"
+      echo "no checkpoint found on durable controller or $pod under $name (including trainer-default fallbacks)"
       exit 1
     fi
   fi
@@ -607,9 +637,47 @@ EOF
   for c in "${cfgs[@]}"; do
     case "$c" in CKPT\ *) ckpt="${c#CKPT }";; *) cargs+=(--cfg-set "$c");; esac
   done
-  [ -n "$ckpt" ] && [ -f "$PROTO/$ckpt" ] || { echo "checkpoint not found for $run: '$ckpt'"; exit 1; }
+  if [ -z "$ckpt" ]; then
+    echo "checkpoint name not found for $run"
+    exit 1
+  fi
+  if [ ! -s "$PROTO/$ckpt" ]; then
+    bash "$0" pullckpt "$run" || exit 1
+  fi
   cd "$PROTO" && uv run python -m rl_move.sim.manual_drive_session "$ckpt" \
     "${cargs[@]}" --out-dir "$outdir" "$@"
+  ;;
+
+feeltest)  # feeltest <run> [out-root] [--unified] — transition + yaw drive suite
+  run="${2:-}"
+  [ -n "$run" ] || { echo "usage: ops.sh feeltest <run> [out-root] [--unified]"; exit 1; }
+  shift 2
+  stamp=$(date +%Y%m%d_%H%M%S)
+  safe_run=$(printf '%s' "$run" | tr - _)
+  outroot="$PROTO/logs/manual_drive/${safe_run}_feeltest_${stamp}"
+  if [ "${1:-}" != "" ] && [[ "${1:-}" != --* ]]; then
+    outroot="$1"
+    shift
+  fi
+  unified=0
+  if [ "${1:-}" = "--unified" ]; then
+    unified=1
+    shift
+  fi
+  [ "$#" -eq 0 ] || { echo "unexpected feeltest args: $*"; exit 1; }
+  mkdir -p "$outroot"
+  bash "$0" pullckpt "$run" || exit 1
+  if [ "$unified" -eq 1 ]; then
+    bash "$0" manualdrive "$run" "$outroot/transitions" \
+      --seed 0 --rise-start flat --skip-hold --render-every 5 || exit 1
+  else
+    bash "$0" hybriddemo "$run" "$outroot/transitions" \
+      --script square --stand-mode tuck --lower-mode tuck \
+      --policy-mode deterministic || exit 1
+  fi
+  bash "$0" drivevideo "$run" "$outroot/yaw" \
+    --script human_turn --seconds 30 --policy-mode deterministic || exit 1
+  echo "feel-test artifacts: $outroot"
   ;;
 
 drivevideo)  # drivevideo <run> [out-dir] [drive_video args...] — clean
@@ -671,12 +739,7 @@ EOF
   if [ ! -s "$PROTO/$ckpt" ]; then
     bash "$0" pullckpt "$run" || exit 1
   fi
-  if [ ! -f "$PROTO/mesh_mujoco/hexapod_mesh.xml" ] ||
-     ! find "$PROTO/mesh_mujoco/assets" -maxdepth 1 -name '*.stl' 2>/dev/null | grep -q .; then
-    (cd "$PROTO/mesh_mujoco" &&
-      uv run --with numpy --with scipy --with shapely --with trimesh \
-        python build_mesh_model.py --no-render) || exit 1
-  fi
+  ensure_full_mesh || exit 1
   cd "$PROTO" && uv run --with imageio --with imageio-ffmpeg --with pillow \
     python -m rl_move.sim.drive_video "$ckpt" "${cargs[@]}" \
     --out-dir "$outdir" "$@"
@@ -744,12 +807,7 @@ EOF
   if [ ! -s "$PROTO/$ckpt" ]; then
     bash "$0" pullckpt "$run" || exit 1
   fi
-  if [ ! -f "$PROTO/mesh_mujoco/hexapod_mesh.xml" ] ||
-     ! find "$PROTO/mesh_mujoco/assets" -maxdepth 1 -name '*.stl' 2>/dev/null | grep -q .; then
-    (cd "$PROTO/mesh_mujoco" &&
-      uv run --with numpy --with scipy --with shapely --with trimesh \
-        python build_mesh_model.py --no-render) || exit 1
-  fi
+  ensure_full_mesh || exit 1
   cd "$PROTO" && uv run --with imageio --with imageio-ffmpeg --with pillow \
     python -m rl_move.sim.hybrid_demo "$ckpt" "${cargs[@]}" \
     --name "${run} hybrid" --out-dir "$outdir" "$@"
@@ -1110,7 +1168,8 @@ waitlog)  # waitlog <file> <regex> [timeout_s] — poll instead of sleep-and-pra
   echo "  entry <run> | wandb <run> | pullckpt <run> | pushckpt <pod> <ckpt> |"
   echo "  podeval <run> [sfx] | m5eval <run> [pod] | evalcmd <run> | drain | killrun <run> |"
   echo "  waitlog <file> <regex> [t] | evalpending add <pod> <file> <label> |"
-  echo "  logline \"line\" | frames <mp4> [n] | expdir <run> | wandbdump <run> |"
+  echo "  logline \"line\" | frames <mp4> [n] | feeltest <run> [out] [--unified] |"
+  echo "  drivevideo <run> [out] | hybriddemo <run> [out] | expdir <run> | wandbdump <run> |"
   echo "  wandbnote <run> \"paragraph\" | oplaunch <launch_run.py args...> |"
   echo "  cycle [\"focus text\"] (operator: kick a decision session now) |"
   echo "  activity (live watcher+cycle view w/ narration) |"
