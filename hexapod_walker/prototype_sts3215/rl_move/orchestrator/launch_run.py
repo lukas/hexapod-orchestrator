@@ -555,7 +555,8 @@ def _with_default_log_std_final(extra: list[str], entry: dict,
         return extra
     if "--log-std-final" in extra or "--log-std-anneal-core" in extra:
         return extra
-    if "--gru-dual" in extra or "--gru-experts" in extra:
+    if ("--gru-dual" in extra or "--gru-experts" in extra
+            or "--gru-triple" in extra):
         return extra
     if "--algo" in extra:
         i = extra.index("--algo")
