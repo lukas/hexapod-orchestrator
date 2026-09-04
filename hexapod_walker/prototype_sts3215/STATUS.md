@@ -1,6 +1,6 @@
 # STATUS - campaign dashboard
 
-Last updated: 2026-09-03 ~23:0x. Operator-facing dashboard, not a
+Last updated: 2026-09-04 ~03:5x. Operator-facing dashboard, not a
 history file. `CURRENT_TRUTHS.md` wins on conflict. Run-level evidence
 lives in `rl_docs/runs/`, `RL_LOG.md`, and W&B.
 
@@ -70,17 +70,16 @@ Exported walk artifact:
   not an instrument defect). Steering/turn-authority is the track's
   clear largest remaining DONE-gate distance: turn-in-place alone is
   strong (wz ~0.18-0.25 on 0.25 cmd) but combined walk+turn ticks lose
-  most of it. Root cause now MEASURED (09-03): the SafetyLayer's
-  per-tick yaw slew clip (physically pinned 37.5°/s, must not be
-  raised) saturates ~48% of combined ticks vs ~0% of pure-turn at the
-  same |wz_cmd|. Four independent reward/BC-anchor mechanisms (turn-
-  skip, combined-tick anchor-skip, teacher-omega-boost, combined-tick
-  reward boost) are refuted; a new geometry lever
-  (`TripodGait.combined_yaw_arm_scale`, shrinks only the commanded yaw
-  excursion on combined ticks, zero effect on pure-turn) PASSED its
-  zero-training gate (+7-12% scripted-level combined wz, matched
-  clip-saturation drop) and a 4-cell RL canary is in flight
-  (`cap29-stdwalklohi-yawarm{1p5,2p0}{,-s1}`, unread).
+  most of it. The WHOLE open-loop scalar-weight/geometry lever family
+  (8 cells: bc_anchor_walk_combined_dose + TripodGait.combined_yaw_arm
+  _scale, both axes 4/4 FAIL) is now closed 8/8 FAIL — every dose/
+  scale strong enough to win combined-tick wz blows the pure-turn
+  regression cap, the signature of one shared GRU core computing both
+  skills. Next lever BUILT+tested+LAUNCHED 09-04:
+  `gru_policy.TripleGruActorCriticPolicy` gives pure-turn ticks their
+  own protected GRU core (isolated by construction from the
+  combined-tick gradient); a 2-seed canary
+  (`cap29-stdwalklohi-triplecore-r2{,-s1-r2}`) is RUNNING, unread.
   Details/evidence: `rl_docs/tracks/standwalk/STATUS.md` Next item 2.
 - `walkcurr`: RETIRED 08-31, DONE-negative scope finding (see above).
 - `joystick`, `amp`, `cpg`: green/maintenance unless the operator
