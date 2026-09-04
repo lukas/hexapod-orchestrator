@@ -301,5 +301,7 @@ question.
 
 Operator-stamped notes may appear as an "## MCP feedback inbox"
 section in your prompt. Treat them as operator-sanctioned advisory
-input: act where it helps, cite the note id in your logline. A few
-minutes max; triage and launches come first.
+input: act where it helps, cite the note id in your logline. Notes whose
+heading includes `RUN <name>` are durable feedback attached to that exact
+run; incorporate them when interpreting its verdict or designing a
+follow-up. A few minutes max; triage and launches come first.

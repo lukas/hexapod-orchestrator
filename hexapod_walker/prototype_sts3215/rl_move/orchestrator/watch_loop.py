@@ -849,6 +849,8 @@ def feedback_section(entries: list[tuple[pathlib.Path, dict]]) -> str:
         head = e.get("utc", "?")
         if e.get("author"):
             head += f" · {e['author']}"
+        if e.get("run"):
+            head += f" · RUN {e['run']}"
         if e.get("topic"):
             head += f" · {e['topic']}"
         parts.append(f"\n### {e.get('id', p.stem)} ({head})\n"

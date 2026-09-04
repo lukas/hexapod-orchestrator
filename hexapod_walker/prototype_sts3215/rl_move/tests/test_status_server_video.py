@@ -107,6 +107,7 @@ def test_run_page_puts_behavior_preview_before_ledger(
     ]))
     monkeypatch.setattr(status_server, "HERE", orch)
     monkeypatch.setattr(status_server, "PROTO", tmp_path)
+    monkeypatch.setattr(status_server._mcp, "feedback_for_run", lambda _: [])
     monkeypatch.setitem(status_server.SNAP, "fast", {
         "run_videos": {run: {
             "path": "cw_video_demo_gate/walk_det_0.mp4",
@@ -120,3 +121,35 @@ def test_run_page_puts_behavior_preview_before_ledger(
     assert "Behavior preview" in page
     assert "/media/cw_video_demo_gate/walk_det_0.mp4" in page
     assert page.index("Behavior preview") < page.index("Ledger history")
+
+
+def test_run_page_shows_persisted_feedback(
+        monkeypatch, tmp_path: Path) -> None:
+    run = "cw-feedback-video-demo"
+    orch = tmp_path / "rl_move" / "orchestrator"
+    orch.mkdir(parents=True)
+    (orch / "experiments.json").write_text(json.dumps([
+        {"run": run, "status": "FINISHED", "track": "demo",
+         "created": "2026-09-04T12:00:00+00:00"},
+    ]))
+    monkeypatch.setattr(status_server, "HERE", orch)
+    monkeypatch.setattr(status_server, "PROTO", tmp_path)
+    monkeypatch.setattr(
+        status_server._mcp,
+        "feedback_for_run",
+        lambda name: [{
+            "run": name,
+            "utc": "20260904T120100",
+            "author": "Lukas",
+            "topic": "motion review",
+            "feedback": "The cadence looks good; reduce lateral sway.",
+        }],
+    )
+    monkeypatch.setitem(status_server.SNAP, "fast", {"run_videos": {}})
+
+    page = status_server.render_run_page(run)
+
+    assert page is not None
+    assert "Saved feedback" in page
+    assert "The cadence looks good; reduce lateral sway." in page
+    assert "awaiting cycle" in page

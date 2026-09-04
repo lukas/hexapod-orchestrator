@@ -71,6 +71,15 @@ the drain requires before treating a pod as a slot.
   cycle`). The `/workspace/llm_kicks/` advisory queue remains only to
   drain pre-gate entries: one triage-model session per request in the
   kick overflow pool, each counted in the daily budget.
+- **Save feedback on a run via MCP:** call
+  `submit_run_feedback(run, feedback, topic?, author?)`. The run name is
+  validated against `experiments.json`, then the JSON note is stored
+  atomically in `/workspace/llm_feedback/` (outside the git checkout), shown
+  on `/run/<run>` and the dashboard, returned by `get_run` and
+  `list_run_feedback`, counted in `list_runs`, and injected into the next
+  watcher cycle with the run association intact. Use plain `submit_feedback`
+  only for campaign-wide notes. Feedback survives service and git-sync
+  restarts; it does not launch a cycle by itself.
 - **Watch a cycle live (08-21 observability pass):** cycles run with
   `--output-format stream-json` piped through `cycle_render.py`, so
   each `/workspace/cycle_logs/cycle_<stamp>_<label>.log` fills with a

@@ -42,7 +42,7 @@ PROTO = HERE.parent.parent
 PROTOCOL_VERSIONS = ("2025-06-18", "2025-03-26", "2024-11-05")
 SERVER_INFO = {"name": "hexapod-rl-results",
                "title": "Hexapod RL campaign results",
-               "version": "1.0.0"}
+               "version": "1.1.0"}
 INSTRUCTIONS = """\
 Results of an autonomous RL training campaign teaching an 18-servo
 hexapod robot to stand, walk, and turn (MuJoCo/MJX PPO on a GPU fleet;
@@ -60,11 +60,13 @@ This endpoint is PRIVATE: you reached it with the operator's MCP key,
 so you are acting for the operator (Lukas) and your requests run the
 trusted operator lane automatically.
 
-You can LEAVE NOTES for the campaign: submit_feedback files a note
-(observations, critiques, suggested experiments) that the
-orchestrator agent reads at the start of its next decision cycle;
-entries are operator-stamped and show on the dashboard. list_feedback
-shows what is already filed — check it first to avoid duplicates.
+You can LEAVE NOTES for the campaign: submit_feedback files a
+campaign-wide note. For feedback about a particular training run, use
+submit_run_feedback(run, feedback); the run is validated against the
+ledger and the note is attached to get_run, list_runs, the run's human
+dashboard page, and the next orchestrator decision cycle.
+list_feedback / list_run_feedback show what is already filed — check
+them first to avoid duplicates.
 
 kick_orchestrator goes one step further: it files the TRUSTED
 operator kick — the watcher wakes within seconds and spawns a
@@ -327,6 +329,11 @@ def t_list_runs(status: str = "", track: str = "", contains: str = "",
                 limit: int = 40) -> str:
     limit = max(1, min(int(limit), 900))
     rows, counts = [], {}
+    feedback_counts: dict[str, int] = {}
+    for note in _feedback_entries():
+        if note.get("run"):
+            feedback_counts[note["run"]] = feedback_counts.get(
+                note["run"], 0) + 1
     for e in _ledger():
         counts[e.get("status", "?")] = counts.get(e.get("status", "?"), 0) + 1
         if status and e.get("status", "").upper() != status.upper():
@@ -344,6 +351,8 @@ def t_list_runs(status: str = "", track: str = "", contains: str = "",
         for k in ("phase", "steps", "parent"):
             if e.get(k):
                 r[k] = e[k]
+        if feedback_counts.get(e.get("run", "")):
+            r["feedback_count"] = feedback_counts[e["run"]]
         hyp = (e.get("hypothesis") or "").strip()
         if hyp:
             r["hypothesis"] = hyp[:280] + ("…" if len(hyp) > 280 else "")
@@ -374,6 +383,14 @@ def t_get_run(run: str) -> str:
     if story.is_file():
         out += ["", "# Run story (rl_docs/runs/%s.md)" % run,
                 story.read_text(errors="replace")]
+    notes = feedback_for_run(run)
+    out += ["", "# Saved run feedback"]
+    if notes:
+        out.append(_format_feedback(notes, 200,
+                                    label=f"feedback for run {run}"))
+    else:
+        out.append("No feedback is attached yet. Use submit_run_feedback "
+                   "to add observations or requested follow-ups.")
     out.append("\n(run_metrics gives cached W&B curves; eval_report the "
                "gate-eval numbers, when present on this host.)")
     return _clip("\n".join(out))
@@ -496,8 +513,24 @@ def _feedback_entries() -> list[dict]:
     return out
 
 
-def t_submit_feedback(feedback: str, topic: str = "", author: str = "",
-                      _client_ip: str = "", _operator: bool = False) -> str:
+def feedback_for_run(run: str) -> list[dict]:
+    """Persisted feedback for one exact ledger run, newest first."""
+    return [e for e in _feedback_entries() if e.get("run") == run]
+
+
+def _run_lookup_error(run: str) -> str:
+    names = [str(e.get("run")) for e in _ledger() if e.get("run")]
+    if run in names:
+        return ""
+    near = [name for name in names if run.lower() in name.lower()
+            or name.lower() in run.lower()]
+    return (f"run {run!r} not in the ledger."
+            + (f" Near matches: {', '.join(near[:10])}" if near else ""))
+
+
+def _store_feedback(feedback: str, topic: str = "", author: str = "",
+                    run: str = "", _client_ip: str = "",
+                    _operator: bool = False) -> str:
     feedback = (feedback or "").strip()
     if not feedback:
         return "feedback text is empty — nothing filed."
@@ -519,7 +552,10 @@ def t_submit_feedback(feedback: str, topic: str = "", author: str = "",
     fid = f"fb_{ts}_{os.urandom(3).hex()}"
     entry = {"id": fid, "utc": ts, "topic": (topic or "")[:200],
              "author": (author or "")[:200], "feedback": feedback,
+             "scope": "run" if run else "campaign",
              "client": _client_ip}  # for abuse triage; not shown publicly
+    if run:
+        entry["run"] = run
     if _operator:
         # Authenticated with the dashboard token: stamp the entry so
         # cycles reading the inbox see it came from the operator. (The
@@ -533,20 +569,39 @@ def t_submit_feedback(feedback: str, topic: str = "", author: str = "",
     op_note = (" OPERATOR-AUTHENTICATED: the entry is stamped "
                "\"operator\": true, so cycles reading the inbox know "
                "it carries operator weight." if _operator else "")
+    attachment = (f" It is attached to run {run!r} in get_run, "
+                  f"list_run_feedback, list_runs, and the run dashboard."
+                  if run else "")
     return (f"filed as {fid} — the orchestrator agent reads it at the "
             f"start of its next decision cycle (as advisory input; it "
             f"cannot override the campaign's guardrails), and the "
-            f"operator sees it on the dashboard. Concrete, evidence-"
-            f"backed suggestions (run names, numbers, doc paths) are "
-            f"the most actionable.{op_note}")
+            f"operator sees it on the dashboard.{attachment} Concrete, "
+            f"evidence-backed suggestions (run names, numbers, doc paths) "
+            f"are the most actionable.{op_note}")
 
 
-def t_list_feedback(limit: int = 20) -> str:
+def t_submit_feedback(feedback: str, topic: str = "", author: str = "",
+                      _client_ip: str = "", _operator: bool = False) -> str:
+    return _store_feedback(feedback, topic, author,
+                           _client_ip=_client_ip, _operator=_operator)
+
+
+def t_submit_run_feedback(run: str, feedback: str, topic: str = "",
+                          author: str = "", _client_ip: str = "",
+                          _operator: bool = False) -> str:
+    run = (run or "").strip()
+    err = _run_lookup_error(run)
+    if err:
+        return err + " Nothing was filed."
+    return _store_feedback(feedback, topic or f"run: {run}", author, run,
+                           _client_ip, _operator)
+
+
+def _format_feedback(entries: list[dict], limit: int, *, label: str) -> str:
     limit = max(1, min(int(limit), 200))
-    entries = _feedback_entries()
     if not entries:
-        return "feedback inbox is empty — yours would be the first."
-    out = [f"{len(entries)} entries, newest first (showing "
+        return f"{label} is empty."
+    out = [f"{len(entries)} entries in {label}, newest first (showing "
            f"{min(limit, len(entries))}):", ""]
     for e in entries[:limit]:
         head = e.get("utc", "?")
@@ -554,11 +609,30 @@ def t_list_feedback(limit: int = 20) -> str:
             head += f" · {e['author']}"
         if e.get("topic"):
             head += f" · {e['topic']}"
+        if e.get("run"):
+            head += f" · run {e['run']}"
         head += (" · seen by the orchestrator"
                  if e.get("injected_utc") else " · not yet seen")
         out += [f"## {e.get('id', '?')} ({head})",
                 e.get("feedback", "")[:2000], ""]
     return _clip("\n".join(out))
+
+
+def t_list_feedback(limit: int = 20) -> str:
+    return _format_feedback(_feedback_entries(), limit,
+                            label="the feedback inbox")
+
+
+def t_list_run_feedback(run: str, limit: int = 50) -> str:
+    run = (run or "").strip()
+    err = _run_lookup_error(run)
+    entries = feedback_for_run(run)
+    if err and not entries:
+        return err
+    if not entries:
+        return (f"run {run!r} has no saved feedback yet — use "
+                f"submit_run_feedback to attach the first note.")
+    return _format_feedback(entries, limit, label=f"feedback for run {run}")
 
 
 def _kick_state_note(n_ahead: int) -> str:
@@ -955,7 +1029,8 @@ TOOLS = [
                         "description": "max runs returned (default 40)"}}},
     {"name": "get_run",
      "description": "One run's full ledger entry (hypothesis, gate, "
-                    "verdict, lineage) plus its rendered story doc.",
+                    "verdict, lineage), rendered story doc, and all "
+                    "persisted feedback attached to that run.",
      "fn": t_get_run,
      "args": {"run": {"type": "string",
                       "description": "run name, e.g. cw-arch-modeseq1-rr1"}},
@@ -999,7 +1074,7 @@ TOOLS = [
                                              "(default 100)"}},
      "required": ["query"]},
     {"name": "submit_feedback",
-     "description": "File feedback on the campaign (observations, "
+     "description": "File campaign-wide feedback (observations, "
                     "critiques, suggested experiments) into the "
                     "operator-reviewed inbox. Not auto-executed; the "
                     "human reads it on the dashboard. Cite run names, "
@@ -1019,6 +1094,26 @@ TOOLS = [
                                         "'GPT-5 via ChatGPT, asked by "
                                         "Lukas'"}},
      "required": ["feedback"]},
+    {"name": "submit_run_feedback",
+     "description": "Attach persistent feedback to one exact training "
+                    "run. The run name is validated against the ledger; "
+                    "the note becomes visible in get_run, list_runs, "
+                    "list_run_feedback, the human run page, and the next "
+                    "orchestrator decision cycle. Use this for subjective "
+                    "motion impressions, metric interpretation, approval/"
+                    "rejection, or requested follow-up experiments.",
+     "fn": t_submit_run_feedback,
+     "args": {"run": {"type": "string",
+                       "description": "exact run name from list_runs"},
+              "feedback": {"type": "string",
+                           "description": "feedback text (markdown fine, "
+                                          "max 8000 chars)"},
+              "topic": {"type": "string",
+                        "description": "optional short subject; defaults "
+                                       "to the run name"},
+              "author": {"type": "string",
+                         "description": "who/what supplied the feedback"}},
+     "required": ["run", "feedback"]},
     {"name": "list_feedback",
      "description": "Read the feedback inbox (newest first) — check "
                     "before filing to avoid duplicating an existing "
@@ -1026,6 +1121,16 @@ TOOLS = [
      "fn": t_list_feedback,
      "args": {"limit": {"type": "integer",
                         "description": "entries to show (default 20)"}}},
+    {"name": "list_run_feedback",
+     "description": "Read all persistent feedback attached to one run, "
+                    "newest first. get_run includes the same notes alongside "
+                    "the run's evidence and verdict.",
+     "fn": t_list_run_feedback,
+     "args": {"run": {"type": "string",
+                       "description": "exact run name from list_runs"},
+              "limit": {"type": "integer",
+                        "description": "entries to show (default 50)"}},
+     "required": ["run"]},
     {"name": "orchestrator_activity",
      "description": "Live watcher/cycle status: pending kicks, every "
                     "running decision cycle WITH the newest lines of "
@@ -1105,7 +1210,8 @@ def call_tool(name: str, args: dict, client_ip: str = "",
     """Returns (text, is_error). Raises KeyError for unknown tools."""
     tool = next(t for t in TOOLS if t["name"] == name)
     kwargs = {k: v for k, v in (args or {}).items() if k in tool["args"]}
-    if tool["name"] in ("submit_feedback", "kick_orchestrator"):
+    if tool["name"] in ("submit_feedback", "submit_run_feedback",
+                         "kick_orchestrator"):
         kwargs["_client_ip"] = client_ip  # rate limiting / abuse triage
         kwargs["_operator"] = operator    # token-authenticated lane
     try:

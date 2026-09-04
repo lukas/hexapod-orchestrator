@@ -694,6 +694,12 @@ def fast_worker() -> None:
                               if e.get("run")}
             run_videos = representative_videos(
                 (e.get("run") for e in rows), slim.keys(), visible_tracks)
+            feedback = _mcp._feedback_entries()
+            feedback_counts: dict[str, int] = {}
+            for note in feedback:
+                if note.get("run"):
+                    feedback_counts[note["run"]] = feedback_counts.get(
+                        note["run"], 0) + 1
             SNAP["fast"] = {
                 "latest": slim,
                 "at": time.time(),
@@ -705,7 +711,8 @@ def fast_worker() -> None:
                 "backlog": backlog_state(),
                 "cycle_budget": cycle_budget(),
                 "kicks": pending_kicks(),
-                "feedback": _mcp._feedback_entries()[:15],
+                "feedback": feedback[:15],
+                "feedback_counts": feedback_counts,
                 "orch_tail": read_tail(ORCH_LOG, 14),
                 "rl_log_tail": read_tail(PROTO / "RL_LOG.md", 8),
                 "rl_plan": (PROTO / "RL_PLAN.md").read_text(errors="replace"),
@@ -932,7 +939,7 @@ def llm_url_groups(base: str) -> list[tuple[str, list[tuple[str, str]]]]:
             ("Research brief — latest per topic", f"{base}/llm/brief.md"),
             ("MCP endpoint (streamable HTTP — add as a remote MCP "
              "server WITH the operator MCP key; tools for "
-             "ledger/metrics/docs)", f"{base}/mcp"),
+             "ledger/metrics/docs/run feedback)", f"{base}/mcp"),
             ("Campaign + all per-track STATUS", f"{base}/llm/status.md"),
             ("Research plan (RL_PLAN.md)", f"{base}/llm/plan.md"),
             ("Cycle log (RL_LOG.md)", f"{base}/llm/log.md"),
@@ -1612,24 +1619,29 @@ def render(base: str = "") -> str:
                  f"<td class='dim'>{tail}</td></tr>")
     h.append("</table>")
 
-    # Feedback filed via the keyed /mcp submit_feedback tool (operator
+    # Feedback filed via the keyed MCP campaign/run tools (operator
     # 08-14; key-gated 08-15 so entries come from the operator's own
     # clients). The watcher injects unseen entries into the next
     # decision cycle ("agent" column shows NEW vs when a cycle saw it).
     fb = f.get("feedback", [])
-    h.append("<h2>LLM feedback inbox (/mcp submit_feedback, "
+    h.append("<h2>LLM feedback inbox (/mcp submit_feedback / "
+             "submit_run_feedback, "
              "operator-keyed — injected into the next cycle)</h2>")
     if fb:
         h.append("<table><tr><th>when (UTC)</th><th>author</th>"
-                 "<th>topic</th><th>agent</th><th>feedback</th></tr>")
+                 "<th>run</th><th>topic</th><th>agent</th>"
+                 "<th>feedback</th></tr>")
         for e in fb:
             seen = e.get("injected_utc", "")
             agent = (f"<span class='dim'>seen {esc(seen[9:11])}:"
                      f"{esc(seen[11:13])}</span>" if len(seen) >= 13
                      else "<span class='warn'>NEW</span>")
+            run_cell = (run_link(e["run"]) if e.get("run")
+                        else "<span class='dim'>campaign</span>")
             h.append(f"<tr><td class='mono dim' style='white-space:"
                      f"nowrap'>{esc(e.get('utc', '?'))}</td>"
                      f"<td class='dim'>{esc(e.get('author', ''))}</td>"
+                     f"<td>{run_cell}</td>"
                      f"<td>{esc(e.get('topic', ''))}</td>"
                      f"<td>{agent}</td>"
                      f"<td><details><summary>"
@@ -1638,8 +1650,8 @@ def render(base: str = "") -> str:
                      f"</details></td></tr>")
         h.append("</table>")
     else:
-        h.append("<div class='dim'>empty — external LLMs can file notes "
-                 "via the MCP endpoint's submit_feedback tool</div>")
+        h.append("<div class='dim'>empty — external LLMs can file campaign "
+                 "or per-run notes via the MCP endpoint</div>")
 
     h.append("<h2>Fleet</h2>")
     if not cen:
@@ -1916,6 +1928,25 @@ def render_run_page(run: str) -> str | None:
                    f"runs/{esc(wandb_id)}'>W&amp;B run</a>"
                    if wandb_id else "") + "</div>")
 
+    feedback = _mcp.feedback_for_run(run)
+    body.append("<h2>Saved feedback</h2>")
+    if feedback:
+        for note in feedback:
+            seen = note.get("injected_utc")
+            meta = [note.get("utc", "?")]
+            if note.get("author"):
+                meta.append(note["author"])
+            if note.get("topic"):
+                meta.append(note["topic"])
+            meta.append("seen by orchestrator" if seen else "awaiting cycle")
+            body.append("<div class='card' style='margin:8px 0'>"
+                        f"<div class='mono dim'>{esc(' · '.join(meta))}</div>"
+                        f"<pre>{esc(note.get('feedback', ''))}</pre></div>")
+    else:
+        body.append("<div class='dim'>No feedback attached. MCP clients can "
+                    "add it with submit_run_feedback; get_run and future "
+                    "orchestrator cycles will see it automatically.</div>")
+
     video = SNAP.get("fast", {}).get("run_videos", {}).get(run)
     if video is None:
         known_runs = [e.get("run") for e in entries
@@ -2087,6 +2118,7 @@ def llm_log_md() -> str:
 def llm_runs_md(base: str, key: str) -> str:
     f = SNAP.get("fast", {})
     rows = f.get("ledger", [])
+    feedback_counts = f.get("feedback_counts", {})
     out = ["# Launched runs — latest ledger entry per run, newest first",
            "",
            "Status meanings: RUNNING = training now. FINISHED = training "
@@ -2112,6 +2144,12 @@ def llm_runs_md(base: str, key: str) -> str:
             out.append(f"- verdict: {verdict}")
         elif e.get("triage"):
             out.append(f"- analysis stage: {e['triage']}")
+        if feedback_counts.get(run):
+            count = feedback_counts[run]
+            out.append(f"- saved feedback: {count} "
+                       f"entr{'y' if count == 1 else 'ies'} "
+                       f"(read with authenticated MCP get_run or "
+                       f"list_run_feedback)")
         if (PROTO / "rl_docs" / "runs" / f"{run}.md").is_file():
             out.append(f"- full story: {base}/llm/doc/rl_docs/runs/"
                        f"{run}.md{key}")
@@ -2257,10 +2295,12 @@ at {base}/llm/doc/<path>{key}:
 
 The same results are queryable as tools over the MCP streamable-HTTP
 transport (run ledger with filters, per-run stories, cached W&B
-metrics, eval reports, doc search) at {base}/mcp — but that endpoint
-is private: it requires the operator's MCP key (Authorization: Bearer
-<key>, X-Api-Key, or ?key=<key>). The keyless /llm pages above carry
-the same public data.
+metrics, eval reports, doc search, and persistent per-run feedback) at
+{base}/mcp — but that endpoint is private: it requires the operator's
+MCP key (Authorization: Bearer <key>, X-Api-Key, or ?key=<key>).
+Agents can use submit_run_feedback and list_run_feedback; get_run also
+returns all feedback attached to that run. The keyless /llm pages above
+carry the same public campaign data but not the private feedback text.
 """
 
 
