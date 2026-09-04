@@ -77,10 +77,18 @@ Exported walk artifact:
   regression cap, the signature of one shared GRU core computing both
   skills. Next lever BUILT+tested+LAUNCHED 09-04:
   `gru_policy.TripleGruActorCriticPolicy` gives pure-turn ticks their
-  own protected GRU core (isolated by construction from the
-  combined-tick gradient); a 2-seed canary
-  (`cap29-stdwalklohi-triplecore-r2{,-s1-r2}`) is RUNNING, unread.
-  Details/evidence: `rl_docs/tracks/standwalk/STATUS.md` Next item 2.
+  own protected GRU core, isolated by construction from the
+  combined-tick gradient. Seed0 canary (`...-triplecore-r2`) CANARY
+  FAIL - MECHANISM 09-04: combined-tick worse both signs (~23-28%),
+  pure-turn cap also blown (~13-26%), plus a new tilt_roll
+  termination — the isolated core did not fix the interference, it's
+  worse than the shared-core control on every axis. Seed1 twin
+  (`-s1-r2`) still RUNNING/unread (concurrent cycle). If it confirms,
+  the architecture-split lever closes 2/2 and the branch pivots to
+  measuring/repairing the scripted TEACHER's own combined-turn
+  authority loss (09-03 finding: 67% lost) rather than another
+  policy-capacity mechanism. Details/evidence:
+  `rl_docs/tracks/standwalk/STATUS.md` Next item 2.
 - `walkcurr`: RETIRED 08-31, DONE-negative scope finding (see above).
 - `joystick`, `amp`, `cpg`: green/maintenance unless the operator
   explicitly reopens them.
