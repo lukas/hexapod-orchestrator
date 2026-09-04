@@ -66,9 +66,15 @@ Exported walk artifact:
 - `todaypolicy`: DONE for 08-30 (bundle packaged, GO). Optional: swap
   walk role if a walkteach-lineage export beats MLP-singleframe on the
   identical UX suite; learned-vs-scripted tuck A/B.
-- `standwalk`: rise-stall branch CLOSED (genuine lineage fragility).
-  Steering/turn-authority is the track's largest remaining DONE-gate
-  distance: turn-in-place alone is strong (wz ~0.18-0.25 on 0.25 cmd)
+- `standwalk`: 09-04 operator directive fb_20260904T074505 executed —
+  over_current AUDITED (2.64 A = forcerange rail image; uncalibrated;
+  never condemns alone — CURRENT_TRUTHS ruling, audit_over_current.py,
+  `logs/ckpt_eval/oc_audit_09-04/`), transition-stress promotion suite
+  `eval_cmd_stress.py` banked (mech-terms-only hard gate, smoothness
+  telemetry), transtress-diet canary pair + matched controls RUNNING
+  (train-6/7/8/9). Rise-stall branch CLOSED (genuine lineage
+  fragility). Steering/turn-authority is the track's largest remaining
+  DONE-gate distance: turn-in-place alone is strong (wz ~0.18-0.25 on 0.25 cmd)
   but combined walk+turn ticks lose most of it. EVERY policy-side
   lever is now refuted (open-loop dose/geometry family 8/8 FAIL,
   yaw-reward-boost 4/4 FAIL, and — closed 09-04 —
