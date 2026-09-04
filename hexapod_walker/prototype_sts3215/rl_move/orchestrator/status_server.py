@@ -61,6 +61,7 @@ sys.path.insert(0, str(HERE))
 from launch_run import KUBECONFIG, load_guardrails, pod_trainers  # noqa: E402
 
 import mcp_server as _mcp  # noqa: E402  (MCP endpoint at /mcp)
+import blocker_state as _blockers  # noqa: E402
 import tracks as _tracks  # noqa: E402  (research-track registry)
 
 PORT = int(os.environ.get("STATUS_PORT", "8090"))
@@ -2514,6 +2515,31 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return
         from urllib.parse import parse_qs, urlparse
         u = urlparse(self.path)
+        if u.path == "/api/blockers":
+            # This operational feed is private like MCP. The Mac-side
+            # alert relay uses the existing MCP operator key, so no phone
+            # number or new cloud secret needs to live in the cluster.
+            if not (_mcp._authed(self.headers, u.query)
+                    or self._mcp_operator()):
+                body = b'{"error":"authentication required"}'
+                self.send_response(401)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+                return
+            payload = {
+                "open": _blockers.list_blockers(),
+                "recent": _blockers.list_blockers(include_resolved=True)[:100],
+            }
+            body = json.dumps(payload, default=str).encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
         # The LLM mirror is keyless (operator 08-13): the git repo it
         # mirrors is PUBLIC on GitHub, so the token gated nothing there,
         # and GPT's URL-safety wrapper refuses keyed URLs outright.

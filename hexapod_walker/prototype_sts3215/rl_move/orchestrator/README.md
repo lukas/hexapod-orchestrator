@@ -98,6 +98,13 @@ the drain requires before treating a pod as a slot.
   the controller). Hard-killing the tmux session murders in-flight
   cycles — their narration survives on disk, but un-saved verdicts
   and the spent tokens do not.
+- **Operator-blocking alert:** `ops.sh blocker report <source> <summary>
+  [details]` writes a concurrency-safe runtime record outside the git
+  checkout. `ops.sh blocker list` and `resolve <id> [resolution]` inspect and
+  close it. The private `GET /api/blockers` feed accepts the existing MCP
+  operator key and is polled by the Mac blocker-alert relay. Use this only
+  after retries and alternate useful work are exhausted; routine experiment
+  failures and normal operator-owned hardware steps are not alert-worthy.
 - **Logs:** `/workspace/orchestrator.log` (watcher),
   `/workspace/cycle_logs/` (cycles, live-streaming),
   `/tmp/train_<run>.log` (on pods).

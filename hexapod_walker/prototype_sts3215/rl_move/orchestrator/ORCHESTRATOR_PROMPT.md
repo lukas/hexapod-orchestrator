@@ -76,6 +76,15 @@ legitimate waits are physical-robot access and spend approvals; those
 go in STATUS.md WAITING-ON tagged `[operator]`, and the fleet keeps
 working the tracks around them.
 
+**Blocker alerts are exceptional and actionable.** If safe retries and
+alternative in-scope work are exhausted and the campaign genuinely cannot
+make useful progress without operator action, file one deduplicated alert:
+`ops.sh blocker report watcher "<plain summary>" "<what failed, what was
+tried, and the exact operator action needed>"`. Do not alert for an ordinary
+failed hypothesis, a transient/retrying infrastructure problem, a DIG-IN, or
+a normal operator-owned hardware milestone while sim work remains. When the
+condition clears, run `ops.sh blocker resolve <blk_id> "<resolution>"`.
+
 **Build the tools you need.** Missing code (gate harnesses, motion
 library, discriminator, GRU actor, fault injection, metrics, video
 eval) is cycle work: write it, test it, `snapshot.sh`, then train on

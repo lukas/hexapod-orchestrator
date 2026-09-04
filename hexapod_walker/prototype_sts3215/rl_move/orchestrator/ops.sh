@@ -71,6 +71,30 @@ export LEDGER PROTO HERE
 
 case "${1:-help}" in
 
+blocker)  # blocker report|resolve|list — operator-only impediments, not failed hypotheses
+  action="${2:-list}"
+  case "$action" in
+    report)
+      [ "$#" -ge 4 ] || { echo 'usage: ops.sh blocker report <source> <summary> [details]'; exit 2; }
+      uv run python "$HERE/blocker_state.py" report \
+        --source "$3" --summary "$4" --details "${5:-}"
+      ;;
+    resolve)
+      [ "$#" -ge 3 ] || { echo 'usage: ops.sh blocker resolve <id> [resolution]'; exit 2; }
+      uv run python "$HERE/blocker_state.py" resolve "$3" \
+        --resolution "${4:-}"
+      ;;
+    list)
+      if [ "${3:-}" = "--all" ]; then
+        uv run python "$HERE/blocker_state.py" list --all
+      else
+        uv run python "$HERE/blocker_state.py" list
+      fi
+      ;;
+    *) echo 'usage: ops.sh blocker report|resolve|list'; exit 2 ;;
+  esac
+  ;;
+
 status)  # fleet in one shot: active ledger entries, live procs, watcher tail
   uv run python - <<'EOF'
 import json, os
@@ -1173,6 +1197,7 @@ waitlog)  # waitlog <file> <regex> [timeout_s] — poll instead of sleep-and-pra
   echo "  wandbnote <run> \"paragraph\" | oplaunch <launch_run.py args...> |"
   echo "  cycle [\"focus text\"] (operator: kick a decision session now) |"
   echo "  activity (live watcher+cycle view w/ narration) |"
+  echo "  blocker report|resolve|list (operator-blocking alert ledger) |"
   echo "  cyclelog [pat] [n] (tail one cycle's live narration) |"
   echo "  waitcycle [pat] [t] (follow a cycle live until it ends)"
   ;;
