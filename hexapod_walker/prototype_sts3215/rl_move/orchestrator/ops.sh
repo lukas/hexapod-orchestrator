@@ -362,6 +362,64 @@ print(f"# then: ops.sh waitlog /tmp/eval_{run}.log 'artifacts|Traceback' 1800")
 EOF
   ;;
 
+evalcmdstress)  # evalcmdstress <run> [own_dr=0.5] [n=6] [episode_s=60] —
+  # launch rl_move/sim/eval_cmd_stress.py for <run> ON ITS OWN POD
+  # (kubectl exec, backgrounded there via nohup), deriving pod +
+  # FULL --cfg-set stack from the ledger (same entry-selection as
+  # evalcmd). GOTCHA this exists to dodge (found 09-04, transtress
+  # cmdstress triage): eval_cmd_stress's --extra-cfg-set is
+  # `nargs="*"` — passing it ONCE per key like `--cfg-set` conventions
+  # elsewhere means each repeat OVERWRITES the previous (argparse
+  # store, not append), silently keeping only the LAST cfg-set key
+  # and voiding obs.mode_onehot/goal.walk_phase_obs/etc → an obs-width
+  # crash ("checkpoint obs width N does not fit the eval env"). This
+  # helper emits exactly ONE `--extra-cfg-set k1=v1 k2=v2 ...` with
+  # every key space-separated (shell-quoted) after the flag — never
+  # repeat the flag by hand.
+  # Prints progress to /tmp/cmdstress_<run>.log ON THE POD; poll with
+  # `ops.sh waitlog` equivalent via kubectl exec cat, or just re-run
+  # this (idempotent: eval_cmd_stress reuses an existing report.json).
+  run="$2"; own_dr="${3:-0.5}"; n="${4:-6}"; ep="${5:-60}"
+  uv run python - "$run" "$own_dr" "$n" "$ep" <<'EOF'
+import json, os, shlex, subprocess, sys
+run, own_dr, n, ep = sys.argv[1:5]
+entry = None
+fallback = None
+for e in json.load(open(os.environ["LEDGER"])):
+    if isinstance(e, dict) and e.get("run") == run and e.get("extra_args"):
+        fallback = e
+        if e.get("wandb_id") or e.get("checks", {}).get("pid"):
+            entry = e
+entry = entry or fallback
+if not entry:
+    print(f"# no ledger entry with extra_args for {run}", file=sys.stderr)
+    sys.exit(1)
+pod = entry["pod"]
+args = entry["extra_args"]
+def val(flag, default=None):
+    return args[args.index(flag) + 1] if flag in args else default
+task = val("--task", "joint_walk")
+cfgs = [args[i + 1] for i, a in enumerate(args) if a == "--cfg-set"]
+name = "ppo_goal_" + run.replace("-", "_")
+out_rel = f"logs/ckpt_eval/{run.replace('-', '_')}_cmdstress"
+extra = "--extra-cfg-set " + " ".join(shlex.quote(c) for c in cfgs) if cfgs else ""
+remote = (
+    f"cd /workspace/prototype_sts3215 && set -a && "
+    f". rl_move/sim/wandb.env 2>/dev/null; set +a; "
+    f"nohup nice -n 19 uv run python -m rl_move.sim.eval_cmd_stress "
+    f"rl_move/sim/policies/{name}.zip --task {task} "
+    f"--own-dr-scale {own_dr} --episode-seconds {ep} --n {n} "
+    f"--modes rise walk {extra} --out-dir {out_rel} --strict "
+    f"> /tmp/cmdstress_{run}.log 2>&1 &"
+)
+print(f"# pod={pod} out={out_rel}")
+print(f"kubectl exec {pod} -- bash -c {shlex.quote(remote)}")
+subprocess.run(["kubectl", "exec", pod, "--", "bash", "-c", remote])
+print(f"# poll: kubectl exec {pod} -- cat /tmp/cmdstress_{run}.log")
+print(f"# then: kubectl cp {pod}:/workspace/prototype_sts3215/{out_rel} logs/ckpt_eval/")
+EOF
+  ;;
+
 sessioncmd)  # sessioncmd <run> — print the long mixed-control session
   # gate command (eval_mixed_session: 60s + 180s env-native mode_seq
   # sessions, operator 08-27) carrying the run's own cfg stack from
@@ -1190,7 +1248,7 @@ waitlog)  # waitlog <file> <regex> [timeout_s] — poll instead of sleep-and-pra
   echo "subcommands: review <run> (START HERE for triage) | report <run|json> |"
   echo "  status | census | triage [hours] | procs <pod> | trainlog <run> [n] |"
   echo "  entry <run> | wandb <run> | pullckpt <run> | pushckpt <pod> <ckpt> |"
-  echo "  podeval <run> [sfx] | m5eval <run> [pod] | evalcmd <run> | drain | killrun <run> |"
+  echo "  podeval <run> [sfx] | m5eval <run> [pod] | evalcmd <run> | evalcmdstress <run> | drain | killrun <run> |"
   echo "  waitlog <file> <regex> [t] | evalpending add <pod> <file> <label> |"
   echo "  logline \"line\" | frames <mp4> [n] | feeltest <run> [out] [--unified] |"
   echo "  drivevideo <run> [out] | hybriddemo <run> [out] | expdir <run> | wandbdump <run> |"
