@@ -1,6 +1,6 @@
 # STATUS - campaign dashboard
 
-Last updated: 2026-09-04 ~14:4x. Operator-facing dashboard, not a
+Last updated: 2026-09-04 ~18:1x. Operator-facing dashboard, not a
 history file. `CURRENT_TRUTHS.md` wins on conflict. Run-level evidence
 lives in `rl_docs/runs/`, `RL_LOG.md`, and W&B.
 
@@ -53,36 +53,32 @@ Exported walk artifact:
 
 - `cw-walkteach-scripted-allhead-acq12m{,-s1}` FINISHED 08-30: 2/2
   ACQUISITION PASS incl. the formal joystick gate, but authority is
-  teacher-ceiling-bound; `dualbc4_walkteach` teacher-adoption distill
-  is running (background CPU, controller).
-- `dualbc3-dagger-anchor14coef1-acq8m{,-s1}` mixedsession DONE-gate
-  reads did NOT error (08-30 ~17:5x triage): harnesses alive on
-  train-0/1, owndr sub-pass computing, session sub-pass pending.
-  Partial dr0: walk 0/6 success at ~40% of commanded speed, sto
-  collapse. No single-policy RL spend until the session reads land.
+  teacher-ceiling-bound.
+- `standwalk`: literal DONE-gate flat-only session on `mlcontprice8`
+  IN FLIGHT on train-6 (evalpending-registered) — see Track Snapshot.
 
 ## Track Snapshot
 
 - `todaypolicy`: DONE for 08-30 (bundle packaged, GO). Optional: swap
   walk role if a walkteach-lineage export beats MLP-singleframe on the
   identical UX suite; learned-vs-scripted tuck A/B.
-- `standwalk`: transition-stress suite (`eval_cmd_stress.py`, operator
-  directive fb_20260904T074505) is live; a seed-dependent fork on the
-  first diet canary is being carried forward by `-transtress-s1-acq8m`
-  (clean lineage) + its "unloaded foot at hold-entry" repair mechanism
-  (`hold_min_load_ema_continuous` + priced short-fall). 3-point dose
-  bracket now running: k=2 FAIL (below effective threshold, ~= unfixed
-  baseline rate), k=8 FAIL-MECHANISM but real dose-responsive partial
-  fix (halves fires, cleans DR-0+gait-validity), k=16 RUNNING
-  (`mlcontprice16`, train-5). Steering/turn-authority axis: EVERY
-  policy-side lever vs a FROZEN parent is refuted (architecture-split,
-  geometry/dose families, 9/10 seed0 cells) — but re-scoring vs a
-  MATCHED plain-continuation control flips 5/10 seed1 lever cells to
-  PASS, riding on one control (`cont-s1`) whose own floor looks weaker
-  than its sibling `cont`'s. Independent falsifier control (`cont-s1b`,
-  fresh seed) RUNNING (train-9) to settle real-effect vs unlucky-draw
-  before any lever is reopened. Details + numbers:
-  `rl_docs/tracks/standwalk/STATUS.md` Next items 1-2.
+- `standwalk`: transition-stress mechanism sub-effort (operator
+  directive fb_20260904T074505) CLOSED at its k=8 ceiling: 3-point dose
+  bracket (k=2 FAIL/below threshold, k=8 FAIL-MECHANISM but real
+  dose-responsive partial fix halving fires + cleaning DR-0/gait-
+  validity, k=16 FAIL/worse) + a per-episode DR-draw correlate at n=20
+  found no dominant randomized field (top `latency_scale` d=0.517,
+  moderate not conclusive) — residual own-DR fires are genuine
+  simulator variance, not a missing DR field. Steering/turn-authority
+  axis also CLOSED both seeds: the "9/10 lever FAIL" figure was
+  comparator noise (zero-lever controls fail the same frozen-parent
+  comparator); re-scored with a matched-continuation comparator, only
+  1/10 lever cells wins both signs on both seeds — frozen parents
+  (`cap29-stdwalklo-hi{,-s1}`) remain the reference steering
+  checkpoints, no lever acquisition. Refill: literal DONE-gate
+  flat-only session (`eval_done_gate_session`) launched on the k=8
+  checkpoint (train-6) — never read against the real gate before, only
+  the stress diet. Details: `rl_docs/tracks/standwalk/STATUS.md`.
 - `walkcurr`: RETIRED 08-31, DONE-negative scope finding (see above).
 - `joystick`, `amp`, `cpg`: green/maintenance unless the operator
   explicitly reopens them.
