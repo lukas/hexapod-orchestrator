@@ -6,3 +6,5 @@ LAUNCH_HOLD
 CYCLE_WORKED
 KICK
 WRAPUP
+blockers.runtime.json
+blockers.runtime.json.lock
