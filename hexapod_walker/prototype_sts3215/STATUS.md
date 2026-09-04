@@ -1,6 +1,6 @@
 # STATUS - campaign dashboard
 
-Last updated: 2026-09-04 ~05:2x. Operator-facing dashboard, not a
+Last updated: 2026-09-04 ~18:1x. Operator-facing dashboard, not a
 history file. `CURRENT_TRUTHS.md` wins on conflict. Run-level evidence
 lives in `rl_docs/runs/`, `RL_LOG.md`, and W&B.
 
@@ -53,36 +53,32 @@ Exported walk artifact:
 
 - `cw-walkteach-scripted-allhead-acq12m{,-s1}` FINISHED 08-30: 2/2
   ACQUISITION PASS incl. the formal joystick gate, but authority is
-  teacher-ceiling-bound; `dualbc4_walkteach` teacher-adoption distill
-  is running (background CPU, controller).
-- `dualbc3-dagger-anchor14coef1-acq8m{,-s1}` mixedsession DONE-gate
-  reads did NOT error (08-30 ~17:5x triage): harnesses alive on
-  train-0/1, owndr sub-pass computing, session sub-pass pending.
-  Partial dr0: walk 0/6 success at ~40% of commanded speed, sto
-  collapse. No single-policy RL spend until the session reads land.
+  teacher-ceiling-bound.
+- `standwalk`: literal DONE-gate flat-only session on `mlcontprice8`
+  IN FLIGHT on train-6 (evalpending-registered) — see Track Snapshot.
 
 ## Track Snapshot
 
 - `todaypolicy`: DONE for 08-30 (bundle packaged, GO). Optional: swap
   walk role if a walkteach-lineage export beats MLP-singleframe on the
   identical UX suite; learned-vs-scripted tuck A/B.
-- `standwalk`: rise-stall branch CLOSED (genuine lineage fragility).
-  Steering/turn-authority is the track's largest remaining DONE-gate
-  distance: turn-in-place alone is strong (wz ~0.18-0.25 on 0.25 cmd)
-  but combined walk+turn ticks lose most of it. EVERY policy-side
-  lever is now refuted (open-loop dose/geometry family 8/8 FAIL,
-  yaw-reward-boost 4/4 FAIL, and — closed 09-04 —
-  `TripleGruActorCriticPolicy`'s protected 3rd GRU core, 2/2 seed
-  CANARY FAIL). A same-cycle confound-isolation pair settled WHY:
-  dropping the control's yaw_credit/log_std_split mechanisms during
-  further training reproduces Triple's pure-turn loss by itself
-  (mechanism, not architecture), and even matched to that confound
-  plain continuation beats Triple on every combined-tick cell (8/8) —
-  the architecture-split axis is DEFINITIVELY dead. Sole live lever:
-  repair the scripted TEACHER's own combined-turn loss (only ~33% of
-  pure-turn wz survives walking forward) — needs a zero-training
-  TripodGait fix + probe before any RL spend. Details:
-  `rl_docs/tracks/standwalk/STATUS.md` Next item 2.
+- `standwalk`: transition-stress mechanism sub-effort (operator
+  directive fb_20260904T074505) CLOSED at its k=8 ceiling: 3-point dose
+  bracket (k=2 FAIL/below threshold, k=8 FAIL-MECHANISM but real
+  dose-responsive partial fix halving fires + cleaning DR-0/gait-
+  validity, k=16 FAIL/worse) + a per-episode DR-draw correlate at n=20
+  found no dominant randomized field (top `latency_scale` d=0.517,
+  moderate not conclusive) — residual own-DR fires are genuine
+  simulator variance, not a missing DR field. Steering/turn-authority
+  axis also CLOSED both seeds: the "9/10 lever FAIL" figure was
+  comparator noise (zero-lever controls fail the same frozen-parent
+  comparator); re-scored with a matched-continuation comparator, only
+  1/10 lever cells wins both signs on both seeds — frozen parents
+  (`cap29-stdwalklo-hi{,-s1}`) remain the reference steering
+  checkpoints, no lever acquisition. Refill: literal DONE-gate
+  flat-only session (`eval_done_gate_session`) launched on the k=8
+  checkpoint (train-6) — never read against the real gate before, only
+  the stress diet. Details: `rl_docs/tracks/standwalk/STATUS.md`.
 - `walkcurr`: RETIRED 08-31, DONE-negative scope finding (see above).
 - `joystick`, `amp`, `cpg`: green/maintenance unless the operator
   explicitly reopens them.

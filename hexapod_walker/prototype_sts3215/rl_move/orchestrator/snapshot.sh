@@ -34,8 +34,18 @@ if [ "${1:-}" = "--sync" ]; then
       --exclude='*.stl' --exclude='*.mp4' \
       prototype_sts3215
   kubectl --kubeconfig="$KC" cp "$TGZ" "$POD":"$TGZ"
+  # Dir->symlink conversions (2026-09-04): when a repo path that used to
+  # be a real directory becomes a symlink (e.g. linux_control/vision_ui
+  # -> ../hexapod-tracker/web/vision_ui after the AprilTag submodule
+  # extraction), tar cannot extract the symlink over the stale non-empty
+  # dir still sitting on the pod — every sync fails with "Cannot open:
+  # File exists" (3 launch cycles lost to manual rm -rf on 09-03).
+  # Pre-remove EXACTLY the symlink members' paths when the pod copy is a
+  # real dir. Do NOT reach for tar --recursive-unlink: tested 09-04, it
+  # deletes pod-side hierarchies like logs/ that the tar merely touches.
+  LINKS="$(tar -tzvf "$TGZ" | awk '$1 ~ /^l/ {print $6}' | tr '\n' ' ')"
   kubectl --kubeconfig="$KC" exec "$POD" -- \
-      bash -c "tar -C /workspace -xzf '$TGZ' && rm -f '$TGZ'"
+      bash -c "cd /workspace; for p in $LINKS; do if [ -d \"\$p\" ] && [ ! -L \"\$p\" ]; then rm -rf \"\$p\"; fi; done; tar -C /workspace -xzf '$TGZ' && rm -f '$TGZ'"
   # Code-version marker (2026-08-09): pods have no git, so the launcher
   # cannot ask them what code they run. Stale code on long5m silently
   # dropped cw-walk-lowent-dr03's --cfg-set reward package (the old

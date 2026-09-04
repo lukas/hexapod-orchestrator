@@ -362,6 +362,78 @@ print(f"# then: ops.sh waitlog /tmp/eval_{run}.log 'artifacts|Traceback' 1800")
 EOF
   ;;
 
+evalcmdstress)  # evalcmdstress <run> [own_dr=0.5] [n=6] [episode_s=60] —
+  # launch rl_move/sim/eval_cmd_stress.py for <run> ON ITS OWN POD
+  # (kubectl exec, backgrounded there via nohup), deriving pod +
+  # FULL --cfg-set stack from the ledger (same entry-selection as
+  # evalcmd). GOTCHA this exists to dodge (found 09-04, transtress
+  # cmdstress triage): eval_cmd_stress's --extra-cfg-set is
+  # `nargs="*"` — passing it ONCE per key like `--cfg-set` conventions
+  # elsewhere means each repeat OVERWRITES the previous (argparse
+  # store, not append), silently keeping only the LAST cfg-set key
+  # and voiding obs.mode_onehot/goal.walk_phase_obs/etc → an obs-width
+  # crash ("checkpoint obs width N does not fit the eval env"). This
+  # helper emits exactly ONE `--extra-cfg-set k1=v1 k2=v2 ...` with
+  # every key space-separated (shell-quoted) after the flag — never
+  # repeat the flag by hand.
+  # N-MISMATCH GOTCHA (found 09-04 x2: mlcontprice2 used --n 54,
+  # mlcontprice16 used --n 18 — both wrong): the harness runs 6
+  # behavioral buckets per outer pass (rise/walk/walk_startjitter x
+  # det/sto), so total episodes = 12*N (N per bucket, x2 outer passes
+  # dr0+ownDR). The canonical "matched 72-total" canary reads
+  # (mlcontprice8, acq8m, transtress) all used the DEFAULT n=6
+  # (12*6=72) — NOT n=18 or n=54, even though hypothesis prose
+  # sometimes says "n=18/mode/pass (72 total)", which is internally
+  # inconsistent (that phrasing conflates "mode" with the 2 named
+  # modes, ignoring the det/sto x walk_startjitter tripling). To match
+  # a prior 72-episode canary, DO NOT pass an --n override — the
+  # default IS the matched value. Only pass n>6 deliberately for a
+  # higher-power read, and then rate-normalize (fires/n_episodes)
+  # against the matched-72 comparator instead of comparing raw counts.
+  # Prints progress to /tmp/cmdstress_<run>.log ON THE POD; poll with
+  # `ops.sh waitlog` equivalent via kubectl exec cat, or just re-run
+  # this (idempotent: eval_cmd_stress reuses an existing report.json).
+  run="$2"; own_dr="${3:-0.5}"; n="${4:-6}"; ep="${5:-60}"
+  uv run python - "$run" "$own_dr" "$n" "$ep" <<'EOF'
+import json, os, shlex, subprocess, sys
+run, own_dr, n, ep = sys.argv[1:5]
+entry = None
+fallback = None
+for e in json.load(open(os.environ["LEDGER"])):
+    if isinstance(e, dict) and e.get("run") == run and e.get("extra_args"):
+        fallback = e
+        if e.get("wandb_id") or e.get("checks", {}).get("pid"):
+            entry = e
+entry = entry or fallback
+if not entry:
+    print(f"# no ledger entry with extra_args for {run}", file=sys.stderr)
+    sys.exit(1)
+pod = entry["pod"]
+args = entry["extra_args"]
+def val(flag, default=None):
+    return args[args.index(flag) + 1] if flag in args else default
+task = val("--task", "joint_walk")
+cfgs = [args[i + 1] for i, a in enumerate(args) if a == "--cfg-set"]
+name = "ppo_goal_" + run.replace("-", "_")
+out_rel = f"logs/ckpt_eval/{run.replace('-', '_')}_cmdstress"
+extra = "--extra-cfg-set " + " ".join(shlex.quote(c) for c in cfgs) if cfgs else ""
+remote = (
+    f"cd /workspace/prototype_sts3215 && set -a && "
+    f". rl_move/sim/wandb.env 2>/dev/null; set +a; "
+    f"nohup nice -n 19 uv run python -m rl_move.sim.eval_cmd_stress "
+    f"rl_move/sim/policies/{name}.zip --task {task} "
+    f"--own-dr-scale {own_dr} --episode-seconds {ep} --n {n} "
+    f"--modes rise walk {extra} --out-dir {out_rel} --strict "
+    f"> /tmp/cmdstress_{run}.log 2>&1 &"
+)
+print(f"# pod={pod} out={out_rel}")
+print(f"kubectl exec {pod} -- bash -c {shlex.quote(remote)}")
+subprocess.run(["kubectl", "exec", pod, "--", "bash", "-c", remote])
+print(f"# poll: kubectl exec {pod} -- cat /tmp/cmdstress_{run}.log")
+print(f"# then: kubectl cp {pod}:/workspace/prototype_sts3215/{out_rel} logs/ckpt_eval/")
+EOF
+  ;;
+
 sessioncmd)  # sessioncmd <run> — print the long mixed-control session
   # gate command (eval_mixed_session: 60s + 180s env-native mode_seq
   # sessions, operator 08-27) carrying the run's own cfg stack from
@@ -1028,6 +1100,45 @@ niceevals)  # niceevals <pod> — renice every rl_move.sim.eval_checkpoint
     echo "reniced $n threads across ${#tree[@]} eval-tree processes"'
   ;;
 
+pinevals)  # pinevals <pod> — taskset-pin every rl_move.sim.eval_* process
+  # TREE on the pod to the LAST 6 allowed cores. Added 09-04 (meta):
+  # nice 19 alone was proven insufficient — 4 co-located nice-19 eval
+  # trees (~24 busy cores) still starved a trainer to fps 2913 and
+  # killed its attempt-1 (checkup 09-04 00:01); the manual remedy was
+  # exactly this pin (trainer CPU recovered 485%->791% instantly, evals
+  # kept finishing on ~6 cores). Use from a checkup/SUSPECT-fps cycle;
+  # do NOT pin evals on an idle pod (needless 4x eval slowdown).
+  # Same two traps as niceevals: pin per-THREAD, walk by ppid ancestry.
+  pod="$2"
+  [ -n "$pod" ] || { echo "usage: ops.sh pinevals <pod>"; exit 1; }
+  kubectl exec "$pod" -- bash -c '
+    R=$(awk "/Cpus_allowed_list/{n=split(\$2,a,\",\"); split(a[n],b,\"-\"); hi=(b[2]==\"\"?b[1]:b[2]); lo=hi-5; if(lo<b[1]) lo=b[1]; print lo\"-\"hi}" /proc/self/status)
+    [ -n "$R" ] || { echo "could not derive core range"; exit 1; }
+    declare -A tree
+    add_desc() {
+      local d pp c
+      for d in /proc/[0-9]*; do
+        pp=$(sed "s/.*) //" "$d/stat" 2>/dev/null | awk "{print \$2}") || continue
+        if [ "$pp" = "$1" ]; then
+          c=${d#/proc/}
+          [ -n "${tree[$c]}" ] || { tree[$c]=1; add_desc "$c"; }
+        fi
+      done
+    }
+    for d in /proc/[0-9]*; do
+      p=${d#/proc/}; [ "$p" = "$$" ] && continue
+      c=$(tr "\0" " " < "$d/cmdline" 2>/dev/null)
+      case "$c" in *rl_move.sim.eval_*)
+        [ -n "${tree[$p]}" ] || { tree[$p]=1; add_desc "$p"; };;
+      esac
+    done
+    n=0
+    for p in "${!tree[@]}"; do
+      taskset -a -pc "$R" "$p" >/dev/null 2>&1 && n=$((n+1))
+    done
+    echo "pinned $n eval-tree processes (all threads) to cores $R"'
+  ;;
+
 killrun)  # killrun <run> — kill a run's training procs on its pod.
   # Pods have no pkill, and a naive /proc scan matches ITSELF (the
   # scanning shell's own cmdline contains the run name — a cycle killed
@@ -1190,7 +1301,7 @@ waitlog)  # waitlog <file> <regex> [timeout_s] — poll instead of sleep-and-pra
   echo "subcommands: review <run> (START HERE for triage) | report <run|json> |"
   echo "  status | census | triage [hours] | procs <pod> | trainlog <run> [n] |"
   echo "  entry <run> | wandb <run> | pullckpt <run> | pushckpt <pod> <ckpt> |"
-  echo "  podeval <run> [sfx] | m5eval <run> [pod] | evalcmd <run> | drain | killrun <run> |"
+  echo "  podeval <run> [sfx] | m5eval <run> [pod] | evalcmd <run> | evalcmdstress <run> | drain | killrun <run> |"
   echo "  waitlog <file> <regex> [t] | evalpending add <pod> <file> <label> |"
   echo "  logline \"line\" | frames <mp4> [n] | feeltest <run> [out] [--unified] |"
   echo "  drivevideo <run> [out] | hybriddemo <run> [out] | expdir <run> | wandbdump <run> |"
