@@ -1,6 +1,6 @@
 # STATUS - campaign dashboard
 
-Last updated: 2026-09-04 ~05:2x. Operator-facing dashboard, not a
+Last updated: 2026-09-04 ~14:4x. Operator-facing dashboard, not a
 history file. `CURRENT_TRUTHS.md` wins on conflict. Run-level evidence
 lives in `rl_docs/runs/`, `RL_LOG.md`, and W&B.
 
@@ -66,29 +66,23 @@ Exported walk artifact:
 - `todaypolicy`: DONE for 08-30 (bundle packaged, GO). Optional: swap
   walk role if a walkteach-lineage export beats MLP-singleframe on the
   identical UX suite; learned-vs-scripted tuck A/B.
-- `standwalk`: 09-04 operator directive fb_20260904T074505 executed —
-  over_current AUDITED (2.64 A = forcerange rail image; uncalibrated;
-  never condemns alone — CURRENT_TRUTHS ruling, audit_over_current.py,
-  `logs/ckpt_eval/oc_audit_09-04/`), transition-stress promotion suite
-  `eval_cmd_stress.py` banked (mech-terms-only hard gate, smoothness
-  telemetry), transtress-diet canary pair + matched controls RUNNING
-  (train-6/7/8/9). Rise-stall branch CLOSED (genuine lineage
-  fragility). Steering/turn-authority is the track's largest remaining
-  DONE-gate distance: turn-in-place alone is strong (wz ~0.18-0.25 on 0.25 cmd)
-  but combined walk+turn ticks lose most of it. EVERY policy-side
-  lever is now refuted (open-loop dose/geometry family 8/8 FAIL,
-  yaw-reward-boost 4/4 FAIL, and — closed 09-04 —
-  `TripleGruActorCriticPolicy`'s protected 3rd GRU core, 2/2 seed
-  CANARY FAIL). A same-cycle confound-isolation pair settled WHY:
-  dropping the control's yaw_credit/log_std_split mechanisms during
-  further training reproduces Triple's pure-turn loss by itself
-  (mechanism, not architecture), and even matched to that confound
-  plain continuation beats Triple on every combined-tick cell (8/8) —
-  the architecture-split axis is DEFINITIVELY dead. Sole live lever:
-  repair the scripted TEACHER's own combined-turn loss (only ~33% of
-  pure-turn wz survives walking forward) — needs a zero-training
-  TripodGait fix + probe before any RL spend. Details:
-  `rl_docs/tracks/standwalk/STATUS.md` Next item 2.
+- `standwalk`: transition-stress suite (`eval_cmd_stress.py`, operator
+  directive fb_20260904T074505) is live; a seed-dependent fork on the
+  first diet canary is being carried forward by `-transtress-s1-acq8m`
+  (clean lineage) + its "unloaded foot at hold-entry" repair mechanism
+  (`hold_min_load_ema_continuous` + priced short-fall). 3-point dose
+  bracket now running: k=2 FAIL (below effective threshold, ~= unfixed
+  baseline rate), k=8 FAIL-MECHANISM but real dose-responsive partial
+  fix (halves fires, cleans DR-0+gait-validity), k=16 RUNNING
+  (`mlcontprice16`, train-5). Steering/turn-authority axis: EVERY
+  policy-side lever vs a FROZEN parent is refuted (architecture-split,
+  geometry/dose families, 9/10 seed0 cells) — but re-scoring vs a
+  MATCHED plain-continuation control flips 5/10 seed1 lever cells to
+  PASS, riding on one control (`cont-s1`) whose own floor looks weaker
+  than its sibling `cont`'s. Independent falsifier control (`cont-s1b`,
+  fresh seed) RUNNING (train-9) to settle real-effect vs unlucky-draw
+  before any lever is reopened. Details + numbers:
+  `rl_docs/tracks/standwalk/STATUS.md` Next items 1-2.
 - `walkcurr`: RETIRED 08-31, DONE-negative scope finding (see above).
 - `joystick`, `amp`, `cpg`: green/maintenance unless the operator
   explicitly reopens them.
