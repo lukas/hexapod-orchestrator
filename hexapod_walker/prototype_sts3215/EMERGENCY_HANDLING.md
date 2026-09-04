@@ -4,6 +4,11 @@ This is the canonical response procedure for supervised physical-robot runs.
 The goal is to stop hazardous motion without creating a second hazard through
 an unnecessary sit, zero, plant, or torque-off transition.
 
+The operator accepts that this robot is light, inexpensive, and presents low
+consequence to people in its supervised floor test area. Recoverable failures
+therefore use a default budget of **two retries** instead of ending the entire
+campaign on the first stopped attempt.
+
 ## Core rule: use the least additional motion that makes the robot safe
 
 An observation is not automatically a confirmed fault. In particular, one
@@ -25,11 +30,11 @@ These actions are different and must not be conflated:
 | Observation | Confirmation | Immediate response | Resume rule |
 |---|---|---|---|
 | One incomplete ServoWatch scan or one missing feedback reply | Fewer than 3 consecutive scans with distinct fresh timestamps | Keep the current controller/pose, issue no new transition, keep recording, and obtain fresh scans | If 18/18 returns, log `transient_missing_servo_ignored` and continue |
-| Persistent missing servo | 3 consecutive incomplete scans with distinct fresh timestamps | Confirmed hard stop: `X`; do **not** sit or safe-zero | Human inspection and explicit operator approval |
+| Persistent missing servo | 3 consecutive incomplete scans with distinct fresh timestamps | Stop and `X`; do **not** sit or safe-zero | If the camera is normal and 3 later fresh scans are 18/18 with normal electrical/thermal readings, restart from a verified safe pose; at most 2 retries |
 | Telemetry/API read failure | Fewer than 3 consecutive attempts | Keep the current controller/pose and retry promptly; do not sit or limp | Continue after fresh telemetry confirms health |
-| Telemetry lost while motion is active | 3 consecutive failures, or state/stop cannot be verified | Best-effort `X`; no recovery motion | Human inspection and explicit operator approval |
-| Camera/tag/recorder/framework failure while stationary | One confirmed software/data failure with robot telemetry still healthy | Hold the current pose; keep any surviving logs open | Inspect the live camera and fresh telemetry; retry from the last safe checkpoint if both are normal |
-| Camera/tag/recorder/framework failure while walking | One confirmed software/data failure with robot telemetry still healthy | Phase-aware gait stop, zero velocity, and hold; do not sit or limp | Inspect camera and fresh telemetry; retry from a safe checkpoint if both are normal |
+| Telemetry lost while motion is active | 3 consecutive failures, or state/stop cannot be verified | Best-effort `X`; no blind recovery motion | When communication returns, require a normal camera view and 3 complete healthy samples, then restart from a verified safe pose; at most 2 retries |
+| Camera/tag/recorder/framework failure while stationary | One confirmed software/data failure with robot telemetry still healthy | Hold the current pose; keep any surviving logs open | Inspect the live camera and fresh telemetry; retry from the last safe checkpoint if both are normal; at most 2 retries |
+| Camera/tag/recorder/framework failure while walking | One confirmed software/data failure with robot telemetry still healthy | Phase-aware gait stop, zero velocity, and hold; do not sit or limp | Inspect camera and fresh telemetry; retry the complete failed step if both are normal; at most 2 retries |
 | One hot-temperature sample | Fewer than 3 consecutive over-threshold samples from the same joint and no controller thermal latch | Hold/continue the current safe controller while collecting confirmation samples; log the warning | Continue if it clears |
 | Confirmed hot servo | Controller thermal latch or 3 consecutive over-threshold samples from the same joint | `X`, continue passive telemetry/video through cooldown, and do not reposition | Human inspection and explicit operator approval after 3 complete cool samples |
 | Hard current, sustained overcurrent, real low voltage/brownout, tip/fall, collision, jam, or surprise force | Threshold logic or direct physical/camera evidence | `X` immediately; do **not** lower, sit, zero, plant, or retry | Human inspection and explicit operator approval |
@@ -65,8 +70,10 @@ controlled stop cannot be verified, use the telemetry-loss hard-stop path.
    soft warning, or confirmed hard fault. Record why, including the samples or
    image evidence that established the classification.
 8. **Resume only by the applicable rule.** For the currently authorized test
-   campaign, a transient or non-hard failure may continue after camera and
-   fresh telemetry are normal. A confirmed hard fault never auto-resumes.
+   campaign, a transient or recoverable stopped failure continues after the
+   camera and three fresh telemetry samples are normal. Retry the complete
+   failed step, not the remaining fragment, and allow at most two retries. An
+   actual physical or electrical hard fault never auto-resumes.
 
 ## Recovery boundaries
 
@@ -77,11 +84,15 @@ controlled stop cannot be verified, use the telemetry-loss hard-stop path.
   emergency recovery.
 - Do not hold torque if the pose is fighting, jammed, stilted, tipped, hot, or
   drawing hard/sustained current. Those conditions require `X`.
-- A supported single-joint grounded diagnostic may retry once after a
+- A supported single-joint grounded diagnostic may retry up to twice after a
   confirmed current trip, but only after it has limped and feedback/current
-  have recovered. A second quick failure ends the test limp.
-- Do not automatically retry a gait, stand/plant blend, policy walk, tip,
-  brownout, hot motor, persistent missing ID, jam, or surprise-force event.
+  have recovered. A third failed attempt ends the test limp.
+- A gait or policy step may retry up to twice after a recoverable signal,
+  camera, recorder, or framework stop when the camera and three fresh health
+  samples are normal. Restart the whole step from a verified safe pose.
+- Do not automatically retry an actual tip, visibly bad posture, stand/plant
+  blend failure, brownout, hot motor, jam, surprise force, or hard/sustained
+  current event. Those need physical inspection or operator direction.
 - If the robot leaves the calibrated camera area during a healthy run, stop
   the gait neutrally, confirm the floor-map position, and return with bounded
   short pulses and a camera check after each pulse. Loss of visual localization
