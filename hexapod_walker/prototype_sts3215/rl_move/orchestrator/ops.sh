@@ -1086,6 +1086,45 @@ niceevals)  # niceevals <pod> — renice every rl_move.sim.eval_checkpoint
     echo "reniced $n threads across ${#tree[@]} eval-tree processes"'
   ;;
 
+pinevals)  # pinevals <pod> — taskset-pin every rl_move.sim.eval_* process
+  # TREE on the pod to the LAST 6 allowed cores. Added 09-04 (meta):
+  # nice 19 alone was proven insufficient — 4 co-located nice-19 eval
+  # trees (~24 busy cores) still starved a trainer to fps 2913 and
+  # killed its attempt-1 (checkup 09-04 00:01); the manual remedy was
+  # exactly this pin (trainer CPU recovered 485%->791% instantly, evals
+  # kept finishing on ~6 cores). Use from a checkup/SUSPECT-fps cycle;
+  # do NOT pin evals on an idle pod (needless 4x eval slowdown).
+  # Same two traps as niceevals: pin per-THREAD, walk by ppid ancestry.
+  pod="$2"
+  [ -n "$pod" ] || { echo "usage: ops.sh pinevals <pod>"; exit 1; }
+  kubectl exec "$pod" -- bash -c '
+    R=$(awk "/Cpus_allowed_list/{n=split(\$2,a,\",\"); split(a[n],b,\"-\"); hi=(b[2]==\"\"?b[1]:b[2]); lo=hi-5; if(lo<b[1]) lo=b[1]; print lo\"-\"hi}" /proc/self/status)
+    [ -n "$R" ] || { echo "could not derive core range"; exit 1; }
+    declare -A tree
+    add_desc() {
+      local d pp c
+      for d in /proc/[0-9]*; do
+        pp=$(sed "s/.*) //" "$d/stat" 2>/dev/null | awk "{print \$2}") || continue
+        if [ "$pp" = "$1" ]; then
+          c=${d#/proc/}
+          [ -n "${tree[$c]}" ] || { tree[$c]=1; add_desc "$c"; }
+        fi
+      done
+    }
+    for d in /proc/[0-9]*; do
+      p=${d#/proc/}; [ "$p" = "$$" ] && continue
+      c=$(tr "\0" " " < "$d/cmdline" 2>/dev/null)
+      case "$c" in *rl_move.sim.eval_*)
+        [ -n "${tree[$p]}" ] || { tree[$p]=1; add_desc "$p"; };;
+      esac
+    done
+    n=0
+    for p in "${!tree[@]}"; do
+      taskset -a -pc "$R" "$p" >/dev/null 2>&1 && n=$((n+1))
+    done
+    echo "pinned $n eval-tree processes (all threads) to cores $R"'
+  ;;
+
 killrun)  # killrun <run> — kill a run's training procs on its pod.
   # Pods have no pkill, and a naive /proc scan matches ITSELF (the
   # scanning shell's own cmdline contains the run name — a cycle killed
