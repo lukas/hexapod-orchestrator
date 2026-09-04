@@ -1,6 +1,6 @@
 # STATUS - campaign dashboard
 
-Last updated: 2026-09-04 ~03:5x. Operator-facing dashboard, not a
+Last updated: 2026-09-04 ~05:2x. Operator-facing dashboard, not a
 history file. `CURRENT_TRUTHS.md` wins on conflict. Run-level evidence
 lives in `rl_docs/runs/`, `RL_LOG.md`, and W&B.
 
@@ -66,28 +66,22 @@ Exported walk artifact:
 - `todaypolicy`: DONE for 08-30 (bundle packaged, GO). Optional: swap
   walk role if a walkteach-lineage export beats MLP-singleframe on the
   identical UX suite; learned-vs-scripted tuck A/B.
-- `standwalk`: rise-stall branch CLOSED (genuine lineage fragility,
-  not an instrument defect). Steering/turn-authority is the track's
-  clear largest remaining DONE-gate distance: turn-in-place alone is
-  strong (wz ~0.18-0.25 on 0.25 cmd) but combined walk+turn ticks lose
-  most of it. The WHOLE open-loop scalar-weight/geometry lever family
-  (8 cells: bc_anchor_walk_combined_dose + TripodGait.combined_yaw_arm
-  _scale, both axes 4/4 FAIL) is now closed 8/8 FAIL — every dose/
-  scale strong enough to win combined-tick wz blows the pure-turn
-  regression cap, the signature of one shared GRU core computing both
-  skills. Next lever BUILT+tested+LAUNCHED 09-04:
-  `gru_policy.TripleGruActorCriticPolicy` gives pure-turn ticks their
-  own protected GRU core, isolated by construction from the
-  combined-tick gradient. Seed0 canary (`...-triplecore-r2`) CANARY
-  FAIL - MECHANISM 09-04: combined-tick worse both signs (~23-28%),
-  pure-turn cap also blown (~13-26%), plus a new tilt_roll
-  termination — the isolated core did not fix the interference, it's
-  worse than the shared-core control on every axis. Seed1 twin
-  (`-s1-r2`) still RUNNING/unread (concurrent cycle). If it confirms,
-  the architecture-split lever closes 2/2 and the branch pivots to
-  measuring/repairing the scripted TEACHER's own combined-turn
-  authority loss (09-03 finding: 67% lost) rather than another
-  policy-capacity mechanism. Details/evidence:
+- `standwalk`: rise-stall branch CLOSED (genuine lineage fragility).
+  Steering/turn-authority is the track's largest remaining DONE-gate
+  distance: turn-in-place alone is strong (wz ~0.18-0.25 on 0.25 cmd)
+  but combined walk+turn ticks lose most of it. EVERY policy-side
+  lever is now refuted (open-loop dose/geometry family 8/8 FAIL,
+  yaw-reward-boost 4/4 FAIL, and — closed 09-04 —
+  `TripleGruActorCriticPolicy`'s protected 3rd GRU core, 2/2 seed
+  CANARY FAIL). A same-cycle confound-isolation pair settled WHY:
+  dropping the control's yaw_credit/log_std_split mechanisms during
+  further training reproduces Triple's pure-turn loss by itself
+  (mechanism, not architecture), and even matched to that confound
+  plain continuation beats Triple on every combined-tick cell (8/8) —
+  the architecture-split axis is DEFINITIVELY dead. Sole live lever:
+  repair the scripted TEACHER's own combined-turn loss (only ~33% of
+  pure-turn wz survives walking forward) — needs a zero-training
+  TripodGait fix + probe before any RL spend. Details:
   `rl_docs/tracks/standwalk/STATUS.md` Next item 2.
 - `walkcurr`: RETIRED 08-31, DONE-negative scope finding (see above).
 - `joystick`, `amp`, `cpg`: green/maintenance unless the operator
