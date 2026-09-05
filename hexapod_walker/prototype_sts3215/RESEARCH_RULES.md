@@ -24,8 +24,9 @@ current state and this track's DONE gate does this work close? Idle
 capacity next to an unmet gate is the failure state; there is almost
 always a tool to build, an alignment bank to write, a continuation to
 fund, or the next milestone arm to queue. Do not park lines waiting on
-the operator: assume-and-go with a recorded assumption. Only
-physical-robot access and spend approvals may wait. The operator may
+the operator: assume-and-go with a recorded assumption. Only irreducible
+hands-on robot work and spend approvals may wait; live camera plus fresh
+telemetry makes guarded remote robot access runnable. The operator may
 launch out-of-scope runs; triage them honestly, but agent follow-ups
 go only to registered tracks.
 
