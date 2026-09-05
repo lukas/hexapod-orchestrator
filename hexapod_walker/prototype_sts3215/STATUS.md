@@ -18,12 +18,13 @@ The campaign has six registered tracks in
 3. `cpg` - GATE GREEN (08-23): parameterized CPG controller passes its
    contextual walking/turning/stopping gate; maintenance/adoption
    comparisons only.
-4. `walkcurr` - RETIRED (08-31): honest DONE-negative scope finding.
-   Both final literature-wave seeds (`litrep-box-s0/-s1`, 150M each)
-   plus every prior non-BC mechanism/architecture class land the same
-   static-stand basin. Prior-free discovery alone does not escape it
-   at this budget; walking is carried by `joystick`/`standwalk`'s
-   BC-anchored lineages instead. No further agent-initiated arms.
+4. `walkcurr` - REOPENED BOUNDED 09-05 (operator focus note): real-
+   physics discovery stays RETIRED (08-31, static-stand basin, see
+   `rl_docs/tracks/walkcurr/STATUS.md`); a bounded EASY-SIM-ONLY
+   teacher-free campaign is now the fleet's primary GPU allocation
+   (11 seeds training a 2x2 base/sde/halfgrav/sdehalfgrav family at
+   40M). First 40M return (`sdehalfgrav-s0`) ACQ FAIL: fast 2-leg
+   lurch/facepolant, reward-misalignment hypothesis under review.
 5. `standwalk` - OPEN: continue the hard single-policy goal, one
    mesh/100 Hz policy for sit -> rise -> joystick walk -> lower.
 6. `todaypolicy` - NEW (08-30): delivery track for a working
