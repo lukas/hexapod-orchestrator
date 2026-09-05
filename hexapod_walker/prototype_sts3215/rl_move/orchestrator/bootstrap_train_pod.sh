@@ -35,7 +35,14 @@ for POD in "$@"; do
     # and evals as `uv run python ...`, so a pod without uv is not launchable.
     pip install -q --no-cache-dir uv
     INST="uv pip install -q --system --no-cache"
-    $INST torch==2.13.0+cpu --index-url https://download.pytorch.org/whl/cpu
+    # torch must be a CUDA build: train_ppo_mjx --require-gpu-physics
+    # (every real launch) hard-refuses when torch.cuda is unavailable.
+    # The old torch==2.13.0+cpu pin silently bricked re-bootstrapped
+    # pods (train-1, found 2026-09-05: "Torch not compiled with CUDA
+    # enabled" -> cw-walkscratch-easy0905-sdehalfgrav-s1 FAILED
+    # pre-boot). 2.11.0+cu128 mirrors the working fleet (train-2..11,
+    # checked 2026-09-05).
+    $INST torch==2.11.0+cu128 --index-url https://download.pytorch.org/whl/cu128
     $INST '"$PKGS"'
     mkdir -p /workspace/prototype_sts3215
     echo "packages OK"
