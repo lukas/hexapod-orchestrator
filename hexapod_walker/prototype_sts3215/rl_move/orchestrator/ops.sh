@@ -1296,13 +1296,25 @@ waitlog)  # waitlog <file> <regex> [timeout_s] — poll instead of sleep-and-pra
   echo "matched after ~${el}s:"; grep -E "$pat" "$f" | tail -3
   ;;
 
+podwaitlog)  # podwaitlog <pod> <remote_file> <regex> [timeout_s] — waitlog for a
+  # file ON a pod; replaces the hand-rolled `for i in seq; sleep 60;
+  # kubectl exec ... tail` loops (one cycle burned ~50 min on 7 of them,
+  # 09-04). Prefer `evalpending add` + exit when nothing else is left.
+  pod="$2"; f="$3"; pat="$4"; t="${5:-1800}"; el=0
+  until kubectl exec "$pod" -- grep -qE "$pat" "$f" 2>/dev/null; do
+    sleep 30; el=$((el+30))
+    [ "$el" -ge "$t" ] && { echo "TIMEOUT after ${t}s; tail:"; kubectl exec "$pod" -- tail -5 "$f" 2>/dev/null; exit 1; }
+  done
+  echo "matched after ~${el}s:"; kubectl exec "$pod" -- grep -E "$pat" "$f" 2>/dev/null | tail -3
+  ;;
+
 *)
   sed -n '2,6p' "$0"
   echo "subcommands: review <run> (START HERE for triage) | report <run|json> |"
   echo "  status | census | triage [hours] | procs <pod> | trainlog <run> [n] |"
   echo "  entry <run> | wandb <run> | pullckpt <run> | pushckpt <pod> <ckpt> |"
   echo "  podeval <run> [sfx] | m5eval <run> [pod] | evalcmd <run> | evalcmdstress <run> | drain | killrun <run> |"
-  echo "  waitlog <file> <regex> [t] | evalpending add <pod> <file> <label> |"
+  echo "  waitlog <file> <regex> [t] | podwaitlog <pod> <file> <regex> [t] | evalpending add <pod> <file> <label> |"
   echo "  logline \"line\" | frames <mp4> [n] | feeltest <run> [out] [--unified] |"
   echo "  drivevideo <run> [out] | hybriddemo <run> [out] | expdir <run> | wandbdump <run> |"
   echo "  wandbnote <run> \"paragraph\" | oplaunch <launch_run.py args...> |"

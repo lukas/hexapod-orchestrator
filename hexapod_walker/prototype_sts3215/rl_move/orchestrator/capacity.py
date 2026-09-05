@@ -45,10 +45,19 @@ def main() -> int:
         }
         for n in kubectl_json("get", "nodes")["items"]
     }
+    def _pending_why(p: dict) -> str:
+        # surface the scheduler's own words so nobody waits on a phantom
+        # (e.g. train-6 2026-09-05: "Insufficient cpu" on its pinned node)
+        for c in p["status"].get("conditions", []):
+            if c.get("reason") == "Unschedulable" and c.get("message"):
+                return ": " + c["message"][:160]
+        return ""
+
     pods = {
         p["metadata"]["name"]: {
             "node": p["spec"].get("nodeName"),
             "phase": p["status"]["phase"],
+            "why": _pending_why(p),
         }
         for p in kubectl_json("get", "pods")["items"]
     }
@@ -66,7 +75,7 @@ def main() -> int:
             report["pending_pods"].append(pod + " (ABSENT — apply manifest)")
             continue
         if st["phase"] != "Running":
-            report["pending_pods"].append(f"{pod} ({st['phase']})")
+            report["pending_pods"].append(f"{pod} ({st['phase']}{st['why']})")
             if st["node"]:
                 report["nodes"][st["node"]]["train_pods"].append(pod)
             continue
