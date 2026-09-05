@@ -1,6 +1,6 @@
 # STATUS - campaign dashboard
 
-Last updated: 2026-09-04 ~18:1x. Operator-facing dashboard, not a
+Last updated: 2026-09-05 ~02:4x. Operator-facing dashboard, not a
 history file. `CURRENT_TRUTHS.md` wins on conflict. Run-level evidence
 lives in `rl_docs/runs/`, `RL_LOG.md`, and W&B.
 
@@ -55,7 +55,8 @@ Exported walk artifact:
   ACQUISITION PASS incl. the formal joystick gate, but authority is
   teacher-ceiling-bound.
 - `standwalk`: literal DONE-gate flat-only session on `mlcontprice8`
-  IN FLIGHT on train-6 (evalpending-registered) — see Track Snapshot.
+  IN FLIGHT on train-9 (train-6 OOMKilled mid-eval, relaunched with a
+  memory-safer `--jobs 4`; evalpending-registered) — see Track Snapshot.
 
 ## Track Snapshot
 
