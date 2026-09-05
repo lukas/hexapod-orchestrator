@@ -54,32 +54,26 @@ Exported walk artifact:
 - `cw-walkteach-scripted-allhead-acq12m{,-s1}` FINISHED 08-30: 2/2
   ACQUISITION PASS incl. the formal joystick gate, but authority is
   teacher-ceiling-bound.
-- `standwalk`: literal DONE-gate flat-only session on `mlcontprice8`
-  IN FLIGHT on train-9 (train-6 OOMKilled mid-eval, relaunched with a
-  memory-safer `--jobs 4`; evalpending-registered) — see Track Snapshot.
+- `standwalk`: phase-scheduled multi-teacher canary grid (4 arms,
+  `...-multiteach-b{05,10}{,-s1}`) IN FLIGHT train-2/3/5/+1 — see
+  Track Snapshot.
 
 ## Track Snapshot
 
 - `todaypolicy`: DONE for 08-30 (bundle packaged, GO). Optional: swap
   walk role if a walkteach-lineage export beats MLP-singleframe on the
   identical UX suite; learned-vs-scripted tuck A/B.
-- `standwalk`: transition-stress mechanism sub-effort (operator
-  directive fb_20260904T074505) CLOSED at its k=8 ceiling: 3-point dose
-  bracket (k=2 FAIL/below threshold, k=8 FAIL-MECHANISM but real
-  dose-responsive partial fix halving fires + cleaning DR-0/gait-
-  validity, k=16 FAIL/worse) + a per-episode DR-draw correlate at n=20
-  found no dominant randomized field (top `latency_scale` d=0.517,
-  moderate not conclusive) — residual own-DR fires are genuine
-  simulator variance, not a missing DR field. Steering/turn-authority
-  axis also CLOSED both seeds: the "9/10 lever FAIL" figure was
-  comparator noise (zero-lever controls fail the same frozen-parent
-  comparator); re-scored with a matched-continuation comparator, only
-  1/10 lever cells wins both signs on both seeds — frozen parents
-  (`cap29-stdwalklo-hi{,-s1}`) remain the reference steering
-  checkpoints, no lever acquisition. Refill: literal DONE-gate
-  flat-only session (`eval_done_gate_session`) launched on the k=8
-  checkpoint (train-6) — never read against the real gate before, only
-  the stress diet. Details: `rl_docs/tracks/standwalk/STATUS.md`.
+- `standwalk`: reward/architecture lever search for steering is
+  EXHAUSTED (~20 static-dose arms, all FAIL/CLOSED incl. the literal
+  DONE-gate read on mlcontprice8); frozen `cap29-stdwalklo-hi{,-s1}`
+  remains the reference. This cycle built + tested + launched the
+  track's only surviving open lever: a phase-scheduled multi-teacher
+  BC-anchor mechanism (blends the degraded combined-tick target toward
+  an undegraded pure-turn target on a training-progress schedule,
+  instead of a static reweight) — 137/137 `test_bc_anchor.py` green,
+  snapshotted, 4-arm canary grid launched (blend {0.5,1.0} x seed
+  {0,1}). Triage next cycle. Details: `rl_docs/tracks/standwalk/
+  STATUS.md`.
 - `walkcurr`: RETIRED 08-31, DONE-negative scope finding (see above).
 - `joystick`, `amp`, `cpg`: green/maintenance unless the operator
   explicitly reopens them.
