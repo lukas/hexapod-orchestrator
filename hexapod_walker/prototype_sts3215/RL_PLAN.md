@@ -16,7 +16,12 @@ belongs in `archive/`, `RL_LOG.md`, and generated run docs. Keep under
 3. `cpg` — direct low-dimensional CPG/SE2 controller search; teacher
    adoption only by A/B.
 4. `walkcurr` — prior-free PPO walking: no gait clock, no BC teacher,
-   no motion prior; reward bank required.
+   no motion prior; reward bank required. **PRIMARY GPU CAMPAIGN since
+   09-05 (operator order): teacher-free walking on EASY sim physics —
+   keep the fleet full of pre-registered easy-campaign arms + stocked
+   backlog until its acquisition milestone is met or the operator
+   redirects; other tracks get GPU launches only if this priority is
+   already supplied (or Lukas directs otherwise).**
 5. `standwalk` — keep trying to make ONE mesh/100 Hz policy for sit ->
    rise -> joystick walk -> lower.
 6. `todaypolicy` — ship a working policy-controlled bundle today, using

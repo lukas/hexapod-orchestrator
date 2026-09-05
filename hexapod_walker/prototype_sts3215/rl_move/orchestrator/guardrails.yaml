@@ -76,6 +76,16 @@ compute:
     # citing the same operator ruling, then restores again.
     # (Historical: also raised to 100M 08-30 for the b100m wave per MCP
     # operator lane 20260830T035139Z, restored the same way.)
+    # SCOPED EXCEPTION (operator order, 09-05 focus note, Lukas: "Make
+    # sure the orchestrator dedicates the available hardware for this"):
+    # the initial full-fleet allocation of the walkcurr easy0905
+    # teacher-free campaign may launch up to 12 runs / 480M new GPU
+    # steps IN THAT ONE CYCLE (supersedes max_new_launches_per_cycle=4
+    # and max_new_gpu_steps_per_cycle=80M for that fill only).
+    # max_steps_per_run stays 40M and one-run-per-GPU stays binding.
+    # Exercised 09-05 ~08:5x: 11 launches / 440M (train-6 Pending =
+    # honest 11/12 ceiling). Ordinary per-cycle caps apply again after
+    # that fill; subsequent cycles sustain the queue under normal caps.
     max_steps_per_run: 40000000
     # At ~20k fps the CPU-pod eval cadence would fire every 10 s; the MJX
     # trainer's eval is skip-if-busy in a background thread, but keep it

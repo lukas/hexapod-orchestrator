@@ -23,6 +23,13 @@ with the script, the script is right; fix the doc.**
    (prime directive, 08-10): nothing enters the backlog unless it
    removes an unresolved blocker to the next hardware test. Idle
    slots with an empty backlog are a normal, healthy state.
+   **SUPERSEDED while the 09-05 teacher-free easy-walking priority is
+   unmet (operator order, 09-05 focus note):** the orchestrator must
+   keep every ready slot supplied with useful pre-registered
+   easy-campaign work (or name a concrete resource/scientific
+   blocker); idle slots next to that unmet priority are a failure,
+   not health. The historical retirement text does not override the
+   active order.
 4. Slot list lives in `guardrails.yaml compute.gpu_pods`; pod specs in
    `rl_move/sim/coreweave_pods_mjx_scaleout.yaml`; fresh-pod setup via
    `bootstrap_train_pod.sh <pod>`.
