@@ -61,9 +61,14 @@ Exported walk artifact:
 
 ## Track Snapshot
 
-- `todaypolicy`: DONE for 08-30 (bundle packaged, GO). Optional: swap
-  walk role if a walkteach-lineage export beats MLP-singleframe on the
-  identical UX suite; learned-vs-scripted tuck A/B.
+- `todaypolicy`: DONE for 08-30 (bundle packaged, GO); bundle unchanged
+  primary. `hardware_delivery` sub-track REOPENED 09-05 (op note
+  fb_20260905T071610_749846): built+tested opt-in `CommandEnvelope`
+  command governor (shared/yaw_priority/time_slice modes) on a paired
+  CPU scripted suite. `env_yawpri` is the real yaw-authority candidate
+  (-55% progress cost); `shared` and all 3 `time_slice` duty doses are
+  REFUTED (dominated/tied). See
+  `rl_docs/tracks/todaypolicy/hardware_delivery/STATUS.md`.
 - `standwalk`: reward/architecture lever search for steering is
   EXHAUSTED (~22 arms now, all FAIL/CLOSED incl. the literal DONE-gate
   read on mlcontprice8); frozen `cap29-stdwalklo-hi{,-s1}` remains the
