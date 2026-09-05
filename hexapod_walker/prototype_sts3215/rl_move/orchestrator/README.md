@@ -104,7 +104,7 @@ the drain requires before treating a pod as a slot.
   close it. The private `GET /api/blockers` feed accepts the existing MCP
   operator key and is polled by the Mac blocker-alert relay. Use this only
   after retries and alternate useful work are exhausted; routine experiment
-  failures and normal operator-owned hardware steps are not alert-worthy.
+  failures and normal Robot Lab guarded hardware steps are not alert-worthy.
 - **Logs:** `/workspace/orchestrator.log` (watcher),
   `/workspace/cycle_logs/` (cycles, live-streaming),
   `/tmp/train_<run>.log` (on pods).

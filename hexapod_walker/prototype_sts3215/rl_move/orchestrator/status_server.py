@@ -1170,9 +1170,9 @@ def _track_where(tid: str, badge: str, recent: list[dict],
                 "new mechanism.")
     if badge.startswith("GREEN") or badge == "DONE":
         return ("Gate met in simulation; remaining work is maintenance, "
-                "integration, or operator-owned hardware.")
+                "integration, or a Robot Lab guarded hardware handoff.")
     if badge == "WAITING":
-        return "Waiting on an operator-owned step."
+        return "Waiting on a prerequisite, guarded hardware handoff, or hands-on step."
     if badge == "ACTIVE":
         return ("Track status reports work in progress; no live run is "
                 "visible in the newest ledger window.")
