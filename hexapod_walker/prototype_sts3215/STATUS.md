@@ -1,6 +1,6 @@
 # STATUS - campaign dashboard
 
-Last updated: 2026-09-05 ~02:4x. Operator-facing dashboard, not a
+Last updated: 2026-09-05 ~05:4x. Operator-facing dashboard, not a
 history file. `CURRENT_TRUTHS.md` wins on conflict. Run-level evidence
 lives in `rl_docs/runs/`, `RL_LOG.md`, and W&B.
 
@@ -55,8 +55,9 @@ Exported walk artifact:
   ACQUISITION PASS incl. the formal joystick gate, but authority is
   teacher-ceiling-bound.
 - `standwalk`: phase-scheduled multi-teacher canary grid (4 arms,
-  `...-multiteach-b{05,10}{,-s1}`) IN FLIGHT train-2/3/5/+1 — see
-  Track Snapshot.
+  `...-multiteach-b{05,10}{,-s1}`) — seed0 half (b05/b10) FAILed
+  (matches ~20-arm pattern); seed1 half IN FLIGHT on another cycle —
+  see Track Snapshot.
 
 ## Track Snapshot
 
@@ -64,16 +65,17 @@ Exported walk artifact:
   walk role if a walkteach-lineage export beats MLP-singleframe on the
   identical UX suite; learned-vs-scripted tuck A/B.
 - `standwalk`: reward/architecture lever search for steering is
-  EXHAUSTED (~20 static-dose arms, all FAIL/CLOSED incl. the literal
-  DONE-gate read on mlcontprice8); frozen `cap29-stdwalklo-hi{,-s1}`
-  remains the reference. This cycle built + tested + launched the
-  track's only surviving open lever: a phase-scheduled multi-teacher
-  BC-anchor mechanism (blends the degraded combined-tick target toward
-  an undegraded pure-turn target on a training-progress schedule,
-  instead of a static reweight) — 137/137 `test_bc_anchor.py` green,
-  snapshotted, 4-arm canary grid launched (blend {0.5,1.0} x seed
-  {0,1}). Triage next cycle. Details: `rl_docs/tracks/standwalk/
-  STATUS.md`.
+  EXHAUSTED (~22 arms now, all FAIL/CLOSED incl. the literal DONE-gate
+  read on mlcontprice8); frozen `cap29-stdwalklo-hi{,-s1}` remains the
+  reference. The last surviving lever, a phase-scheduled multi-teacher
+  BC-anchor mechanism, FAILed both seed0 doses (blend 0.5 and 1.0) on
+  the family's own probe_turn_authority gate — pure-turn regressed
+  21-48% past the 10% cap, combined-tick didn't beat the comparator on
+  both signs. Seed1 pair still training (another cycle). If it
+  matches, the axis closes for good; next moves are a genuine gait-
+  structure change (not another magnitude rescale) or a DONE-gate
+  turn-authority renegotiation — both deferred to a dedicated design
+  pass, not rushed. Details: `rl_docs/tracks/standwalk/STATUS.md`.
 - `walkcurr`: RETIRED 08-31, DONE-negative scope finding (see above).
 - `joystick`, `amp`, `cpg`: green/maintenance unless the operator
   explicitly reopens them.
