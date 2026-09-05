@@ -12,7 +12,7 @@ belongs in `archive/`, `RL_LOG.md`, and generated run docs. Keep under
    randomized MuJoCo joystick script, zero falls, directions followed,
    teacher-band slip, held-out det+sto DR panels.
 2. `amp` — AMP from scratch per `rl_docs/AMP_LOCOMOTION.md`; done at
-   M5 MuJoCo transfer, M6 hardware operator-owned.
+   M5 MuJoCo transfer, M6 guarded hardware transfer.
 3. `cpg` — direct low-dimensional CPG/SE2 controller search; teacher
    adoption only by A/B.
 4. `walkcurr` — prior-free PPO walking: no gait clock, no BC teacher,
@@ -41,7 +41,8 @@ triage but no agent follow-ups.
 - Reward/eval agreement first. Bad eval plus rising reward means
   reward/eval/simulator mismatch or justified continuation, never an
   automatic same-recipe seed sweep.
-- No operator pauses except physical robot access and spend approvals.
+- No operator pauses except irreducible hands-on physical work and spend
+  approvals. Guarded remote robot access is part of the active campaign.
 - Build missing tools/harnesses/banks/models in-cycle and test them.
 - New PPO/MJX policies use mesh-family 100 Hz unless a registered
   legacy exception says otherwise.
@@ -94,7 +95,9 @@ triage but no agent follow-ups.
 
 ## Operator-Owned Items
 
-- Physical robot motion, bench promotion, calibration, hardware drive.
+- Hands-on manipulation or repair when camera/telemetry cannot establish or
+  restore a normal state; guarded remote motion, calibration, and hardware
+  drive remain available to the action-capable agent.
 - Spend/capacity changes beyond guardrails.
 - Product choices that require accepting an unsupported recover/flip
   gap.
