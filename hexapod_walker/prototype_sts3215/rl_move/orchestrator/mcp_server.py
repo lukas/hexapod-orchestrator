@@ -35,6 +35,9 @@ import os
 import pathlib
 import re
 import time
+from urllib.parse import quote, urlencode
+
+import media_access
 
 HERE = pathlib.Path(__file__).resolve().parent
 PROTO = HERE.parent.parent
@@ -42,7 +45,7 @@ PROTO = HERE.parent.parent
 PROTOCOL_VERSIONS = ("2025-06-18", "2025-03-26", "2024-11-05")
 SERVER_INFO = {"name": "hexapod-rl-results",
                "title": "Hexapod RL campaign results",
-               "version": "1.1.0"}
+               "version": "1.2.0"}
 INSTRUCTIONS = """\
 Results of an autonomous RL training campaign teaching an 18-servo
 hexapod robot to stand, walk, and turn (MuJoCo/MJX PPO on a GPU fleet;
@@ -51,7 +54,10 @@ an LLM watcher launches runs, evaluates checkpoints, writes verdicts).
 Suggested flow: campaign_status first (campaign digest + every research
 track's state), then list_runs to browse the launch ledger, get_run for
 one run's full story (hypothesis, gate, verdict), run_metrics /
-eval_report for its numbers. get_plan is the research plan; log_tail is
+eval_report for its numbers. get_run_videos returns read-only video
+links that play or download directly, without shell or kubectl commands.
+Links expire after one hour; call the tool again to refresh them.
+get_plan is the research plan; log_tail is
 the append-only decision-cycle log. Every design doc (rewards, gaits,
 evals, hardware, per-run stories) is reachable via list_docs /
 read_doc, and search_docs greps them all.
@@ -442,6 +448,58 @@ def t_eval_report(run: str) -> str:
     if len(paths) > 3:
         out.append(f"({len(paths) - 3} older matching reports not shown)")
     return _clip("\n\n".join(out))
+
+
+def t_get_run_videos(run: str, limit: int = 6) -> dict:
+    """Return file-scoped playback links to existing evaluation artifacts."""
+    entries = _ledger()
+    if not any(e.get("run") == run for e in entries):
+        raise ValueError(f"run {run!r} not in the ledger; use list_runs")
+    if not AUTH_KEY:
+        raise ValueError("MCP authentication is not configured")
+    limit = max(1, min(int(limit), 24))
+    root = PROTO / "logs" / "ckpt_eval"
+    stems = sorted({e["run"].replace("-", "_"): e["run"]
+                    for e in entries if e.get("run")}.items(),
+                   key=lambda item: len(item[0]), reverse=True)
+    candidates = []
+    for directory in root.iterdir() if root.is_dir() else ():
+        owner = next((name for stem, name in stems
+                      if directory.name == stem
+                      or directory.name.startswith(stem + "_")), None)
+        if (owner != run or not directory.is_dir()
+                or not directory.resolve().is_relative_to(root.resolve())):
+            continue
+        for path in directory.rglob("*"):
+            if path.suffix.lower() not in media_access.VIDEO_EXTENSIONS:
+                continue
+            rel = path.relative_to(root).as_posix()
+            resolved = media_access.resolve_video(root, rel)
+            if resolved is None:
+                continue
+            # Prefer a deterministic walking clip, then the other modes.
+            rank = ("walk_det_0" not in path.stem,
+                    "_gate" not in directory.name,
+                    "_det_" not in path.stem, -directory.stat().st_mtime, rel)
+            candidates.append((rank, rel, resolved.stat().st_size))
+    expires = int(time.time()) + media_access.VIDEO_LINK_TTL
+    base = os.environ.get("STATUS_PUBLIC_BASE_URL",
+                          "https://hexapod.cwd1f0-new-cluster.coreweave.app").rstrip("/")
+    videos = []
+    for _, rel, size in sorted(candidates)[:limit]:
+        signature = media_access.sign_video_path(rel, AUTH_KEY, expires)
+        uri = base + "/media/" + quote(rel, safe="/") + "?" + urlencode(
+            {"expires": expires, "sig": signature})
+        videos.append({"name": pathlib.PurePosixPath(rel).name,
+                       "path": rel, "uri": uri, "size": size,
+                       "mimeType": {".mp4": "video/mp4", ".webm": "video/webm",
+                                    ".mov": "video/quicktime"}[
+                                        pathlib.PurePosixPath(rel).suffix.lower()]})
+    return {"run": run, "videos": videos, "expires_at": expires,
+            "note": ("Original evaluation recordings; playback time may differ "
+                     "from simulated time. Read the on-screen clock or eval_report. "
+                     "Links authorize only the named clip for one hour."
+                     if videos else "No evaluation video is available on this host yet.")}
 
 
 def t_list_docs() -> str:
@@ -1051,6 +1109,17 @@ TOOLS = [
      "args": {"run": {"type": "string",
                       "description": "run or checkpoint name"}},
      "required": ["run"]},
+    {"name": "get_run_videos",
+     "description": "Read-only playback/download links for an existing run's "
+                    "evaluation videos. Links work directly in a browser, expire "
+                    "in one hour, and require no shell, kubectl, or dashboard login. "
+                    "Does not launch training, render videos, or move the robot.",
+     "fn": t_get_run_videos,
+     "annotations": {"readOnlyHint": True, "destructiveHint": False,
+                     "idempotentHint": True, "openWorldHint": False},
+     "args": {"run": {"type": "string", "description": "exact run name"},
+              "limit": {"type": "integer", "description": "clips to return (1-24, default 6)"}},
+     "required": ["run"]},
     {"name": "list_docs",
      "description": "Index of every design/research doc (rewards, gait, "
                     "evals, sim, hardware, per-run stories).",
@@ -1199,6 +1268,7 @@ TOOLS = [
 
 def tool_specs() -> list[dict]:
     return [{"name": t["name"], "description": t["description"],
+             **({"annotations": t["annotations"]} if "annotations" in t else {}),
              "inputSchema": {"type": "object",
                              "properties": t["args"],
                              "required": t.get("required", [])}}
@@ -1206,7 +1276,7 @@ def tool_specs() -> list[dict]:
 
 
 def call_tool(name: str, args: dict, client_ip: str = "",
-              operator: bool = False) -> tuple[str, bool]:
+              operator: bool = False) -> tuple[str | dict, bool]:
     """Returns (text, is_error). Raises KeyError for unknown tools."""
     tool = next(t for t in TOOLS if t["name"] == name)
     kwargs = {k: v for k, v in (args or {}).items() if k in tool["args"]}
@@ -1256,6 +1326,13 @@ def _rpc_one(msg: dict, client_ip: str = "",
             return err(-32602, f"unknown tool: {name}")
         text, is_err = call_tool(name, params.get("arguments") or {},
                                  client_ip, operator)
+        if isinstance(text, dict):
+            content = [{"type": "text", "text": json.dumps(text)}]
+            for video in text.get("videos", []):
+                content.append({"type": "resource_link",
+                                **{k: v for k, v in video.items() if k != "path"}})
+            return ok({"content": content, "structuredContent": text,
+                       "isError": is_err})
         return ok({"content": [{"type": "text", "text": text}],
                    "isError": is_err})
     if method in ("resources/list", "resources/templates/list"):

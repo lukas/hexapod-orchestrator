@@ -63,6 +63,7 @@ from launch_run import KUBECONFIG, load_guardrails, pod_trainers  # noqa: E402
 import mcp_server as _mcp  # noqa: E402  (MCP endpoint at /mcp)
 import blocker_state as _blockers  # noqa: E402
 import tracks as _tracks  # noqa: E402  (research-track registry)
+import media_access as _media_access  # noqa: E402
 
 PORT = int(os.environ.get("STATUS_PORT", "8090"))
 ORCH_LOG = pathlib.Path("/workspace/orchestrator.log")
@@ -2440,6 +2441,15 @@ class Handler(http.server.BaseHTTPRequestHandler):
         return any(c.strip() == f"status_token={TOKEN}"
                    for c in cookies.split(";"))
 
+    def _media_authed(self) -> bool:
+        """An MCP playback link grants access to exactly one existing video."""
+        u = urllib.parse.urlparse(self.path)
+        if not u.path.startswith("/media/"):
+            return False
+        rel = urllib.parse.unquote(u.path[len("/media/"):])
+        return (_media_access.verify_video_signature(rel, _mcp.AUTH_KEY, u.query)
+                and _resolve_media_path(rel) is not None)
+
     def _serve_media(self, rel: str, send_body: bool = True) -> None:
         """Serve a token-gated eval reel with browser seeking support."""
         path = _resolve_media_path(rel)
@@ -2490,7 +2500,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.send_header("Content-Length", "0")
             self.end_headers()
             return
-        if not self._authed():
+        if not (self._authed() or self._media_authed()):
             self.send_response(403)
             self.send_header("Content-Length", "0")
             self.end_headers()
@@ -2547,7 +2557,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         # the token.
         is_llm = u.path == "/llms.txt" or u.path.rstrip("/") == "/llm" \
             or u.path.startswith("/llm/")
-        if not is_llm and not self._authed():
+        if not is_llm and not (self._authed() or self._media_authed()):
             body = b"403: append ?key=<token> to the URL"
             self.send_response(403)
             self.send_header("Content-Type", "text/plain")
