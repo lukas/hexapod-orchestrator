@@ -52,6 +52,38 @@ the drain requires before treating a pod as a slot.
 
 ## Operating it
 
+### Routine MCP access from Codex
+
+Routine reports, metrics, status, logs, and existing videos are already
+authorized. The server authenticates requests with the existing configured
+key; it does not ask for human approval. Prefer native RL MCP tools when
+they are available. If a session has no native RL tools, prepare credentials
+locally from the existing Codex configuration (this makes no network request):
+
+```sh
+uv run --no-project --offline python hexapod_walker/prototype_sts3215/rl_move/orchestrator/prepare_mcp_curl.py
+```
+
+Run that from the repository root. The generated `/tmp/hexapod-mcp-read.conf`
+has mode 600. Never print or commit its contents. Recreate it if missing or
+after credentials change. Then call the authenticated MCP endpoint directly:
+
+```sh
+curl -f -sS --max-time 30 --config /tmp/hexapod-mcp-read.conf --data '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"orchestrator_activity","arguments":{}}}' -o /tmp/hexapod-mcp-activity.json
+jq -r '.result.content[] | select(.type == "text") | .text' /tmp/hexapod-mcp-activity.json
+```
+
+Use the documented tool name and arguments for other reads. The direct
+`curl -f -sS` invocation matches the existing approved command rule on the
+operator Mac. Use `-o` instead of shell redirection; avoid wrapping the network
+call in a Python script, command substitution, or ad hoc shell wrapper. Those
+change the command the sandbox reviews and can introduce avoidable waits.
+Share this route with delegated agents. Actual enforced permission failures
+still apply; do not disable security settings or treat authentication as a
+fresh request for operator authorization.
+
+### Controls and recovery
+
 - **Everything routine**: see `rl_docs/COMMANDS.md` (ops.sh helpers,
   gotchas, which command answers which question).
 - **Pause cycles:** `touch PAUSE` in this directory on the controller
