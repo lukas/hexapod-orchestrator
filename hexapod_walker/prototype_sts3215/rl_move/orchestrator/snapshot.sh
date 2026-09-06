@@ -104,6 +104,24 @@ if command -v flock >/dev/null; then
   flock 9
 fi
 
+# JSON-validity guard (2026-09-06 ledger-corruption incident): `git add
+# -A` below stages whatever is CURRENTLY on disk with no validity check
+# and no ledger lock. save_ledger() now writes atomically (temp+rename)
+# so a torn read should no longer be observable, but this is cheap
+# insurance against any other writer (present or future) doing the same
+# mistake: never let a runtime-state JSON that fails to parse get
+# staged. If one is invalid, restore the last COMMITTED (good) copy
+# into the worktree instead of committing the broken one -- this loses
+# at most the seconds-old delta from whatever process was mid-write,
+# never silently commits a truncated file.
+for RS in experiments.json backlog.json backlog_failed.json pending_evals.json; do
+  RSP="hexapod_walker/prototype_sts3215/rl_move/orchestrator/$RS"
+  if [ -f "$RSP" ] && ! python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$RSP" 2>/dev/null; then
+    echo "WARNING: $RSP fails to parse as JSON -- refusing to stage it this snapshot; restoring last committed copy" >&2
+    git show "HEAD:$RSP" > "$RSP" 2>/dev/null || echo "  (no committed copy either -- left as-is, needs manual repair)" >&2
+  fi
+done
+
 git add -A hexapod_walker/prototype_sts3215
 if ! git diff --cached --quiet; then
   git commit -m "orchestrator snapshot before ${RUN_NAME}"
