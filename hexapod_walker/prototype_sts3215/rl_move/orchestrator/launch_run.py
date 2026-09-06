@@ -514,6 +514,68 @@ def _with_default_control_hz(extra: list[str], entry: dict,
     return extra
 
 
+DEFER_OPT_OUT_FLAG = "--no-defer-final-artifacts"
+
+
+def _with_defer_final_artifacts(extra: list[str], entry: dict,
+                                *, is_gpu: bool, is_dynrep: bool,
+                                smoke: bool, gpu_cfg: dict) -> list[str]:
+    """Routine adoption of the verified deferred-artifact handoff
+    (2026-09-06, operator focus note + fb_20260906T064159_b11605: live
+    verification completed on cw-walkscratch-easy0905-medhead-widenfwd-
+    c2-acq1 / inb67bzx — 40,370,176 steps, GPU freed and reused by
+    another run while the CPU finalizer delivered 3/3 artifacts to the
+    same W&B run with confirmed publication and fingerprint verify).
+
+    Injects ``--defer-final-artifacts`` into every COMPATIBLE launch:
+    the GPU-MJX trainer (``rl_move.sim.train_ppo_mjx``, PPO and SAC —
+    the handoff is algo-agnostic: it wraps ``model.learn()``'s tail),
+    W&B enabled (not ``--smoke``: smokes run WANDB_MODE=disabled and
+    the finalizer's confirmed-publication contract needs a real W&B
+    run to finish). dynrep / CPU / smoke launches are untouched —
+    bit-exact pre-adoption behavior.
+
+    Opt-out / rollback (both preserve full pre-adoption behavior):
+      * per-run: pass the launcher-level sentinel
+        ``--no-defer-final-artifacts`` in the train args (respec
+        ``--arg='--no-defer-final-artifacts'`` or a backlog item's
+        extra_args). It is stripped HERE on every path — the trainer
+        has no such flag and must never see it.
+      * fleet-wide: set ``gpu.defer_final_artifacts: false`` in
+        guardrails.yaml (missing key = ON, adoption is the new
+        normal; the key ships set to true with rollback instructions).
+
+    The decision is recorded in entry["checks"]["defer_final_artifacts"]
+    (injected / explicit / opt-out / off-smoke / off-guardrails /
+    not-applicable) so ledger provenance always shows whether a run's
+    artifacts went through the handoff path. Idempotent: an explicit
+    ``--defer-final-artifacts`` already in the args (e.g. respec cloning
+    a post-adoption parent's recorded extra_args) is left alone.
+    """
+    checks = entry.setdefault("checks", {})
+    opted_out = DEFER_OPT_OUT_FLAG in extra
+    if opted_out:
+        # Strip unconditionally (all trainers would argparse-crash on it).
+        extra = [t for t in extra if t != DEFER_OPT_OUT_FLAG]
+    if not is_gpu or is_dynrep:
+        checks["defer_final_artifacts"] = "not-applicable"
+        return extra
+    if opted_out:
+        checks["defer_final_artifacts"] = "opt-out"
+        return extra
+    if smoke:
+        checks["defer_final_artifacts"] = "off-smoke"
+        return extra
+    if not gpu_cfg.get("defer_final_artifacts", True):
+        checks["defer_final_artifacts"] = "off-guardrails"
+        return extra
+    if "--defer-final-artifacts" in extra:
+        checks["defer_final_artifacts"] = "explicit"
+        return extra
+    checks["defer_final_artifacts"] = "injected"
+    return [*extra, "--defer-final-artifacts"]
+
+
 DEFAULT_LOG_STD_FINAL = -3.0
 DEFAULT_LOG_STD_ANNEAL_FRAC = 1.0
 
@@ -1142,6 +1204,15 @@ def _launch_locked(g: dict, a: argparse.Namespace,
     elif not is_dynrep and "--subproc" not in extra:
         extra = [*extra, "--subproc"]
         entry["extra_args"] = extra
+    # Deferred final artifacts: routine for compatible W&B-enabled MJX
+    # launches since 2026-09-06 (see _with_defer_final_artifacts docstring
+    # for scope, opt-out and rollback). Runs on every path so the
+    # launcher-level opt-out sentinel is always stripped before the
+    # trainer sees the argv.
+    extra = _with_defer_final_artifacts(
+        extra, entry, is_gpu=is_gpu, is_dynrep=is_dynrep,
+        smoke=a.smoke, gpu_cfg=gpu)
+    entry["extra_args"] = extra
     # Operator directive 08-09: a run's W&B notes must LEAD with a human
     # paragraph — what is being tested and why — with the trainer's
     # auto-generated env spec below it. If the caller didn't pass --notes,

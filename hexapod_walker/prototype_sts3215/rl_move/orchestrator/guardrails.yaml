@@ -45,6 +45,17 @@ compute:
     n_envs: 4096
     host_workers: 24
     impl: warp
+    # Deferred final artifacts (adopted 2026-09-06, operator focus note
+    # + fb_20260906T064159_b11605): the launcher injects
+    # --defer-final-artifacts into every compatible W&B-enabled MJX
+    # launch (PPO/SAC via train_ppo_mjx; never smokes/dynrep/CPU) so
+    # the GPU frees minutes early while a CPU finalizer delivers the
+    # eval/video artifacts to the same W&B run (confirmed-publication,
+    # fingerprint-verified — live-verified end-to-end on
+    # cw-walkscratch-easy0905-medhead-widenfwd-c2-acq1 / inb67bzx).
+    # ROLLBACK: set false here (fleet-wide, next launch onward) or pass
+    # --arg='--no-defer-final-artifacts' per run. Missing key = ON.
+    defer_final_artifacts: true
     # GPU steps are ~18x cheaper in wall clock: 30M steps ~= 27 min.
     # Budget cap is per run; the per-cycle caps below still apply.
     # RESTORED to 40M 08-18 ~06:5x UTC per the raise's own restore
