@@ -1300,7 +1300,12 @@ handoff)  # handoff <run> — deferred-artifacts registry state for a run that
   # Reads state.json/manifest/finalizer.log from the run's OWN pod:
   # phase training|artifacts_pending|evaluated|failed. A verdict on a
   # deferred run must see phase=evaluated (real artifacts), never the
-  # training_complete marker alone.
+  # training_complete marker alone. Job status logged_pending_flush =
+  # wandb.log'ed but run.finish() not yet confirmed — NOT published;
+  # a restarted finalizer replays such jobs (at-least-once, duplicate
+  # W&B rows possible). Finalizer exit 3 = finish failed (replay later),
+  # exit 4 = runtime fingerprint mismatch (code/args changed after
+  # handoff; review, then --allow-fingerprint-mismatch to override).
   run="$2"; pod=$(entry_field "$run" pod)
   [ -n "$pod" ] || { echo "no pod recorded for $run"; exit 1; }
   kubectl exec "$pod" -- sh -c '
