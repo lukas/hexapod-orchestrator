@@ -115,3 +115,12 @@ def test_unknown_run_and_symlink_escape_are_not_returned(videos, tmp_path):
     result, error = mcp_server.call_tool("get_run_videos", {"run": "cw-unknown"})
     assert error is True
     assert "not in the ledger" in result
+
+
+def test_all_routine_reads_are_marked_read_only_but_mutations_are_not():
+    specs = {tool["name"]: tool for tool in mcp_server.tool_specs()}
+    assert mcp_server.READ_ONLY_TOOLS <= specs.keys()
+    for name in mcp_server.READ_ONLY_TOOLS:
+        assert specs[name]["annotations"]["readOnlyHint"] is True
+    for name in ("kick_orchestrator", "submit_feedback", "submit_run_feedback"):
+        assert not specs[name].get("annotations", {}).get("readOnlyHint", False)
