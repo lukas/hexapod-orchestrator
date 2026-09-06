@@ -1266,9 +1266,19 @@ TOOLS = [
 ]
 
 
+READ_ONLY_TOOLS = frozenset({
+    "campaign_status", "get_plan", "log_tail", "list_runs", "get_run",
+    "run_metrics", "eval_report", "get_run_videos", "list_docs", "read_doc",
+    "search_docs", "list_feedback", "list_run_feedback",
+    "orchestrator_activity", "cycle_log", "list_operator_questions",
+})
+
+
 def tool_specs() -> list[dict]:
     return [{"name": t["name"], "description": t["description"],
-             **({"annotations": t["annotations"]} if "annotations" in t else {}),
+             **({"annotations": {"readOnlyHint": True, "destructiveHint": False,
+                                  "idempotentHint": True, "openWorldHint": False}}
+                if t["name"] in READ_ONLY_TOOLS else {}),
              "inputSchema": {"type": "object",
                              "properties": t["args"],
                              "required": t.get("required", [])}}
