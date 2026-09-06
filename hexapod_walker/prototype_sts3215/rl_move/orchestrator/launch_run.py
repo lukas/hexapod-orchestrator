@@ -24,6 +24,7 @@ from __future__ import annotations
 import argparse
 import fcntl
 import json
+import os
 import re
 import shlex
 import subprocess
@@ -248,7 +249,22 @@ def load_ledger() -> list[dict]:
 
 
 def save_ledger(entries: list[dict]) -> None:
-    LEDGER.write_text(json.dumps(entries, indent=2) + "\n")
+    # Atomic write (2026-09-06, ledger-corruption incident): a plain
+    # write_text() is NOT atomic -- a killed/slow writer (this file has
+    # grown to 20MB+) leaves a truncated, unparseable JSON file visible
+    # to every concurrent reader for the whole duration of the write.
+    # snapshot.sh's `git add -A` (no ledger_lock, by design -- see its
+    # comments) can and did stage exactly that torn mid-write state,
+    # permanently committing a truncated ledger and silently dropping
+    # ~360 historical entries + an in-flight run's own launch record
+    # (recovered by hand from the last-good git commit, 09-06 ~06:5x).
+    # write-to-temp-then-os.replace is atomic on the same filesystem:
+    # any concurrent reader/git-add sees either the complete old file or
+    # the complete new one, never a partial write, regardless of caller
+    # lock discipline elsewhere.
+    tmp = LEDGER.with_suffix(LEDGER.suffix + f".tmp{os.getpid()}")
+    tmp.write_text(json.dumps(entries, indent=2) + "\n")
+    os.replace(tmp, LEDGER)
 
 
 @contextmanager
