@@ -608,6 +608,15 @@ for p in paths[-2:]:
     _std_s = f"{_std:.3f}" if _std is not None else "n/a (off-policy)"
     print(f"== {os.path.relpath(p, proto)}  dr={d.get('dr_scale')} "
           f"std={_std_s}")
+    if "episodes" not in d:
+        # session/off-policy reports have a different shape (no
+        # per-episode harness breakdown) -- skip instead of crashing
+        # and hiding a later, more useful path in paths[-2:] (09-06
+        # gotcha: a harness _gate report younger than a _session
+        # report never got printed because the loop died on the
+        # older _session entry first).
+        print("  (no per-episode 'episodes' key -- session/off-policy report, skipping table)")
+        continue
     for mode, eps in d["episodes"].items():
         for i, e in enumerate(eps):
             cells = [f"{mode}/{i}"]
