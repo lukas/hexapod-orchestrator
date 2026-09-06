@@ -73,6 +73,7 @@ if [ "${1:-}" = "--sync" ]; then
   EXC=(":(exclude)$P/rl_move/orchestrator/experiments.json"
        ":(exclude)$P/rl_move/orchestrator/backlog.json"
        ":(exclude)$P/rl_move/orchestrator/backlog_failed.json"
+       ":(exclude)$P/rl_move/orchestrator/pending_evals.json"
        ":(exclude)$P/rl_move/orchestrator/*.lock"
        ":(exclude)$P/**/*.md" ":(exclude)$P/*.md"
        ":(exclude)$P/logs" ":(exclude)$P/wandb"
