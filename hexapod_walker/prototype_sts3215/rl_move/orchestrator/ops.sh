@@ -1295,6 +1295,23 @@ waitcycle)  # waitcycle [pattern] [timeout_s] — FOLLOW a cycle's live
   done
   ;;
 
+handoff)  # handoff <run> — deferred-artifacts registry state for a run that
+  # trained with --defer-final-artifacts (fb_20260906T035950_cd260e).
+  # Reads state.json/manifest/finalizer.log from the run's OWN pod:
+  # phase training|artifacts_pending|evaluated|failed. A verdict on a
+  # deferred run must see phase=evaluated (real artifacts), never the
+  # training_complete marker alone.
+  run="$2"; pod=$(entry_field "$run" pod)
+  [ -n "$pod" ] || { echo "no pod recorded for $run"; exit 1; }
+  kubectl exec "$pod" -- sh -c '
+    d='"$POD_PROTO"'/rl_move/sim/policies/artifact_handoff/'"$run"'
+    if [ ! -d "$d" ]; then echo "no handoff dir (run did not use --defer-final-artifacts)"; exit 0; fi
+    echo "== state.json =="; cat "$d/state.json" 2>/dev/null || echo "(missing)"
+    echo "== finalized.json =="; cat "$d/finalized.json" 2>/dev/null || echo "(not finalized yet)"
+    echo "== finalizer.log (tail) =="; tail -n 15 "$d/finalizer.log" 2>/dev/null || echo "(no log)"
+    echo "== leftover snapshots =="; ls "$d/snapshots" 2>/dev/null || true'
+  ;;
+
 waitlog)  # waitlog <file> <regex> [timeout_s] — poll instead of sleep-and-pray
   f="$2"; pat="$3"; t="${4:-900}"; el=0
   until grep -qE "$pat" "$f" 2>/dev/null; do
@@ -1323,6 +1340,7 @@ podwaitlog)  # podwaitlog <pod> <remote_file> <regex> [timeout_s] — waitlog fo
   echo "  entry <run> | wandb <run> | pullckpt <run> | pushckpt <pod> <ckpt> |"
   echo "  podeval <run> [sfx] | m5eval <run> [pod] | evalcmd <run> | evalcmdstress <run> | drain | killrun <run> |"
   echo "  waitlog <file> <regex> [t] | podwaitlog <pod> <file> <regex> [t] | evalpending add <pod> <file> <label> |"
+  echo "  handoff <run> (deferred-artifacts registry: training/artifacts_pending/evaluated) |"
   echo "  logline \"line\" | frames <mp4> [n] | feeltest <run> [out] [--unified] |"
   echo "  drivevideo <run> [out] | hybriddemo <run> [out] | expdir <run> | wandbdump <run> |"
   echo "  wandbnote <run> \"paragraph\" | oplaunch <launch_run.py args...> |"
