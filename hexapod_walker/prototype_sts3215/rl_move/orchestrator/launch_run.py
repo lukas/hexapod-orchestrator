@@ -2055,6 +2055,56 @@ def cmd_backlog(a: argparse.Namespace, extra: list[str]) -> int:
     return 0
 
 
+_ACQ_SUFFIX_RE = re.compile(r"-acq\d*(?:-|$)")
+
+
+def _acquisition_steps_footgun(
+        run: str, source: str, explicit_steps, inherited_steps,
+        init_from_source: bool) -> str | None:
+    """Catch a respec that would silently give an acquisition-named
+    run the tiny step budget of a canary-phase source.
+
+    `respec` inherits --steps from the --from entry when --steps isn't
+    given (`steps = a.steps or entry.get("steps")`). Five independent
+    launches this cycle window (gains1x/geom1x/fault1x/extpush1x/
+    zerobiasframe1x-c1-acq1 -- 09-06) all warm-started an "-acqN"-named
+    run off its own 2M canary via --init-from-source without passing
+    --steps, and each one silently finished in minutes at the canary's
+    2M budget: a real checkpoint got produced and the run looked
+    healthy (FINISHED, no error), so nothing flagged it except a human
+    noticing the wall-clock/step count was implausibly small for a
+    "40M ACQ" claim. Two of the five (extpush1x/zerobiasframe1x) burned
+    a whole free GPU slot for the price of a no-op continuation before
+    anyone noticed.
+
+    Only fires when: this is a warm-start (--init-from-source) --
+    non-warm-start launches take --steps from `launch`'s own defaults,
+    a different path; the target run name reads as an acquisition
+    continuation (-acqN suffix); the SOURCE name does NOT already carry
+    that suffix (a real acqN->cont40m chain inherits its already-large
+    step count correctly and must stay silent); no explicit --steps was
+    given; and the inherited step count is canary-scale (<10M, well
+    below any real acquisition budget this campaign has used -- 40M is
+    standard). Returns the REFUSED message, or None if clear.
+    """
+    if explicit_steps is not None or not init_from_source:
+        return None
+    if not inherited_steps or inherited_steps >= 10_000_000:
+        return None
+    if not _ACQ_SUFFIX_RE.search(run):
+        return None
+    if _ACQ_SUFFIX_RE.search(source):
+        return None
+    return (
+        f"REFUSED: {run} reads as an acquisition continuation of "
+        f"{source} but would inherit the source's canary-scale "
+        f"steps={inherited_steps} because --steps was not given (respec "
+        "inherits steps from --from when omitted) -- the exact bug that "
+        "silently mislabeled gains1x/geom1x/fault1x/extpush1x/"
+        "zerobiasframe1x-c1-acq1 as ACQ runs at 2M-step canary budget "
+        "(09-06). Pass --steps explicitly (e.g. --steps 40000000).")
+
+
 def cmd_respec(g: dict, a: argparse.Namespace) -> int:
     """Queue (or directly launch) a follow-up run by CLONING a ledger
     entry's trainer args with targeted overrides — the mechanical form of
@@ -2176,6 +2226,12 @@ def cmd_respec(g: dict, a: argparse.Namespace) -> int:
           f"(changed: seed={a.seed}, args={a.arg or []}, cfg={a.cfg or []}"
           f"{', init-from source ckpt' if a.init_from_source else ''})")
     steps = a.steps or entry.get("steps")
+    foot = _acquisition_steps_footgun(
+        a.run, a.source, a.steps, entry.get("steps"),
+        bool(a.init_from_source))
+    if foot:
+        print(foot)
+        return 1
     # Track containment (operator, 08-11): a respec inherits the source
     # run's track unless explicitly overridden.
     track = (getattr(a, "track", "") or entry.get("track", "")
