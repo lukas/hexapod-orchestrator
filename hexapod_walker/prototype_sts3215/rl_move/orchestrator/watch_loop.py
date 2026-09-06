@@ -108,7 +108,12 @@ POLL_S = 300
 # caused the longrun17 premature-verdict race. The timeout keeps a
 # wedged/missing prestage from stalling triage forever (dead runs
 # write the sentinel immediately: nothing to eval, nothing to wait on).
+# Meta 09-06: this is only the FLOOR of the spawn deadman — see
+# _prestage_spawn_wait(); the flat 1500s fired mid-eval for 57/132
+# cycles on 09-05/06 (24-ep video-every=1 harness takes 25-40+ min),
+# each spawning a triage cycle that could only say "still computing".
 PRESTAGE_MAX_WAIT_S = 1500
+PRESTAGE_SPAWN_WAIT_CAP_S = 10800  # wedged prestage still releases <3h
 
 # Nightly meta-analysis (operator 08-22): once per UTC day inside the
 # [META_HOUR_UTC, META_HOUR_UTC+3) window (~2-5am PT — a window, not
@@ -794,6 +799,29 @@ def _prestage_wrapper_timeout(run: str) -> int:
         return PRESTAGE_WRAPPER_TIMEOUT_S
 
 
+_spawn_wait_cache: dict[str, int] = {}
+
+
+def _prestage_spawn_wait(run: str) -> int:
+    """Per-run deadman before triage spawns WITHOUT the prestage
+    sentinel (meta 09-06). pod_eval writes the sentinel when the CORE
+    gate harness settles — 25-40 min for the walkcurr campaign's
+    24-episode video-every=1 panel, 1h35+ for 100 Hz joint panels — so
+    the old flat PRESTAGE_MAX_WAIT_S=1500 fired mid-eval and spawned
+    churn cycles (57/132 on 09-05/06 touched still-computing/pollreap).
+    Reuse the wrapper's own scaled budget, capped so a genuinely wedged
+    prestage (watcher restart mid-thread) still releases the cycle.
+    Cached: the wrapper lookup parses the full ledger.
+    """
+    if run not in _spawn_wait_cache:
+        _spawn_wait_cache[run] = max(
+            PRESTAGE_MAX_WAIT_S,
+            min(_prestage_wrapper_timeout(run), PRESTAGE_SPAWN_WAIT_CAP_S))
+        if len(_spawn_wait_cache) > 400:
+            _spawn_wait_cache.clear()
+    return _spawn_wait_cache[run]
+
+
 def prestage_finished(run: str) -> None:
     """Mechanically prep a finished run BEFORE its verdict cycle spawns.
 
@@ -1333,7 +1361,8 @@ def main() -> None:
                                     if v > cutoff}
             ready = {r for r in newly
                      if prestage_sentinel(r).exists()
-                     or time.time() - prestage_started[r] > PRESTAGE_MAX_WAIT_S}
+                     or time.time() - prestage_started[r]
+                     > _prestage_spawn_wait(r)}
             if newly - ready:
                 log("holding triage until prestage evals sync: "
                     + ", ".join(sorted(newly - ready)))
