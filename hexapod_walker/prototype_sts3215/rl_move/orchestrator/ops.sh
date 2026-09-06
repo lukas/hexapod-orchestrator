@@ -591,7 +591,14 @@ if arg.endswith(".json"):
     paths = [arg]
 else:
     snake = arg.replace("-", "_").removeprefix("cw_walk_")
-    paths = sorted(glob.glob(f"{proto}/logs/ckpt_eval/*{snake}*/report.json"),
+    # anchor with a trailing "_" boundary (09-06 widenirr-c1-acq1
+    # gotcha): ckpt_eval dirs are always "{run}_{tag}"; an unanchored
+    # "*snake*" glob lets a run whose name is a PREFIX of a sibling's
+    # (e.g. "...-acq1" vs "...-acq1b") silently pick up the sibling's
+    # stale/wrong-checkpoint report when the real one hasn't synced
+    # yet — found when a still-computing "-acq1" gate eval's absence
+    # was masked by a leftover "-acq1b" duplicate-launch artifact dir.
+    paths = sorted(glob.glob(f"{proto}/logs/ckpt_eval/*{snake}_*/report.json"),
                    key=os.path.getmtime)
 if not paths:
     sys.exit(f"no report.json matching {arg} under logs/ckpt_eval/")
