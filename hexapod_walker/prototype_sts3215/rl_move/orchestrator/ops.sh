@@ -664,7 +664,8 @@ review)  # review <run> — THE standard triage read in one command:
   bash "$0" report "$run" 2>/dev/null || echo "(no harness report yet — ops.sh evalcmd $run)"
   echo "##### videos / contact sheets"
   snake=$(echo "$run" | tr - _ | sed 's/^cw_walk_//')
-  ls -t "$PROTO"/logs/ckpt_eval/*${snake}*/*.mp4 "$PROTO"/logs/ckpt_eval/*${snake}*/*.png 2>/dev/null | head -8 \
+  # same trailing "_" anchor as the `report` glob above, same reason.
+  ls -t "$PROTO"/logs/ckpt_eval/*${snake}_*/*.mp4 "$PROTO"/logs/ckpt_eval/*${snake}_*/*.png 2>/dev/null | head -8 \
     || echo "(none)"
   ;;
 
