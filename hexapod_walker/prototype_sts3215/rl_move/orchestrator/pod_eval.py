@@ -414,6 +414,31 @@ def main() -> int:
     # eval_checkpoint's.
     cfgs = [c for c in cfgs
             if not c.split("=", 1)[0].strip().startswith("goal.mode_seq")]
+    # assistfade rung-3 residual-fade strip (2026-09-06): a rung-3
+    # training cfg bakes in `goal.walk_residual_gate=1`/`walk_residual_
+    # blend`/`sched.key=goal.walk_residual_blend` (+ sched.v0/v1/t0_
+    # steps/t1_steps/n_envs) so the reference gait steers the applied
+    # action during TRAINING. Carrying those into a held-out eval would
+    # silently score the checkpoint at the SCHEDULE'S OWN v0 (eval envs
+    # sit at tick~0 forever — see sim_env.py's own sched.* docstring),
+    # i.e. mostly the scripted teacher, not the policy's own unassisted
+    # output. Strip both the gate/blend keys AND any sched.* entry
+    # targeting them so eval always judges the checkpoint fully
+    # autonomous (`goal.walk_residual_gate` default 0 = the mechanism's
+    # own bit-exact off state). Harmless no-op for every non-rung-3 run
+    # (these keys are absent). See rl_docs/tracks/assistfade/STATUS.md
+    # 09-06 ~19:xx.
+    cfgs = [c for c in cfgs
+            if not c.split("=", 1)[0].strip().startswith("goal.walk_residual")
+            and c.split("=", 1)[0].strip() not in
+            ("sched.key", "sched.v0", "sched.v1", "sched.t0_steps",
+             "sched.t1_steps", "sched.n_envs")]
+    all_cfgs = [c for c in all_cfgs
+                if not c.split("=", 1)[0].strip().startswith(
+                    "goal.walk_residual")
+                and c.split("=", 1)[0].strip() not in
+                ("sched.key", "sched.v0", "sched.v1", "sched.t0_steps",
+                 "sched.t1_steps", "sched.n_envs")]
     # Rate-contract pin (2026-08-24 control.hz 25->100 default flip,
     # fb_20260824T174619_c49b7e): since the flip the launcher injects an
     # explicit control.hz cfg-set into EVERY PPO launch, so a ledger

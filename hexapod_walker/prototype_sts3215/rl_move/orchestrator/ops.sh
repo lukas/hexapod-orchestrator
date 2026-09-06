@@ -335,7 +335,19 @@ def val(flag, default=None):
     return args[args.index(flag) + 1] if flag in args else default
 task = val("--task", "joint_walk")
 ep = val("--episode-seconds", "15" if task == "joint_walk" else None)
-cfg = " ".join(f"--cfg-set {args[i+1]}" for i, a in enumerate(args) if a == "--cfg-set")
+# assistfade rung-3: never print goal.walk_residual_gate/blend or the
+# sched.* keys that drive them — carrying them into a held-out eval
+# steers the applied action with the reference at the schedule's own
+# tick-0 value instead of judging the checkpoint unassisted (pod_eval.py
+# strips this on the real mechanical path; mirrored here so a manual
+# copy-paste of THIS printed command does not reintroduce the mistake).
+_SKIP_CFG_KEYS = {"sched.key", "sched.v0", "sched.v1", "sched.t0_steps",
+                  "sched.t1_steps", "sched.n_envs"}
+cfg = " ".join(f"--cfg-set {args[i+1]}" for i, a in enumerate(args)
+              if a == "--cfg-set"
+              and not args[i+1].split("=", 1)[0].startswith(
+                  "goal.walk_residual")
+              and args[i+1].split("=", 1)[0] not in _SKIP_CFG_KEYS)
 goal_mix = val("--goal-mix")
 if goal_mix:
     mix_modes = []
