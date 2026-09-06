@@ -294,6 +294,7 @@ IDLE_KICK_POLLS = 3
 # deadlock: a kick fires at least every IDLE_KICK_MAX_POLLS * POLL_S
 # (~4 h).
 IDLE_KICK_MAX_POLLS = 48  # 48 * 300 s = 4 h floor on kick cadence
+PARTIAL_IDLE_GRACE_S = 600
 
 # Pending on-pod eval registry (meta 09-02). Cycles register long
 # on-pod eval jobs (`ops.sh evalpending add <pod> <remote_file>
@@ -347,8 +348,8 @@ def maybe_autorestart_on_new_code() -> bool:
 def check_pending_evals() -> tuple[list[dict], int]:
     """Poll registered on-pod eval jobs.
 
-    Returns (ready_entries, n_still_in_flight); ready and expired
-    entries are pruned from the registry file.
+    Returns (ready_entries, n_still_in_flight). Polling does not consume
+    ready entries: a cycle cap or failed spawn must not lose the result.
     """
     try:
         entries = json.loads(PENDING_EVALS.read_text())
@@ -364,7 +365,7 @@ def check_pending_evals() -> tuple[list[dict], int]:
         except (KeyError, TypeError, ValueError):
             added = now
         if now - added > PENDING_EVAL_TTL_S:
-            log(f"pending eval {e.get('label')!r} expired (>8h); dropping")
+            log(f"pending eval {e.get('label')!r} expired (>8h); ignoring")
             continue
         try:
             rc = subprocess.run(
@@ -375,11 +376,69 @@ def check_pending_evals() -> tuple[list[dict], int]:
             keep.append(e)  # pod unreachable: still in flight until TTL
             continue
         (ready if rc == 0 else keep).append(e)
-    try:
-        PENDING_EVALS.write_text(json.dumps(keep, indent=1) + "\n")
-    except OSError:
-        pass
     return ready, len(keep)
+
+
+def acknowledge_pending_evals(ready: list[dict]) -> None:
+    """Remove only the exact registrations successfully handed to a cycle."""
+    def identity(e):
+        return tuple(e.get(k) for k in ("pod", "file", "label", "added"))
+
+    consumed = {identity(e) for e in ready}
+    try:
+        # Re-read rather than overwrite the snapshot from the earlier poll;
+        # cycles may have registered additional work while we were spawning.
+        entries = json.loads(PENDING_EVALS.read_text())
+        keep = [e for e in entries if identity(e) not in consumed]
+        tmp = PENDING_EVALS.with_suffix(f".ack-{os.getpid()}.tmp")
+        tmp.write_text(json.dumps(keep, indent=1) + "\n")
+        tmp.replace(PENDING_EVALS)
+    except (OSError, ValueError, TypeError) as exc:
+        log(f"pending eval acknowledgement failed: {exc!r}")
+
+
+def has_refill_owner(active: list[dict]) -> bool:
+    """A focused owner already checks capacity; ordinary triage may coexist."""
+    return any(c.get("label") in {
+        "refill", "partial-refill", "idle-kick", "operator-kick", "mcp-kick", "evalready",
+        META_LABEL,
+    } for c in active)
+
+
+def partial_idle_capacity() -> dict | None:
+    """Use canonical process-based capacity, not W&B's delayed run state."""
+    try:
+        result = subprocess.run(
+            [sys.executable, str(HERE / "capacity.py"), "--json"],
+            cwd=HERE.parent.parent, capture_output=True, text=True,
+            timeout=120, check=True)
+        capacity = json.loads(result.stdout)
+        backlog = json.loads((HERE / "backlog.json").read_text())
+        if not isinstance(capacity, dict) or not isinstance(backlog, list):
+            return None
+        capacity["backlog_count"] = len(backlog)
+        return capacity
+    except (OSError, ValueError, subprocess.SubprocessError) as exc:
+        log(f"partial-idle capacity check unavailable: {exc!r}")
+        return None
+
+
+def partial_refill_trigger(capacity: dict | None, active: list[dict]) -> str | None:
+    if (not capacity or capacity.get("slots_free", 0) <= 0
+            or capacity.get("backlog_count", 0) or has_refill_owner(active)):
+        return None
+    pods = ", ".join(capacity.get("free_pods", []))
+    return (
+        "No run completion is required for this refill cycle. Canonical "
+        f"capacity found {capacity['slots_free']} ready slots without trainers "
+        f"({pods}), while the launch backlog is empty. Other runs may still "
+        "be training. Check current capacity and existing cycle ownership, "
+        "then queue and launch justified continuations or concrete next "
+        "experiments from the registered tracks. Preserve healthy trainers "
+        "and claimed work; do not duplicate runs, change spending limits, or "
+        "invent filler. Record useful follow-ups ahead of completions where "
+        "dependencies permit. If nothing is runnable, name the concrete "
+        "dependency. Routine design decisions do not need operator approval.\n")
 
 
 def idle_kick_threshold(streak: int) -> int:
@@ -1191,6 +1250,9 @@ def main() -> None:
     failed_cycles = 0
     idle_polls = 0
     idle_kick_streak = 0  # consecutive idle kicks with no real activity
+    partial_idle_since: float | None = None
+    partial_refill_streak = 0
+    next_capacity_check = 0.0
     active: list[dict] = []
     prestage_started: dict[str, float] = {}  # run -> first-seen ts
     auto_started_all: dict[str, str] = {}    # run -> auto-continuation
@@ -1219,6 +1281,7 @@ def main() -> None:
                         "resetting idle-kick backoff")
                 idle_kick_streak = 0
                 idle_polls = 0
+                partial_refill_streak = 0
 
             if PAUSE.exists():
                 log("PAUSE present; idling")
@@ -1439,8 +1502,35 @@ def main() -> None:
                                "review/refill pass)") + "\n"))
                     active.append(handle)
 
+            # Ready reports must be noticed even while scratch training or
+            # unrelated analysis continues. Acknowledge only after spawn.
+            ready_evals, evals_in_flight = check_pending_evals()
             eval_trigger = None
-            if not newly and not findings:
+            if ready_evals and not any(c.get("label") == "evalready" for c in active):
+                eval_trigger = (
+                    "Registered on-pod evaluation results are ready. Read "
+                    "these results, record their decisions, and apply the "
+                    "normal refill rules without duplicating claimed work:\n"
+                    + "".join(f"- {e.get('label')}: {e.get('pod')}:"
+                              f"{e.get('file')}\n" for e in ready_evals))
+
+            refill_trigger = None
+            now = time.time()
+            if now >= next_capacity_check:
+                next_capacity_check = now + POLL_S
+                capacity = partial_idle_capacity()
+                candidate = partial_refill_trigger(capacity, active)
+                if candidate:
+                    if partial_idle_since is None:
+                        partial_idle_since = now
+                    grace = min(PARTIAL_IDLE_GRACE_S * (2 ** min(partial_refill_streak, 5)),
+                                IDLE_KICK_MAX_POLLS * POLL_S)
+                    if now - partial_idle_since >= grace:
+                        refill_trigger = candidate
+                else:
+                    partial_idle_since = None
+
+            if not newly and not findings and not eval_trigger and not refill_trigger:
                 if running or active:
                     idle_polls = 0
                     if running:
@@ -1454,24 +1544,7 @@ def main() -> None:
                     )
                     sleep_poll()
                     continue
-                ready_evals, evals_in_flight = check_pending_evals()
-                if ready_evals:
-                    idle_polls = 0
-                    idle_kick_streak = 0
-                    names = ", ".join(str(e.get("label")) for e in ready_evals)
-                    log(f"on-pod eval result(s) ready: {names} — kicking")
-                    eval_trigger = (
-                        "No run just finished — this cycle fires because "
-                        "registered on-pod eval job(s) FINISHED and their "
-                        "result files are UNREAD:\n"
-                        + "".join(
-                            f"- {e.get('label')}: {e.get('pod')}:"
-                            f"{e.get('file')}\n" for e in ready_evals)
-                        + "Pull and read each result, record what it "
-                        "decides (track STATUS / RL_LOG / ledger verdict "
-                        "as appropriate), then apply the normal refill "
-                        "rules.\n")
-                elif evals_in_flight:
+                if evals_in_flight:
                     log(f"{evals_in_flight} registered on-pod eval(s) "
                         "still in flight; holding idle kicks")
                     sleep_poll()
@@ -1500,7 +1573,7 @@ def main() -> None:
                 idle_kick_streak = 0
                 if findings:
                     log("checkup findings pending — injecting into next cycle")
-                if newly and not ready and not findings:
+                if newly and not ready and not findings and not eval_trigger and not refill_trigger:
                     # Every new finish is still waiting on its prestage
                     # sentinel — nothing to spawn yet, don't fabricate
                     # an empty cycle. (Idle kicks reach the fan-out via
@@ -1556,12 +1629,18 @@ def main() -> None:
                 handle = spawn_cycle(batch, running,
                                      findings if i == 0 else "",
                                      in_flight, auto_started,
-                                     trigger_text=(eval_trigger
+                                     trigger_text=((eval_trigger or refill_trigger)
                                                    if i == 0 else None),
                                      label_override=("evalready"
                                                      if eval_trigger and i == 0
+                                                     else "partial-refill" if refill_trigger and i == 0
                                                      else None))
                 active.append(handle)
+                if i == 0 and eval_trigger:
+                    acknowledge_pending_evals(ready_evals)
+                if i == 0 and refill_trigger and not eval_trigger:
+                    partial_idle_since = now
+                    partial_refill_streak += 1
                 for r in sorted(batch):
                     mark_triage(
                         r, f"in-cycle {handle['label'][:60]} since "
