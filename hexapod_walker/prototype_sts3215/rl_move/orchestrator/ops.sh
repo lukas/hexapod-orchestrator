@@ -1379,6 +1379,18 @@ podwaitlog)  # podwaitlog <pod> <remote_file> <regex> [timeout_s] — waitlog fo
   echo "matched after ~${el}s:"; kubectl exec "$pod" -- grep -E "$pat" "$f" 2>/dev/null | tail -3
   ;;
 
+prune)  # prune [--execute] [--run <name>] — mechanical seed-prune audit
+  # (operator rule 2026-09-07: burn-in >=25%, 3 stagnant report windows,
+  # valley veto; collapse/exploit immediate-kill). Dry-run by default;
+  # the watcher's pruner_worker runs --all --execute every 15 min.
+  # PRUNE_OFF in this dir disables killing fleet-wide.
+  shift
+  case " $* " in
+    *" --run "*) uv run python "$(dirname "$0")/seed_pruner.py" "$@" ;;
+    *)           uv run python "$(dirname "$0")/seed_pruner.py" --all "$@" ;;
+  esac
+  ;;
+
 *)
   sed -n '2,6p' "$0"
   echo "subcommands: review <run> (START HERE for triage) | report <run|json> |"
@@ -1387,6 +1399,7 @@ podwaitlog)  # podwaitlog <pod> <remote_file> <regex> [timeout_s] — waitlog fo
   echo "  podeval <run> [sfx] | m5eval <run> [pod] | evalcmd <run> | evalcmdstress <run> | drain | killrun <run> |"
   echo "  waitlog <file> <regex> [t] | podwaitlog <pod> <file> <regex> [t] | evalpending add <pod> <file> <label> |"
   echo "  handoff <run> (deferred-artifacts registry: training/artifacts_pending/evaluated) |"
+  echo "  prune [--execute] (mechanical seed-prune audit; watcher runs it live) |"
   echo "  logline \"line\" | frames <mp4> [n] | feeltest <run> [out] [--unified] |"
   echo "  drivevideo <run> [out] | hybriddemo <run> [out] | expdir <run> | wandbdump <run> |"
   echo "  wandbnote <run> \"paragraph\" | oplaunch <launch_run.py args...> |"

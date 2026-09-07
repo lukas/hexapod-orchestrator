@@ -588,6 +588,33 @@ def checkup_worker() -> None:
         time.sleep(60)
 
 
+def pruner_worker() -> None:
+    """Mechanical seed pruning of RUNNING training seeds (operator order
+    2026-09-07): every pass, seed_pruner.py audits the live walkcurr-track
+    runs' controller-visible report windows and kills only seeds meeting
+    the operator's rule (>=25% burn-in + 3 consecutive stagnant windows
+    with no reward/behavior improvement, or obvious collapse/exploit).
+    rl_move/orchestrator/PRUNE_OFF disables killing; the audit is
+    subprocess-isolated so a pruner bug can never take the watcher down.
+    """
+    pruner = HERE / "seed_pruner.py"
+    while True:
+        try:
+            if not PAUSE.exists() and not (HERE / "PRUNE_OFF").exists():
+                r = subprocess.run(
+                    [sys.executable, str(pruner), "--all", "--execute"],
+                    capture_output=True, text=True, timeout=900, cwd=REPO)
+                out = ((r.stdout or "") + (r.stderr or "")).strip()
+                interesting = [ln for ln in out.splitlines()
+                               if "KILL" in ln or "SKIP (wandb fetch" in ln]
+                if interesting or r.returncode != 0:
+                    log(f"seed_pruner rc={r.returncode}\n" +
+                        "\n".join(interesting)[-1500:])
+        except Exception as exc:
+            log(f"pruner worker error: {exc!r}")
+        time.sleep(900)
+
+
 def backlog_worker() -> None:
     """Drain the mechanical experiment backlog into free GPU slots.
 
@@ -1290,6 +1317,7 @@ def main() -> None:
         "cycles already spawned in the rolling 24h window")
     threading.Thread(target=checkup_worker, daemon=True).start()
     threading.Thread(target=backlog_worker, daemon=True).start()
+    threading.Thread(target=pruner_worker, daemon=True).start()
     while True:
         try:
             processed = load_processed()
