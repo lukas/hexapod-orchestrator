@@ -82,7 +82,16 @@ Exported walk artifact:
   structure change (not another magnitude rescale) or a DONE-gate
   turn-authority renegotiation — both deferred to a dedicated design
   pass, not rushed. Details: `rl_docs/tracks/standwalk/STATUS.md`.
-- `walkcurr`: RETIRED 08-31, DONE-negative scope finding (see above).
+- `walkcurr`: RETIRED 08-31, DONE-negative scope finding (see above);
+  reopened 09-05 as the primary GPU campaign on EASY-physics
+  teacher-free walking (operator order) — see
+  `rl_docs/tracks/walkcurr/STATUS.md`.
+- `assistfade`: rungs 1-4 of the assist-removal ladder CLOSED 09-07
+  (~20 canary arms) — only rung 0 (persistent BC anchor, never faded)
+  reaches ignition on mesh/100Hz; do not relaunch rung 1-4 recipes
+  without a new unscoped reward-mechanism design. Rung 0's recipe
+  stays PROVEN/production-usable. See
+  `rl_docs/tracks/assistfade/STATUS.md` TRACK-LEVEL FINDING (09-07).
 - `joystick`, `amp`, `cpg`: green/maintenance unless the operator
   explicitly reopens them.
 
