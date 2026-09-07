@@ -7,7 +7,7 @@
   "amp": {
     "name": "AMP locomotion from scratch",
     "doc": "rl_docs/tracks/amp/STATUS.md",
-    "goal": "Implement the AMP program in rl_docs/AMP_LOCOMOTION.md: adversarial motion priors + massively parallel PPO + privileged critic + observation history + actuator/fault randomization, trained from scratch on the existing MJX GPU stack (no Isaac Lab). The demonstration gait is training data, not the controller. Build every tool it needs (motion library, discriminator, GRU actor, joystick command env, eval suite) and do not pause on operator input. DONE when milestone M5 (MuJoCo cross-engine transfer of the M2-M4 policy) passes per the brief; M6 hardware deployment is operator-owned."
+    "goal": "Implement the AMP program in rl_docs/AMP_LOCOMOTION.md: adversarial motion priors + massively parallel PPO + privileged critic + observation history + actuator/fault randomization, trained from scratch on the existing MJX GPU stack (no Isaac Lab). The demonstration gait is training data, not the controller. Build every tool it needs (motion library, discriminator, GRU actor, joystick command env, eval suite) and do not pause on operator input. DONE when milestone M5 (MuJoCo cross-engine transfer of the M2-M4 policy) passes per the brief; M6 hardware deployment is handed to the serialized Robot Lab guarded runner."
   },
   "walkcurr": {
     "name": "Prior-free walking curriculum (Kawawa-2022 lineage)",

@@ -69,8 +69,10 @@ brought in line with the evals.
 A watcher notices finished runs and spawns agent cycles that triage,
 record verdicts, and launch the next work toward the registered
 tracks. While any track is unmet and runnable work exists, an idle
-fleet is a bug, not a rest state. Only the operator touches the
-physical robot or starts work outside the registered tracks.
+fleet is a bug, not a rest state. Guarded agents may operate the physical
+robot remotely within the active campaign using live camera, fresh telemetry,
+and an abort path. The operator owns hands-on manipulation and decisions that
+expand work outside the registered tracks.
 
 Primary docs: `CURRENT_TRUTHS.md` (facts), `RL_PLAN.md` (plan),
 `STATUS.md` (dashboard), `RESEARCH_RULES.md` +

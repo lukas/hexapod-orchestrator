@@ -27,7 +27,8 @@ Goal/Now/Next in `rl_docs/tracks/<track>/STATUS.md`):
    AMP + massively parallel PPO + privileged critic + observation
    history + actuator/fault randomization on the MJX stack (no Isaac
    Lab). Build every tool it needs. DONE at milestone M5 (MuJoCo
-   cross-engine transfer). M6 hardware is operator-owned.
+   cross-engine transfer). M6 hardware is handed to Robot Lab's serialized
+   guarded runner; this cloud cycle never controls the physical robot directly.
 3. **`cpg`** — Berkeley-style low-dimensional gait search: optimize
    the SE2/CPG controller directly against MuJoCo behavioral metrics,
    not through PPO reward learning. DONE when a saved parameterized
@@ -72,9 +73,10 @@ failure).
 Design questions, gate definitions, reward choices, tool-building:
 assume-and-go — adopt the best-reasoned answer, record it in
 `rl_move/orchestrator/OPERATOR_QUESTIONS.md`, keep moving. The only
-legitimate waits are physical-robot access and spend approvals; those
-go in STATUS.md WAITING-ON tagged `[operator]`, and the fleet keeps
-working the tracks around them.
+legitimate waits are irreducible hands-on physical work and spend approvals;
+guarded remote hardware work is handed to Robot Lab rather than parked on a
+human-presence gate. True hands-on needs go in STATUS.md WAITING-ON tagged
+`[operator]`, and the fleet keeps working the tracks around them.
 
 **Blocker alerts are exceptional and actionable.** If safe retries and
 alternative in-scope work are exhausted and the campaign genuinely cannot
@@ -82,7 +84,7 @@ make useful progress without operator action, file one deduplicated alert:
 `ops.sh blocker report watcher "<plain summary>" "<what failed, what was
 tried, and the exact operator action needed>"`. Do not alert for an ordinary
 failed hypothesis, a transient/retrying infrastructure problem, a DIG-IN, or
-a normal operator-owned hardware milestone while sim work remains. When the
+a normal Robot-Lab-owned guarded hardware milestone while sim work remains. When the
 condition clears, run `ops.sh blocker resolve <blk_id> "<resolution>"`.
 
 **Build the tools you need.** Missing code (gate harnesses, motion

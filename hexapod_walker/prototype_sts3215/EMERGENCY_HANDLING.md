@@ -36,10 +36,10 @@ These actions are different and must not be conflated:
 | Camera/tag/recorder/framework failure while stationary | One confirmed software/data failure with robot telemetry still healthy | Hold the current pose; keep any surviving logs open | Inspect the live camera and fresh telemetry; retry from the last safe checkpoint if both are normal; at most 2 retries |
 | Camera/tag/recorder/framework failure while walking | One confirmed software/data failure with robot telemetry still healthy | Phase-aware gait stop, zero velocity, and hold; do not sit or limp | Inspect camera and fresh telemetry; retry the complete failed step if both are normal; at most 2 retries |
 | One hot-temperature sample | Fewer than 3 consecutive over-threshold samples from the same joint and no controller thermal latch | Hold/continue the current safe controller while collecting confirmation samples; log the warning | Continue if it clears |
-| Confirmed hot servo | Controller thermal latch or 3 consecutive over-threshold samples from the same joint | `X`, continue passive telemetry/video through cooldown, and do not reposition | Human inspection and explicit operator approval after 3 complete cool samples |
-| Hard current, sustained overcurrent, real low voltage/brownout, tip/fall, collision, jam, or surprise force | Threshold logic or direct physical/camera evidence | `X` immediately; do **not** lower, sit, zero, plant, or retry | Human inspection and explicit operator approval |
+| Confirmed hot servo | Controller thermal latch or 3 consecutive over-threshold samples from the same joint | `X`, continue passive telemetry/video through cooldown, and do not reposition | Resume after a normal camera view and 3 complete cool, electrically healthy samples; request hands-on inspection only if the condition persists or evidence is inconclusive |
+| Hard current, sustained overcurrent, real low voltage/brownout, tip/fall, collision, jam, or surprise force | Threshold logic or direct physical/camera evidence | `X` immediately; do **not** lower, sit, zero, plant, or retry | Reinspect camera plus 3 fresh electrical/thermal/motor samples; resume remotely only when they conclusively show a normal safe state, otherwise request the specific hands-on correction needed |
 | Implausible Euler-angle jump with quiet gyro | Discontinuous near-180-degree jump that contradicts measured angular rate | Reject that sample, log `tilt_glitch_ignored`, and keep collecting | Continue when trusted attitude samples remain normal |
-| Sustained real excessive tilt | 3 valid consecutive samples, or direct camera evidence of a tip | `X`; preserve video and telemetry | Human inspection and explicit operator approval |
+| Sustained real excessive tilt | 3 valid consecutive samples, or direct camera evidence of a tip | `X`; preserve video and telemetry | Resume only after camera plus 3 fresh trusted attitude/motor samples conclusively show a stable recoverable pose; persistent tip or ambiguity requires hands-on correction |
 | Operator requests an ordinary pause/stop while stable | Direct operator request | Controlled gait/job stop and hold | Operator decides whether to resume or perform a planned lower |
 | Operator presses the physical E-stop or reports immediate danger | Direct operator action/report | Treat as a confirmed hard stop | Human inspection and explicit operator approval |
 
@@ -72,8 +72,10 @@ controlled stop cannot be verified, use the telemetry-loss hard-stop path.
 8. **Resume only by the applicable rule.** For the currently authorized test
    campaign, a transient or recoverable stopped failure continues after the
    camera and three fresh telemetry samples are normal. Retry the complete
-   failed step, not the remaining fragment, and allow at most two retries. An
-   actual physical or electrical hard fault never auto-resumes.
+   failed step, not the remaining fragment, and allow at most two retries. A
+   physical or electrical hard fault never resumes blindly: first establish
+   with a current camera view and recovered telemetry that the fault is no
+   longer present, or obtain hands-on correction when remote evidence cannot.
 
 ## Recovery boundaries
 
@@ -92,7 +94,9 @@ controlled stop cannot be verified, use the telemetry-loss hard-stop path.
   samples are normal. Restart the whole step from a verified safe pose.
 - Do not automatically retry an actual tip, visibly bad posture, stand/plant
   blend failure, brownout, hot motor, jam, surprise force, or hard/sustained
-  current event. Those need physical inspection or operator direction.
+  current event. Stop first, then use current camera plus recovered telemetry
+  to establish a normal state. Only a persistent or inconclusive condition
+  requires hands-on inspection or correction.
 - If the robot leaves the calibrated camera area during a healthy run, stop
   the gait neutrally, confirm the floor-map position, and return with bounded
   short pulses and a camera check after each pulse. Loss of visual localization
@@ -110,7 +114,8 @@ fault from a conservative pause:
 - `failure_pause_holding_walk_pose`
 - `EMERGENCY_STOP`
 - `thermal_cooldown_start` / `thermal_cooldown_complete`
-- `operator_approval_required`
+- `recovery_evidence_required`
+- `hands_on_intervention_required`
 
 Every `EMERGENCY_STOP` record must include the confirmed reason. Never emit it
 for a single missing reply or an ordinary stationary software failure.

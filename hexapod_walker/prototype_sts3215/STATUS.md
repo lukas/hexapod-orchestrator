@@ -11,10 +11,10 @@ The campaign has six registered tracks in
 
 1. `joystick` - GATE GREEN (08-23): legacy RL-from-scripted-gait
    joystick champion `stotight45-seed13` passes the 60 s randomized
-   MuJoCo joystick gate with zero falls. Hardware drive is
-   operator-owned.
+   MuJoCo joystick gate with zero falls. Hardware drive is owned by the
+   serialized Robot Lab guarded runner.
 2. `amp` - GATE GREEN at M5 (08-23): AMP from-scratch sim goal met by
-   the `phasehz11_s29` family. M6 hardware transfer is operator-owned.
+   the `phasehz11_s29` family. M6 hardware transfer is a Robot Lab guarded handoff.
 3. `cpg` - GATE GREEN (08-23): parameterized CPG controller passes its
    contextual walking/turning/stopping gate; maintenance/adoption
    comparisons only.
