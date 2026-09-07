@@ -502,37 +502,48 @@ def _budget(entry: dict) -> int:
 
 # --- kill-path seams (each monkeypatchable in tests) -----------------------
 
-# Exact-token trainer match (same rule as ops.sh killrun: only
-# "--run-name <run>", never a bare substring; skip the scanner itself).
-_MATCH_CASE = ('*"--run-name $1 "*|*"--run-name=$1 "*'
-               '|*"--run-name $1"|*"--run-name=$1"')
+# Parse NUL-delimited argv: a run name inside --notes or a shell command
+# is not a trainer identity. Only inspect the attempt's recorded PID;
+# never discover a replacement process by its shared display name.
+_TRAINER_MATCH_SH = r'''
+trainer_matches() {
+  local arg run_name='' i
+  local -a argv=()
+  [ -r "/proc/$1/cmdline" ] || return 1
+  while IFS= read -r -d '' arg; do argv+=("$arg"); done < "/proc/$1/cmdline"
+  case "${argv[0]##*/}" in python|python[0-9]*) ;; *) return 1;; esac
+  [ "${argv[1]}" = '-m' ] || return 1
+  case "${argv[2]}" in rl_move.sim.train_ppo|rl_move.sim.train_ppo_mjx) ;;
+    *) return 1;; esac
+  for ((i=3; i<${#argv[@]}; i++)); do
+    case "${argv[$i]}" in
+      --run-name) i=$((i+1)); run_name="${argv[$i]}";;
+      --run-name=*) run_name="${argv[$i]#--run-name=}";;
+    esac
+  done
+  [ "$run_name" = "$2" ]
+}
+'''
 
-_SCAN_SH = r'''
-for d in /proc/[0-9]*; do
-  p=${d#/proc/}; [ "$p" = "$$" ] && continue
-  c=$(tr "\0" " " < "$d/cmdline" 2>/dev/null)
-  case "$c" in
-    *"--run-name $1 "*|*"--run-name=$1 "*|*"--run-name $1"|*"--run-name=$1")
-      st=$(sed 's/^.*) //' "$d/stat" 2>/dev/null | cut -d' ' -f20)
-      [ -n "$st" ] && echo "PIN $p $st";;
-  esac
-done
+_SCAN_SH = _TRAINER_MATCH_SH + r'''
+p="$2"
+trainer_matches "$p" "$1" || exit 0
+st=$(sed 's/^.*) //' "/proc/$p/stat" 2>/dev/null | cut -d' ' -f20)
+[ -n "$st" ] && echo "PIN $p $st"
 exit 0
 '''
 
-_KILL_SH = r'''
+_KILL_SH = _TRAINER_MATCH_SH + r'''
 run="$1"; shift
 rc=0
 for pair in "$@"; do
   pid=${pair%%:*}; st=${pair##*:}
   cur=$(sed 's/^.*) //' "/proc/$pid/stat" 2>/dev/null | cut -d' ' -f20)
-  if [ -z "$cur" ]; then echo "GONE $pid"; continue; fi
+  if [ -z "$cur" ]; then echo "GONE $pid"; rc=1; continue; fi
   if [ "$cur" != "$st" ]; then echo "IDENTITY_CHANGED $pid"; rc=1; continue; fi
-  c=$(tr "\0" " " < "/proc/$pid/cmdline" 2>/dev/null)
-  case "$c" in
-    *"--run-name $run "*|*"--run-name=$run "*|*"--run-name $run"|*"--run-name=$run") ;;
-    *) echo "CMD_MISMATCH $pid"; rc=1; continue;;
-  esac
+  if ! trainer_matches "$pid" "$run"; then
+    echo "CMD_MISMATCH $pid"; rc=1; continue
+  fi
   if kill "$pid" 2>/dev/null; then echo "KILLED $pid"; else echo "KILLFAIL $pid"; rc=1; fi
 done
 exit $rc
@@ -551,10 +562,11 @@ def _kubectl_exec(pod: str, script: str, args: list[str],
         capture_output=True, text=True, timeout=timeout)
 
 
-def _pin_procs(pod: str, run: str) -> list[tuple[int, int]] | None:
-    """Live trainer PIDs + /proc start-time identity, or None on failure."""
+def _pin_procs(pod: str, run: str,
+               trainer_pid: int) -> list[tuple[int, int]] | None:
+    """Inspect only the recorded trainer PID; None means probe failure."""
     try:
-        r = _kubectl_exec(pod, _SCAN_SH, [run])
+        r = _kubectl_exec(pod, _SCAN_SH, [run, str(trainer_pid)])
     except Exception:
         return None
     if r.returncode != 0:
@@ -589,20 +601,24 @@ def _kill_procs(pod: str, run: str, pairs: list[tuple[int, int]]
         if len(parts) != 2:
             continue
         tag, pid = parts[0], parts[1]
-        if tag in ("KILLED", "GONE"):
+        if tag == "KILLED":
             killed.append(int(pid))
-        elif tag in ("KILLFAIL", "IDENTITY_CHANGED", "CMD_MISMATCH"):
+        elif tag in ("GONE", "KILLFAIL", "IDENTITY_CHANGED", "CMD_MISMATCH"):
             failed.append(int(pid))
     ok = (r.returncode == 0) and not failed and len(killed) == len(pairs)
     return ok, killed, failed
 
 
-def _procs_alive(pod: str, run: str) -> bool | None:
-    """Any live --run-name match left? None = could not determine."""
-    pins = _pin_procs(pod, run)
-    if pins is None:
-        return None
-    return bool(pins)
+def _procs_alive(pod: str, run: str,
+                 pairs: list[tuple[int, int]]) -> bool | None:
+    """Are any of the pinned trainers still alive? None is uncertain."""
+    for pid, start in pairs:
+        pins = _pin_procs(pod, run, pid)
+        if pins is None:
+            return None
+        if (pid, start) in pins:
+            return True
+    return False
 
 
 def _handoff_phase(pod: str, run: str) -> str | None:
@@ -627,14 +643,31 @@ def _handoff_phase(pod: str, run: str) -> str | None:
 
 
 def _reload_entry(run: str, created: str) -> dict | None:
-    """Fresh ledger read of the EXACT attempt (run + created)."""
+    """Return the exact attempt only while it remains the newest one.
+
+    A later retry gets its own ledger row; checking only whether the old
+    row still exists would let its stale decision select the new trainer.
+    Even a later REFUSED row makes identity uncertain, so fail closed.
+    """
     try:
         led = json.loads(LEDGER.read_text())
     except Exception:
         return None
-    ms = [e for e in led if e.get("run") == run
-          and e.get("created") == created]
-    return ms[-1] if ms else None
+    ms = [e for e in led if e.get("run") == run]
+    return ms[-1] if ms and ms[-1].get("created") == created else None
+
+
+def _trainer_pid(entry: dict) -> int | None:
+    """Use launcher provenance, never a process discovered by run name."""
+    checks = entry.get("checks") or {}
+    raw = checks.get("trainer_pid")
+    if raw is None:
+        raw = checks.get("pid")
+    try:
+        pid = int(raw)
+    except (TypeError, ValueError):
+        return None
+    return pid if pid > 0 else None
 
 
 def _wandb_state_steps(entry: dict) -> tuple[str, int]:
@@ -661,24 +694,26 @@ def _kill(entry: dict, dec: Decision, budget: int) -> bool:
     created = entry.get("created")
     wandb_id = entry.get("wandb_id")
     pod = entry.get("pod")
+    trainer_pid = _trainer_pid(entry)
 
     def abort(msg: str) -> bool:
         print(f"{run}: KILL ABORTED -- {msg}; no ledger write "
               "(never kill on missing/uncertain evidence)")
         return False
 
-    if not (run and created and wandb_id and pod):
+    if not (run and created and wandb_id and pod and trainer_pid):
         return abort("attempt not pinnable (missing "
-                     "run/created/wandb_id/pod)")
+                     "run/created/wandb_id/pod/recorded trainer PID)")
 
     # 1. ledger revalidation: the EXACT attempt must still match
     fresh = _reload_entry(run, created)
     if fresh is None:
-        return abort(f"no ledger attempt with created={created}")
+        return abort(f"attempt created={created} is missing or superseded")
     if fresh.get("status") != "RUNNING":
         return abort(f"attempt status is now {fresh.get('status')!r}")
-    if fresh.get("wandb_id") != wandb_id or fresh.get("pod") != pod:
-        return abort("attempt identity changed (wandb_id/pod) -- "
+    if (fresh.get("wandb_id") != wandb_id or fresh.get("pod") != pod
+            or _trainer_pid(fresh) != trainer_pid):
+        return abort("attempt identity changed (wandb_id/pod/trainer PID) -- "
                      "concurrent relaunch?")
 
     # 2. W&B revalidation just before termination
@@ -701,12 +736,22 @@ def _kill(entry: dict, dec: Decision, budget: int) -> bool:
                      "is over; only the CPU finalizer remains")
 
     # 4. pin the live trainer processes (pid + start-time identity)
-    pairs = _pin_procs(pod, run)
+    pairs = _pin_procs(pod, run, trainer_pid)
     if pairs is None:
         return abort("trainer process scan failed")
     if not pairs:
-        return abort("no live trainer process matches --run-name "
-                     f"{run} on {pod}")
+        return abort(f"recorded PID {trainer_pid} is not a live trainer "
+                     f"for {run} on {pod}")
+
+    # Remote reads can overlap a relaunch. Recheck after probing, and
+    # still signal only the recorded PID/start-time pair, never a new
+    # name-matched trainer that appeared during those reads.
+    fresh = _reload_entry(run, created)
+    if (fresh is None or fresh.get("status") != "RUNNING"
+            or fresh.get("wandb_id") != wandb_id
+            or fresh.get("pod") != pod
+            or _trainer_pid(fresh) != trainer_pid):
+        return abort("attempt changed or was superseded during revalidation")
 
     # 5. targeted kill; command failure is failure
     ok, killed, failed = _kill_procs(pod, run, pairs)
@@ -718,7 +763,7 @@ def _kill(entry: dict, dec: Decision, budget: int) -> bool:
     stopped = False
     for _ in range(STOP_CONFIRM_TRIES):
         time.sleep(STOP_CONFIRM_SLEEP_S)
-        alive = _procs_alive(pod, run)
+        alive = _procs_alive(pod, run, pairs)
         if alive is False:
             stopped = True
             break

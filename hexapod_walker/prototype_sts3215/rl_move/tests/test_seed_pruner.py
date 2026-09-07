@@ -17,6 +17,11 @@ Covers:
 """
 import sys
 import pathlib
+import json
+import shlex
+import subprocess
+
+import pytest
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]
                        / "orchestrator"))
@@ -259,7 +264,7 @@ def test_assembly_sparse_reward_gaps_yield_nonadjacent_windows():
 
 PIN = {"run": "cw-test-run", "created": "2026-09-07T10:00:00+00:00",
        "wandb_id": "abc123", "pod": "hexapod-mjx-train-9",
-       "status": "RUNNING"}
+       "status": "RUNNING", "checks": {"pid": "4242", "trainer_pid": "4242"}}
 DEC = Decision("KILL", "test stagnation", {"why": "test"})
 
 
@@ -275,9 +280,9 @@ class _KillEnv:
                             lambda entry: ("running", 20_000_000))
         monkeypatch.setattr(sp, "_handoff_phase", lambda pod, run: None)
         monkeypatch.setattr(sp, "_pin_procs",
-                            lambda pod, run: [(4242, 987654)])
+                            lambda pod, run, pid: [(4242, 987654)])
         monkeypatch.setattr(sp, "_kill_procs", self._kill_procs)
-        monkeypatch.setattr(sp, "_procs_alive", lambda pod, run: False)
+        monkeypatch.setattr(sp, "_procs_alive", lambda pod, run, pairs: False)
         monkeypatch.setattr(sp, "_mark_killed", self._mark_killed)
         monkeypatch.setattr(sp.time, "sleep", lambda s: None)
 
@@ -310,28 +315,28 @@ def test_kill_command_failure_never_writes_killed(monkeypatch):
 
 def test_unconfirmed_stop_never_writes_killed(monkeypatch):
     env = _KillEnv(monkeypatch)
-    monkeypatch.setattr(sp, "_procs_alive", lambda pod, run: True)
+    monkeypatch.setattr(sp, "_procs_alive", lambda pod, run, pairs: True)
     assert sp._kill(dict(PIN), DEC, BUDGET) is False
     assert env.marked == []
 
 
 def test_unverifiable_stop_never_writes_killed(monkeypatch):
     env = _KillEnv(monkeypatch)
-    monkeypatch.setattr(sp, "_procs_alive", lambda pod, run: None)
+    monkeypatch.setattr(sp, "_procs_alive", lambda pod, run, pairs: None)
     assert sp._kill(dict(PIN), DEC, BUDGET) is False
     assert env.marked == []
 
 
 def test_no_live_trainer_never_writes_killed(monkeypatch):
     env = _KillEnv(monkeypatch)
-    monkeypatch.setattr(sp, "_pin_procs", lambda pod, run: [])
+    monkeypatch.setattr(sp, "_pin_procs", lambda pod, run, pid: [])
     assert sp._kill(dict(PIN), DEC, BUDGET) is False
     assert env.marked == []
 
 
 def test_proc_scan_failure_aborts(monkeypatch):
     env = _KillEnv(monkeypatch)
-    monkeypatch.setattr(sp, "_pin_procs", lambda pod, run: None)
+    monkeypatch.setattr(sp, "_pin_procs", lambda pod, run, pid: None)
     assert sp._kill(dict(PIN), DEC, BUDGET) is False
     assert env.marked == []
 
@@ -423,3 +428,145 @@ def test_wandb_identity_mismatch_raises_and_is_skipped():
             sys.modules["wandb"] = real
         else:
             del sys.modules["wandb"]
+
+
+class _ProcShell:
+    """Run production shell probes against fake /proc; never signal a process."""
+
+    def __init__(self, tmp_path, monkeypatch):
+        self.proc = tmp_path / "proc"
+        self.proc.mkdir()
+        self.signals = tmp_path / "signals"
+        self.calls = []
+        monkeypatch.setattr(sp, "_kubectl_exec", self.exec)
+
+    def add(self, pid, argv=None, start=987654):
+        path = self.proc / str(pid)
+        path.mkdir()
+        if argv is None:
+            argv = ["/venv/bin/python", "-m", "rl_move.sim.train_ppo_mjx",
+                    "--run-name", PIN["run"]]
+        (path / "cmdline").write_bytes(
+            b"\0".join(arg.encode() for arg in argv) + b"\0")
+        # /proc stat fields after (comm): state is 1, starttime is 20.
+        fields = ["S"] + ["0"] * 18 + [str(start)]
+        (path / "stat").write_text(f"{pid} (trainer) " + " ".join(fields))
+
+    def exec(self, pod, script, args, timeout=90.0):
+        self.calls.append((script, args))
+        # The shell's kill command is intercepted even if a test regresses.
+        # Keep the production matching/identity/output scripts unchanged.
+        safe_kill = ("kill() { printf '%s\\n' \"$1\" >> "
+                     + shlex.quote(str(self.signals)) + "; }\n")
+        script = safe_kill + script.replace("/proc/", f"{self.proc}/")
+        return subprocess.run(["bash", "-c", script, "_", *args],
+                              capture_output=True, text=True, timeout=5)
+
+    def signaled(self):
+        return self.signals.read_text().splitlines() if self.signals.exists() else []
+
+
+def test_shell_probe_and_kill_only_recorded_pid_with_same_name_sibling(
+        tmp_path, monkeypatch):
+    shell = _ProcShell(tmp_path, monkeypatch)
+    shell.add(4242)
+    shell.add(9999, start=1234567)
+    pairs = sp._pin_procs(PIN["pod"], PIN["run"], 4242)
+    assert pairs == [(4242, 987654)]
+    assert sp._kill_procs(PIN["pod"], PIN["run"], pairs) == (True, [4242], [])
+    assert shell.signaled() == ["4242"]
+
+
+def test_shell_missing_recorded_pid_never_selects_same_name_replacement(
+        tmp_path, monkeypatch):
+    shell = _ProcShell(tmp_path, monkeypatch)
+    shell.add(9999)
+    assert sp._pin_procs(PIN["pod"], PIN["run"], 4242) == []
+    assert shell.signaled() == []
+
+
+@pytest.mark.parametrize("argv", [
+    ["uv", "run", "python", "-m", "rl_move.sim.train_ppo_mjx",
+     "--run-name", PIN["run"]],
+    ["bash", "-c", "python -m rl_move.sim.train_ppo_mjx --run-name " + PIN["run"]],
+    ["python", "-m", "rl_move.sim.eval_checkpoint", "--run-name", PIN["run"]],
+    ["python", "-m", "rl_move.sim.train_ppo_mjx", "--run-name", "other-run",
+     "--notes", "prior command: --run-name " + PIN["run"]],
+])
+def test_shell_rejects_wrappers_evaluators_and_embedded_run_names(
+        tmp_path, monkeypatch, argv):
+    shell = _ProcShell(tmp_path, monkeypatch)
+    shell.add(4242, argv)
+    assert sp._pin_procs(PIN["pod"], PIN["run"], 4242) == []
+    assert sp._kill_procs(PIN["pod"], PIN["run"], [(4242, 987654)])[0] is False
+    assert shell.signaled() == []
+
+
+def test_shell_gone_before_signal_never_writes_killed(tmp_path, monkeypatch):
+    real_kill_procs = sp._kill_procs
+    env = _KillEnv(monkeypatch)
+    monkeypatch.setattr(sp, "_kill_procs", real_kill_procs)
+    # The mocked initial probe saw 4242, but it has exited by the time
+    # the real termination script runs. Its only output will be GONE.
+    shell = _ProcShell(tmp_path, monkeypatch)
+    assert real_kill_procs(PIN["pod"], PIN["run"], [(4242, 987654)]) == (
+        False, [], [4242])
+    assert sp._kill(dict(PIN), DEC, BUDGET) is False
+    assert env.marked == []
+    assert shell.signaled() == []
+
+
+def test_shell_changed_starttime_never_signals_reused_pid(tmp_path, monkeypatch):
+    shell = _ProcShell(tmp_path, monkeypatch)
+    shell.add(4242, start=1234567)
+    assert sp._kill_procs(PIN["pod"], PIN["run"], [(4242, 987654)]) == (
+        False, [], [4242])
+    assert shell.signaled() == []
+
+
+def test_appended_same_name_attempt_aborts_before_signal(tmp_path, monkeypatch):
+    real_reload = sp._reload_entry
+    env = _KillEnv(monkeypatch)
+    ledger = tmp_path / "experiments.json"
+    newer = dict(PIN, created="2026-09-07T11:00:00+00:00", wandb_id="new999",
+                 checks={"pid": "9999", "trainer_pid": "9999"})
+    ledger.write_text(json.dumps([PIN, newer]))
+    monkeypatch.setattr(sp, "LEDGER", ledger)
+    monkeypatch.setattr(sp, "_reload_entry", real_reload)
+    assert sp._kill(dict(PIN), DEC, BUDGET) is False
+    assert env.killed_pairs == []
+    assert env.marked == []
+
+
+def test_retry_appended_during_actual_pid_probe_aborts(tmp_path, monkeypatch):
+    real_reload, real_pin = sp._reload_entry, sp._pin_procs
+    env = _KillEnv(monkeypatch)
+    ledger = tmp_path / "experiments.json"
+    ledger.write_text(json.dumps([PIN]))
+    newer = dict(PIN, created="2026-09-07T11:00:00+00:00", wandb_id="new999",
+                 checks={"pid": "9999", "trainer_pid": "9999"})
+    monkeypatch.setattr(sp, "LEDGER", ledger)
+    monkeypatch.setattr(sp, "_reload_entry", real_reload)
+    shell = _ProcShell(tmp_path, monkeypatch)
+    shell.add(4242)
+    shell.add(9999, start=1234567)
+
+    def probe_then_retry(pod, run, pid):
+        pairs = real_pin(pod, run, pid)
+        ledger.write_text(json.dumps([PIN, newer]))
+        return pairs
+
+    monkeypatch.setattr(sp, "_pin_procs", probe_then_retry)
+    assert sp._kill(dict(PIN), DEC, BUDGET) is False
+    assert env.killed_pairs == []
+    assert env.marked == []
+    assert shell.signaled() == []
+
+
+def test_recorded_trainer_pid_is_preferred_without_name_scan_fallback():
+    checks = {"pid": "9999", "trainer_pid": "4242"}
+    assert sp._trainer_pid(dict(PIN, checks=checks)) == 4242
+    assert sp._trainer_pid(dict(PIN, checks={"pid": "4242"})) == 4242
+    checks = {"pid": "9999", "trainer_pid": "bad"}
+    assert sp._trainer_pid(dict(PIN, checks=checks)) is None
+    assert sp._trainer_pid(dict(PIN, checks={})) is None
