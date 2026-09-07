@@ -503,11 +503,21 @@ def ledger_verdicted() -> set[str]:
         # Key on the LATEST entry per run: a stale FAILED launch attempt
         # that precedes a successful relaunch must not mark the run
         # verdicted forever (orphaned cw-stance-endpost-c1, cycle 22).
-        latest: dict[str, str] = {}
+        latest: dict[str, dict] = {}
         for e in entries:  # ledger is append-ordered
             if e.get("run"):
-                latest[e["run"]] = e.get("status", "")
-        return {r for r, s in latest.items() if s in ("FINISHED", "FAILED")}
+                latest[e["run"]] = e
+        # A run is verdicted when its latest entry carries ANY recorded
+        # verdict, not just the two legacy statuses: the live verdict
+        # vocabulary is PASS/FAIL/CANARY.../DONE/etc. (meta 09-07:
+        # 1225/1683 verdicted ledger runs had a status OUTSIDE
+        # FINISHED/FAILED, so every watcher restart could re-spawn
+        # triage cycles for runs concurrent cycles already closed).
+        def _verdicted(e: dict) -> bool:
+            v = str(e.get("verdict") or "").strip()
+            return e.get("status", "") in ("FINISHED", "FAILED") \
+                or (v != "" and v != "None")
+        return {r for r, e in latest.items() if _verdicted(e)}
     except Exception:
         return set()
 
@@ -635,6 +645,62 @@ def backlog_worker() -> None:
                     log(f"drain rc={r.returncode}\n{out[-1500:]}")
         except Exception as exc:
             log(f"drain worker error: {exc!r}")
+        time.sleep(120)
+
+
+HANDOFF_POD_PROTO = "/workspace/prototype_sts3215"
+
+
+def handoff_watch_worker() -> None:
+    """Fire prestage the moment a --defer-final-artifacts run finishes
+    TRAINING, instead of waiting for W&B to flip 'finished' after the
+    CPU artifact finalizer (meta 09-07: that window measured 30-90 min;
+    gate evals sat unkicked and agent cycles manually bridged with
+    podeval/evalpending 6+ times in 24h). Detection: the run's on-pod
+    artifact_handoff/<run>/state.json leaves phase='training'. W&B
+    finish still owns triage spawn + auto-continue; this only
+    front-runs the eval plumbing (prestage_finished is idempotent).
+    """
+    seen_done: set[str] = set()
+    while True:
+        try:
+            if not PAUSE.exists():
+                try:
+                    entries = json.loads(LEDGER.read_text())
+                except Exception:
+                    entries = []
+                latest: dict[str, dict] = {}
+                for e in entries:
+                    if e.get("run"):
+                        latest[e["run"]] = e
+                now = time.time()
+                for run, e in latest.items():
+                    if (run in seen_done or e.get("status") != "RUNNING"
+                            or not e.get("pod")):
+                        continue
+                    ts = _launch_ts(e)
+                    if ts is None or now - ts > 48 * 3600:
+                        continue  # stale ledger row, not a live run
+                    try:
+                        r = subprocess.run(
+                            ["kubectl", "exec", e["pod"], "--", "cat",
+                             f"{HANDOFF_POD_PROTO}/rl_move/sim/policies/"
+                             f"artifact_handoff/{run}/state.json"],
+                            capture_output=True, text=True, timeout=60)
+                        if r.returncode != 0:
+                            continue  # no handoff dir: not a deferred run
+                        phase = json.loads(r.stdout).get("phase")
+                    except Exception:
+                        continue
+                    if phase and phase != "training":
+                        seen_done.add(run)
+                        log(f"handoff-watch: {run} training complete on-pod "
+                            f"(phase={phase}); firing early prestage")
+                        prestage_finished(run)
+                if len(seen_done) > 400:
+                    seen_done = set(sorted(seen_done)[-200:])
+        except Exception as exc:
+            log(f"handoff-watch worker error: {exc!r}")
         time.sleep(120)
 
 
@@ -849,6 +915,10 @@ def _prestage_spawn_wait(run: str) -> int:
     return _spawn_wait_cache[run]
 
 
+_prestage_fired_lock = threading.Lock()
+_prestage_fired: set[str] = set()
+
+
 def prestage_finished(run: str) -> None:
     """Mechanically prep a finished run BEFORE its verdict cycle spawns.
 
@@ -858,7 +928,32 @@ def prestage_finished(run: str) -> None:
     directive, 08-09: agent time is for judgment, not plumbing).
     Runs in a daemon thread; every step is best-effort and logged.
     The cycle re-does anything that failed.
+
+    Idempotent per run (meta 09-07): the handoff watcher can fire this
+    EARLY (training complete on-pod, W&B still 'running' behind the CPU
+    artifact finalizer); the main loop's own W&B-finish call then no-ops
+    instead of double-running pod evals.
     """
+    with _prestage_fired_lock:
+        if run in _prestage_fired:
+            # Evals/ckpt pull already done from the early fire, but the
+            # W&B cache predates the finalizer's published rows —
+            # refresh JUST that so triage never reads a stale dump.
+            log(f"prestage {run}: already fired (early handoff-watch); "
+                "refreshing W&B cache only")
+
+            def _refresh() -> None:
+                try:
+                    subprocess.run(
+                        ["bash", str(HERE / "ops.sh"), "wandbdump", run],
+                        capture_output=True, text=True, timeout=900,
+                        cwd=str(HERE.parent.parent))
+                except Exception as exc:
+                    log(f"prestage {run}: wandbdump refresh failed: {exc!r}")
+
+            threading.Thread(target=_refresh, daemon=True).start()
+            return
+        _prestage_fired.add(run)
     ops = str(HERE / "ops.sh")
     proto = str(HERE.parent.parent)
 
@@ -1318,6 +1413,7 @@ def main() -> None:
     threading.Thread(target=checkup_worker, daemon=True).start()
     threading.Thread(target=backlog_worker, daemon=True).start()
     threading.Thread(target=pruner_worker, daemon=True).start()
+    threading.Thread(target=handoff_watch_worker, daemon=True).start()
     while True:
         try:
             processed = load_processed()
