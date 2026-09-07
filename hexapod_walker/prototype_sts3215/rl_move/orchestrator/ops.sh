@@ -96,19 +96,39 @@ blocker)  # blocker report|resolve|list — operator-only impediments, not faile
   ;;
 
 status)  # fleet in one shot: active ledger entries, live procs, watcher tail
+  # FIX 2026-09-07 (idle-refill cycle): a run's ledger history is
+  # append-only (INTENT -> RUNNING -> ... -> a final verdict entry).
+  # The old scan kept the LAST entry whose status was RUNNING/INTENT
+  # and never cleared it once the run finished (a later PASS/FAIL/
+  # CANARY-* entry doesn't match that filter, so the dict entry from
+  # the run's own RUNNING phase stuck forever) -- surfaced runs
+  # finished/verdicted back in 2026-08-25 as still "RUNNING" today.
+  # Now takes the run's genuinely LAST entry (any status, ledger
+  # order) and only prints it if THAT is RUNNING/INTENT.
   uv run python - <<'EOF'
 import json, os
-active = {}
+last = {}
+order = []
 for e in json.load(open(os.environ["LEDGER"])):
-    if isinstance(e, dict) and e.get("status") in ("RUNNING", "INTENT"):
-        active[e.get("run")] = (e.get("status"), e.get("pod"))
-for r, (s, p) in active.items():
-    print(f"{s:8s} {r}  pod={p}")
+    if not isinstance(e, dict):
+        continue
+    r = e.get("run")
+    if r not in last:
+        order.append(r)
+    last[r] = e
+for r in order:
+    e = last[r]
+    if e.get("status") in ("RUNNING", "INTENT"):
+        print(f"{e.get('status'):8s} {r}  pod={e.get('pod')}")
 EOF
   for pod in $(uv run python -c "
 import json,os
-pods={e.get('pod') for e in json.load(open(os.environ['LEDGER']))
-      if isinstance(e,dict) and e.get('status')=='RUNNING'}
+led=json.load(open(os.environ['LEDGER']))
+last={}
+for e in led:
+    if isinstance(e,dict) and e.get('run'):
+        last[e['run']]=e
+pods={e.get('pod') for e in last.values() if e.get('status')=='RUNNING'}
 print(' '.join(sorted(p for p in pods if p)))"); do
     echo "--- $pod live procs:"
     list_procs "$pod"
