@@ -93,7 +93,10 @@ Exported walk artifact:
   stays PROVEN/production-usable. 09-08 ~02:2x: the named new-mechanism
   lead (`reward.walk_leg_duty_ratio_charge`, validated on walkcurr) was
   applied to rung 3 for the first time — `cw-assistfade-rung3-
-  legdutyratio-{s0,s1}` 2M canaries, UNVERDICTED. See
+  legdutyratio-{s0,s1}` 2M canaries. The s0 opposite-seed recovery
+  claim is withdrawn after correcting its comparator (16/24 -> 15/24
+  gait, 7/24 -> 9/24 safety terms); formal verdicts remain with the
+  coordinating review. See
   `rl_docs/tracks/assistfade/STATUS.md` TRACK-LEVEL FINDING (09-07) and
   the 09-08 ~02:2x entry above it.
 - `joystick`, `amp`, `cpg`: green/maintenance unless the operator
