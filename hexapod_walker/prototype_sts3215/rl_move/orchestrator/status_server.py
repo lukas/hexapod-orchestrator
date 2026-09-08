@@ -64,6 +64,7 @@ import mcp_server as _mcp  # noqa: E402  (MCP endpoint at /mcp)
 import blocker_state as _blockers  # noqa: E402
 import tracks as _tracks  # noqa: E402  (research-track registry)
 import media_access as _media_access  # noqa: E402
+from ledger_view import current_entries  # noqa: E402
 
 PORT = int(os.environ.get("STATUS_PORT", "8090"))
 ORCH_LOG = pathlib.Path("/workspace/orchestrator.log")
@@ -312,10 +313,7 @@ def ledger_rows(n: int = 40) -> tuple[list[dict], dict, dict]:
         entries = json.loads((HERE / "experiments.json").read_text())
     except Exception:
         return [], {}, {}
-    latest: dict[str, dict] = {}
-    for e in entries:
-        if isinstance(e, dict) and e.get("run"):
-            latest[e["run"]] = e
+    latest = current_entries(entries)
     counts: dict[str, int] = {}
     for e in latest.values():
         s = e.get("status", "?")
@@ -1727,7 +1725,7 @@ def render(base: str = "") -> str:
     for e in f.get("ledger", []):
         t = track_of_entry(e)
         tcounts[t] = tcounts.get(t, 0) + 1
-    h.append("<h2>Runs (latest ledger entry per run)</h2>")
+    h.append("<h2>Runs (current launch attempt per run)</h2>")
     if tcounts:
         h.append("<p class='dim'>by track: " + " · ".join(
             f"{esc(t)} {n}" for t, n in sorted(tcounts.items(),
@@ -1921,7 +1919,7 @@ def render_run_page(run: str) -> str | None:
            if run in (e.get("runs") or []) or run in (e.get("label") or "")]
     if not rows and not cyc and not story.is_file():
         return None
-    latest = rows[-1] if rows else {}
+    latest = current_entries(rows).get(run, {})
     st = latest.get("status", "?")
     cls = {"RUNNING": "ok", "FINISHED": "dim", "FAILED": "bad"}.get(st, "warn")
     body = [f"<h1 class='mono' style='font-size:17px'>{esc(run)} "
@@ -2127,12 +2125,14 @@ def llm_runs_md(base: str, key: str) -> str:
     f = SNAP.get("fast", {})
     rows = f.get("ledger", [])
     feedback_counts = f.get("feedback_counts", {})
-    out = ["# Launched runs — latest ledger entry per run, newest first",
+    out = ["# Launched runs — current launch attempt per run, newest first",
            "",
            "Status meanings: RUNNING = training now. FINISHED = training "
            "done AND an analysis cycle wrote a verdict. FAILED/KILLED = "
            "died or was stopped. REFUSED = a launcher guardrail blocked "
-           "it before it started (no GPU time spent).", ""]
+           "it before it started (no GPU time spent). Unexecuted duplicate "
+           "refusals stay in run history without replacing the existing "
+           "launch attempt.", ""]
     if not rows:
         out.append("(ledger snapshot not collected yet — the server just "
                    "restarted; retry in ~30 s)")

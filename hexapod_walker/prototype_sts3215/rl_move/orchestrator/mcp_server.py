@@ -38,6 +38,7 @@ from urllib.parse import quote, urlencode
 
 import media_access
 from eval_reports import select_reports
+from ledger_view import current_entries
 
 HERE = pathlib.Path(__file__).resolve().parent
 PROTO = HERE.parent.parent
@@ -231,13 +232,12 @@ def _track_status_paths() -> list[pathlib.Path]:
     return paths
 
 
+def _ledger_entries() -> list[dict]:
+    return json.loads((HERE / "experiments.json").read_text())
+
+
 def _ledger() -> list[dict]:
-    entries = json.loads((HERE / "experiments.json").read_text())
-    latest: dict[str, dict] = {}
-    for e in entries:
-        if isinstance(e, dict) and e.get("run"):
-            latest[e["run"]] = e
-    return sorted(latest.values(),
+    return sorted(current_entries(_ledger_entries()).values(),
                   key=lambda e: e.get("created") or "", reverse=True)
 
 
@@ -368,7 +368,9 @@ def t_list_runs(status: str = "", track: str = "", contains: str = "",
         elif e.get("triage"):
             r["analysis_stage"] = e["triage"]
         rows.append(r)
-    head = ("Latest ledger entry per run, newest first. Status meanings: "
+    head = ("Current launch attempt per run, newest first (unexecuted "
+            "duplicate refusals do not replace an existing attempt). "
+            "Status meanings: "
             "RUNNING = training now; FINISHED = training done AND a "
             "verdict was written; FAILED/KILLED = died or stopped; "
             "REFUSED = a launcher guardrail blocked it (no GPU time). "
@@ -385,6 +387,19 @@ def t_get_run(run: str) -> str:
         return (f"run {run!r} not in the ledger."
                 + (f" Near matches: {', '.join(near[:10])}" if near else ""))
     out = ["# Ledger entry (latest)", json.dumps(_public(entry), indent=1)]
+    try:
+        attempts = [e for e in _ledger_entries()
+                    if isinstance(e, dict) and e.get("run") == run]
+    except (OSError, ValueError):
+        attempts = []
+    if len(attempts) > 1:
+        out += ["", "# Ledger attempt history (oldest first)",
+                "The entry above selects the current launch attempt; an "
+                "unexecuted duplicate refusal does not change its status."]
+        fields = ("created", "status", "wandb_id", "refused_reason",
+                  "stop_reason")
+        out.append(json.dumps([
+            {k: e[k] for k in fields if k in e} for e in attempts], indent=1))
     story = PROTO / "rl_docs" / "runs" / f"{run}.md"
     if story.is_file():
         out += ["", "# Run story (rl_docs/runs/%s.md)" % run,
