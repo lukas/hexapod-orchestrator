@@ -522,7 +522,7 @@ def ledger_verdicted() -> set[str]:
     a missing/corrupt ledger never blocks the loop.
     """
     try:
-        entries = json.loads((HERE / "experiments.json").read_text())
+        entries = json.loads(LEDGER.read_text())
         # Key on the LATEST entry per run: a stale FAILED launch attempt
         # that precedes a successful relaunch must not mark the run
         # verdicted forever (orphaned cw-stance-endpost-c1, cycle 22).

@@ -13,7 +13,7 @@ PROTO="$(cd "$HERE/../.." && pwd)"          # …/hexapod_walker/prototype_sts32
 # Runtime state (ledger, RL_LOG.md, run stories) lives outside the code
 # tree: <checkout>/.state or $HEXAPOD_STATE_DIR -- see state_dir.py.
 STATE_DIR="${HEXAPOD_STATE_DIR:-$PROTO/../../.state}"
-LEDGER="$HERE/experiments.json"
+LEDGER="$STATE_DIR/experiments.json"
 WANDB_PROJECT="l2k2/hexapod-balance"
 POD_PROTO=/workspace/prototype_sts3215      # pods' tree (NOT the controller's)
 
@@ -70,7 +70,7 @@ ensure_full_mesh() {
         python build_mesh_model.py --no-render) || return 1
   fi
 }
-export LEDGER PROTO HERE
+export LEDGER PROTO HERE STATE_DIR
 
 case "${1:-help}" in
 
@@ -635,7 +635,7 @@ evalpending)  # evalpending add <pod> <remote_file> <label> | list — register 
   uv run python - "$sub" "$pod" "$file" "$label" <<'EOF'
 import datetime, json, os, sys
 sub, pod, file, label = sys.argv[1:5]
-path = os.path.join(os.environ["HERE"], "pending_evals.json")
+path = os.path.join(os.environ["STATE_DIR"], "pending_evals.json")
 try:
     entries = json.load(open(path))
 except (OSError, ValueError):
