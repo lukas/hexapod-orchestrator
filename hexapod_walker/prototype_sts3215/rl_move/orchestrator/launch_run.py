@@ -757,6 +757,20 @@ def cmd_launch(g: dict, a: argparse.Namespace, extra: list[str]) -> int:
     return _verify_started(g, a, res)
 
 
+def _background_train_command(train: str, *, envp: str, workdir: str,
+                              log: str) -> str:
+    """Detach only the trainer, leaving no wrapper holding kubectl's pipes.
+
+    `cd ... && nohup ... &` backgrounds the whole AND-list. Its waiting
+    bash wrapper keeps stdout/stderr attached even when nohup redirects
+    all three trainer descriptors. Run cd in the foreground and abort on
+    failure; then background the redirected trainer and return its PID.
+    """
+    return (f"cd {shlex.quote(workdir)} || exit; "
+            f"{envp}nohup {train} > {shlex.quote(log)} 2>&1 "
+            "< /dev/null & echo $!")
+
+
 def _launch_locked(g: dict, a: argparse.Namespace,
                    extra: list[str]) -> int | dict:
     """All gates + trainer start, under LAUNCH_LOCK.
@@ -1317,12 +1331,8 @@ def _launch_locked(g: dict, a: argparse.Namespace,
     # log. Purely diagnostic: unbuffered I/O changes no training semantics,
     # only whether a genuine crash leaves a readable trace next time.
     envp += "PYTHONUNBUFFERED=1 "
-    # `< /dev/null` is load-bearing: without it the nohup'd trainer inherits
-    # the kubectl-exec stream and `kubectl exec` hangs until the trainer
-    # exits (observed cycle 10: launch verified fine but kexec timed out at
-    # 60 s, leaving a healthy run stuck at INTENT).
-    remote = (f"cd {WORKDIR} && {envp}nohup {train} > {log} 2>&1 "
-              f"< /dev/null & echo $!")
+    remote = _background_train_command(
+        train, envp=envp, workdir=WORKDIR, log=log)
     entry["command"] = remote
     entry["log"] = log
 
