@@ -19,6 +19,16 @@ ORCH=/workspace/hexapod/hexapod_walker/prototype_sts3215/rl_move/orchestrator
 
 log() { echo "[$(date -u +%FT%TZ)] $*"; }
 
+# One lifetime owner across both automatic and manual restart entry points.
+# Duplicates must exit before touching another owner's pause/wrapup flags.
+exec 8>/workspace/restart_watcher.lock || exit 1
+flock -n -E 75 8
+case $? in
+  0) ;;
+  75) log "restart already owned; leaving existing restart untouched"; exit 0 ;;
+  *) log "cannot acquire restart ownership lock"; exit 1 ;;
+esac
+
 # Pause the old watcher so it can't spawn a fresh cycle in the gap
 # between the current cycle ending and the tmux kill. WRAPUP tells
 # in-flight cycles to save their work and exit at the next run
@@ -78,14 +88,15 @@ uv run python -c "import ast; ast.parse(open('$ORCH/watch_loop.py').read())" || 
   exit 1
 }
 
-tmux kill-session -t orchestrator 2>/dev/null
+tmux kill-session -t orchestrator 8>&- 2>/dev/null
 sleep 2
 rm -f "$ORCH/PAUSE" "$ORCH/WRAPUP"
+# Keep the lifetime lock in this supervisor, never in the tmux server/watcher.
 tmux new-session -d -s orchestrator \
   "source /root/orchestrator.env && cd /workspace/hexapod && \
-   uv run python hexapod_walker/prototype_sts3215/rl_move/orchestrator/watch_loop.py"
+   uv run python hexapod_walker/prototype_sts3215/rl_move/orchestrator/watch_loop.py" 8>&-
 sleep 5
-if tmux has-session -t orchestrator 2>/dev/null; then
+if tmux has-session -t orchestrator 8>&- 2>/dev/null; then
   log "RESTARTED ok (tmux session up)"
 else
   log "RESTART FAILED: tmux session not present"
