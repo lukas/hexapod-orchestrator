@@ -61,21 +61,62 @@ means the metric, reward, or simulator is the bug.
   deployment contract. Protected parents evaluated against frozen
   baselines.
 
-## MDP_PREFLIGHT — reward<->eval alignment is mandatory
+## Reward<->eval alignment — evidence from runs, not a rollout test bank
 
-Before any run that adds or changes a reward or task mechanism, the
-mode's `rl_move/tests/test_task_semantics.py` bank must PASS under the
-full training reward stack: the intended gate behavior must out-earn
-every known cheat (park, freeze, flag-leg, tripod, paddle-creep,
-overspeed, sacrificed leg) with useful margin. A missing bank means
-build the bank first — that is SPECIFICATION work and it never trains.
-Every new exploit seen on video gets encoded in the bank BEFORE the
-reward is fixed. Reward/eval disagreement discovered after a run
-re-enters this SPECIFICATION step: compare reward decompositions on the
-parent/clone, best eval checkpoint, high-reward failed checkpoint, and
-known cheats, then fix reward, eval, or simulator until the scalar
-ranking matches the gate behavior. This is the mechanism that makes
-rising reward meaningful evidence.
+The MDP_PREFLIGHT bank (`rl_move/tests/test_task_semantics.py`, retired
+2026-09-08 by the operator) is GONE and must not come back in any form.
+It proved reward preferences by rolling out the simulator on the
+PRIMITIVE robot model while every run since 08-24 trains on the MESH
+model, it took 25 of the suite's 33 minutes, and 60+ of its 385 tests
+were red. A test bank that rebuilds "X out-earns cheat Y by N" from
+rollouts is an experiment result, not a unit test.
+
+Alignment evidence now lives where the physics is real:
+
+- Before a reward/task-mechanism launch: run the reward-decomposition
+  probe on the parent/clone and the best and worst checkpoints of the
+  lineage (`eval_checkpoint` with per-term breakdown), and state in the
+  hypothesis which term is expected to move and in which direction.
+- After the run: the gate eval + video are the verdict. A cheat seen on
+  video is encoded as an EVAL METRIC or GATE (something the run report
+  measures on every future checkpoint), and the fix is recorded in the
+  run story. Do not encode it as a pytest that rolls out the simulator.
+- Reward/eval disagreement re-enters SPECIFICATION as before: compare
+  decompositions on parent/clone, best gate checkpoint, high-reward
+  failed checkpoint and known cheats, then fix reward, eval, or
+  simulator until the ranking matches the gate behavior.
+
+## Tests — what a cycle may add to `rl_move/tests/`
+
+These are binding. A cycle that violates them reverts its own test.
+
+1. **Fast.** Every test finishes in under 5 s on the laptop. Anything
+   slower carries `@pytest.mark.slow` AND an operator-approved reason;
+   the default loop is `pytest -m "not slow"`. Keep the whole default
+   suite under 5 minutes serial.
+2. **Mechanics, not measurements.** Tests check code paths: a flag
+   defaults off and is bit-exact when off, a term is zero when its
+   condition is false, a parser rejects bad input. Tests never pin
+   measured reward totals, orderings between rollouts, or tuned
+   thresholds — those go in the run story and W&B.
+3. **The robot you train.** Anything that builds a sim model sets the
+   family explicitly via `monkeypatch.setenv("HEXAPOD_MODEL_SOURCE",
+   "mesh")` (or the family under test). Never mutate `os.environ`
+   directly; it leaks into other tests and made 49 results
+   order-dependent.
+4. **Self-contained.** No test depends on a generated artifact
+   (motion library, checkpoint zip, rise reference, pulled policy)
+   unless the test builds it in a fixture. Anything else fails on every
+   fresh checkout and gets deleted.
+5. **One home, one name.** Tests live only under `rl_move/tests/` (or
+   next to robot code in `linux_control/`), one file per module,
+   `test_<module>.py`. No `test_*.py` under `rl_move/scripts/` or
+   `rl_move/sim/`; pytest never ran the eight that were there.
+6. **Green or gone.** `main` stays green. A test that fails on `main`
+   for a week is deleted, not skipped. When a track closes, its tests
+   go with it in the same commit.
+7. **Cheap to own.** No file over 1 000 lines; a 14 000-line test file
+   was the reason the suite could not be parallelised.
 
 ## Designing runs
 

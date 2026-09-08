@@ -21,7 +21,9 @@ parent/clone, the best gate checkpoint, a high-reward failed
 checkpoint, and obvious bad behaviors (park/freeze/wrong-way/sideways/
 drag/sacrifice/overspeed as relevant). Fix whichever part is wrong:
 reward, eval, or simulator/contact/servo modeling. Encode the observed
-cheat in the mode's `test_task_semantics.py` bank before relaunch.
+cheat as an eval metric/gate the run report measures (RESEARCH_RULES
+"Reward<->eval alignment"); the old `test_task_semantics.py` bank is
+retired and must not be recreated.
 
 Continue for more budget only when reward and gate/eval metrics are
 improving together, or when video shows qualitatively right immature

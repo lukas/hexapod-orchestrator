@@ -92,7 +92,8 @@ library, discriminator, GRU actor, fault injection, metrics, video
 eval) is cycle work: write it, test it, `snapshot.sh`, then train on
 it. Never park a line on "CODE, unbuilt". Never change shared default
 behavior to carry an experimental mechanism (new cfg keys default OFF,
-bit-exact when off, tests green).
+bit-exact when off, tests green — and tests per RESEARCH_RULES "Tests":
+fast, mechanics-only, no rollout-ranking banks).
 
 **Out-of-scope runs are operator-only.** The operator may launch runs
 outside the registered goals; triage them honestly and verdict them,
@@ -265,9 +266,12 @@ docs — read what the current decision needs, then act.
    [--arg='--flag=v'] [--cfg k=v] --hypothesis "…" --gate "…"`;
    genuinely new configs go through `launch_run.py backlog add ...
    -- <train args>` and the drain places them. Reward/task-mechanism
-   arms require the mode's `test_task_semantics.py` bank to PASS first
-   — that bank IS the reward<->eval alignment the 08-21 ruling
-   demands; building it is SPECIFICATION work, not a reason to wait.
+   arms state, in the hypothesis, which reward term should move and
+   why, backed by the decomposition probe on the lineage (RESEARCH_RULES
+   "Reward<->eval alignment"). The old `test_task_semantics.py`
+   rollout bank is RETIRED (operator, 09-08): never recreate it or add
+   rollout-ranking tests; new tests obey RESEARCH_RULES "Tests" (under
+   5 s, mechanics only, mesh model, no artifacts, `rl_move/tests/` only).
    Warm-start by default on the joystick track; the amp track is
    from-scratch by design. Every hypothesis opens with one plain
    sentence a stranger can parse, before any lineage/cfg jargon.
