@@ -631,29 +631,27 @@ TEMPLATE
   ;;
 
 report)  # report <run|report.json> — the standard triage table from a
-  # harness eval. Transcript mining (08-09): cycles hand-wrote this
-  # exact json-parse >100 times. Accepts a run name (newest matching
-  # logs/ckpt_eval/*<run>*/report.json wins) or an explicit path.
+  # harness eval. Prefer the run's exact gate/owncfg/session directories;
+  # broader name matches are explicitly labelled fallback evidence. A full
+  # report-directory name selects a historical variant; .json paths stay exact.
   uv run python - "$2" <<'EOF'
-import glob, json, os, statistics, sys
+import json, os, statistics, sys
+sys.path.insert(0, os.environ["HERE"])
+from pathlib import Path
+from eval_reports import select_reports
+
 arg = sys.argv[1]
 proto = os.environ["PROTO"]
 if arg.endswith(".json"):
-    paths = [arg]
+    paths = [Path(arg)]
 else:
-    snake = arg.replace("-", "_").removeprefix("cw_walk_")
-    # anchor with a trailing "_" boundary (09-06 widenirr-c1-acq1
-    # gotcha): ckpt_eval dirs are always "{run}_{tag}"; an unanchored
-    # "*snake*" glob lets a run whose name is a PREFIX of a sibling's
-    # (e.g. "...-acq1" vs "...-acq1b") silently pick up the sibling's
-    # stale/wrong-checkpoint report when the real one hasn't synced
-    # yet — found when a still-computing "-acq1" gate eval's absence
-    # was masked by a leftover "-acq1b" duplicate-launch artifact dir.
-    paths = sorted(glob.glob(f"{proto}/logs/ckpt_eval/*{snake}_*/report.json"),
-                   key=os.path.getmtime)
+    selection = select_reports(Path(proto) / "logs" / "ckpt_eval", arg)
+    paths = selection.paths
+    if paths and selection.notice(arg):
+        print(selection.notice(arg))
 if not paths:
     sys.exit(f"no report.json matching {arg} under logs/ckpt_eval/")
-for p in paths[-2:]:
+for p in paths[:3]:
     d = json.load(open(p))
     _std = d.get("policy_std")
     _std_s = f"{_std:.3f}" if _std is not None else "n/a (off-policy)"
@@ -662,7 +660,7 @@ for p in paths[-2:]:
     if "episodes" not in d:
         # session/off-policy reports have a different shape (no
         # per-episode harness breakdown) -- skip instead of crashing
-        # and hiding a later, more useful path in paths[-2:] (09-06
+        # and hiding a later, more useful report (09-06
         # gotcha: a harness _gate report younger than a _session
         # report never got printed because the loop died on the
         # older _session entry first).

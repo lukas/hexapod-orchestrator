@@ -28,7 +28,6 @@ Standalone for development/testing only:
 from __future__ import annotations
 
 import csv
-import glob as _glob
 import io
 import json
 import os
@@ -38,6 +37,7 @@ import time
 from urllib.parse import quote, urlencode
 
 import media_access
+from eval_reports import select_reports
 
 HERE = pathlib.Path(__file__).resolve().parent
 PROTO = HERE.parent.parent
@@ -432,21 +432,19 @@ def t_run_metrics(run: str, history_rows: int = 30) -> str:
 
 
 def t_eval_report(run: str) -> str:
-    snake = run.replace("-", "_")
-    paths = sorted(
-        _glob.glob(str(PROTO / "logs" / "ckpt_eval" / f"*{snake}*"
-                       / "report.json")),
-        key=os.path.getmtime, reverse=True)
+    selection = select_reports(PROTO / "logs" / "ckpt_eval", run)
+    paths = selection.paths
     if not paths:
         return (f"no eval report matching {run!r} on this host "
-                f"(logs/ckpt_eval/*{snake}*/report.json — reports are "
-                f"copied back when the gate eval finishes).")
-    out = []
+                "(logs/ckpt_eval/ — reports are copied back when the "
+                "gate eval finishes).")
+    notice = selection.notice(run)
+    out = [notice] if notice else []
     for p in paths[:3]:
         rel = os.path.relpath(p, PROTO)
-        out += [f"# {rel}", pathlib.Path(p).read_text(errors="replace")]
+        out += [f"# {rel}", p.read_text(errors="replace")]
     if len(paths) > 3:
-        out.append(f"({len(paths) - 3} older matching reports not shown)")
+        out.append(f"({len(paths) - 3} additional matching reports not shown)")
     return _clip("\n\n".join(out))
 
 
@@ -1140,7 +1138,8 @@ TOOLS = [
                     "(deterministic + stochastic episode metrics).",
      "fn": t_eval_report,
      "args": {"run": {"type": "string",
-                      "description": "run or checkpoint name"}},
+                      "description": "run, checkpoint, or full report-directory name; "
+                                     "exact reports take priority over labelled fallback matches"}},
      "required": ["run"]},
     {"name": "get_run_videos",
      "description": "Read-only playback/download links for an existing run's "
