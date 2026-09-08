@@ -20,7 +20,12 @@ watch_loop = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(watch_loop)
 
 
-def test_unknown_run_falls_back_to_flat_floor():
+def test_unknown_run_falls_back_to_flat_floor(tmp_path, monkeypatch):
+    # Explicit empty ledger: the real one lives in <checkout>/.state
+    # (state_dir.py) and need not exist on a dev machine.
+    ledger = tmp_path / "experiments.json"
+    ledger.write_text("[]")
+    monkeypatch.setattr(watch_loop, "LEDGER", ledger)
     assert (watch_loop._prestage_wrapper_timeout("no-such-run-ever-xyz")
             == watch_loop.PRESTAGE_WRAPPER_TIMEOUT_S)
 

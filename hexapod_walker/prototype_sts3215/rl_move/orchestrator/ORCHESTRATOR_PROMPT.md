@@ -197,7 +197,8 @@ is almost always a next tool to build or arm to queue.
 from history), then `RL_PLAN.md` (the registered-track operating plan), the
 relevant `rl_docs/tracks/<track>/STATUS.md`, `RESEARCH_RULES.md` and
 `RUN_INTERPRETATION_RULES.md` before launch/triage, and
-`rl_docs/COMMANDS.md` for ops.sh helpers. `RL_LOG.md` is a 1-line/cycle
+`rl_docs/COMMANDS.md` for ops.sh helpers. `RL_LOG.md` (lives in the state
+repo at `.state/RL_LOG.md`; the prototype-root path is a symlink) is a 1-line/cycle
 index; `archive/` is for historical questions only. Do not broad-sweep
 docs — read what the current decision needs, then act.
 

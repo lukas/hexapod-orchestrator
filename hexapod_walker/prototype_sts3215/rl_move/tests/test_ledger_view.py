@@ -89,9 +89,13 @@ def test_mcp_and_dashboard_select_same_attempt_and_expose_history(
     encoded = json.dumps(rows)
     ledger.write_text(encoded)
     monkeypatch.setattr(mcp_server, "HERE", tmp_path)
+    monkeypatch.setattr(mcp_server, "LEDGER", tmp_path / "experiments.json")
+    monkeypatch.setattr(mcp_server, "RL_LOG", tmp_path / "RL_LOG.md")
     monkeypatch.setattr(mcp_server, "PROTO", tmp_path)
     monkeypatch.setattr(mcp_server, "feedback_for_run", lambda _: [])
     monkeypatch.setattr(status_server, "HERE", tmp_path)
+    monkeypatch.setattr(status_server, "LEDGER", tmp_path / "experiments.json")
+    monkeypatch.setattr(status_server, "RL_LOG", tmp_path / "RL_LOG.md")
     monkeypatch.setattr(status_server, "PROTO", tmp_path)
     monkeypatch.setattr(status_server, "_cycle_registry_entries", lambda: [])
     monkeypatch.setitem(status_server.SNAP, "fast", {

@@ -36,10 +36,15 @@ from pathlib import Path
 
 import yaml
 
+import state_dir
+
 HERE = Path(__file__).resolve().parent
 GUARDRAILS = HERE / "guardrails.yaml"
-LEDGER = HERE / "experiments.json"
-LEDGER_LOCK = HERE / "experiments.json.lock"
+# Runtime state lives OUTSIDE the code tree -- <checkout>/.state (a clone of
+# lukas/hexapod-state) or $HEXAPOD_STATE_DIR; see state_dir.py. The names
+# are re-exported here so tests can keep monkeypatching launch_run.LEDGER.
+LEDGER = state_dir.LEDGER
+LEDGER_LOCK = state_dir.LEDGER_LOCK
 # Concurrent decision cycles both run this launcher; the live capacity
 # check -> process start window must not interleave or two cycles can
 # double-book a pod/node that looked free to both.
@@ -52,9 +57,9 @@ LAUNCH_HOLD = HERE / "LAUNCH_HOLD"
 # non-empty backlog is a bug"). Items are full launch specs; `drain`
 # pushes them onto free GPU pods, self-repairing code-sync and missing
 # checkpoints instead of refusing. The watcher calls drain continuously.
-BACKLOG = HERE / "backlog.json"
-BACKLOG_LOCK = HERE / "backlog.json.lock"
-BACKLOG_FAILED = HERE / "backlog_failed.json"
+BACKLOG = state_dir.BACKLOG
+BACKLOG_LOCK = state_dir.BACKLOG_LOCK
+BACKLOG_FAILED = state_dir.BACKLOG_FAILED
 KUBECONFIG = str(Path.home() / ".kube" / "coreweave.yaml")
 # Established launch pattern on the training pods: module invocation from
 # the project root (NOT `uv run python train_ppo_sim.py` from the sim dir).
@@ -262,6 +267,9 @@ def save_ledger(entries: list[dict]) -> None:
     # any concurrent reader/git-add sees either the complete old file or
     # the complete new one, never a partial write, regardless of caller
     # lock discipline elsewhere.
+    # Never materialise a fresh empty ledger in a missing/unsynced state
+    # dir -- that is worse than crashing (state_dir.py).
+    state_dir.require_state_dir(LEDGER.parent)
     tmp = LEDGER.with_suffix(LEDGER.suffix + f".tmp{os.getpid()}")
     tmp.write_text(json.dumps(entries, indent=2) + "\n")
     os.replace(tmp, LEDGER)
@@ -2566,7 +2574,7 @@ def cmd_drain(g: dict, a: argparse.Namespace) -> int:
     return 0
 
 
-RUNS_DIR = HERE.parent.parent / "rl_docs" / "runs"
+RUNS_DIR = state_dir.RUNS_DIR   # <state>/rl_docs/runs; prototype rl_docs/runs symlinks to it
 
 
 def render_run_md(entry: dict) -> None:

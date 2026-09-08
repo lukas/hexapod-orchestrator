@@ -76,7 +76,8 @@ import time
 
 HERE = pathlib.Path(__file__).resolve().parent
 REPO = HERE.parent.parent          # prototype_sts3215/
-LEDGER = HERE / "experiments.json"
+import state_dir  # noqa: E402
+LEDGER = state_dir.LEDGER  # <state>/experiments.json; see state_dir.py
 PRUNE_OFF = HERE / "PRUNE_OFF"
 WANDB_PROJECT = "l2k2/hexapod-balance"
 POD_PROTO = "/workspace/prototype_sts3215"  # pods' tree (NOT the controller's)

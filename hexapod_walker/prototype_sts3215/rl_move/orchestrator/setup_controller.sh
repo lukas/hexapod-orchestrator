@@ -39,6 +39,9 @@ export KUBECONFIG=/root/.kube/coreweave.yaml
 # this keeps every \`uv run\` in the clone (watcher, cycles, evals) from
 # discovering that project and building a full sim venv here.
 export UV_NO_PROJECT=1
+# Runtime state (ledger, queue, run stories, RL_LOG.md) -- a clone of
+# lukas/hexapod-state that THIS pod writes and pushes (state_dir.py).
+export HEXAPOD_STATE_DIR=/workspace/hexapod/.state
 $( [ -n "$WANDB_KEY" ] && echo "export WANDB_API_KEY='$WANDB_KEY'" )
 ENV
 
@@ -50,6 +53,10 @@ git config --global user.name "hexapod-orchestrator"
 git config --global user.email "orchestrator@users.noreply.github.com"
 [ -d /workspace/hexapod ] || git clone --filter=blob:none \
     "https://$REPO_URL_BASE" /workspace/hexapod
+# Runtime state repo (the controller is its only writer; full clone, not
+# shallow, because snapshot.sh pushes to it after every run).
+[ -d /workspace/hexapod/.state ] || git clone \
+    "https://github.com/lukas/hexapod-state.git" /workspace/hexapod/.state
 
 pip install -q --no-cache-dir uv
 uv pip install -q --system wandb pyyaml

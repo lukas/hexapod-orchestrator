@@ -26,6 +26,8 @@ import threading
 import time
 
 HERE = pathlib.Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE)) if str(HERE) not in sys.path else None
+import state_dir  # noqa: E402  (runtime state location; see state_dir.py)
 REPO = subprocess.check_output(
     ["git", "rev-parse", "--show-toplevel"], cwd=HERE, text=True
 ).strip()
@@ -79,7 +81,8 @@ def pending_mcp_kicks() -> list[pathlib.Path]:
 # deserves the full 15-min cadence again. Pure re-verify no-ops must
 # NOT touch it; that is exactly the case backoff exists for.
 WORKED = HERE / "CYCLE_WORKED"
-LEDGER = HERE / "experiments.json"
+LEDGER = state_dir.LEDGER
+BACKLOG = state_dir.BACKLOG
 LOG = pathlib.Path("/workspace/orchestrator.log")
 STATE = pathlib.Path("/workspace/orchestrator_state.json")
 # Watcher-owned post-launch checkups (moved out of the agent cycle
@@ -307,7 +310,7 @@ PARTIAL_IDLE_GRACE_S = 600
 # (measured 09-01/09-02: 6+ hand-polling kick cycles per eval panel),
 # and the moment a result file lands it kicks a cycle naming it
 # (measured: verdicts sat unread for hours awaiting the next kick).
-PENDING_EVALS = HERE / "pending_evals.json"
+PENDING_EVALS = state_dir.PENDING_EVALS
 PENDING_EVAL_TTL_S = 8 * 3600  # expiry so a dead eval can't deadlock kicks
 KUBECONFIG = str(pathlib.Path.home() / ".kube" / "coreweave.yaml")
 
@@ -418,7 +421,7 @@ def partial_idle_capacity() -> dict | None:
             cwd=HERE.parent.parent, capture_output=True, text=True,
             timeout=120, check=True)
         capacity = json.loads(result.stdout)
-        backlog = json.loads((HERE / "backlog.json").read_text())
+        backlog = json.loads(BACKLOG.read_text())
         if not isinstance(capacity, dict) or not isinstance(backlog, list):
             return None
         capacity["backlog_count"] = len(backlog)
@@ -650,7 +653,7 @@ def backlog_worker() -> None:
     a bug. launch_run.py drain owns capacity/self-repair/verification;
     this thread just makes sure it runs forever, agent or no agent.
     """
-    backlog = HERE / "backlog.json"
+    backlog = BACKLOG
     while True:
         try:
             if not PAUSE.exists() and backlog.exists() \

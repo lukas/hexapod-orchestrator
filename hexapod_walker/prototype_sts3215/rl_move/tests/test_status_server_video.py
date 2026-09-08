@@ -104,6 +104,8 @@ def test_run_page_puts_behavior_preview_before_ledger(
     ]))
     monkeypatch.setattr(status_server, "HERE", orch)
     monkeypatch.setattr(status_server, "PROTO", tmp_path)
+    monkeypatch.setattr(status_server, "LEDGER", orch / "experiments.json")
+    monkeypatch.setattr(status_server, "RL_LOG", tmp_path / "RL_LOG.md")
     monkeypatch.setattr(status_server._mcp, "feedback_for_run", lambda _: [])
     monkeypatch.setitem(status_server.SNAP, "fast", {
         "run_videos": {run: {
@@ -131,6 +133,8 @@ def test_run_page_shows_persisted_feedback(
     ]))
     monkeypatch.setattr(status_server, "HERE", orch)
     monkeypatch.setattr(status_server, "PROTO", tmp_path)
+    monkeypatch.setattr(status_server, "LEDGER", orch / "experiments.json")
+    monkeypatch.setattr(status_server, "RL_LOG", tmp_path / "RL_LOG.md")
     monkeypatch.setattr(
         status_server._mcp,
         "feedback_for_run",

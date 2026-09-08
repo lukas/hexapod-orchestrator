@@ -8,3 +8,10 @@ KICK
 WRAPUP
 blockers.runtime.json
 blockers.runtime.json.lock
+# Runtime state moved to <checkout>/.state (lukas/hexapod-state) on
+# 2026-09-08 -- state_dir.py. Never let a stray copy get committed here again.
+experiments.json
+experiments.json.*
+backlog.json
+backlog_failed.json
+pending_evals.json

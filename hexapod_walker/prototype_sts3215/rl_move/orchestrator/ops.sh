@@ -10,6 +10,9 @@ set -uo pipefail
 export KUBECONFIG="${KUBECONFIG:-$HOME/.kube/coreweave.yaml}"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROTO="$(cd "$HERE/../.." && pwd)"          # …/hexapod_walker/prototype_sts3215
+# Runtime state (ledger, RL_LOG.md, run stories) lives outside the code
+# tree: <checkout>/.state or $HEXAPOD_STATE_DIR -- see state_dir.py.
+STATE_DIR="${HEXAPOD_STATE_DIR:-$PROTO/../../.state}"
 LEDGER="$HERE/experiments.json"
 WANDB_PROJECT="l2k2/hexapod-balance"
 POD_PROTO=/workspace/prototype_sts3215      # pods' tree (NOT the controller's)
@@ -819,9 +822,9 @@ logline)  # logline "text" — append ONE timestamped line to RL_LOG.md
   (
     command -v flock >/dev/null && { exec 9>>/workspace/git_snapshot.lock; flock 9; }
     printf '%s %s\n' "- $(date -u +%m-%d\ %H:%M)" "$(echo "$text" | tr '\n' ' ')" \
-      >> "$PROTO/RL_LOG.md"
+      >> "$STATE_DIR/RL_LOG.md"
   )
-  tail -1 "$PROTO/RL_LOG.md"
+  tail -1 "$STATE_DIR/RL_LOG.md"
   ;;
 
 manualdrive)  # manualdrive <run> <out-dir> [extra manual_drive_session args...]

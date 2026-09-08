@@ -1,8 +1,14 @@
 #!/usr/bin/env bash
-# snapshot.sh <run-name>       commit everything, tag exp/<run-name>, push, print hash
+# snapshot.sh <run-name>       commit CODE, tag exp/<run-name>, push, then commit+push STATE, print hash
 # snapshot.sh --sync <pod>     sync the prototype tree to a pod's /workspace
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
+# Runtime state (ledger, queue, run stories, RL_LOG.md) lives in its own
+# repo, lukas/hexapod-state, cloned at <checkout>/.state or $HEXAPOD_STATE_DIR
+# (state_dir.py). This script is its ONLY writer: every snapshot commits and
+# pushes it right after the code push, so exp/<run> pairs with a state
+# commit of the same name. Code commits below only happen when CODE changed.
+STATE_DIR="${HEXAPOD_STATE_DIR:-$(pwd)/.state}"
 
 if [ "${1:-}" = "--sync" ]; then
   POD="$2"
@@ -70,11 +76,7 @@ if [ "${1:-}" = "--sync" ]; then
   # concurrent cycles kept stamping transient -dirty markers that cost
   # a drain attempt each (cycle 54, 08-09).
   P=hexapod_walker/prototype_sts3215
-  EXC=(":(exclude)$P/rl_move/orchestrator/experiments.json"
-       ":(exclude)$P/rl_move/orchestrator/backlog.json"
-       ":(exclude)$P/rl_move/orchestrator/backlog_failed.json"
-       ":(exclude)$P/rl_move/orchestrator/pending_evals.json"
-       ":(exclude)$P/rl_move/orchestrator/*.lock"
+  EXC=(":(exclude)$P/rl_move/orchestrator/*.lock"
        ":(exclude)$P/**/*.md" ":(exclude)$P/*.md"
        ":(exclude)$P/logs" ":(exclude)$P/wandb"
        ":(exclude)$P/rl_move/wandb"
@@ -104,23 +106,22 @@ if command -v flock >/dev/null; then
   flock 9
 fi
 
-# JSON-validity guard (2026-09-06 ledger-corruption incident): `git add
-# -A` below stages whatever is CURRENTLY on disk with no validity check
-# and no ledger lock. save_ledger() now writes atomically (temp+rename)
-# so a torn read should no longer be observable, but this is cheap
-# insurance against any other writer (present or future) doing the same
-# mistake: never let a runtime-state JSON that fails to parse get
-# staged. If one is invalid, restore the last COMMITTED (good) copy
-# into the worktree instead of committing the broken one -- this loses
-# at most the seconds-old delta from whatever process was mid-write,
-# never silently commits a truncated file.
-for RS in experiments.json backlog.json backlog_failed.json pending_evals.json; do
-  RSP="hexapod_walker/prototype_sts3215/rl_move/orchestrator/$RS"
-  if [ -f "$RSP" ] && ! python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$RSP" 2>/dev/null; then
-    echo "WARNING: $RSP fails to parse as JSON -- refusing to stage it this snapshot; restoring last committed copy" >&2
-    git show "HEAD:$RSP" > "$RSP" 2>/dev/null || echo "  (no committed copy either -- left as-is, needs manual repair)" >&2
+# RL_LOG.md and rl_docs/runs in the prototype tree are SYMLINKS into the
+# state repo. An editor that saves via rename turns the RL_LOG.md link back
+# into a regular file, and `git add -A` would then commit the log into main
+# again. Detect that, move the content where it belongs, re-link.
+RL_LOG_LINK=hexapod_walker/prototype_sts3215/RL_LOG.md
+if [ -e "$RL_LOG_LINK" ] && [ ! -L "$RL_LOG_LINK" ]; then
+  echo "WARNING: $RL_LOG_LINK is a regular file (symlink clobbered); moving content to $STATE_DIR/RL_LOG.md and re-linking" >&2
+  if [ -f "$STATE_DIR/RL_LOG.md" ] && ! cmp -s "$RL_LOG_LINK" "$STATE_DIR/RL_LOG.md"; then
+    # Keep both: the clobbered copy is the newer edit, the state copy may
+    # have lines appended by ops.sh logline meanwhile. Newer copy wins,
+    # older is preserved alongside for a human to reconcile.
+    cp "$STATE_DIR/RL_LOG.md" "$STATE_DIR/RL_LOG.md.pre-relink.$(date -u +%Y%m%dT%H%M%SZ)"
   fi
-done
+  mv "$RL_LOG_LINK" "$STATE_DIR/RL_LOG.md"
+  ln -s ../../.state/RL_LOG.md "$RL_LOG_LINK"
+fi
 
 git add -A hexapod_walker/prototype_sts3215
 if ! git diff --cached --quiet; then
@@ -150,4 +151,32 @@ git push origin HEAD --tags || {
   git pull --rebase --autostash origin main
   git push origin HEAD --tags
 }
-git rev-parse HEAD
+CODE_SHA="$(git rev-parse HEAD)"
+
+# ---- STATE: commit + push the state repo (best effort, loud on failure) ----
+# JSON-validity guard (2026-09-06 ledger-corruption incident): never commit
+# a runtime-state JSON that fails to parse -- restore the last committed
+# copy instead (loses at most a seconds-old delta from a mid-write writer;
+# save_ledger() writes atomically so this should not trigger).
+if [ -d "$STATE_DIR/.git" ]; then
+  for RS in experiments.json backlog.json backlog_failed.json pending_evals.json; do
+    RSP="$STATE_DIR/$RS"
+    if [ -f "$RSP" ] && ! python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$RSP" 2>/dev/null; then
+      echo "WARNING: $RSP fails to parse as JSON -- restoring last committed copy" >&2
+      git -C "$STATE_DIR" checkout -q -- "$RS" 2>/dev/null || echo "  (no committed copy either -- left as-is, needs manual repair)" >&2
+    fi
+  done
+  git -C "$STATE_DIR" add -A
+  if ! git -C "$STATE_DIR" diff --cached --quiet; then
+    git -C "$STATE_DIR" commit -q -m "state before ${RUN_NAME} (code ${CODE_SHA:0:9})"
+  fi
+  git -C "$STATE_DIR" push -q origin HEAD 2>/dev/null || {
+    git -C "$STATE_DIR" pull -q --rebase --autostash origin main 2>/dev/null || true
+    git -C "$STATE_DIR" push -q origin HEAD 2>/dev/null || \
+      echo "WARNING: state push failed (network?); state is committed locally in $STATE_DIR and the next snapshot will push it" >&2
+  }
+else
+  echo "WARNING: $STATE_DIR is not a git clone -- state NOT durable. Clone lukas/hexapod-state there (setup_controller.sh does this)." >&2
+fi
+
+echo "$CODE_SHA"

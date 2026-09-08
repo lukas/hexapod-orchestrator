@@ -10,6 +10,18 @@ and `RL_PLAN.md`** (prototype root) — the two goals and the operating
 plan — then `ORCHESTRATOR_PROMPT.md` for how a cycle behaves. This
 file covers mechanics only.
 
+## Where the state is (2026-09-08)
+
+Everything this loop WRITES lives outside the code tree, in the private
+repo `lukas/hexapod-state`, cloned at `<checkout>/.state` (controller:
+`/workspace/hexapod/.state`, `HEXAPOD_STATE_DIR` in `/root/orchestrator.env`).
+`state_dir.py` is the single source of those paths; `snapshot.sh` commits
+and pushes the state repo after every run, so `exp/<run>` code tags pair
+with `state before <run>` state commits. Read it locally with
+`make -C .. state`; read it on the web at `/now` and `/llms.txt`.
+`rl_docs/runs` and `RL_LOG.md` in the prototype tree are symlinks into
+`.state`.
+
 ## Architecture (2026-08-09)
 
 ```

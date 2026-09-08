@@ -42,6 +42,9 @@ from ledger_view import current_entries
 
 HERE = pathlib.Path(__file__).resolve().parent
 PROTO = HERE.parent.parent
+import state_dir  # noqa: E402
+LEDGER = state_dir.LEDGER      # runtime state lives in <checkout>/.state
+RL_LOG = state_dir.RL_LOG
 
 PROTOCOL_VERSIONS = ("2025-06-18", "2025-03-26", "2024-11-05")
 SERVER_INFO = {"name": "hexapod-rl-results",
@@ -233,7 +236,7 @@ def _track_status_paths() -> list[pathlib.Path]:
 
 
 def _ledger_entries() -> list[dict]:
-    return json.loads((HERE / "experiments.json").read_text())
+    return json.loads(LEDGER.read_text())
 
 
 def _ledger() -> list[dict]:
@@ -319,7 +322,7 @@ def t_get_plan() -> str:
 def t_log_tail(max_kb: int = 64) -> str:
     max_kb = max(1, min(int(max_kb), 300))
     try:
-        data = (PROTO / "RL_LOG.md").read_bytes()
+        data = RL_LOG.read_bytes()
     except OSError as e:
         return f"(RL_LOG.md unreadable: {e})"
     cap = max_kb * 1000

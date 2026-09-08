@@ -57,6 +57,11 @@ from concurrent.futures import ThreadPoolExecutor
 
 HERE = pathlib.Path(__file__).resolve().parent
 PROTO = HERE.parent.parent
+import state_dir  # noqa: E402
+LEDGER = state_dir.LEDGER      # runtime state lives in <checkout>/.state
+BACKLOG = state_dir.BACKLOG
+BACKLOG_FAILED = state_dir.BACKLOG_FAILED
+RL_LOG = state_dir.RL_LOG
 from launch_run import KUBECONFIG, load_guardrails, pod_trainers
 
 import mcp_server as _mcp  # noqa: E402  (MCP endpoint at /mcp)
@@ -309,7 +314,7 @@ def pending_kicks() -> dict:
 
 def ledger_rows(n: int = 40) -> tuple[list[dict], dict, dict]:
     try:
-        entries = json.loads((HERE / "experiments.json").read_text())
+        entries = json.loads(LEDGER.read_text())
     except Exception:
         return [], {}, {}
     latest = current_entries(entries)
@@ -556,12 +561,12 @@ def cycle_budget() -> dict:
 
 
 def backlog_state() -> dict:
-    def load(name):
+    def load(path):
         try:
-            return json.loads((HERE / name).read_text())
+            return json.loads(path.read_text())
         except Exception:
             return []
-    return {"queued": load("backlog.json"), "failed": load("backlog_failed.json")}
+    return {"queued": load(BACKLOG), "failed": load(BACKLOG_FAILED)}
 
 
 # List rates, $/MTok (Anthropic pricing page, checked 2026-08-10).
@@ -718,7 +723,7 @@ def fast_worker() -> None:
                 "feedback": feedback[:15],
                 "feedback_counts": feedback_counts,
                 "orch_tail": read_tail(ORCH_LOG, 14),
-                "rl_log_tail": read_tail(PROTO / "RL_LOG.md", 8),
+                "rl_log_tail": read_tail(RL_LOG, 8),
                 "rl_plan": (PROTO / "RL_PLAN.md").read_text(errors="replace"),
                 "status_docs": status_docs(),
             }
@@ -1983,7 +1988,7 @@ def render_run_page(run: str) -> str | None:
     if not _SAFE_PART.match(run):
         return None
     try:
-        entries = json.loads((HERE / "experiments.json").read_text())
+        entries = json.loads(LEDGER.read_text())
     except Exception:
         entries = []
     rows = [e for e in entries
@@ -2183,7 +2188,7 @@ LLM_LOG_CAP = 300_000  # bytes; keep a fetch well under context limits
 
 def llm_log_md() -> str:
     try:
-        data = (PROTO / "RL_LOG.md").read_bytes()
+        data = RL_LOG.read_bytes()
     except OSError as e:
         return f"(RL_LOG.md unreadable: {e})"
     if len(data) <= LLM_LOG_CAP:

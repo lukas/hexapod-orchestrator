@@ -51,7 +51,8 @@ os.environ.setdefault(
 
 HERE = pathlib.Path(__file__).resolve().parent
 PROTO = HERE.parent.parent
-LEDGER = HERE / "experiments.json"
+import state_dir  # noqa: E402
+LEDGER = state_dir.LEDGER  # <state>/experiments.json; see state_dir.py
 POD_PROTO = "/workspace/prototype_sts3215"
 PASS_TIMEOUT_S = 2700
 
