@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import sys
+import subprocess
 
 import pytest
 
@@ -127,3 +128,45 @@ def test_ops_explicit_json_path_is_unchanged(monkeypatch, tmp_path, capsys):
     assert STEM + "_gate_recheck/report.json" in output
     assert "std=0.422" in output
     assert "FALLBACK" not in output
+
+
+@pytest.mark.parametrize("selection", ["exact", "explicit_variant", "fallback"])
+def test_review_pairs_report_with_media_from_same_experiment(tmp_path, selection):
+    """Run the whole review shell; only the unrelated W&B API is stubbed."""
+    local_orch = tmp_path / "rl_move" / "orchestrator"
+    local_orch.mkdir(parents=True)
+    for filename in ("ops.sh", "eval_reports.py"):
+        (local_orch / filename).write_bytes((ORCH / filename).read_bytes())
+    (local_orch / "experiments.json").write_text("[]")
+    (tmp_path / "wandb.py").write_text(
+        "class Api:\n    def runs(self, *args, **kwargs):\n        return []\n")
+    query = RUN
+    wanted = STEM + "_gate"
+    other = STEM + "_nostdanneal_gate"
+    if selection != "fallback":
+        _report(tmp_path, STEM + "_gate", mtime=1)
+    _report(tmp_path, STEM + "_nostdanneal_gate", std=0.422, mtime=100)
+    for report in (tmp_path / "logs" / "ckpt_eval").glob("*/report.json"):
+        for name in ("walk_det_0.mp4", "walk_det_0.png"):
+            media = report.parent / name
+            media.write_bytes(b"fixture")
+            os.utime(media, (report.stat().st_mtime, report.stat().st_mtime))
+    if selection != "exact":
+        wanted, other = other, wanted
+        if selection == "explicit_variant":
+            query = wanted
+
+    result = subprocess.run(
+        ["bash", str(local_orch / "ops.sh"), "review", query],
+        cwd=tmp_path, env={**os.environ, "PYTHONPATH": str(tmp_path)},
+        capture_output=True, text=True, check=True, timeout=30)
+
+    report_output, media_output = result.stdout.split("##### eval report", 1)[1].split(
+        "##### videos / contact sheets", 1)
+    assert wanted + "/report.json" in report_output
+    assert wanted + "/walk_det_0.mp4" in media_output
+    assert wanted + "/walk_det_0.png" in media_output
+    assert other + "/report.json" not in report_output
+    assert other + "/walk_det_0" not in media_output
+    assert ("FALLBACK" in report_output) == (selection == "fallback")
+    assert ("FALLBACK" in media_output) == (selection == "fallback")

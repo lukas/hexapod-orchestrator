@@ -721,10 +721,24 @@ review)  # review <run> — THE standard triage read in one command:
   echo "##### eval report"
   bash "$0" report "$run" 2>/dev/null || echo "(no harness report yet — ops.sh evalcmd $run)"
   echo "##### videos / contact sheets"
-  snake=$(echo "$run" | tr - _ | sed 's/^cw_walk_//')
-  # same trailing "_" anchor as the `report` glob above, same reason.
-  ls -t "$PROTO"/logs/ckpt_eval/*${snake}_*/*.mp4 "$PROTO"/logs/ckpt_eval/*${snake}_*/*.png 2>/dev/null | head -8 \
-    || echo "(none)"
+  # Pair visual witnesses with the same report directories printed above.
+  # A newer descendant's media must not accompany this run's exact gate.
+  uv run python - "$run" <<'EOF'
+import os, sys
+from pathlib import Path
+sys.path.insert(0, os.environ["HERE"])
+from eval_reports import select_reports
+
+selection = select_reports(Path(os.environ["PROTO"]) / "logs" / "ckpt_eval",
+                           sys.argv[1])
+if selection.paths and selection.notice(sys.argv[1]):
+    print(selection.notice(sys.argv[1]))
+media = [path for report in selection.paths[:3]
+         for path in report.parent.iterdir()
+         if path.is_file() and path.suffix in {".mp4", ".png"}]
+media.sort(key=lambda p: (-p.stat().st_mtime, str(p)))
+print("\n".join(str(path) for path in media[:8]) or "(none)")
+EOF
   ;;
 
 frames)  # frames <video.mp4> [n] — n evenly-spaced frames -> one
