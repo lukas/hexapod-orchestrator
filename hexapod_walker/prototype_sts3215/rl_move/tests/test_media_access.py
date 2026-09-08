@@ -1,15 +1,12 @@
 from __future__ import annotations
 
-import sys
 import urllib.parse
 from pathlib import Path
 
 import pytest
 
-ORCH = Path(__file__).resolve().parents[1] / "orchestrator"
-sys.path.insert(0, str(ORCH))
 
-import media_access  # noqa: E402
+import media_access
 
 KEY = "test-only-media-signing-key"
 REL = "a run/walk_det_0.mp4"

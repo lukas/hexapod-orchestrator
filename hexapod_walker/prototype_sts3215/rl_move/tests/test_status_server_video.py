@@ -1,13 +1,10 @@
 from __future__ import annotations
 
 import json
-import sys
 from pathlib import Path
 
-ORCH = Path(__file__).resolve().parents[1] / "orchestrator"
-sys.path.insert(0, str(ORCH))
 
-import status_server  # noqa: E402
+import status_server
 
 
 def _reset_video_cache() -> None:

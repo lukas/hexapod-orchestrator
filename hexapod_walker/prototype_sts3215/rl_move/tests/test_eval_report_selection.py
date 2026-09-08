@@ -10,7 +10,6 @@ import subprocess
 import pytest
 
 ORCH = Path(__file__).resolve().parents[1] / "orchestrator"
-sys.path.insert(0, str(ORCH))
 
 import mcp_server
 

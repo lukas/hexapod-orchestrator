@@ -10,15 +10,12 @@ explicit --steps. Pure-function tests only (no ledger/subprocess I/O).
 """
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 ORCH = ROOT / "rl_move" / "orchestrator"
-if str(ORCH) not in sys.path:
-    sys.path.insert(0, str(ORCH))
 
-import launch_run as lr  # noqa: E402
+import launch_run as lr
 
 
 def test_flags_the_exact_bug_shape():

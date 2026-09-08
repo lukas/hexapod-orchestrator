@@ -1,16 +1,12 @@
 from __future__ import annotations
 
 import json
-import sys
-from pathlib import Path
 
 import pytest
 
-ORCH = Path(__file__).resolve().parents[1] / "orchestrator"
-sys.path.insert(0, str(ORCH))
 
-import mcp_server  # noqa: E402
-import status_server  # noqa: E402
+import mcp_server
+import status_server
 
 
 @pytest.fixture

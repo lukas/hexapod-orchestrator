@@ -1,13 +1,9 @@
 """Respec fresh-only activation inheritance; no pod, checkpoint or ledger I/O."""
 from __future__ import annotations
 import argparse
-from pathlib import Path
-import sys
 from types import SimpleNamespace
 import pytest
 
-ORCH = Path(__file__).resolve().parents[1] / "orchestrator"
-sys.path.insert(0, str(ORCH))
 import launch_run as lr
 
 

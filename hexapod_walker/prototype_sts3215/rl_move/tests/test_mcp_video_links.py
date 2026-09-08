@@ -2,15 +2,11 @@ from __future__ import annotations
 
 import io
 import json
-import sys
 import time
-from pathlib import Path
 from urllib.parse import urlsplit
 
 import pytest
 
-ORCH = Path(__file__).resolve().parents[1] / "orchestrator"
-sys.path.insert(0, str(ORCH))
 
 import mcp_server
 import status_server

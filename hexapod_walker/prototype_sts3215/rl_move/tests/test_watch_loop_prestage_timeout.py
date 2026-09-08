@@ -12,11 +12,8 @@ runs.
 import importlib.util
 import json
 import pathlib
-import sys
 
 _ORCH_DIR = pathlib.Path(__file__).resolve().parents[1] / "orchestrator"
-if str(_ORCH_DIR) not in sys.path:
-    sys.path.insert(0, str(_ORCH_DIR))
 _P = _ORCH_DIR / "watch_loop.py"
 _spec = importlib.util.spec_from_file_location("watch_loop", _P)
 watch_loop = importlib.util.module_from_spec(_spec)

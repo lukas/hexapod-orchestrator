@@ -8,8 +8,7 @@ from types import SimpleNamespace
 import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT))
-from rl_move.orchestrator.artifact_names import (  # noqa: E402
+from rl_move.orchestrator.artifact_names import (
     bounded_artifact_name, checkpoint_artifact_name, publish_checkpoint)
 
 

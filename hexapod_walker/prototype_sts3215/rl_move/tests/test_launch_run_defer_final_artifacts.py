@@ -18,15 +18,12 @@ Contract pinned here (pure function — no I/O, no subprocess, no pod):
 """
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 ORCH = ROOT / "rl_move" / "orchestrator"
-if str(ORCH) not in sys.path:
-    sys.path.insert(0, str(ORCH))
 
-import launch_run as lr  # noqa: E402
+import launch_run as lr
 
 GPU_CFG_ON = {"defer_final_artifacts": True}
 GPU_CFG_OFF = {"defer_final_artifacts": False}

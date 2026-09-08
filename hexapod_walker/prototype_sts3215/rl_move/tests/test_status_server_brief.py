@@ -1,12 +1,7 @@
 from __future__ import annotations
 
-import sys
-from pathlib import Path
 
-ORCH = Path(__file__).resolve().parents[1] / "orchestrator"
-sys.path.insert(0, str(ORCH))
-
-import status_server  # noqa: E402
+import status_server
 
 
 def test_latest_research_summary_prefers_top_dated_update() -> None:

@@ -2,17 +2,13 @@ from __future__ import annotations
 
 import copy
 import json
-import sys
-from pathlib import Path
 
 import pytest
 
-ORCH = Path(__file__).resolve().parents[1] / "orchestrator"
-sys.path.insert(0, str(ORCH))
 
-import mcp_server  # noqa: E402
-import status_server  # noqa: E402
-from ledger_view import current_entries  # noqa: E402
+import mcp_server
+import status_server
+from ledger_view import current_entries
 
 
 RUN = "cw-walkscratch-easy0905-base-cartfoot-fresh-s10-c1b"

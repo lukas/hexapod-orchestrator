@@ -15,11 +15,8 @@ underscore) module was. capacity.py and the launcher's own busy check
 read those pods as free while genuinely running a trainer.
 """
 import subprocess
-import sys
-from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "orchestrator"))
-import launch_run as lr  # noqa: E402
+import launch_run as lr
 
 
 def _fake_proc(tmp_path, pid: int, argv: list[str]) -> None:

@@ -2,17 +2,13 @@
 from __future__ import annotations
 
 import os
-from pathlib import Path
 import shlex
 import signal
 import subprocess
-import sys
 import time
 
 import pytest
 
-ORCH = Path(__file__).resolve().parents[1] / "orchestrator"
-sys.path.insert(0, str(ORCH))
 import launch_run as lr
 
 

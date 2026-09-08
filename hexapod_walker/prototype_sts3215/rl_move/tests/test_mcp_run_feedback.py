@@ -1,14 +1,10 @@
 from __future__ import annotations
 
 import json
-import sys
 from pathlib import Path
 
 
-ORCH = Path(__file__).resolve().parents[1] / "orchestrator"
-sys.path.insert(0, str(ORCH))
-
-import mcp_server  # noqa: E402
+import mcp_server
 
 
 def _install_run(monkeypatch, run: str = "cw-feedback-demo") -> None:

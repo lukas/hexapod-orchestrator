@@ -23,10 +23,8 @@ import subprocess
 
 import pytest
 
-sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]
-                       / "orchestrator"))
-import seed_pruner as sp                       # noqa: E402
-from seed_pruner import (Window, decide, assemble_windows,  # noqa: E402
+import seed_pruner as sp
+from seed_pruner import (Window, decide, assemble_windows,
                          Decision)
 
 BUDGET = 40_000_000

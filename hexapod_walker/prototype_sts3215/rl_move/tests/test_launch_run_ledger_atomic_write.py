@@ -15,15 +15,12 @@ never a partial write, regardless of caller lock discipline elsewhere.
 from __future__ import annotations
 
 import json
-import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 ORCH = ROOT / "rl_move" / "orchestrator"
-if str(ORCH) not in sys.path:
-    sys.path.insert(0, str(ORCH))
 
-import launch_run as lr  # noqa: E402
+import launch_run as lr
 
 
 def test_save_ledger_writes_atomically_via_temp_and_replace(tmp_path, monkeypatch):
