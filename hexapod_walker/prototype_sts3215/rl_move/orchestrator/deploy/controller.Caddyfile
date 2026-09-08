@@ -1,0 +1,21 @@
+{
+    storage file_system /workspace/.caddy
+}
+
+# Shared lab login for the dashboard. The keyless front door (/, /hub), the
+# LLM index, robots.txt, MCP, and keyed script URLs (?key=) stay open so
+# agents and readers are unaffected; the app still enforces its own token
+# for those. The verified user is forwarded as X-Hexapod-User, which
+# status_server honours when STATUS_TRUST_PROXY_USER is set.
+hexapod.cwd1f0-new-cluster.coreweave.app {
+    @browser {
+        not header Authorization *
+        not path / /hub /llms.txt /llm /llm/* /robots.txt /mcp
+        not query key=*
+    }
+    basic_auth @browser {
+        lukas {env.LAB_LOGIN_HASH}  # bcrypt hash injected at deploy; source of truth ~/.hexapod/web-login.hash
+    }
+    request_header X-Hexapod-User {http.auth.user.id}
+    reverse_proxy 127.0.0.1:8090
+}

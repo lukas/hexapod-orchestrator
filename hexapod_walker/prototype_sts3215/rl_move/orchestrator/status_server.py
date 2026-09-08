@@ -2437,6 +2437,7 @@ def _load_token() -> str:
 
 
 TOKEN = _load_token()
+TRUST_PROXY_USER = os.environ.get("STATUS_TRUST_PROXY_USER", "") in ("1", "true", "yes")
 
 
 def _media_byte_range(header: str, size: int) -> tuple[int, int] | None:
@@ -2512,6 +2513,13 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
     def _authed(self) -> bool:
         if not TOKEN:
+            return True
+        # The public host is fronted by Caddy on this pod, which challenges
+        # browsers with the one shared lab login and forwards the verified
+        # user as X-Hexapod-User (overwriting anything the client sent). With
+        # STATUS_TRUST_PROXY_USER set, that counts as signed in, so the key
+        # form below is only for direct/port-forward visitors and scripts.
+        if TRUST_PROXY_USER and self.headers.get("X-Hexapod-User", "").strip():
             return True
         from urllib.parse import parse_qs, urlparse
         q = parse_qs(urlparse(self.path).query)
