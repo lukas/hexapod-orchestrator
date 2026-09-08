@@ -2616,10 +2616,17 @@ def _publish_analysis_artifact(api_run, run_name: str, entry: dict) -> None:
     verdict cycle)."""
     import tempfile
     import wandb
+    try:
+        from .artifact_names import bounded_artifact_name
+    except ImportError:  # Direct CLI invocation.
+        from artifact_names import bounded_artifact_name
     proto = HERE.parent.parent
-    art = wandb.Artifact(f"analysis-{run_name}", type="run-analysis",
+    original = f"analysis-{run_name}"
+    art = wandb.Artifact(bounded_artifact_name(original), type="run-analysis",
                          metadata={"verdict": str(entry.get("verdict"))[:500],
-                                   "status": entry.get("status")})
+                                   "status": entry.get("status"),
+                                   "run": run_name,
+                                   "original_artifact_name": original})
     with tempfile.NamedTemporaryFile("w", suffix=".json",
                                      delete=False) as tf:
         json.dump(entry, tf, indent=2, default=str)
@@ -2645,7 +2652,7 @@ def _publish_analysis_artifact(api_run, run_name: str, entry: dict) -> None:
                    settings=wandb.Settings(silent=True))
     w.log_artifact(art)
     w.finish()
-    print(f"analysis artifact analysis-{run_name} attached "
+    print(f"analysis artifact {art.name} attached "
           f"({n_files} eval files)")
 
 
