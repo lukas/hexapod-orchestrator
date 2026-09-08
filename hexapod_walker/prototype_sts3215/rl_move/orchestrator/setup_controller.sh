@@ -34,6 +34,11 @@ umask 077
 cat > /root/orchestrator.env <<ENV
 export CURSOR_API_KEY='$CURSOR_KEY'
 export KUBECONFIG=/root/.kube/coreweave.yaml
+# The repo-root pyproject.toml/uv.lock is for laptop development only. The
+# controller runs its system Python + \`uv pip install --system\` packages;
+# this keeps every \`uv run\` in the clone (watcher, cycles, evals) from
+# discovering that project and building a full sim venv here.
+export UV_NO_PROJECT=1
 $( [ -n "$WANDB_KEY" ] && echo "export WANDB_API_KEY='$WANDB_KEY'" )
 ENV
 
@@ -52,7 +57,7 @@ uv pip install -q --system wandb pyyaml
 tmux kill-session -t orchestrator 2>/dev/null || true
 tmux new-session -d -s orchestrator \
   "source /root/orchestrator.env && cd /workspace/hexapod && \
-   uv run python hexapod_walker/prototype_sts3215/rl_move/orchestrator/watch_loop.py"
+   uv run --no-project python hexapod_walker/prototype_sts3215/rl_move/orchestrator/watch_loop.py"
 echo OK
 EOF
 
