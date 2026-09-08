@@ -336,7 +336,7 @@ m5eval)  # m5eval <run> [pod] [--skip=a,b] — run the AMP M5 cross-engine
 evalcmd)  # evalcmd <run> — print the exact-path harness eval command
   run="$2"
   uv run python - "$run" <<'EOF'
-import json, os, sys
+import json, math, os, sys
 run = sys.argv[1]
 # 08-13 fix: prefer an entry that actually ran (wandb_id/pid) over a
 # later REFUSED re-launch stub with the same run name — a plain
@@ -368,6 +368,19 @@ cfg = " ".join(f"--cfg-set {args[i+1]}" for i, a in enumerate(args)
               and not args[i+1].split("=", 1)[0].startswith(
                   "goal.walk_residual")
               and args[i+1].split("=", 1)[0] not in _SKIP_CFG_KEYS)
+# The printed command may run on an older pod than this controller.
+# Probe that execution target at runtime; never send an unsupported flag.
+control_hz = 25.0
+for i, arg in enumerate(args):
+    if arg == "--cfg-set":
+        key, _, value = args[i + 1].partition("=")
+        if key.strip() == "control.hz":
+            try:
+                control_hz = float(value)
+            except ValueError:
+                pass
+video_fps = (min(25.0, control_hz)
+             if math.isfinite(control_hz) and control_hz > 0 else None)
 goal_mix = val("--goal-mix")
 if goal_mix:
     mix_modes = []
@@ -385,11 +398,17 @@ else:
 name = "ppo_goal_" + run.replace("-", "_")
 out = f"logs/ckpt_eval/{run.replace('-', '_')}_gate"
 print(f"# run from the PROTO dir; ALWAYS as a module (-m), never the .py path")
+print("eval_video_args=(--video-every 1)")
+if video_fps is not None:
+    print("if grep -Fxq -- 'VIDEO_PACING_API_VERSION = 1' "
+          "rl_move/sim/eval_checkpoint.py 2>/dev/null; then")
+    print(f"  eval_video_args+=(--video-fps {video_fps:g})")
+    print("fi")
 print(f"nohup uv run python -m rl_move.sim.eval_checkpoint rl_move/sim/policies/{name}.zip \\")
 print(f"  --task {task} {modes} --per-mode 6 --dr-scale 0.0 --seed 0 --stochastic \\")
 if ep: print(f"  --episode-seconds {ep} \\")
 if cfg: print(f"  {cfg} \\")
-print(f"  --video-every 1 --out {out} > /tmp/eval_{run}.log 2>&1 &")
+print(f'  "${{eval_video_args[@]}}" --out {out} > /tmp/eval_{run}.log 2>&1 &')
 print(f"# then: ops.sh waitlog /tmp/eval_{run}.log 'artifacts|Traceback' 1800")
 EOF
   ;;

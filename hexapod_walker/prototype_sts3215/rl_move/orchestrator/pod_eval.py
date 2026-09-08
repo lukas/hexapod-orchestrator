@@ -35,6 +35,7 @@ from __future__ import annotations
 
 import datetime
 import json
+import math
 import os
 import pathlib
 import shlex
@@ -232,6 +233,27 @@ def core_synced(run: str) -> None:
 def kexec(pod: str, cmd: str, timeout: int = 60) -> subprocess.CompletedProcess:
     return subprocess.run(["kubectl", "exec", pod, "--", "bash", "-c", cmd],
                           capture_output=True, text=True, timeout=timeout)
+
+
+def eval_video_args(pod: str, control_hz: float) -> str:
+    """Request paced capture only from a target with the video-pacing API.
+
+    Reading the source marker avoids importing the evaluator's heavy runtime.
+    Old pods, missing source, and an unavailable probe retain the legacy flags.
+    This probe does not synchronize or otherwise modify a training pod.
+    """
+    if not math.isfinite(control_hz) or control_hz <= 0:
+        return ""
+    source = f"{POD_PROTO}/rl_move/sim/eval_checkpoint.py"
+    try:
+        probe = kexec(
+            pod, "grep -Fxq -- 'VIDEO_PACING_API_VERSION = 1' "
+            + shlex.quote(source), timeout=15)
+    except (OSError, subprocess.TimeoutExpired):
+        return ""
+    if probe.returncode != 0:
+        return ""
+    return f" --video-fps {min(25.0, control_hz):g}"
 
 
 def push_local(pod: str, name: str) -> str | None:
@@ -489,6 +511,7 @@ def main() -> int:
         passes.append(("owncfg", str(dr), f"/tmp/eval_{run}_owncfg.log"))
 
     jobs = []
+    video_args = None  # probe once, only when a new core pass is needed
     for tag, drv, logpath in passes:
         out_rel = f"logs/ckpt_eval/{run_us}_{tag}{suffix}"
         local_out = PROTO / out_rel
@@ -524,6 +547,8 @@ def main() -> int:
         # Spawn-time nice inherits to every worker thread/child (unlike
         # retroactive renice, see ops.sh niceevals), so trainers win CPU
         # while idle-pod evals still run full speed.
+        if video_args is None:
+            video_args = eval_video_args(pod, control_hz)
         cmd = (f"cd {POD_PROTO} && set -a && "
                f". rl_move/sim/wandb.env 2>/dev/null; set +a; "
                f"nice -n 19 uv run python -m rl_move.sim.eval_checkpoint {shlex.quote(ckpt)}"
@@ -531,7 +556,7 @@ def main() -> int:
                f" --seed 0 --stochastic"
                + (f" --episode-seconds {ep}" if ep else "")
                + "".join(f" --cfg-set {shlex.quote(c)}" for c in cfgs)
-               + f" --video-every 1 --out {out_rel}")
+               + video_args + f" --video-every 1 --out {out_rel}")
         fh = open(logpath, "w")
         p = subprocess.Popen(["kubectl", "exec", pod, "--", "bash", "-c", cmd],
                              stdout=fh, stderr=subprocess.STDOUT, text=True)
