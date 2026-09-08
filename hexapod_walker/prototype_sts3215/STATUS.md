@@ -90,8 +90,12 @@ Exported walk artifact:
   (~20 canary arms) — only rung 0 (persistent BC anchor, never faded)
   reaches ignition on mesh/100Hz; do not relaunch rung 1-4 recipes
   without a new unscoped reward-mechanism design. Rung 0's recipe
-  stays PROVEN/production-usable. See
-  `rl_docs/tracks/assistfade/STATUS.md` TRACK-LEVEL FINDING (09-07).
+  stays PROVEN/production-usable. 09-08 ~02:2x: the named new-mechanism
+  lead (`reward.walk_leg_duty_ratio_charge`, validated on walkcurr) was
+  applied to rung 3 for the first time — `cw-assistfade-rung3-
+  legdutyratio-{s0,s1}` 2M canaries, UNVERDICTED. See
+  `rl_docs/tracks/assistfade/STATUS.md` TRACK-LEVEL FINDING (09-07) and
+  the 09-08 ~02:2x entry above it.
 - `joystick`, `amp`, `cpg`: green/maintenance unless the operator
   explicitly reopens them.
 
