@@ -489,6 +489,26 @@ def load_processed() -> set[str] | None:
     return set(json.loads(STATE.read_text())["processed"])
 
 
+def _finished_before_checkup(entry: dict) -> bool:
+    """A mechanical training completion, not a scientific verdict."""
+    checkups = entry.get("checkups")
+    return (entry.get("status") == "FINISHED"
+            and isinstance(checkups, list) and bool(checkups)
+            and isinstance(checkups[-1], dict)
+            and checkups[-1].get("verdict") == "FINISHED_BEFORE_CHECKUP")
+
+
+def _entry_verdicted(entry: dict) -> bool:
+    verdict = str(entry.get("verdict") or "").strip()
+    # Preserve historical status-only dedupe, except the checkup path
+    # explicitly says only that TRAINING finished. A recorded scientific
+    # verdict always wins, including when a checkup preceded that verdict.
+    return ((verdict != "" and verdict != "None")
+            or entry.get("status") == "FAILED"
+            or (entry.get("status") == "FINISHED"
+                and not _finished_before_checkup(entry)))
+
+
 def ledger_verdicted() -> set[str]:
     """Runs whose experiments.json entry already carries a final status.
 
@@ -513,11 +533,9 @@ def ledger_verdicted() -> set[str]:
         # 1225/1683 verdicted ledger runs had a status OUTSIDE
         # FINISHED/FAILED, so every watcher restart could re-spawn
         # triage cycles for runs concurrent cycles already closed).
-        def _verdicted(e: dict) -> bool:
-            v = str(e.get("verdict") or "").strip()
-            return e.get("status", "") in ("FINISHED", "FAILED") \
-                or (v != "" and v != "None")
-        return {r for r, e in latest.items() if _verdicted(e)}
+        # FINISHED_BEFORE_CHECKUP is nested checkup evidence that the
+        # optimizer exited; it must not swallow the later W&B finish.
+        return {r for r, e in latest.items() if _entry_verdicted(e)}
     except Exception:
         return set()
 
@@ -653,8 +671,9 @@ HANDOFF_POD_PROTO = "/workspace/prototype_sts3215"
 
 def handoff_watch_worker() -> None:
     """Fire prestage the moment a --defer-final-artifacts run finishes
-    TRAINING, instead of waiting for W&B to flip 'finished' after the
-    CPU artifact finalizer (meta 09-07: that window measured 30-90 min;
+    TRAINING (including FINISHED_BEFORE_CHECKUP), instead of waiting
+    for W&B to flip 'finished' after the CPU artifact finalizer (meta
+    09-07: that window measured 30-90 min;
     gate evals sat unkicked and agent cycles manually bridged with
     podeval/evalpending 6+ times in 24h). Detection: the run's on-pod
     artifact_handoff/<run>/state.json leaves phase='training'. W&B
@@ -674,8 +693,16 @@ def handoff_watch_worker() -> None:
                     if e.get("run"):
                         latest[e["run"]] = e
                 now = time.time()
+                processed = load_processed() or set()
                 for run, e in latest.items():
-                    if (run in seen_done or e.get("status") != "RUNNING"
+                    # A short run can finish before its post-launch
+                    # checkup, which stamps FINISHED before this 120s
+                    # poll. It still needs the deferred gate. Historical
+                    # handled runs and scientific verdicts stay excluded.
+                    eligible = (e.get("status") == "RUNNING"
+                                or _finished_before_checkup(e))
+                    if (run in seen_done or run in processed
+                            or _entry_verdicted(e) or not eligible
                             or not e.get("pod")):
                         continue
                     ts = _launch_ts(e)
