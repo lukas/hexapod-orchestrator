@@ -1995,6 +1995,23 @@ def _write_backlog(items: list[dict]) -> None:
     BACKLOG.write_text(json.dumps(items, indent=2) + "\n")
 
 
+def _passthrough_steps_error(args: list[str], *, respec: bool = False) -> str | None:
+    """Reject launcher budgets in trainer args before queue/snapshot side effects."""
+    if not any(token == "--steps" or token.startswith("--steps=")
+               for token in args):
+        return None
+    message = (
+        "REFUSED: --steps belongs to the launcher, not trainer passthrough. "
+        "Use top-level --steps N (before --), not --arg='--steps=N' "
+        "or --steps after --.")
+    if respec:
+        message += (
+            " To continue from the source run's checkpoint, also pass "
+            "--init-from-source; without it, respec preserves the source "
+            "spec's initialization for replicas.")
+    return message
+
+
 def cmd_backlog(a: argparse.Namespace, extra: list[str]) -> int:
     """Append/list mechanical launch specs (operator queue)."""
     if a.action == "list":
@@ -2002,6 +2019,9 @@ def cmd_backlog(a: argparse.Namespace, extra: list[str]) -> int:
             print(f"{i}: {it['run']} steps={it['steps']} "
                   f"attempts={it.get('attempts', 0)}")
         return 0
+    if error := _passthrough_steps_error(extra):
+        print(error)
+        return 1
     if not (a.run and a.steps and a.hypothesis and a.gate):
         print("backlog add needs --run --steps --hypothesis --gate -- <args>")
         return 1
@@ -2197,6 +2217,9 @@ def cmd_respec(g: dict, a: argparse.Namespace) -> int:
     ran = [e for e in src if e.get("wandb_id") or e.get("checks", {}).get("pid")]
     entry = ran[-1] if ran else src[-1]
     args = list(entry["extra_args"])
+    if error := _passthrough_steps_error([*args, *(a.arg or [])], respec=True):
+        print(error)
+        return 1
 
     def set_flag(flag: str, val: str) -> None:
         if flag in args:
