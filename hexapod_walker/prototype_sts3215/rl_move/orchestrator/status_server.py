@@ -1065,7 +1065,7 @@ def hub_body() -> str:
     return (f"<html><head><meta charset='utf-8'><title>hexapod</title>"
             f"<style>{CSS}</style>{style}</head><body><h1>hexapod</h1>"
             f"<div class='dim'>Everything for the STS3215 hexapod, one page. "
-            f"Each destination keeps its own sign-in.</div>"
+            f"<a href='/login'>Sign in once</a> and every site below opens.</div>"
             f"<div class='grid'>{cards}</div>"
             f"<h2>On the lab network</h2><div class='dim'>These only "
             f"resolve from the lab Mac or its Wi-Fi.</div>"
@@ -2444,6 +2444,121 @@ def _load_token() -> str:
 TOKEN = _load_token()
 TRUST_PROXY_USER = os.environ.get("STATUS_TRUST_PROXY_USER", "") in ("1", "true", "yes")
 
+# ---- single sign-on for every lab hostname ------------------------------
+# Browsers sign in once on this host's /login form (which the Mac's password
+# manager can save, unlike an HTTP Basic dialog). Success sets a signed
+# hexapod_sso cookie scoped to the whole cluster domain, so the Caddy in
+# front of camera, robot-lab and buildviz can forward_auth to /auth here and
+# let the same session through. The secret and the login record live on the
+# controller pod, never in the repo.
+SSO_COOKIE = "hexapod_sso"
+SSO_DOMAIN = os.environ.get("SSO_COOKIE_DOMAIN", ".cwd1f0-new-cluster.coreweave.app")
+SSO_LOGIN_HOST = os.environ.get("SSO_LOGIN_HOST", "hexapod.cwd1f0-new-cluster.coreweave.app")
+SSO_MAX_AGE = 365 * 24 * 3600
+SSO_SECRET_PATH = pathlib.Path(os.environ.get("SSO_SECRET_PATH", "/workspace/.sso_secret"))
+SSO_LOGIN_PATH = pathlib.Path(os.environ.get("SSO_LOGIN_PATH", "/workspace/.lab_login.json"))
+
+
+def _sso_secret() -> bytes:
+    try:
+        return SSO_SECRET_PATH.read_text().strip().encode()
+    except OSError:
+        return b""
+
+
+def _sso_login_record() -> dict | None:
+    try:
+        rec = json.loads(SSO_LOGIN_PATH.read_text())
+    except (OSError, ValueError):
+        return None
+    return rec if isinstance(rec, dict) and rec.get("kdf") == "pbkdf2_sha256" else None
+
+
+def sso_check_password(user: str, password: str) -> bool:
+    """Constant-time check against the PBKDF2 record; stdlib only."""
+    import base64
+    import hashlib
+    rec = _sso_login_record()
+    if not rec or not user or user != rec.get("user"):
+        # Still burn the KDF so a wrong user name costs the same as a wrong password.
+        hashlib.pbkdf2_hmac("sha256", password.encode(), b"x" * 16, int((rec or {}).get("iterations", 600_000)))
+        return False
+    try:
+        salt = base64.b64decode(rec["salt"]); want = base64.b64decode(rec["hash"])
+        got = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, int(rec["iterations"]))
+    except (KeyError, ValueError, TypeError):
+        return False
+    return hmac.compare_digest(got, want)
+
+
+def sso_token(user: str, now: float | None = None) -> str:
+    import base64
+    exp = int((now or time.time()) + SSO_MAX_AGE)
+    payload = f"{user}|{exp}".encode()
+    sig = hmac.new(_sso_secret(), payload, "sha256").hexdigest()
+    return base64.urlsafe_b64encode(payload).decode().rstrip("=") + "." + sig
+
+
+def sso_verify(token: str, now: float | None = None) -> str | None:
+    """Return the signed-in user name, or None."""
+    import base64
+    secret = _sso_secret()
+    if not secret or not token or "." not in token or len(token) > 512:
+        return None
+    body, _, sig = token.rpartition(".")
+    try:
+        payload = base64.urlsafe_b64decode(body + "=" * (-len(body) % 4))
+    except (ValueError, TypeError):
+        return None
+    if not hmac.compare_digest(hmac.new(secret, payload, "sha256").hexdigest(), sig):
+        return None
+    try:
+        user, exp = payload.decode().rsplit("|", 1)
+        if int(exp) < (now or time.time()) or not user:
+            return None
+    except (ValueError, UnicodeDecodeError):
+        return None
+    return user
+
+
+def sso_cookie_user(cookie_header: str) -> str | None:
+    for part in (cookie_header or "").split(";"):
+        name, _, value = part.strip().partition("=")
+        if name == SSO_COOKIE:
+            return sso_verify(value.strip())
+    return None
+
+
+def _sso_safe_next(value: str) -> str:
+    """Only send people to lab hosts on the cookie's own domain."""
+    from urllib.parse import urlparse
+    if not value:
+        return "/now"
+    if value.startswith("/") and not value.startswith("//"):
+        return value
+    u = urlparse(value)
+    host = (u.hostname or "").lower()
+    if u.scheme == "https" and host.endswith(SSO_DOMAIN) and "." + host.split(".", 1)[-1] == SSO_DOMAIN:
+        return value
+    return "/now"
+
+
+def sso_login_body(next_url: str, error: str = "") -> str:
+    err = f"<p style='color:#f88'>{esc(error)}</p>" if error else ""
+    return (f"<html><head><meta charset='utf-8'><title>hexapod \u2014 sign in</title>"
+            f"<style>{CSS}</style></head><body><h1>hexapod</h1>"
+            f"<p>One sign-in for every lab site. Your browser can save this.</p>{err}"
+            f"<form method='post' action='/login' autocomplete='on'>"
+            f"<input type='hidden' name='next' value='{esc(next_url)}'>"
+            f"<p><input name='username' autocomplete='username' placeholder='user' "
+            f"style='padding:8px;font-size:1em;width:22em'></p>"
+            f"<p><input name='password' type='password' autocomplete='current-password' "
+            f"placeholder='password' style='padding:8px;font-size:1em;width:22em'></p>"
+            f"<p><button style='padding:8px 14px;font-size:1em'>Sign in</button></p>"
+            f"</form><p class='dim'><a href='/hub'>&larr; all hexapod sites</a></p>"
+            f"</body></html>")
+
+
 
 def _media_byte_range(header: str, size: int) -> tuple[int, int] | None:
     """Parse a single HTTP byte range; None means send the whole file."""
@@ -2510,11 +2625,72 @@ class Handler(http.server.BaseHTTPRequestHandler):
     def do_POST(self):  # noqa: N802
         if self._is_mcp():
             return self._serve_mcp()
+        if self.path.split("?")[0] == "/login":
+            return self._sso_login_post()
         self.send_response(404)
         self.send_header("Content-Length", "0")
         self.end_headers()
 
     do_OPTIONS = do_DELETE = do_POST  # noqa: N815 — /mcp CORS + session end
+
+    def _send(self, code: int, body: bytes = b"", ctype: str = "text/html; charset=utf-8",
+              extra: list[tuple[str, str]] | None = None) -> None:
+        self.send_response(code)
+        self.send_header("Content-Type", ctype)
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
+        for k, v in extra or []:
+            self.send_header(k, v)
+        self.end_headers()
+        if body:
+            self.wfile.write(body)
+
+    def _serve_sso(self, u) -> None:
+        from urllib.parse import parse_qs
+        q = parse_qs(u.query)
+        user = sso_cookie_user(self.headers.get("Cookie", ""))
+        if u.path == "/auth":
+            # forward_auth target: 2xx lets the request through and Caddy
+            # copies X-Hexapod-User upstream; anything else is returned to the
+            # client as-is, so browsers get a redirect to the form and
+            # everything else a plain 401.
+            if user:
+                return self._send(204, extra=[("X-Hexapod-User", user)])
+            proto = self.headers.get("X-Forwarded-Proto", "https")
+            host = self.headers.get("X-Forwarded-Host", "")
+            uri = self.headers.get("X-Forwarded-Uri", "/")
+            original = f"{proto}://{host}{uri}" if host else "/now"
+            if "text/html" in (self.headers.get("Accept") or "") and \
+                    self.headers.get("X-Forwarded-Method", "GET") in ("GET", "HEAD"):
+                from urllib.parse import quote
+                return self._send(302, extra=[("Location",
+                    f"https://{SSO_LOGIN_HOST}/login?next={quote(_sso_safe_next(original), safe='')}")])
+            return self._send(401, b"401: sign in at https://" + SSO_LOGIN_HOST.encode() + b"/login",
+                              "text/plain")
+        if u.path == "/logout":
+            return self._send(302, extra=[
+                ("Set-Cookie", f"{SSO_COOKIE}=; Domain={SSO_DOMAIN}; Path=/; Max-Age=0; Secure; HttpOnly; SameSite=Lax"),
+                ("Location", "/hub")])
+        nxt = _sso_safe_next(q.get("next", [""])[0])
+        if user:
+            return self._send(302, extra=[("Location", nxt)])
+        return self._send(200, sso_login_body(nxt).encode())
+
+    def _sso_login_post(self) -> None:
+        from urllib.parse import parse_qs
+        n = int(self.headers.get("Content-Length") or 0)
+        if n > 8192:
+            return self._send(413, b"413", "text/plain")
+        form = parse_qs(self.rfile.read(n).decode("utf-8", "replace"), keep_blank_values=True)
+        user = form.get("username", [""])[0].strip()[:120]
+        password = form.get("password", [""])[0][:4096]
+        nxt = _sso_safe_next(form.get("next", [""])[0])
+        if not _sso_secret() or not sso_check_password(user, password):
+            time.sleep(0.5)  # blunt the obvious brute force
+            return self._send(401, sso_login_body(nxt, "That user name or password was not accepted.").encode())
+        cookie = (f"{SSO_COOKIE}={sso_token(user)}; Domain={SSO_DOMAIN}; Path=/; "
+                  f"Max-Age={SSO_MAX_AGE}; Secure; HttpOnly; SameSite=Lax")
+        return self._send(302, extra=[("Set-Cookie", cookie), ("Location", nxt)])
 
     def _authed(self) -> bool:
         if not TOKEN:
@@ -2525,6 +2701,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
         # STATUS_TRUST_PROXY_USER set, that counts as signed in, so the key
         # form below is only for direct/port-forward visitors and scripts.
         if TRUST_PROXY_USER and self.headers.get("X-Hexapod-User", "").strip():
+            return True
+        if sso_cookie_user(self.headers.get("Cookie", "")):
             return True
         from urllib.parse import parse_qs, urlparse
         q = parse_qs(urlparse(self.path).query)
@@ -2652,6 +2830,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             or u.path.startswith("/llm/")
         # The front door is keyless: /hub always, and a bare "/" when the
         # visitor has no token. An authenticated "/" still gets the dashboard.
+        if u.path in ("/login", "/logout", "/auth"):
+            return self._serve_sso(u)
         authed = self._authed() or self._media_authed()
         if u.path.rstrip("/") == "/hub" or (u.path == "/" and not authed):
             body = hub_body().encode()
