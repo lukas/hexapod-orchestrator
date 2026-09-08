@@ -2105,6 +2105,44 @@ def _acquisition_steps_footgun(
         "(09-06). Pass --steps explicitly (e.g. --steps 40000000).")
 
 
+def _respec_plain_warm_activation(
+        args: list[str], *, init_from_source: bool,
+        explicit_args: list[str] | None) -> list[str]:
+    """Drop inherited constructor activation when respec loads a whole policy.
+
+    A fresh source may name ELU, but plain checkpoint loading preserves the
+    saved architecture and train_ppo_mjx rejects that constructor-only flag.
+    Explicit nonempty overrides remain errors; only the two transplant modes
+    accepted by the trainer's activation guard may retain a requested value.
+    """
+    if not init_from_source or any(flag in args for flag in (
+            "--init-from-actor-only", "--init-from-policy-backbone")):
+        return args
+    explicit = [spec for spec in explicit_args or []
+                if spec.partition("=")[0] == "--activation-fn"]
+    if explicit:
+        _, eq, value = explicit[-1].partition("=")
+        if not eq or value:
+            raise ValueError(
+                "explicit --activation-fn cannot change a plain checkpoint "
+                "warm start; omit the override (the saved activation is "
+                "preserved), or request a supported transplant explicitly")
+    out = []
+    i = 0
+    while i < len(args):
+        token = args[i]
+        if token == "--activation-fn":
+            if i + 1 >= len(args) or args[i + 1].startswith("--"):
+                raise ValueError("inherited --activation-fn is missing its value")
+            i += 2
+        elif token.startswith("--activation-fn="):
+            i += 1
+        else:
+            out.append(token)
+            i += 1
+    return out
+
+
 def cmd_respec(g: dict, a: argparse.Namespace) -> int:
     """Queue (or directly launch) a follow-up run by CLONING a ledger
     entry's trainer args with targeted overrides — the mechanical form of
@@ -2217,6 +2255,16 @@ def cmd_respec(g: dict, a: argparse.Namespace) -> int:
         src_out = (xa[xa.index("--out-name") + 1] if "--out-name" in xa
                    else "ppo_goal_" + a.source.replace("-", "_"))
         set_flag("--init-from", f"rl_move/sim/policies/{src_out}.zip")
+        try:
+            warm_args = _respec_plain_warm_activation(
+                args, init_from_source=True, explicit_args=a.arg)
+        except ValueError as exc:
+            print(f"REFUSED: {exc}")
+            return 1
+        if warm_args != args:
+            print("respec: removed inherited --activation-fn; "
+                  "plain warm start preserves checkpoint activation")
+        args = warm_args
     if not is_dynrep_source:
         set_flag("--out-name", "ppo_goal_" + a.run.replace("-", "_"))
     if "--notes" not in (a.arg or []) and not any(
