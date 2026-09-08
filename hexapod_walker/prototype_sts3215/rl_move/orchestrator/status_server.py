@@ -57,14 +57,13 @@ from concurrent.futures import ThreadPoolExecutor
 
 HERE = pathlib.Path(__file__).resolve().parent
 PROTO = HERE.parent.parent
-sys.path.insert(0, str(HERE))
-from launch_run import KUBECONFIG, load_guardrails, pod_trainers  # noqa: E402
+from launch_run import KUBECONFIG, load_guardrails, pod_trainers
 
 import mcp_server as _mcp  # noqa: E402  (MCP endpoint at /mcp)
-import blocker_state as _blockers  # noqa: E402
+import blocker_state as _blockers
 import tracks as _tracks  # noqa: E402  (research-track registry)
-import media_access as _media_access  # noqa: E402
-from ledger_view import current_entries  # noqa: E402
+import media_access as _media_access
+from ledger_view import current_entries
 
 PORT = int(os.environ.get("STATUS_PORT", "8090"))
 ORCH_LOG = pathlib.Path("/workspace/orchestrator.log")
@@ -1066,7 +1065,6 @@ def hub_body() -> str:
             f"<h2>On the lab network</h2><div class='dim'>These only "
             f"resolve from the lab Mac or its Wi-Fi.</div>"
             f"<div class='grid'>{local}</div></body></html>")
-
 
 
 def _squash(s: str) -> str:

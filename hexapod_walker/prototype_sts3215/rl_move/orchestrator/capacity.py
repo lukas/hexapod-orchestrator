@@ -16,11 +16,8 @@ import argparse
 import json
 import subprocess
 import sys
-from pathlib import Path
 
-HERE = Path(__file__).resolve().parent
-sys.path.insert(0, str(HERE))
-from launch_run import KUBECONFIG, load_guardrails, pod_trainers  # noqa: E402
+from launch_run import KUBECONFIG, load_guardrails, pod_trainers
 
 
 def kubectl_json(*args: str) -> dict:
