@@ -998,7 +998,8 @@ DASHBOARD_PATHS = {"/", "/now", "/research", "/dashboard", "/status"}
 # its own gate. The dashboard behind /now stays token-protected as before.
 HUB_LINKS = (
     ("RL orchestrator dashboard", "/now",
-     "Live training campaign: cycles, runs, watcher narration. Token-gated."),
+     "Live training campaign: cycles, runs, watcher narration. Asks for the "
+     "status key once per browser, then remembers you for a year."),
     ("Robot Lab", "https://robot-lab.cwd1f0-new-cluster.coreweave.app/",
      "Experiment queue, evidence, robot status, agent transcripts."),
     ("Robot Lab \u2014 stats & cost",
@@ -1020,6 +1021,27 @@ HUB_LOCAL = (
     ("Lab Mac web hub", "http://127.0.0.1:8898/rl",
      "Sim + robot UI and the vision picker, from the lab Mac itself."),
 )
+
+
+def signin_body(path: str) -> str:
+    """The token gate as a form, not a dead end.
+
+    Submitting is a plain GET with ?key=, which the existing handler already
+    turns into the year-long cookie and a redirect back to the same page. The
+    response stays a 403 so scripts still see the refusal.
+    """
+    return (f"<html><head><meta charset='utf-8'><title>hexapod \u2014 sign in"
+            f"</title><style>{CSS}</style></head><body><h1>hexapod</h1>"
+            f"<p>This page needs the status key. Enter it once; this browser "
+            f"is then remembered for a year.</p>"
+            f"<form method='get' action='{esc(path)}'>"
+            f"<input name='key' type='password' autofocus "
+            f"style='padding:8px;font-size:1em;width:22em' "
+            f"placeholder='status key'> "
+            f"<button style='padding:8px 14px;font-size:1em'>Open</button>"
+            f"</form><p class='dim'>Or append <code>?key=&lt;token&gt;</code> "
+            f"to the URL. <a href='/hub'>&larr; all hexapod sites</a></p>"
+            f"</body></html>")
 
 
 def hub_body() -> str:
@@ -2629,9 +2651,16 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.wfile.write(body)
             return
         if not is_llm and not authed:
-            body = b"403: append ?key=<token> to the URL"
+            wants_html = u.path != "/json" and "text/html" in (
+                self.headers.get("Accept") or "")
+            if wants_html:
+                body = signin_body(u.path).encode()
+                ctype = "text/html; charset=utf-8"
+            else:
+                body = b"403: append ?key=<token> to the URL"
+                ctype = "text/plain"
             self.send_response(403)
-            self.send_header("Content-Type", "text/plain")
+            self.send_header("Content-Type", ctype)
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             self.wfile.write(body)
