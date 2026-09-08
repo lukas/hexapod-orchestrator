@@ -208,6 +208,49 @@ print(r.url)
 EOF
   ;;
 
+quarters)  # quarters <run> [key...] — per-quarter means of ANY cached W&B
+  # history keys (logs/experiments/<run>/wandb_history.csv, prestaged for
+  # every finished run). No args = list available keys. Meta 09-08: triage
+  # cycles were hand-rolling `python -c` csv parses for exactly this read
+  # (env/reward_walk, env/walk_speed quarters) several times per cycle.
+  run="${2:-}"; [ -n "$run" ] || { echo "usage: ops.sh quarters <run> [key...]"; exit 1; }
+  shift 2
+  uv run python - "$run" "$@" <<'EOF'
+import csv, os, sys
+run, keys = sys.argv[1], sys.argv[2:]
+path = os.path.join(os.environ["PROTO"], "logs", "experiments", run,
+                    "wandb_history.csv")
+if not os.path.exists(path):
+    sys.exit(f"no cached history at {path} (prestage not landed yet — "
+             "ops.sh wandb <run> for the live summary)")
+rows = list(csv.DictReader(open(path)))
+if not rows:
+    sys.exit("cached history is empty")
+if not keys:
+    print("available keys (pick some, e.g. env/reward_walk train/loss):")
+    print("\n".join(sorted(rows[0].keys())))
+    sys.exit(0)
+for k in keys:
+    vals = []
+    for r in rows:
+        v = r.get(k)
+        if v not in (None, ""):
+            try:
+                f = float(v)
+            except ValueError:
+                continue
+            if f == f:  # skip NaN
+                vals.append(f)
+    if not vals:
+        print(f"{k}: (no data — run `ops.sh quarters {run}` to list keys)")
+        continue
+    q = max(len(vals) // 4, 1)
+    chunks = [vals[i * q:(i + 1) * q] for i in range(4)]
+    qs = [round(sum(c) / len(c), 4) for c in chunks if c]
+    print(f"{k}: n={len(vals)} quarters={qs} last={round(vals[-1], 4)}")
+EOF
+  ;;
+
 pullckpt)  # pullckpt <run> — prefer durable controller, then training pod; md5
   run="$2"; pod=$(entry_field "$run" pod)
   [ -z "$pod" ] && { echo "no ledger entry for $run"; exit 1; }
@@ -1079,7 +1122,10 @@ verdict)  # verdict <run> <status> "<verdict text>" ["logline text"] —
     || echo "(wandbnote failed — ledger verdict is recorded; continue)"
   if [ -z "$line" ]; then
     tr="$(entry_field "$run" track)"; tr="${tr:-joystick}"
-    line="[$tr] $run -> $st: $(printf '%s' "$text" | tr '\n' ' ' | head -c 220)"
+    # meta 09-08: a hard 220-byte cut lost verdict conclusions mid-word in
+    # RL_LOG; keep the index line bounded but end it honestly.
+    line="[$tr] $run -> $st: $(printf '%s' "$text" | tr '\n' ' ' | head -c 360)"
+    [ "${#text}" -gt 360 ] && line="$line ...(full verdict in ledger)"
   fi
   bash "$0" logline "$line"
   ;;
@@ -1426,7 +1472,7 @@ prune)  # prune [--execute] [--run <name>] — mechanical seed-prune audit
   sed -n '2,6p' "$0"
   echo "subcommands: review <run> (START HERE for triage) | report <run|json> |"
   echo "  status | census | triage [hours] | procs <pod> | trainlog <run> [n] |"
-  echo "  entry <run> | wandb <run> | pullckpt <run> | pushckpt <pod> <ckpt> |"
+  echo "  entry <run> | wandb <run> | quarters <run> [key...] | pullckpt <run> | pushckpt <pod> <ckpt> |"
   echo "  podeval <run> [sfx] | m5eval <run> [pod] | evalcmd <run> | evalcmdstress <run> | drain | killrun <run> |"
   echo "  waitlog <file> <regex> [t] | podwaitlog <pod> <file> <regex> [t] | evalpending add <pod> <file> <label> |"
   echo "  handoff <run> (deferred-artifacts registry: training/artifacts_pending/evaluated) |"
