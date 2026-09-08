@@ -60,7 +60,8 @@ def test_long_checkpoint_publication_preserves_bytes_and_lineage(tmp_path, monke
 
 
 def test_long_analysis_publishes_to_existing_run(tmp_path, monkeypatch):
-    from rl_move.orchestrator import launch_run as lr
+    monkeypatch.syspath_prepend(str(ROOT / "rl_move" / "orchestrator"))
+    import launch_run as lr
     recorded = []
     initialized = []
     writer = SimpleNamespace(log_artifact=recorded.append, finish=lambda: None)
