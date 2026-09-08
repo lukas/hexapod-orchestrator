@@ -992,6 +992,60 @@ def llm_url_groups(base: str) -> list[tuple[str, list[tuple[str, str]]]]:
 TRACK_BRIEF_ORDER = ("standwalk", "walkcurr", "joystick", "amp", "cpg")
 DASHBOARD_PATHS = {"/", "/now", "/research", "/dashboard", "/status"}
 
+# One stable front door for everything hexapod (operator 09-08: "a single
+# website ... that links me to all the other websites"). Keyless on purpose:
+# it lists only public hostnames, never a token, and every destination keeps
+# its own gate. The dashboard behind /now stays token-protected as before.
+HUB_LINKS = (
+    ("RL orchestrator dashboard", "/now",
+     "Live training campaign: cycles, runs, watcher narration. Token-gated."),
+    ("Robot Lab", "https://robot-lab.cwd1f0-new-cluster.coreweave.app/",
+     "Experiment queue, evidence, robot status, agent transcripts."),
+    ("Robot Lab \u2014 stats & cost",
+     "https://robot-lab.cwd1f0-new-cluster.coreweave.app/stats",
+     "Attempts, spend by backend/lane/model, experiment counts."),
+    ("Cameras", "https://camera.cwd1f0-new-cluster.coreweave.app/",
+     "Vision hub on the lab Mac: live frames, tag pose, readiness."),
+    ("BuildViz", "https://buildviz.cwd1f0-new-cluster.coreweave.app/",
+     "CAD builds, scenes, part history. Cloud mirror of the local hub."),
+    ("LLM-readable status", "/llms.txt",
+     "Plain-text index of the campaign for agents. No token needed."),
+    ("Source", "https://github.com/lukas/hexapod",
+     "Everything above lives in this repo."),
+)
+HUB_LOCAL = (
+    ("Robot (lab network only)", "http://hexapod.local:8080/",
+     "Direct control UI on the Uno Q. /api/commands shows who commanded "
+     "what; /api/deploy shows which build is running."),
+    ("Lab Mac web hub", "http://127.0.0.1:8898/rl",
+     "Sim + robot UI and the vision picker, from the lab Mac itself."),
+)
+
+
+def hub_body() -> str:
+    def card(title, href, blurb, extra=""):
+        return (f"<a class='hub{extra}' href='{esc(href)}'><b>{esc(title)}</b>"
+                f"<span>{esc(blurb)}</span><i>{esc(href)}</i></a>")
+    cards = "".join(card(*row) for row in HUB_LINKS)
+    local = "".join(card(*row, extra=" dim") for row in HUB_LOCAL)
+    style = ("<style>.grid{display:grid;grid-template-columns:repeat("
+             "auto-fit,minmax(280px,1fr));gap:12px;margin:18px 0}"
+             ".hub{display:block;text-decoration:none;color:inherit;"
+             "border:1px solid #444;border-radius:12px;padding:14px 16px}"
+             ".hub:hover{border-color:#9c9}.hub b{display:block;"
+             "font-size:1.1em;margin-bottom:4px}.hub span{display:block;"
+             "opacity:.85}.hub i{display:block;margin-top:8px;font-size:.8em;"
+             "opacity:.55;word-break:break-all}h2{margin-top:28px}</style>")
+    return (f"<html><head><meta charset='utf-8'><title>hexapod</title>"
+            f"<style>{CSS}</style>{style}</head><body><h1>hexapod</h1>"
+            f"<div class='dim'>Everything for the STS3215 hexapod, one page. "
+            f"Each destination keeps its own sign-in.</div>"
+            f"<div class='grid'>{cards}</div>"
+            f"<h2>On the lab network</h2><div class='dim'>These only "
+            f"resolve from the lab Mac or its Wi-Fi.</div>"
+            f"<div class='grid'>{local}</div></body></html>")
+
+
 
 def _squash(s: str) -> str:
     return re.sub(r"\s+", " ", s).strip()
@@ -2563,7 +2617,18 @@ class Handler(http.server.BaseHTTPRequestHandler):
         # the token.
         is_llm = u.path == "/llms.txt" or u.path.rstrip("/") == "/llm" \
             or u.path.startswith("/llm/")
-        if not is_llm and not (self._authed() or self._media_authed()):
+        # The front door is keyless: /hub always, and a bare "/" when the
+        # visitor has no token. An authenticated "/" still gets the dashboard.
+        authed = self._authed() or self._media_authed()
+        if u.path.rstrip("/") == "/hub" or (u.path == "/" and not authed):
+            body = hub_body().encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+        if not is_llm and not authed:
             body = b"403: append ?key=<token> to the URL"
             self.send_response(403)
             self.send_header("Content-Type", "text/plain")
