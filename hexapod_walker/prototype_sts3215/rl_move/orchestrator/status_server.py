@@ -1892,7 +1892,7 @@ def _page(title: str, body: list[str], refresh: int = 0,
     return (f"<html><head><meta charset='utf-8'>{meta}"
             f"<title>{esc(title)}</title><style>{CSS}</style></head>"
             f"<body><div class='dim' style='margin-bottom:8px'>"
-            f"<a href='/'>&larr; dashboard</a></div>"
+            f"<a href='/now'>&larr; dashboard</a> &middot; <a href='/'>all sites</a></div>"
             + "".join(body) + f"{tail}</body></html>")
 
 
@@ -2828,12 +2828,14 @@ class Handler(http.server.BaseHTTPRequestHandler):
         # the token.
         is_llm = u.path == "/llms.txt" or u.path.rstrip("/") == "/llm" \
             or u.path.startswith("/llm/")
-        # The front door is keyless: /hub always, and a bare "/" when the
-        # visitor has no token. An authenticated "/" still gets the dashboard.
+        # The front door is keyless and unconditional: "/" and "/hub" are the
+        # links page for everyone, signed in or not. The dashboard lives at
+        # /now (its long-standing bookmark), so signing in via SSO no longer
+        # turns the site's root into the RL agent view.
         if u.path in ("/login", "/logout", "/auth"):
             return self._serve_sso(u)
         authed = self._authed() or self._media_authed()
-        if u.path.rstrip("/") == "/hub" or (u.path == "/" and not authed):
+        if u.path.rstrip("/") in ("/hub", ""):
             body = hub_body().encode()
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
