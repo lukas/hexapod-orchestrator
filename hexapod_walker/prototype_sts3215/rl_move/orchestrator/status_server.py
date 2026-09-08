@@ -122,7 +122,7 @@ def live_cycles() -> list[dict]:
     """Claude cycle subprocesses: what each triages + its live tool call."""
     now = time.time()
     procs: dict[int, tuple[int, bytes, float]] = {}
-    for d in glob.glob("/proc/[0-9]*"):
+    for d in glob.glob(str(_mcp.PROC_ROOT / "[0-9]*")):
         try:
             with open(d + "/cmdline", "rb") as fh:
                 cmd = fh.read()
@@ -132,7 +132,10 @@ def live_cycles() -> list[dict]:
         except OSError:
             continue
         try:  # stat: "pid (comm) state ppid ..." — comm may contain spaces
-            ppid = int(stat.rsplit(")", 1)[1].split()[1])
+            fields = stat.rsplit(")", 1)[1].split()
+            if fields[0] == "Z":
+                continue
+            ppid = int(fields[1])
         except (IndexError, ValueError):
             continue
         procs[int(d.split("/")[-1])] = (ppid, cmd, mtime)
@@ -244,7 +247,7 @@ def recent_cycle_logs(n: int = 10) -> list[dict]:
         # Legacy pre-streaming logs wrote only at exit: content but
         # no marker and no registry row = done.
         e = reg.get(p.name, {})
-        rstat = e.get("status", "")
+        rstat = _mcp._cycle_display_status(e)
         try:
             with p.open("rb") as fh:
                 streaming_fmt = b"=== CYCLE START" in fh.read(400)
@@ -253,6 +256,8 @@ def recent_cycle_logs(n: int = 10) -> list[dict]:
         if (tail and tail[-1].startswith("=== CYCLE END")) \
                 or rstat in ("done", "failed", "timeout"):
             state = rstat if rstat in ("failed", "timeout") else "done"
+        elif rstat.startswith("inactive ("):
+            state = rstat
         elif rstat == "running" or streaming_fmt or st.st_size == 0:
             state = "running"
         else:
@@ -1609,6 +1614,7 @@ def render(base: str = "") -> str:
              "<th>took</th><th>cycle</th><th>last output</th></tr>")
     for c in f.get("cycle_logs", []):
         cls = ("warn" if c["state"] == "running"
+               else "dim" if c["state"].startswith("inactive (")
                else "bad" if c["state"] in ("failed", "timeout") else "ok")
         tail = esc(" / ".join(t.strip() for t in c["tail"] if t.strip())[-160:])
         dur = (f"{int(c['dur_s']) // 60}m" if c.get("dur_s")

@@ -770,6 +770,7 @@ WATCHER_LOG = pathlib.Path("/workspace/orchestrator.log")
 CYCLE_LOG_DIR = pathlib.Path("/workspace/cycle_logs")
 CYCLE_REGISTRY = CYCLE_LOG_DIR / "cycles.json"  # watch_loop registry_update
 PAUSE_FLAG = HERE / "PAUSE"
+PROC_ROOT = pathlib.Path("/proc")
 
 _SPAWN_RE = re.compile(
     r"^\[([^\]]+)\] cycle spawned pid=(\d+) model=(\S+) for: (.+?) "
@@ -784,6 +785,40 @@ def _cycle_registry() -> list[dict]:
         return [e for e in entries if isinstance(e, dict)]
     except Exception:
         return []
+
+
+def _cycle_inactive_reason(pid: int | str | None) -> str | None:
+    """Read-only evidence that a cycle stopped; unknown is not completion.
+
+    A watcher restart can leave completed children as orphan zombies and
+    their registry rows marked running. /proc/PID still exists for those
+    children, so existence alone cannot establish live ownership.
+    """
+    if not pid or not PROC_ROOT.is_dir():
+        return None  # No Linux process view (e.g. laptop development).
+    try:
+        process = PROC_ROOT / str(int(pid))
+        stat = (process / "stat").read_text()
+    except (TypeError, ValueError):
+        return None
+    except FileNotFoundError:
+        return "PID gone" if not process.exists() else None
+    except OSError:
+        return None  # Permission/transient read errors do not prove exit.
+    try:
+        state = stat.rsplit(")", 1)[1].split()[0]
+    except IndexError:
+        return None
+    return "zombie" if state == "Z" else None
+
+
+def _cycle_display_status(entry: dict) -> str:
+    status = entry.get("status", "")
+    if status == "running":
+        reason = _cycle_inactive_reason(entry.get("pid"))
+        if reason:
+            return f"inactive ({reason})"  # Exit result is not known here.
+    return status
 
 
 def _narration_tail(path_str: str, lines: int = 12,
@@ -848,20 +883,17 @@ def t_orchestrator_activity() -> str:
 
     reg = _cycle_registry()
     if reg:
-        active = [e for e in reg if e.get("status") == "running"]
-        finished = [e for e in reg if e.get("status") != "running"]
+        displayed = [(e, _cycle_display_status(e)) for e in reg]
+        active = [e for e, status in displayed if status == "running"]
+        finished = [(e, status) for e, status in displayed
+                    if status != "running"]
         out.append(f"\nactive cycles ({len(active)}):")
         if not active:
             out.append("- none")
         for e in active:
             pid = e.get("pid")
-            stale = (pid and pathlib.Path("/proc").is_dir()
-                     and not pathlib.Path(f"/proc/{pid}").exists())
             head = (f"## {e.get('label')} (model {e.get('model')}, "
                     f"started {e.get('started')}, pid {pid})")
-            if stale:
-                head += (" — PID GONE but not reaped: watcher likely "
-                         "restarted mid-cycle; treat as dead")
             out.append(head)
             trig = e.get("trigger", "")
             if trig:
@@ -879,12 +911,12 @@ def t_orchestrator_activity() -> str:
         if finished:
             out.append("\nrecently finished cycles (full narration via "
                        "cycle_log('<stamp>')):")
-            for e in finished[-5:]:
+            for e, status in finished[-5:]:
                 dur = e.get("duration_s")
                 dur = f"{dur // 60}m{dur % 60:02d}s" \
                     if isinstance(dur, int) else "?"
                 out.append(f"- {e.get('stamp')}_{e.get('label')}: "
-                           f"{e.get('status')} rc={e.get('rc')} in {dur}")
+                           f"{status} rc={e.get('rc')} in {dur}")
     else:
         # Pre-registry fallback: parse watcher-log spawn lines and
         # check pid liveness (older deploy or laptop dev).
@@ -895,7 +927,8 @@ def t_orchestrator_activity() -> str:
                 continue
             ts, pid, model, label, logp = m.groups()
             entry = f"{label} (model {model}, spawned {ts})"
-            if pathlib.Path(f"/proc/{pid}").exists():
+            if (_cycle_inactive_reason(pid) is None
+                    and (PROC_ROOT / pid).exists()):
                 alive.append(entry + " — RUNNING; live narration: "
                              f"cycle_log('{pathlib.Path(logp).stem}')")
             else:
