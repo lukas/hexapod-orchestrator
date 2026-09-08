@@ -148,7 +148,7 @@ def test_successful_sync_is_locked_fast_forward_without_autostash(tmp_path):
     # Existing wrapup cadence/drain survives: three cycles polls, drain at #2.
     assert events.count("sleep|60") == 3
     drains = [i for i, event in enumerate(events)
-              if event == "uv|run|python|rl_move/orchestrator/launch_run.py|drain"]
+              if event == "uv|run|--no-project|python|rl_move/orchestrator/launch_run.py|drain"]
     assert len(drains) == 1 and drains[0] < events.index(git)
     assert not any(event.startswith("pkill|") for event in events)
 

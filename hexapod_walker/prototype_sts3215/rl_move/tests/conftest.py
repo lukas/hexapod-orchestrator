@@ -13,6 +13,12 @@ families — running them against mesh would test nothing but the mismatch.
 outer override (e.g. a CI matrix leg) working.  Mesh-family coverage lives
 in ``test_model_source.py``, which overrides per-test.
 
+NOTE (2026-09-08, operator): the MDP_PREFLIGHT rollout bank
+(``test_task_semantics.py``) is retired and this primitive pin is now a
+LEGACY default for the remaining calibrated tests only. New tests set the
+family they mean explicitly with ``monkeypatch.setenv("HEXAPOD_MODEL_SOURCE",
+"mesh")`` and never write ``os.environ`` directly (RESEARCH_RULES "Tests").
+
 NOTE (2026-08-25 leg-sacrifice DIG-IN): `rl_move/config.py:load_config`
 grew an analogous `HEXAPOD_CONTROL_HZ` override this same cycle while
 chasing a 54-test full-bank regression (was 1 known-red 08-22) that

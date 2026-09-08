@@ -1,3 +1,4 @@
+import pytest
 """pod_trainers()'s cmdline-scan glob (2026-08-15 dynrep triage fix).
 
 The launcher's own pre-launch free-pod check and dedupe guard (not just
@@ -15,6 +16,7 @@ underscore) module was. capacity.py and the launcher's own busy check
 read those pods as free while genuinely running a trainer.
 """
 import subprocess
+import sys
 
 import launch_run as lr
 
@@ -32,6 +34,7 @@ def _scan(tmp_path) -> list[str]:
     return out.splitlines()
 
 
+@pytest.mark.skipif(sys.platform != "linux", reason="_TRAINER_SCAN_SCRIPT reads /proc-style cmdline files with GNU tools; it runs on the Linux controller")
 def test_matches_every_trainer_module(tmp_path):
     _fake_proc(tmp_path, 1, ["python3", "-m", "rl_move.sim.train_ppo_mjx",
                              "--run-name", "cw-foo"])
