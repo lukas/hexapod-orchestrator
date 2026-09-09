@@ -81,6 +81,24 @@ permits at most 20 risks/actions; keep every string under 4000 characters.
 """
 
 _ACTIONS = {"continue", "inspect", "pause_agent", "repair_auth", "notify", "automate", "stop_review"}
+
+
+def _object_schema(properties: dict) -> dict:
+    return {"type": "object", "properties": properties, "required": list(properties), "additionalProperties": False}
+
+
+_STRING_SCHEMA = {"type": "string"}
+_GOAL_SCHEMA = _object_schema({key: _STRING_SCHEMA for key in ("sim", "physical", "next_step")})
+REVIEW_SCHEMA = _object_schema({
+    "summary": _STRING_SCHEMA,
+    "risks": {"type": "array", "items": _STRING_SCHEMA},
+    "recommended_actions": {"type": "array", "items": _object_schema({
+        "action": {"type": "string", "enum": sorted(_ACTIONS)},
+        "target": _STRING_SCHEMA, "reason": _STRING_SCHEMA,
+        "evidence": {"type": "array", "items": _STRING_SCHEMA},
+    })},
+    "goal_assessment": _object_schema({"any_means": _GOAL_SCHEMA, "rl_only": _GOAL_SCHEMA}),
+})
 _SENSITIVE_KEYS = {
     "api_key", "apikey", "anthropic_api_key", "openai_api_key", "authorization",
     "password", "secret", "token", "access_token", "refresh_token", "credentials",
@@ -381,6 +399,23 @@ def _review_text(response: Mapping[str, Any], provider: str) -> str:
     return "".join(pieces)
 
 
+def _diagnostic_text(response: Mapping[str, Any], provider: str) -> str:
+    """Only visible advice text, even when the provider structure is invalid."""
+    containers = [response] if provider == "claude" else [
+        item for item in response.get("output", [])
+        if isinstance(item, dict) and item.get("type") == "message"]
+    pieces = []
+    for item in containers:
+        blocks = item.get("content")
+        if not isinstance(blocks, list):
+            continue
+        for block in blocks:
+            if (isinstance(block, dict) and block.get("type") in {"text", "output_text"}
+                    and isinstance(block.get("text"), str)):
+                pieces.append(block["text"])
+    return "".join(pieces)
+
+
 def review_once(
     store: BudgetStore,
     wake_id: str,
@@ -415,6 +450,7 @@ def review_once(
             "model": config.model, "max_tokens": config.max_output_tokens,
             "system": REVIEW_SYSTEM_PROMPT, "messages": [{"role": "user", "content": prompt}],
             "thinking": {"type": "disabled"}, "service_tier": "standard_only", "stream": False,
+            "output_config": {"format": {"type": "json_schema", "schema": REVIEW_SCHEMA}},
         }
         default_transport = _post_messages
     else:
@@ -447,6 +483,8 @@ def review_once(
         result["stop_wake"] = True
         return result
     result.update(provider_usage=usage, actual_cost_usd=str(actual))
+    if isinstance(response.get("id"), str):
+        result["provider_response_id"] = _sanitize(response["id"][:200], api_key)
     # Settlement happens even for invalid advisory JSON: model work still costs.
     store.settle(operation_id, str(actual))
     result["billing_reconciliation_required"] = False
@@ -456,7 +494,13 @@ def review_once(
         return result
     try:
         review = _validate_review(json.loads(_review_text(response, config.provider)))
-    except (TypeError, ValueError):
+    except (TypeError, ValueError) as exc:
+        # Keep a private, bounded diagnostic so paid model work is inspectable
+        # without buying a duplicate call. Never retain reasoning or tool input.
+        text = _diagnostic_text(response, config.provider)
+        result["invalid_advisory_excerpt"] = _sanitize(text, api_key)[:16000]
+        result["validation_error"] = _sanitize(str(exc), api_key)[:500]
+        result["provider_stop_reason"] = _sanitize(str(response.get("stop_reason", response.get("status"))), api_key)[:200]
         result.update(status="invalid_response", stop_wake=True,
                       error="Paid response did not contain a complete valid advisory report; no actions executed")
         return result
