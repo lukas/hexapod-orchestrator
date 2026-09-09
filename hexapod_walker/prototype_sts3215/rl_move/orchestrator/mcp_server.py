@@ -221,17 +221,16 @@ def _track_status_paths() -> list[pathlib.Path]:
     try:
         import tracks as _tracks
         for v in _tracks.load().values():
-            p = (PROTO / v["doc"]).resolve()
-            if p.is_file() and p not in seen:
+            p = state_dir.document_path(v["doc"], PROTO)
+            if p is not None and p.is_file() and p not in seen:
                 paths.append(p)
                 seen.add(p)
     except Exception:
         pass
-    for p in sorted((PROTO / "rl_docs" / "tracks").glob("*/STATUS.md")):
-        rp = p.resolve()
-        if rp not in seen:
-            paths.append(rp)
-            seen.add(rp)
+    for p in state_dir.track_status_paths(PROTO):
+        if p not in seen:
+            paths.append(p)
+            seen.add(p)
     return paths
 
 
@@ -259,23 +258,12 @@ def _public(e: dict) -> dict:
 
 
 def _doc_paths() -> list[str]:
-    out = []
-    for root, dirs, files in os.walk(PROTO):
-        dirs[:] = [d for d in dirs if d not in DOC_SKIP_DIRS]
-        rel = os.path.relpath(root, PROTO)
-        for name in files:
-            if name.endswith(".md"):
-                out.append(name if rel == "." else f"{rel}/{name}")
-    return sorted(out)
+    return state_dir.document_paths(PROTO, DOC_SKIP_DIRS)
 
 
 def _read_doc(rel: str) -> str | None:
-    if not rel.endswith(".md") or ".." in rel:
-        return None
-    p = (PROTO / rel).resolve()
-    # symlinked journals/run stories resolve into the state repo (state_dir.py)
-    if not (p.is_relative_to(PROTO.resolve())
-            or p.is_relative_to(state_dir.STATE_DIR.resolve())):
+    p = state_dir.document_path(rel, PROTO)
+    if p is None:
         return None
     try:
         return p.read_text(errors="replace")
@@ -405,10 +393,10 @@ def t_get_run(run: str) -> str:
                   "stop_reason")
         out.append(json.dumps([
             {k: e[k] for k in fields if k in e} for e in attempts], indent=1))
-    story = PROTO / "rl_docs" / "runs" / f"{run}.md"
-    if story.is_file():
+    story = _read_doc(f"rl_docs/runs/{run}.md")
+    if story is not None:
         out += ["", "# Run story (rl_docs/runs/%s.md)" % run,
-                story.read_text(errors="replace")]
+                story]
     notes = feedback_for_run(run)
     out += ["", "# Saved run feedback"]
     if notes:
@@ -528,7 +516,8 @@ def t_list_docs() -> str:
             n_runs += 1
             continue
         try:
-            size = (PROTO / rel).stat().st_size
+            p = state_dir.document_path(rel, PROTO)
+            size = p.stat().st_size if p else 0
         except OSError:
             size = 0
         d = os.path.dirname(rel) or "(root)"
@@ -546,6 +535,8 @@ def t_list_docs() -> str:
 def t_read_doc(path: str) -> str:
     body = _read_doc(path)
     if body is None:
+        if state_dir.state_doc_relative(path) and not state_dir.STATE_DIR.is_dir():
+            return f"orchestrator state dir missing: {state_dir.STATE_DIR} — {state_dir.SYNC_HINT}"
         return (f"{path!r} not found (must be a .md path relative to the "
                 f"prototype tree — see list_docs).")
     return _clip(body, what=path)
@@ -774,12 +765,7 @@ def _file_operator_kick(focus: str, author: str) -> str:
 
 
 def t_list_operator_questions() -> str:
-    p = HERE / "OPERATOR_QUESTIONS.md"
-    try:
-        return _clip(p.read_text(errors="replace"))
-    except OSError:
-        return ("no OPERATOR_QUESTIONS.md yet — no cycle has hit a "
-                "rule conflict while executing an operator order.")
+    return t_read_doc("rl_move/orchestrator/OPERATOR_QUESTIONS.md")
 
 
 # Watcher-side paths mirrored here for the live-activity view (same

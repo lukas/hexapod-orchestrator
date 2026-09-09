@@ -17,4 +17,4 @@ else
   git clone -q --depth 50 "$URL" "$STATE"
   echo "state: cloned into $STATE ($(git -C "$STATE" log -1 --format='%h %s'))"
 fi
-echo "ledger entries: $(python3 -c "import json,sys; print(len(json.load(open(sys.argv[1]))))" "$STATE/experiments.json" 2>/dev/null || echo '? (no experiments.json yet)')"
+echo "ledger entries: $(uv run python -c "import json,sys; print(len(json.load(open(sys.argv[1]))))" "$STATE/experiments.json" 2>/dev/null || echo '? (no experiments.json yet)')"

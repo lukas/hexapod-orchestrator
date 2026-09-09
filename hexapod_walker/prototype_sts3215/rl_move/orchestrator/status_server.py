@@ -343,9 +343,9 @@ def status_docs() -> dict:
         docs["main"]["text"] = f"(unreadable: {e})"
     try:
         for tid, v in _tracks.load().items():
-            p = PROTO / v["doc"]
             try:
-                text = p.read_text(errors="replace")
+                p = state_dir.document_path(v["doc"], PROTO)
+                text = p.read_text(errors="replace") if p else f"({v['doc']} missing)"
             except OSError:
                 text = f"({v['doc']} missing)"
             docs[tid] = {"name": f"{tid} — {v['name']}", "text": text}
@@ -355,7 +355,7 @@ def status_docs() -> dict:
     # land before its registration (operator 08-12, dynrep) — show them
     # anyway rather than silently hiding a whole line of research.
     try:
-        for p in sorted((PROTO / "rl_docs" / "tracks").glob("*/STATUS.md")):
+        for p in state_dir.track_status_paths(PROTO):
             tid = p.parent.name
             if tid not in docs:
                 docs[tid] = {"name": f"{tid} — (unregistered track)",
@@ -967,8 +967,7 @@ def llm_url_groups(base: str) -> list[tuple[str, list[tuple[str, str]]]]:
         ("Per-track STATUS", [
             (p.parent.name, f"{base}/llm/doc/rl_docs/tracks/"
                             f"{p.parent.name}/STATUS.md")
-            for p in sorted((PROTO / "rl_docs" / "tracks")
-                            .glob("*/STATUS.md"))]),
+            for p in state_dir.track_status_paths(PROTO)]),
         ("Deep-dive research docs", docs([
             ("AMP locomotion charter", "rl_docs/AMP_LOCOMOTION.md"),
             ("Download answer", "rl_docs/DOWNLOAD_ANSWER.md"),
@@ -1993,10 +1992,10 @@ def render_run_page(run: str) -> str | None:
         entries = []
     rows = [e for e in entries
             if isinstance(e, dict) and e.get("run") == run]
-    story = PROTO / "rl_docs" / "runs" / f"{run}.md"
+    story = llm_doc_file(f"rl_docs/runs/{run}.md")
     cyc = [e for e in _cycle_registry_entries()
            if run in (e.get("runs") or []) or run in (e.get("label") or "")]
-    if not rows and not cyc and not story.is_file():
+    if not rows and not cyc and story is None:
         return None
     latest = current_entries(rows).get(run, {})
     st = latest.get("status", "?")
@@ -2096,9 +2095,9 @@ def render_run_page(run: str) -> str | None:
         body.append("<div class='dim'>none recorded in the cycle registry "
                     "(it only tracks cycles since 08-22)</div>")
 
-    if story.is_file():
+    if story is not None:
         body.append(f"<h2>Run story (rl_docs/runs/{esc(run)}.md)</h2>"
-                    f"<pre>{esc(story.read_text(errors='replace')[:300000])}"
+                    f"<pre>{esc(story.decode(errors='replace')[:300000])}"
                     f"</pre>")
     return _page(run, body)
 
@@ -2237,7 +2236,8 @@ def llm_runs_md(base: str, key: str) -> str:
                        f"entr{'y' if count == 1 else 'ies'} "
                        f"(read with authenticated MCP get_run or "
                        f"list_run_feedback)")
-        if (PROTO / "rl_docs" / "runs" / f"{run}.md").is_file():
+        story = state_dir.document_path(f"rl_docs/runs/{run}.md", PROTO)
+        if story is not None and story.is_file():
             out.append(f"- full story: {base}/llm/doc/rl_docs/runs/"
                        f"{run}.md{key}")
         out.append("")
@@ -2251,15 +2251,8 @@ DOC_SKIP_DIRS = {".git", "logs", "wandb", "policies", "node_modules",
 
 
 def list_docs() -> list[str]:
-    """Every .md under the prototype tree, PROTO-relative, sorted."""
-    out = []
-    for root, dirs, files in os.walk(PROTO):
-        dirs[:] = [d for d in dirs if d not in DOC_SKIP_DIRS]
-        rel = os.path.relpath(root, PROTO)
-        for name in files:
-            if name.endswith(".md"):
-                out.append(name if rel == "." else f"{rel}/{name}")
-    return sorted(out)
+    """Every code/state doc under its prototype-relative logical name."""
+    return state_dir.document_paths(PROTO, DOC_SKIP_DIRS)
 
 
 def git_head() -> str:
@@ -2281,7 +2274,8 @@ def llm_docs_md(base: str, key: str) -> str:
             n_runs += 1
             continue
         try:
-            size = (PROTO / rel).stat().st_size
+            p = state_dir.document_path(rel, PROTO)
+            size = p.stat().st_size if p else 0
         except OSError:
             size = 0
         d = os.path.dirname(rel) or "(root)"
@@ -2311,14 +2305,8 @@ def llm_docs_md(base: str, key: str) -> str:
 
 def llm_doc_file(rel: str) -> bytes | None:
     """One doc by PROTO-relative path; None = not found/not allowed."""
-    if not rel.endswith(".md") or ".." in rel:
-        return None
-    p = (PROTO / rel).resolve()
-    # Journals and run stories are symlinks from the prototype tree into the
-    # state repo (state_dir.py), so the resolved path may live under
-    # STATE_DIR instead of PROTO. Anything else outside both is traversal.
-    if not (p.is_relative_to(PROTO.resolve())
-            or p.is_relative_to(state_dir.STATE_DIR.resolve())):
+    p = state_dir.document_path(rel, PROTO)
+    if p is None:
         return None
     try:
         return p.read_bytes()
