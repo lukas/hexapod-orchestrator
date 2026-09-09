@@ -113,9 +113,13 @@ These are binding. A cycle that violates them reverts its own test.
    next to robot code in `linux_control/`), one file per module,
    `test_<module>.py`. No `test_*.py` under `rl_move/scripts/` or
    `rl_move/sim/`; pytest never ran the eight that were there.
-6. **Green or gone.** `main` stays green. A test that fails on `main`
-   for a week is deleted, not skipped. When a track closes, its tests
-   go with it in the same commit.
+6. **Diagnose failures.** `main` stays green. A failing regression test
+   requires a diagnosis: fix a code regression, or update the test when
+   the intended behavior changes. Age alone is never a reason to delete
+   or skip it. Remove tests only when their behavior is intentionally
+   retired or their coverage is redundant, and record that reason. When
+   a track closes, retire its experiment-specific tests while retaining
+   mechanics coverage for code that remains in use.
 7. **Cheap to own.** No file over 1 000 lines; a 14 000-line test file
    was the reason the suite could not be parallelised.
 
