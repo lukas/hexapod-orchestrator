@@ -19,7 +19,7 @@ Both proceed in parallel. Each needs an interactive joystick sim demo and
 viewable video as well as physical walking evidence. Report readiness, demo
 link/launch command and remaining limits separately for each deliverable.
 Non-interactive reproducible sim video now exists for a candidate under each
-goal (below); the interactive-viewer click-through step (needs a display, no
+goal (below); the interactive-viewer click-through (needs a display, no
 cloud pod has one) is the one piece still open for both — irreducible-to-
 cloud, not a design gap. Neither whole outcome is established yet. Physical
 acceptance needs a named build/controller, a bounded joystick trial with
@@ -50,14 +50,14 @@ Interactive launch: `sim_viewer/sim_web.sh --walk rl_move/sim/policies/<name
 above>` (one click in the default picker). Known limitation: a SUSTAINED
 (~15 s) off-forward heading (±90/±135/180°) still chronically sacrifices one
 front leg's swing (`rl_docs/tracks/walkcurr/STATUS.md` 09-09 ~11:2x on);
-forward/brief transitions are clean. Four independent repair mechanisms
-(reweight, gain-dose, log-std widen, self-distillation) all CLOSED FAIL
-(09-09 ~19:4x) — reopening needs a genuinely new structural idea, not
-another dose/variant; not required for this sim-demo deliverable.
-Physical-handoff prep (09-09): exported to the robot's numpy runtime
-(built N-layer/ELU export support) with a transfer manifest + registered
-bounded-trial plan at `rl_docs/tracks/walkcurr/bundle_rlonly_v1/` (walk
-role only, not a trial).
+forward/brief transitions are clean. Five independent repair mechanisms
+(reweight, gain-dose, log-std widen, self-distillation, heading-isolation)
+all CLOSED FAIL (09-09 ~20:3x), closing the exposure/batch-composition axis
+end-to-end; reopening needs a different PPO-level mechanism (per-heading
+advantage normalization, unbuilt); not required for this sim-demo deliverable.
+Physical-handoff prep (09-09): exported to the robot's numpy runtime (built
+N-layer/ELU export support) with a transfer manifest + registered bounded-
+trial plan at `rl_docs/tracks/walkcurr/bundle_rlonly_v1/` (walk role only).
 
 ## Recorded method milestones — not parent-goal completion
 
@@ -74,9 +74,9 @@ role only, not a trial).
   check its journal for later results before proposing another mechanism.
 - `assistfade`: rungs 1–4 (09-07) and the 09-09 residual-anneal-gate
   mechanism (both named levers, plus 6/6 per-leg reward addons) are now ALL
-  closed — every tested "fade assist to full raw authority" mechanism fails
-  on mesh/100Hz. Persistent BC-anchor rung 0 remains production-usable and
-  is the track's live output; assisted ancestry cannot qualify for Goal 2.
+  closed — every "fade assist to full raw authority" mechanism fails on
+  mesh/100Hz. Persistent BC-anchor rung 0 stays production-usable and is
+  the track's live output; assisted ancestry cannot qualify for Goal 2.
 - `todaypolicy`: the 08-30 bundle packaging is a milestone. 09-05
   command-envelope study: `env_yawpri` gained yaw at a 55% progress cost;
   shared/fixed-duty time-slice variants refuted. See delivery journal.
