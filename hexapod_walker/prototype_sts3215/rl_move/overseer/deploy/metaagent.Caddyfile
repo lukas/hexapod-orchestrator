@@ -1,0 +1,43 @@
+# Browser SSO is checked here and independently verified by the Mac service.
+# API/MCP requests retain the application's Bearer-token gate.
+metaagent.cwd1f0-new-cluster.coreweave.app {
+	route {
+		request_header -X-Hexapod-User
+		request_header -X-Hexapod-Original
+		@robots path /robots.txt
+		respond @robots "User-agent: *\nDisallow: /\n" 200
+		@browser {
+			not header Authorization *
+			not path /api/* /mcp /mcp/* /healthz
+		}
+		forward_auth @browser https://hexapod.cwd1f0-new-cluster.coreweave.app {
+			uri /auth
+			header_up X-Hexapod-Original {http.request.scheme}://{http.request.host}{http.request.uri}
+			header_up Host hexapod.cwd1f0-new-cluster.coreweave.app
+		}
+		reverse_proxy 127.0.0.1:8768 {
+			header_up -X-Hexapod-User
+			header_up -X-Hexapod-Original
+			flush_interval -1
+			transport http {
+				dial_timeout 5s
+				response_header_timeout 120s
+			}
+		}
+	}
+	handle_errors 502 503 504 {
+		header Cache-Control "no-store"
+		header Retry-After "15"
+		@api path /api/* /mcp /mcp/* /healthz
+		handle @api {
+			header Content-Type "application/json"
+			respond `{"ok":false,"error":"metaagent_unavailable","detail":"The cloud proxy cannot reach the Mac metaagent service. Agent activity and review state are unavailable.","retry_after_seconds":15}` 503
+		}
+		handle {
+			header Content-Type "text/html; charset=utf-8"
+			respond <<HTML
+                <!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Metaagent — connection unavailable</title><style>body{font:17px/1.6 system-ui,sans-serif;max-width:640px;margin:12vh auto;padding:24px;color:#17212e}h1{line-height:1.2}a{color:#1553ad}</style><h1>The metaagent service is unavailable.</h1><p>The cloud proxy cannot reach its service on the Mac. The Mac, service, or connection tunnel may be offline.</p><p>Agent activity and review state cannot be verified. This page does not stop or restart agents.</p><a href="/">Try again</a></html>
+                HTML 503
+		}
+	}
+}

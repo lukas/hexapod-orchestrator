@@ -1,0 +1,164 @@
+# Independent relay: no selectors, volumes, secrets or ports shared with
+# camera-relay, Robot Lab, the RL controller or the physical robot.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: metaagent-relay-data
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 1Gi
+  storageClassName: shared-vast
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: metaagent-relay-sshd
+data:
+  sshd_config: |
+    Port 2222
+    ListenAddress 0.0.0.0
+    HostKey /etc/ssh/ssh_host_ed25519_key
+    AuthorizedKeysFile .ssh/authorized_keys
+    PasswordAuthentication no
+    KbdInteractiveAuthentication no
+    PermitRootLogin no
+    PermitEmptyPasswords no
+    PubkeyAuthentication yes
+    AllowUsers tunnel
+    AllowTcpForwarding remote
+    AllowStreamLocalForwarding no
+    GatewayPorts no
+    PermitListen 127.0.0.1:8768
+    MaxSessions 0
+    PermitTTY no
+    X11Forwarding no
+    AllowAgentForwarding no
+    PermitUserEnvironment no
+    ClientAliveInterval 30
+    ClientAliveCountMax 3
+    LoginGraceTime 30
+    MaxAuthTries 3
+    LogLevel VERBOSE
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: metaagent-relay
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: metaagent-relay
+  template:
+    metadata:
+      labels:
+        app: metaagent-relay
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: ssh-tunnel
+          image: alpine:3.22
+          imagePullPolicy: IfNotPresent
+          command: [/bin/sh, -ec]
+          args:
+            - |
+              apk add --no-cache openssh-server
+              adduser -D -h /home/tunnel -s /bin/ash tunnel
+              passwd -d tunnel
+              install -d -m 0700 -o tunnel -g tunnel /home/tunnel/.ssh
+              install -m 0600 -o tunnel -g tunnel /run/metaagent-ssh/authorized_keys /home/tunnel/.ssh/authorized_keys
+              install -m 0600 /run/metaagent-ssh/ssh_host_ed25519_key /etc/ssh/ssh_host_ed25519_key
+              install -d -m 0755 /run/sshd
+              exec /usr/sbin/sshd -D -e -f /etc/metaagent-ssh/sshd_config
+          ports:
+            - name: ssh
+              containerPort: 2222
+          readinessProbe:
+            tcpSocket:
+              port: ssh
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 10m
+              memory: 24Mi
+            limits:
+              cpu: 250m
+              memory: 96Mi
+          volumeMounts:
+            - name: ssh-secrets
+              mountPath: /run/metaagent-ssh
+              readOnly: true
+            - name: ssh-config
+              mountPath: /etc/metaagent-ssh/sshd_config
+              subPath: sshd_config
+              readOnly: true
+        - name: caddy
+          image: caddy:2.11.4-alpine
+          imagePullPolicy: IfNotPresent
+          args: [caddy, run, --config, /etc/caddy/Caddyfile, --adapter, caddyfile]
+          ports:
+            - name: http
+              containerPort: 80
+            - name: https
+              containerPort: 443
+          readinessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 10m
+              memory: 24Mi
+            limits:
+              cpu: 500m
+              memory: 128Mi
+          volumeMounts:
+            - name: caddy-config
+              mountPath: /etc/caddy/Caddyfile
+              subPath: Caddyfile
+              readOnly: true
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: ssh-secrets
+          secret:
+            secretName: metaagent-relay-ssh
+            defaultMode: 0400
+        - name: ssh-config
+          configMap:
+            name: metaagent-relay-sshd
+        - name: caddy-config
+          configMap:
+            name: metaagent-relay-caddy
+        - name: data
+          persistentVolumeClaim:
+            claimName: metaagent-relay-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: metaagent-relay
+  annotations:
+    service.beta.kubernetes.io/coreweave-load-balancer-type: public
+    service.beta.kubernetes.io/external-hostname: metaagent
+spec:
+  type: LoadBalancer
+  externalTrafficPolicy: Local
+  selector:
+    app: metaagent-relay
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+    - name: https
+      port: 443
+      targetPort: https
+    - name: ssh-tunnel
+      port: 2222
+      targetPort: ssh
