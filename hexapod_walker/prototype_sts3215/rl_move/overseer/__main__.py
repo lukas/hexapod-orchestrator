@@ -1,0 +1,333 @@
+"""Manual overseer entry point. There is deliberately no scheduler or daemon."""
+from __future__ import annotations
+
+import argparse
+from collections import Counter
+from datetime import datetime, timezone, timedelta
+from decimal import Decimal
+import json
+import os
+from pathlib import Path
+import sqlite3
+import sys
+import uuid
+
+from .collectors import collect_local, normalize_cloud_activity, normalize_codex_threads
+from .journal import Journal, read_history
+from .policy import evaluate
+from .report import redact, write_report
+from .store import Store
+
+ROOT = Path(__file__).resolve().parents[4]
+
+
+def now() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def default_state_dir() -> Path:
+    if os.environ.get('HEXAPOD_OVERSEER_DIR'):
+        return Path(os.environ['HEXAPOD_OVERSEER_DIR']).expanduser()
+    if sys.platform == 'darwin':
+        return Path.home() / 'Library/Application Support/Hexapod Lab/overseer'
+    return Path(os.environ.get('XDG_STATE_HOME', Path.home()/'.local/state')) / 'hexapod-overseer'
+
+
+def read_json(path: str | Path, limit: int = 2_000_000):
+    with Path(path).open('rb') as stream:
+        data = stream.read(limit + 1)
+    if len(data) > limit:
+        raise ValueError('input exceeds the bounded JSON read limit')
+    return json.loads(data, parse_constant=lambda value: (_ for _ in ()).throw(ValueError('nonfinite JSON')))
+
+
+def read_registry(path: Path) -> list[dict]:
+    """Read-only inventory with unacknowledged receipts; preview creates nothing."""
+    if not path.exists():
+        return []
+    db = sqlite3.connect(path.resolve().as_uri() + '?mode=ro', uri=True, timeout=2)
+    db.row_factory = sqlite3.Row
+    try:
+        db.execute('BEGIN')
+        if not db.execute("SELECT 1 FROM sqlite_master WHERE name='agents'").fetchone():
+            return []
+        result = []
+        cutoff = db.execute('SELECT COALESCE(MAX(seq),0) FROM spend_events').fetchone()[0]
+        for row in db.execute('SELECT * FROM agents'):
+            item = json.loads(row['record_json'])
+            item.pop('unreviewed_cost_usd', None)
+            cost = db.execute('SELECT COUNT(*),COALESCE(SUM(amount),0) FROM spend_events WHERE agent_id=? AND seq>?',
+                              (row['agent_id'], row['reviewed_seq'])).fetchone()
+            if cost[0]:
+                item['unreviewed_cost_usd'] = str(Decimal(cost[1])/1_000_000)
+            item['unreviewed_through_seq'] = cutoff
+            item['last_reviewed_at'] = row['last_reviewed_at']
+            result.append(item)
+        return result
+    finally:
+        db.close()
+
+
+def read_budget(path: Path) -> dict:
+    """A status/preview must not initialize or mutate the budget database."""
+    empty = {'wake_limit_usd':'20.00','daily_limit_usd':'80.00',
+             'daily_charged_usd':'0.00','daily_remaining_usd':'80.00',
+             'pending_reserved_usd':'0.00','active_wake':None}
+    if not path.exists():
+        return empty
+    db = sqlite3.connect(path.resolve().as_uri()+'?mode=ro',uri=True,timeout=2)
+    db.row_factory = sqlite3.Row
+    usd = lambda amount: format(Decimal(amount)/1_000_000, '.6f')
+    try:
+        db.execute('BEGIN')
+        if not db.execute("SELECT 1 FROM sqlite_master WHERE name='limits'").fetchone():
+            return empty
+        limits = db.execute('SELECT wake,daily FROM limits WHERE singleton=1').fetchone()
+        cutoff = (datetime.now(timezone.utc)-timedelta(hours=24)).isoformat(timespec='microseconds')
+        daily = db.execute('SELECT COALESCE(SUM(COALESCE(actual,reserved)),0) FROM reservations WHERE actual IS NULL OR settled_at>?',(cutoff,)).fetchone()[0]
+        pending = db.execute('SELECT COALESCE(SUM(reserved),0) FROM reservations WHERE actual IS NULL').fetchone()[0]
+        active = db.execute("SELECT wake_id,started_at,review_seq FROM wakes WHERE status='active'").fetchone()
+        return {'wake_limit_usd':usd(limits['wake']),'daily_limit_usd':usd(limits['daily']),
+                'daily_charged_usd':usd(daily),'daily_remaining_usd':usd(max(0,limits['daily']-daily)),
+                'pending_reserved_usd':usd(pending),'active_wake':dict(active) if active else None}
+    finally:
+        db.close()
+
+
+def merge_registry(observations: list[dict], registered: list[dict]) -> list[dict]:
+    merged = {item['agent_id']: dict(item) for item in registered}
+    identity = {'task_id', 'parent_id', 'goals', 'scope', 'execution_owner', 'resources',
+                'assessment', 'progress_evidence', 'last_progress_at', 'started_at',
+                'is_overseer', 'overseer_wake_id', 'registration'}
+    for observed in observations:
+        aid = observed['agent_id']
+        saved = merged.get(aid, {})
+        item = {**saved, **observed}
+        # Discovery updates liveness; it cannot erase registered purpose/ownership.
+        item.update({key: saved[key] for key in identity if key in saved})
+        if 'unreviewed_cost_usd' in saved:
+            item['unreviewed_cost_usd'] = saved['unreviewed_cost_usd']
+        if 'unreviewed_through_seq' in saved:
+            item['unreviewed_through_seq'] = saved['unreviewed_through_seq']
+        item.setdefault('registration', 'discovered')
+        merged[aid] = item
+    return sorted(merged.values(), key=lambda item: item['agent_id'])
+
+
+def supplement(path: str, kind: str, root: Path) -> dict:
+    envelope = read_json(path)
+    if not isinstance(envelope, dict) or not envelope.get('collected_at') or 'data' not in envelope:
+        raise ValueError('source exports need {collected_at: ISO timestamp, data: tool result}; timestamps must reflect actual collection')
+    if kind == 'cloud':
+        return normalize_cloud_activity(envelope['data'], now=envelope['collected_at'])
+    return {'agents': normalize_codex_threads(envelope['data'], root, now=envelope['collected_at'])}
+
+
+def collect(args, database: Path) -> dict:
+    root = Path(args.project_root).resolve()
+    snapshot = read_json(args.snapshot) if args.snapshot else collect_local(root)
+    if not isinstance(snapshot, dict):
+        raise ValueError('snapshot must be an object')
+    for key in ('agents', 'services', 'automations', 'errors'):
+        snapshot.setdefault(key, [])
+    for attr, kind in [('cloud_activity', 'cloud'), ('codex_threads', 'codex')]:
+        path = getattr(args, attr)
+        if path:
+            addition = supplement(path, kind, root)
+            for key in ('agents', 'services', 'errors'):
+                snapshot[key].extend(addition.get(key, []))
+        elif not args.snapshot:
+            snapshot['errors'].append({'source': kind, 'code': 'not_supplied',
+                                      'message': 'Fresh authenticated source export was not supplied; coverage is incomplete.'})
+    for item in snapshot['agents']:
+        item.pop('unreviewed_through_seq', None)
+    snapshot['agents'] = merge_registry(snapshot['agents'], read_registry(database))
+    for aid in args.self_agent:
+        for agent in snapshot['agents']:
+            if agent['agent_id'] == aid:
+                agent['is_overseer'] = True
+    # Include dated documentation as evidence, never automatically declare a goal done.
+    documents = []
+    for name in ('RL_GOALS.md', 'STATUS.md', 'CURRENT_TRUTHS.md'):
+        source = root/'hexapod_walker/prototype_sts3215'/name
+        if source.is_file():
+            with source.open('r', encoding='utf-8') as stream:
+                excerpt = stream.read(16000)
+            documents.append({'path': str(source), 'excerpt': excerpt,
+                              'basis': 'repository document, not a fresh robot observation'})
+    snapshot['goal_documents'] = documents
+    return redact(snapshot)
+
+
+def compact_for_review(report: dict, snapshot: dict) -> dict:
+    """Reserve the prompt for current work; terminal job history remains in JSON."""
+    due = set(report['wake']['spend_due_agents'])
+    current = [a for a in report['agents'] if a['agent_id'] in due]
+    current += [a for a in report['agents'] if a['agent_id'] not in due and a.get('status') not in {'succeeded','completed','failed','dead','unknown'}]
+    return {'generated_at': report['generated_at'], 'wake': report['wake'],
+            'agents': current[:60], 'findings': report['findings'],
+            'source_errors': report['source_errors'], 'notes': report['notes'],
+            'goal_documents': snapshot.get('goal_documents', []),
+            'historical_states': dict(Counter(a.get('status','unknown') for a in report['agents']))}
+
+
+def run_review(args, database: Path) -> dict:
+    snapshot = collect(args, database)
+    report = evaluate(snapshot, history=read_history(database), force=args.force)
+    report['mode'] = args.command
+    report['budget']['ledger'] = read_budget(database)
+    report['goal_document_sources'] = [d['path'] for d in snapshot.get('goal_documents', [])]
+    output = Path(args.output) if args.output else Path(args.project_root)/'artifacts/overseer'/datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')
+    if args.command == 'preview':
+        return {'mode': 'preview', 'paths': write_report(report, output),
+                'wake': report['wake'], 'additional_model_cost_usd': '0.00'}
+    # No eligibility means no database mutation and, importantly, no paid call.
+    if not report['wake']['eligible']:
+        return {'mode': 'review', 'outcome': 'idle', 'paths': write_report(report, output)}
+    store = Store(database)
+    for item in snapshot['agents']:
+        item = dict(item)
+        item.pop('last_reviewed_at', None)
+        item.pop('unreviewed_cost_usd', None)  # receipts, not observations, own spend
+        item.pop('unreviewed_through_seq', None)
+        store.register_agent(item)
+    cutoff = max((a.get('unreviewed_through_seq',0) for a in snapshot['agents']), default=0)
+    wake = store.start_wake('; '.join(report['wake']['reasons']), review_seq=cutoff)
+    report['wake']['wake_id'] = wake['wake_id']
+    outcome = 'no_change'
+    reviewed = []
+    try:
+        if args.reviewer_config:
+            from .reviewer import ReviewConfig, review_once
+            config = ReviewConfig(**read_json(args.reviewer_config))
+            before = store.snapshot()
+            if Decimal(before['active_wake_charged_usd']) >= 15:
+                raise ValueError('wrap-up threshold reached; no more review calls')
+            model_snapshot = compact_for_review(report, snapshot)
+            result = review_once(store, wake['wake_id'], wake['wake_id'] + ':review', model_snapshot, config)
+            report['llm_review'] = result
+            if result.get('status') == 'completed':
+                outcome = 'succeeded'
+                included = {a['agent_id'] for a in model_snapshot['agents']}
+                # Never clear a task whose cost-bearing members were omitted.
+                complete_tasks = {a.get('task_id') or a['agent_id'] for a in model_snapshot['agents']}
+                complete_tasks -= {a.get('task_id') or a['agent_id'] for a in report['agents']
+                                   if a['agent_id'] in report['wake']['spend_due_agents'] and a['agent_id'] not in included}
+                reviewed = [a['agent_id'] for a in model_snapshot['agents']
+                            if a['agent_id'] in report['wake']['spend_due_agents']
+                            and (a.get('task_id') or a['agent_id']) in complete_tasks]
+            else:
+                outcome = 'blocked'
+        else:
+            report['notes'].append('Deterministic review only. Spend receipts are not acknowledged until a completed model review or an explicit human review receipt.')
+        totals = store.snapshot()
+        report['budget']['additional_model_cost_usd'] = totals['active_wake_charged_usd']
+        report['budget']['ledger'] = {k:v for k,v in totals.items() if k not in {'agents','wakes','reservations'}}
+        Journal(database).record(wake['wake_id'], report, outcome)
+        store.finish_wake(wake['wake_id'], outcome, reviewed_agent_ids=reviewed)
+    except Exception:
+        # Keep uncertain reservations charged; finishing cannot erase them.
+        store.finish_wake(wake['wake_id'], 'blocked')
+        raise
+    return {'mode': 'review', 'outcome': outcome, 'wake_id': wake['wake_id'],
+            'paths': write_report(report, output)}
+
+
+def parser() -> argparse.ArgumentParser:
+    p = argparse.ArgumentParser(description=__doc__)
+    p.add_argument('--state-dir', default=str(default_state_dir()))
+    sub = p.add_subparsers(dest='command', required=True)
+    for command in ('preview', 'review'):
+        item = sub.add_parser(command)
+        item.add_argument('--project-root', default=str(ROOT))
+        item.add_argument('--snapshot')
+        item.add_argument('--cloud-activity')
+        item.add_argument('--codex-threads')
+        item.add_argument('--self-agent', action='append', default=[])
+        item.add_argument('--output')
+        item.add_argument('--force', action='store_true', help='request one manual review even without an automatic trigger')
+        if command == 'review':
+            item.add_argument('--reviewer-config', help='explicit verified model/pricing JSON; enables one paid call')
+    sub.add_parser('status')
+    sub.add_parser('actions')
+    item = sub.add_parser('register')
+    item.add_argument('record', help='JSON file with stable agent_id, task_id, execution_owner, goals and scope')
+    item = sub.add_parser('heartbeat')
+    item.add_argument('agent_id')
+    item.add_argument('record', help='JSON status/checkpoint update; heartbeat alone is not progress')
+    item = sub.add_parser('spend')
+    item.add_argument('agent_id')
+    item.add_argument('event_id')
+    item.add_argument('amount_usd')
+    item.add_argument('--occurred-at', required=True)
+    item.add_argument('--source', required=True)
+    item = sub.add_parser('acknowledge')
+    item.add_argument('incident_id')
+    item.add_argument('receipt', help='owner, outcome and evidence JSON for the actual execution result')
+    item = sub.add_parser('acknowledge-review')
+    item.add_argument('receipt', help='human review JSON: owner, evidence and reviewed_agent_ids')
+    item = sub.add_parser('finish-wake')
+    item.add_argument('wake_id')
+    item.add_argument('--outcome', choices=('blocked', 'no_change'), required=True)
+    item = sub.add_parser('reconcile-cost')
+    item.add_argument('operation_id')
+    item.add_argument('amount_usd')
+    item = sub.add_parser('notify')
+    item.add_argument('incident_id')
+    item.add_argument('--recipient', required=True)
+    return p
+
+
+def main(argv=None) -> int:
+    args = parser().parse_args(argv)
+    database = Path(args.state_dir).expanduser()/'overseer.sqlite3'
+    try:
+        if args.command in {'preview','review'}:
+            result = run_review(args, database)
+        elif args.command == 'status':
+            result = {'scheduler_enabled': False, 'budget':read_budget(database),
+                      'agents': read_registry(database), 'history': read_history(database)}
+        else:
+            store = Store(database)
+            if args.command == 'register':
+                record = read_json(args.record)
+                for field in ('agent_id','task_id','execution_owner','goals','scope'):
+                    if not record.get(field):
+                        raise ValueError(f'registration requires {field}')
+                record['registration'] = 'registered'
+                result = store.register_agent(redact(record))
+            elif args.command == 'heartbeat':
+                record = redact(read_json(args.record))
+                record.setdefault('observed_at', now())
+                result = store.heartbeat(args.agent_id, record)
+            elif args.command == 'spend':
+                result = store.record_spend(args.agent_id,args.event_id,args.amount_usd,args.occurred_at,args.source)
+            elif args.command == 'actions':
+                result = Journal(database).actions()
+            elif args.command == 'acknowledge':
+                Journal(database).acknowledge_action(args.incident_id, redact(read_json(args.receipt)))
+                result = {'acknowledged': args.incident_id}
+            elif args.command == 'acknowledge-review':
+                receipt = redact(read_json(args.receipt))
+                if not receipt.get('owner') or not receipt.get('evidence') or not receipt.get('reviewed_agent_ids') or 'review_seq' not in receipt:
+                    raise ValueError('owner, evidence, reviewed_agent_ids and the reviewed snapshot review_seq are required')
+                wake = store.start_wake('Human review receipt: ' + json.dumps(receipt, sort_keys=True), review_seq=receipt['review_seq'])
+                result = store.finish_wake(wake['wake_id'], 'succeeded', reviewed_agent_ids=receipt['reviewed_agent_ids'])
+            elif args.command == 'finish-wake':
+                result = store.finish_wake(args.wake_id, args.outcome)
+            elif args.command == 'reconcile-cost':
+                result = store.settle(args.operation_id, args.amount_usd)
+            elif args.command == 'notify':
+                from .notifications import send_notification
+                result = send_notification(Journal(database), args.incident_id, args.recipient)
+            else:
+                raise ValueError('unsupported command')
+        print(json.dumps(redact(result), indent=2, ensure_ascii=False, allow_nan=False))
+        return 0
+    except (ValueError, OSError, sqlite3.Error, TypeError, KeyError) as exc:
+        print(json.dumps({'error': redact(str(exc)), 'type': type(exc).__name__}), file=sys.stderr)
+        return 2
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())
