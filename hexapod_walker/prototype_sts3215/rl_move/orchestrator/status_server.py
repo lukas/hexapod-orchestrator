@@ -1047,6 +1047,200 @@ def signin_body(path: str) -> str:
             f"</body></html>")
 
 
+# ---- hub: live service / agent table -----------------------------------
+# One row per service and per agent, refreshed by a background thread so the
+# hub renders instantly from a snapshot. Probes that need a login present the
+# same signed hexapod_sso cookie a browser would (the secret lives here), so no
+# service grows a new keyless endpoint just for this table.
+HUB_STATE: dict = {"rows": [], "updated": 0.0}
+HUB_POLL_S = 30
+HUB_TIMEOUT_S = 6
+HUB_HOSTS = {
+    "lab": "https://robot-lab.cwd1f0-new-cluster.coreweave.app",
+    "camera": "https://camera.cwd1f0-new-cluster.coreweave.app",
+    "buildviz": "https://buildviz.cwd1f0-new-cluster.coreweave.app",
+    "metaagent": "https://metaagent.cwd1f0-new-cluster.coreweave.app",
+}
+
+
+def _hub_fetch(url: str, *, cookie: bool = False, method: str = "GET",
+               body: bytes | None = None) -> tuple[int, object, float]:
+    """(status, parsed-json-or-None, seconds). status 0 = unreachable."""
+    import urllib.request
+    import urllib.error
+    hdrs = {"Accept": "application/json", "User-Agent": "hexapod-hub/1"}
+    if cookie and _sso_secret():
+        hdrs["Cookie"] = f"{SSO_COOKIE}={sso_token('lukas')}"
+    if body is not None:
+        hdrs["Content-Type"] = "application/json"
+    t0 = time.monotonic()
+    try:
+        with urllib.request.urlopen(urllib.request.Request(url, data=body, headers=hdrs, method=method),
+                                    timeout=HUB_TIMEOUT_S) as r:
+            raw = r.read(8 * 1024 * 1024); code = r.status   # monitor-status can exceed 256 KB
+    except urllib.error.HTTPError as e:
+        raw = e.read(4096); code = e.code
+    except Exception:
+        return 0, None, time.monotonic() - t0
+    try:
+        data = json.loads(raw) if raw else None
+    except ValueError:
+        data = None
+    return code, data, time.monotonic() - t0
+
+
+def _ago(iso: str | None) -> tuple[str, float | None]:
+    """('3 min ago', seconds) from an ISO timestamp, tolerant of Z/offsets."""
+    if not iso:
+        return "never", None
+    try:
+        t = datetime.datetime.fromisoformat(str(iso).replace("Z", "+00:00"))
+        if t.tzinfo is None:
+            t = t.replace(tzinfo=datetime.timezone.utc)
+        secs = (datetime.datetime.now(datetime.timezone.utc) - t).total_seconds()
+    except ValueError:
+        return "?", None
+    if secs < 90: return f"{int(secs)} s ago", secs
+    if secs < 5400: return f"{int(secs // 60)} min ago", secs
+    if secs < 172800: return f"{secs / 3600:.1f} h ago", secs
+    return f"{int(secs // 86400)} d ago", secs
+
+
+def _row(kind, name, href, up, detail="", last=None, note=""):
+    ago, secs = _ago(last) if isinstance(last, str) else (last or "", None)
+    return {"kind": kind, "name": name, "href": href,
+            "status": "up" if up is True else "down" if up is False else "unknown",
+            "detail": detail, "last_active": ago, "last_active_s": secs, "note": note}
+
+
+def hub_collect() -> list[dict]:
+    rows: list[dict] = []
+    f = SNAP.get("fast", {}); w = f.get("watcher", {})
+
+    # RL dashboard + its watcher agent (this process; data already in SNAP).
+    rows.append(_row("service", "RL orchestrator dashboard", "/now", True,
+                     "this server", note="token or SSO"))
+    if w:
+        state = "paused" if w.get("pause") else ("running" if w.get("tmux") else "tmux session missing")
+        logs = recent_cycle_logs(1)
+        last_iso = None
+        if logs:
+            try:
+                last_iso = datetime.datetime.fromtimestamp(
+                    (CYCLE_DIR / logs[0]["name"]).stat().st_mtime, datetime.timezone.utc).isoformat()
+            except (OSError, KeyError, TypeError):
+                last_iso = None
+        rows.append(_row("agent", "RL watcher (watch_loop)", "/now", bool(w.get("tmux")) and not w.get("pause"),
+                         state, last_iso, "last cycle log write"))
+    else:
+        rows.append(_row("agent", "RL watcher (watch_loop)", "/now", None, "snapshot collecting"))
+
+    # Robot Lab service, robot, cameras, agent lanes, queue.
+    code, health, dt = _hub_fetch(HUB_HOSTS["lab"] + "/healthz")
+    lab_up = code == 200 and isinstance(health, dict) and health.get("ok") is True
+    rows.append(_row("service", "Robot Lab", HUB_HOSTS["lab"] + "/", lab_up,
+                     f"{code or 'unreachable'} · {dt*1000:.0f} ms" + (f" · driver {health.get('driver')}" if lab_up else "")))
+    rs = None
+    if lab_up:
+        code, rs, _ = _hub_fetch(HUB_HOSTS["lab"] + "/api/robot-status", cookie=True)
+        rs = rs if code == 200 and isinstance(rs, dict) else None
+    robot = (rs or {}).get("robot") or {}; hl = (rs or {}).get("health") or {}; cam = (rs or {}).get("camera") or {}
+    if rs:
+        motors = f"{hl.get('live_motors', '?')}/{hl.get('expected_motors', '?')} motors"
+        rows.append(_row("service", "Robot (Uno Q)", HUB_HOSTS["lab"] + "/", bool(hl.get("fresh")),
+                         f"{robot.get('activity', '?')} · {'armed' if robot.get('armed') else 'disarmed'} · {motors}",
+                         (rs or {}).get("observed_at"), hl.get("headline", "")))
+        ccode, _, cdt = _hub_fetch(HUB_HOSTS["camera"] + "/", cookie=True)
+        rows.append(_row("service", "Cameras / vision", HUB_HOSTS["camera"] + "/", ccode == 200,
+                         f"{ccode or 'unreachable'} \u00b7 {cdt*1000:.0f} ms \u00b7 capture {cam.get('status', '?')}",
+                         None, cam.get("headline", "")))
+    else:
+        rows.append(_row("service", "Robot (Uno Q)", HUB_HOSTS["lab"] + "/", None, "via Robot Lab (unavailable)"))
+        code, _, dt = _hub_fetch(HUB_HOSTS["camera"] + "/", cookie=True)
+        rows.append(_row("service", "Cameras / vision", HUB_HOSTS["camera"] + "/", code == 200,
+                         f"{code or 'unreachable'} · {dt*1000:.0f} ms"))
+    if lab_up:
+        code, st, _ = _hub_fetch(HUB_HOSTS["lab"] + "/api/stats", cookie=True)
+        code2, mon, _ = _hub_fetch(HUB_HOSTS["lab"] + "/api/monitor-status", cookie=True)
+        ctl = ((mon or {}).get("control") or {}) if code2 == 200 else None
+        paused = None if ctl is None else bool(ctl.get("paused", ctl.get("action") == "pause"))
+        recent = (st or {}).get("recent_attempts") or [] if code == 200 else []
+        agent = (st or {}).get("agent") or {}
+        by_kind: dict[str, dict] = {}
+        for a in recent:
+            by_kind.setdefault(a.get("kind", "?"), a)
+        for kind in ("analysis", "advance", "engineering"):
+            a = by_kind.get(kind)
+            last = (a or {}).get("finished_at") or (a or {}).get("started_at")
+            detail = (f"{a.get('provider')} · {a.get('model')} · rc={a.get('returncode')}" if a else "no attempts recorded")
+            rows.append(_row("agent", f"Robot Lab {kind} lane", HUB_HOSTS["lab"] + "/stats",
+                             None if paused is None else (not paused), detail, last,
+                             "queue PAUSED" if paused else (f"backend {agent.get('label', '?')}" if agent else "")))
+
+    # BuildViz.
+    code, bv, dt = _hub_fetch(HUB_HOSTS["buildviz"] + "/__buildviz/status")
+    rows.append(_row("service", "BuildViz", HUB_HOSTS["buildviz"] + "/", code == 200 and isinstance(bv, dict) and bv.get("ok", True) is not False,
+                     f"{code or 'unreachable'} · {dt*1000:.0f} ms" + (f" · {(bv.get('server') or {}).get('startedAt', '')[:19]} start" if isinstance(bv, dict) and bv.get('server') else "")))
+
+    # Metaagent: service liveness is keyless; its status needs the cookie.
+    code, mh, dt = _hub_fetch(HUB_HOSTS["metaagent"] + "/healthz")
+    ma_up = code == 200 and isinstance(mh, dict) and mh.get("status") == "ok"
+    rows.append(_row("service", "Metaagent", HUB_HOSTS["metaagent"] + "/", ma_up,
+                     f"{code or 'unreachable'} · {dt*1000:.0f} ms" + (" · scheduler off" if ma_up and not mh.get("scheduler_enabled") else "")))
+    if ma_up:
+        code, ms, _ = _hub_fetch(HUB_HOSTS["metaagent"] + "/api/status", cookie=True)
+        if code == 200 and isinstance(ms, dict):
+            lr = ms.get("latest_run") or {}; counts = ms.get("agent_counts") or {}
+            watched = sum(v for v in counts.values() if isinstance(v, int))
+            rows.append(_row("agent", "Metaagent reviewer", HUB_HOSTS["metaagent"] + "/", True,
+                             f"last run {lr.get('outcome', '?')} \u00b7 ${float(lr.get('actual_cost_usd') or 0):.2f} \u00b7 "
+                             f"watching {watched} agents ({counts.get('succeeded', 0)} ok, {counts.get('blocked', 0)} blocked, {counts.get('dead', 0)} dead)",
+                             lr.get("finished_at") or lr.get("started_at"),
+                             "budget 24h $%.2f" % float((ms.get("budget") or {}).get("rolling_24h_actual_usd") or 0)))
+        else:
+            rows.append(_row("agent", "Metaagent reviewer", HUB_HOSTS["metaagent"] + "/", None, f"status {code}"))
+
+    # MCP endpoints: any prompt answer (401 = gate up) counts as up.
+    for name, url in (("Robot Lab MCP", HUB_HOSTS["lab"] + "/mcp"), ("RL orchestrator MCP", f"http://127.0.0.1:{PORT}/mcp")):
+        code, _, dt = _hub_fetch(url, method="POST", body=b'{"jsonrpc":"2.0","id":1,"method":"tools/list"}')
+        rows.append(_row("service", name, url if url.startswith("https") else "/mcp", code in (200, 401, 403, 405),
+                         f"{code or 'unreachable'} · {dt*1000:.0f} ms", note="auth-gated"))
+    return rows
+
+
+def hub_worker() -> None:
+    while True:
+        try:
+            rows = hub_collect()
+            HUB_STATE.update(rows=rows, updated=time.time(), error="")
+        except Exception as exc:  # never let the table kill the server
+            HUB_STATE.update(error=f"{type(exc).__name__}: {exc}", updated=time.time())
+        time.sleep(HUB_POLL_S)
+
+
+def hub_table_html() -> str:
+    rows = HUB_STATE.get("rows") or []
+    if not rows:
+        return "<p class='dim'>Collecting service status\u2026 refresh in a few seconds.</p>"
+    def pill(st):
+        col = {"up": "#3c6", "down": "#e55", "unknown": "#999"}[st]
+        return f"<span style='color:{col};font-weight:700'>\u25cf {esc(st)}</span>"
+    def tr(r):
+        href = esc(r["href"]); last = esc(r["last_active"] or "\u2014")
+        stale = r.get("last_active_s") is not None and r["kind"] == "agent" and r["last_active_s"] > 6 * 3600
+        return (f"<tr><td>{esc(r['kind'])}</td><td><a href='{href}'>{esc(r['name'])}</a></td>"
+                f"<td>{pill(r['status'])}</td><td{' style=color:#e9a' if stale else ''}>{last}</td>"
+                f"<td>{esc(r['detail'])}</td><td class='dim'>{esc(r.get('note') or '')}</td></tr>")
+    services = [r for r in rows if r["kind"] == "service"]; agents = [r for r in rows if r["kind"] == "agent"]
+    head = ("<tr><th>kind</th><th>name</th><th>status</th><th>last active</th><th>detail</th><th></th></tr>")
+    upd, _ = _ago(datetime.datetime.fromtimestamp(HUB_STATE.get("updated") or 0, datetime.timezone.utc).isoformat()) if HUB_STATE.get("updated") else ("never", None)
+    err = f"<div class='dim' style='color:#e55'>poll error: {esc(HUB_STATE.get('error'))}</div>" if HUB_STATE.get("error") else ""
+    return (f"<style>table.hub{{width:100%;border-collapse:collapse;margin:10px 0 24px}}table.hub th,table.hub td"
+            f"{{text-align:left;padding:6px 10px;border-bottom:1px solid #333;vertical-align:top}}table.hub th{{opacity:.6;font-weight:600}}</style>"
+            f"<div class='dim'>services and agents \u00b7 refreshed {esc(upd)} \u00b7 <a href='/hub.json'>json</a></div>{err}"
+            f"<table class='hub'>{head}{''.join(tr(r) for r in services)}{''.join(tr(r) for r in agents)}</table>")
+
+
 def hub_body() -> str:
     def card(title, href, blurb, extra=""):
         return (f"<a class='hub{extra}' href='{esc(href)}'><b>{esc(title)}</b>"
@@ -1065,7 +1259,8 @@ def hub_body() -> str:
             f"<style>{CSS}</style>{style}</head><body><h1>hexapod</h1>"
             f"<div class='dim'>Everything for the STS3215 hexapod, one page. "
             f"<a href='/login'>Sign in once</a> and every site below opens.</div>"
-            f"<div class='grid'>{cards}</div>"
+            f"{hub_table_html()}"
+            f"<h2>Links</h2><div class='grid'>{cards}</div>"
             f"<h2>On the lab network</h2><div class='dim'>These only "
             f"resolve from the lab Mac or its Wi-Fi.</div>"
             f"<div class='grid'>{local}</div></body></html>")
@@ -2846,6 +3041,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
         # turns the site's root into the RL agent view.
         if u.path in ("/login", "/logout", "/auth"):
             return self._serve_sso(u)
+        if u.path == "/hub.json":
+            return self._send(200, json.dumps(HUB_STATE, default=str).encode(), "application/json")
         authed = self._authed() or self._media_authed()
         if u.path.rstrip("/") in ("/hub", ""):
             body = hub_body().encode()
@@ -2945,6 +3142,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
 def main() -> int:
     threading.Thread(target=fast_worker, daemon=True).start()
+    threading.Thread(target=hub_worker, daemon=True).start()
     for key, fn in SLOW_PARTS:
         threading.Thread(target=part_worker, args=(key, fn),
                          daemon=True).start()
