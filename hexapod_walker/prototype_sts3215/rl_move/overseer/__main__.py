@@ -1,4 +1,4 @@
-"""Manual overseer entry point. There is deliberately no scheduler or daemon."""
+"""Manual metaagent reviews. Serving its history never schedules a review."""
 from __future__ import annotations
 
 import argparse
@@ -26,6 +26,8 @@ def now() -> str:
 
 
 def default_state_dir() -> Path:
+    if os.environ.get('HEXAPOD_METAAGENT_DIR'):
+        return Path(os.environ['HEXAPOD_METAAGENT_DIR']).expanduser()
     if os.environ.get('HEXAPOD_OVERSEER_DIR'):
         return Path(os.environ['HEXAPOD_OVERSEER_DIR']).expanduser()
     if sys.platform == 'darwin':
@@ -172,12 +174,19 @@ def compact_for_review(report: dict, snapshot: dict) -> dict:
 
 
 def run_review(args, database: Path) -> dict:
+    provider = getattr(args, 'provider', None)
+    if provider:
+        if not args.reviewer_config:
+            args.reviewer_config = str(database.parent/'reviewers'/f'{provider}.json')
+        configured = read_json(args.reviewer_config)
+        if configured.get('provider', 'claude') != provider:
+            raise ValueError('Selected provider differs from reviewer configuration')
     snapshot = collect(args, database)
     report = evaluate(snapshot, history=read_history(database), force=args.force)
     report['mode'] = args.command
     report['budget']['ledger'] = read_budget(database)
     report['goal_document_sources'] = [d['path'] for d in snapshot.get('goal_documents', [])]
-    output = Path(args.output) if args.output else Path(args.project_root)/'artifacts/overseer'/datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')
+    output = Path(args.output) if args.output else Path(args.project_root)/'artifacts/metaagent'/datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')
     if args.command == 'preview':
         return {'mode': 'preview', 'paths': write_report(report, output),
                 'wake': report['wake'], 'additional_model_cost_usd': '0.00'}
@@ -248,6 +257,7 @@ def parser() -> argparse.ArgumentParser:
         item.add_argument('--force', action='store_true', help='request one manual review even without an automatic trigger')
         if command == 'review':
             item.add_argument('--reviewer-config', help='explicit verified model/pricing JSON; enables one paid call')
+            item.add_argument('--provider', choices=('claude', 'codex'), help='select state-dir/reviewers/PROVIDER.json, or validate an explicit config')
     sub.add_parser('status')
     sub.add_parser('actions')
     item = sub.add_parser('register')
@@ -285,7 +295,7 @@ def main(argv=None) -> int:
         if args.command in {'preview','review'}:
             result = run_review(args, database)
         elif args.command == 'status':
-            result = {'scheduler_enabled': False, 'budget':read_budget(database),
+            result = {'service': 'hexapod-metaagent', 'scheduler_enabled': False, 'budget':read_budget(database),
                       'agents': read_registry(database), 'history': read_history(database)}
         else:
             store = Store(database)

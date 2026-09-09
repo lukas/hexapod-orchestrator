@@ -33,7 +33,7 @@ def safe(value) -> str:
 
 def markdown(report: dict) -> str:
     preview = report.get('mode') == 'preview'
-    lines = ['# Project overseer — ' + ('manual preview' if preview else 'manual review'), '',
+    lines = ['# Metaagent — ' + ('manual preview' if preview else 'manual review'), '',
         f"Observed/reviewed: {safe(report['generated_at'])}", '',
         '**Scheduling is off.** This report does not stop agents, restart services, launch training, move the robot, or send messages.', '',
         '## Wake decision', '',
@@ -52,7 +52,7 @@ def markdown(report: dict) -> str:
             continue
         label = a.get('agent_id') if a.get('provider') == 'codex' else a.get('name',a.get('agent_id'))
         if a.get('is_overseer') or a.get('overseer_wake_id'):
-            label = str(label) + ' (overseer; excluded)'
+            label = str(label) + ' (metaagent; excluded)'
         lines.append('| ' + ' | '.join(safe(x) for x in [label, a.get('provider','unknown'), a.get('status','unknown'),
             ', '.join(a.get('goals', [])) + ' / ' + str(a.get('scope', 'unknown')), a.get('cost_status','unknown')]) + ' |')
     if omitted:

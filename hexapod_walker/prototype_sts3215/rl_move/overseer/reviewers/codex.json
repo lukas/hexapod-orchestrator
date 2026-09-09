@@ -1,0 +1,14 @@
+{
+  "provider": "codex",
+  "model": "gpt-5.3-codex",
+  "input_usd_per_million": "1.75",
+  "output_usd_per_million": "14",
+  "cached_input_usd_per_million": "0.175",
+  "model_context_tokens": 400000,
+  "pricing_verified": true,
+  "pricing_reference": "Verified 2026-09-09: https://developers.openai.com/api/docs/models/gpt-5.3-codex ; standard tier, tools disabled, output cap includes reasoning.",
+  "max_output_tokens": 6144,
+  "max_prompt_bytes": 262144,
+  "timeout_seconds": 60,
+  "reasoning_effort": "low"
+}

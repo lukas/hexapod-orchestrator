@@ -436,6 +436,10 @@ def create_app(state_dir: Path | None = None, api_token: str | None = None,
     if assets.is_dir():
         app.mount("/assets", StaticFiles(directory=assets), name="assets")
 
+    @app.get("/mcp-info")
+    def mcp_info():
+        return FileResponse(assets / "mcp-info.html")
+
     @app.get("/")
     def index():
         path = assets / "index.html"

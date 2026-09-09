@@ -1,6 +1,6 @@
-# Manual project overseer
+# Metaagent
 
-The overseer inventories project agents, checks progress and spending, and writes
+Metaagent inventories project agents, checks progress and spending, and writes
 an evidence-based review with proposed actions. **No scheduler is installed or
 enabled.** Importing the package does nothing. A preview never invokes a model,
 creates/updates a registry, sends a message, or changes a worker/service/queue.
@@ -8,11 +8,11 @@ creates/updates a registry, sends a message, or changes a worker/service/queue.
 Run from `hexapod_walker/prototype_sts3215`:
 
 ```sh
-uv run python -m rl_move.overseer preview
-uv run python -m rl_move.overseer status
+uv run python -m rl_move.metaagent preview
+uv run python -m rl_move.metaagent status
 ```
 
-Reports are Markdown plus JSON under repository-root `artifacts/overseer/`.
+Reports are Markdown plus JSON under repository-root `artifacts/metaagent/`.
 `--output DIR` selects another destination. JSON retains bounded historical job
 records; the Markdown groups inactive history so it cannot look like hundreds of
 running agents. These local reports are private operational data; do not commit
@@ -42,7 +42,7 @@ JSON-RPC fallback, and save each result in this envelope:
 ```
 
 ```sh
-uv run python -m rl_move.overseer preview \
+uv run python -m rl_move.metaagent preview \
   --codex-threads /private/path/codex.json \
   --cloud-activity /private/path/cloud.json \
   --self-agent codex:THIS_OVERSEER_THREAD_ID
@@ -76,8 +76,8 @@ token sample or treat a registered resource name as authority to control hardwar
 ```
 
 ```sh
-uv run python -m rl_move.overseer register /private/path/agent.json
-uv run python -m rl_move.overseer heartbeat claude:SESSION_ID /private/path/checkpoint.json
+uv run python -m rl_move.metaagent register /private/path/agent.json
+uv run python -m rl_move.metaagent heartbeat claude:SESSION_ID /private/path/checkpoint.json
 ```
 
 At a meaningful checkpoint, supply `status`, `last_progress_at`,
@@ -94,7 +94,7 @@ video and reproducible launch, and independent physical walking evidence.
 Report nonoverlapping cost increments with immutable event IDs:
 
 ```sh
-uv run python -m rl_move.overseer spend claude:SESSION_ID PROVIDER_REQUEST_ID 1.25 \
+uv run python -m rl_move.metaagent spend claude:SESSION_ID PROVIDER_REQUEST_ID 1.25 \
   --occurred-at 2026-09-09T04:00:00Z --source provider-usage-receipt
 ```
 
@@ -137,10 +137,10 @@ deterministic review with no model charge. `--force` requests a manual review
 even if no trigger qualifies. Preview does not alter review/notification history.
 
 ```sh
-uv run python -m rl_move.overseer review --force
-uv run python -m rl_move.overseer actions
-uv run python -m rl_move.overseer acknowledge INCIDENT_ID /private/path/owner-receipt.json
-uv run python -m rl_move.overseer notify INCIDENT_ID --recipient EXPLICIT_IMESSAGE_ADDRESS
+uv run python -m rl_move.metaagent review --force
+uv run python -m rl_move.metaagent actions
+uv run python -m rl_move.metaagent acknowledge INCIDENT_ID /private/path/owner-receipt.json
+uv run python -m rl_move.metaagent notify INCIDENT_ID --recipient EXPLICIT_IMESSAGE_ADDRESS
 ```
 
 The owner receipt requires `owner`, `evidence` and `outcome` (`resolved`,
@@ -160,24 +160,29 @@ For an actual human review, use `acknowledge-review RECEIPT.json` with `owner`,
 
 Runtime state is separate from the controller-owned `.state` repo:
 `~/Library/Application Support/Hexapod Lab/overseer/overseer.sqlite3` on macOS,
-or `$XDG_STATE_HOME/hexapod-overseer` on Linux. `HEXAPOD_OVERSEER_DIR` or
+or `$XDG_STATE_HOME/hexapod-overseer` on Linux. `HEXAPOD_METAAGENT_DIR` (preferred), `HEXAPOD_OVERSEER_DIR` (compatible), or
 the global `--state-dir DIR` overrides this for tests. Every reviewer and child
 must use the same durable database and `wake_id`; separate databases do not
 share a cap. There is one active wake. Never change state paths to escape a cap.
 
-The optional reviewer makes one tool-free Anthropic Messages call:
+The optional reviewer makes one bounded, tool-free call using either Claude
+(Anthropic Messages API) or Codex (OpenAI Responses API):
 
 ```sh
-uv run python -m rl_move.overseer review --force \
+uv run python -m rl_move.metaagent review --force \
   --reviewer-config /private/path/verified-reviewer.json
 ```
 
 `ReviewConfig` requires an explicit model, `input_usd_per_million`,
 `output_usd_per_million`, `model_context_tokens`, `pricing_verified:true`, and a
 `pricing_reference`. Verify the model's enforced context and the **highest
-applicable rates**, including long-context/cache premiums. Credentials come from
-`ANTHROPIC_API_KEY`; do not place them in config or reports. No default price is
+applicable rates**, including long-context/cache premiums. Choose `provider: "claude"` with `ANTHROPIC_API_KEY`, or `provider: "codex"`
+with `OPENAI_API_KEY`. Credentials never belong in config or reports. These
+are bounded model API backends, so they cannot run unrestricted CLI tools. No default price is
 guessed. Output defaults to 2048 tokens, timeout 45 seconds, no retries or tools.
+Codex counts reasoning tokens inside its output limit. Optional explicit
+`cached_input_usd_per_million` and `cache_write_usd_per_million` record those
+usage categories; reservations use the highest applicable input rate.
 
 Before dispatch, reserve the full context at the supplied maximum input rate
 plus bounded output. This conservative admission cap depends on those provider
@@ -204,3 +209,43 @@ Tests use fixtures and mocked providers/senders. They cover atomic concurrent
 budgets, restarts, duplicate requests, unknown billing, idle exits, source
 freshness, pause preservation, recurrence, logical-task costs, and preview
 side-effect boundaries. They do not send messages or run robot motion.
+
+## Dashboard and authenticated MCP
+
+The CoreWeave dashboard is
+<https://metaagent.cwd1f0-new-cluster.coreweave.app/>. It displays saved run
+history, each review's provider/model, settled actual cost, uncertain cost
+reservations, recommendations, goal assessments and missing cost coverage.
+The website reads the same durable database as manual reviews. Page refreshes
+and MCP reads never run a model. There is no periodic review scheduler.
+
+The MCP endpoint is `/mcp` on that host. Use a Metaagent bearer credential;
+the browser uses the existing Hexapod SSO cookie or an explicit token sign-in.
+Read tools expose status, runs, cost accounting and recommendations. Operator
+tools register agents, record progress checkpoints and submit immutable cost
+receipts. They do not execute recommendations or expose arbitrary commands.
+
+Start the local data service with:
+
+```sh
+uv run python -m rl_move.metaagent serve --host 127.0.0.1 --port 8768
+```
+
+Choose a backend for one manual run. Provider configurations live in
+`<state-dir>/reviewers/claude.json` and `codex.json`:
+
+```sh
+uv run python -m rl_move.metaagent review --force --provider claude
+uv run python -m rl_move.metaagent review --force --provider codex
+```
+
+Alternatively pass an explicit `--reviewer-config` file, optionally with
+`--provider` to require a matching provider. Example verified configuration
+shapes are in `reviewers/`; reverify rates and context limits before using them.
+Both providers and every child share the same original `overseer.sqlite3`.
+The legacy CLI and internal `is_overseer`/`overseer_wake_id` fields remain
+compatible; renaming does not reset budget, registry or action history.
+
+See [deployment instructions](deploy/README.md) for the dedicated CoreWeave
+relay and Mac services. These services keep the webpage reachable; they do
+not wake the reviewer or enable Robot Lab/robot execution.
