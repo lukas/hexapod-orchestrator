@@ -220,6 +220,62 @@ def test_invalid_ack_rolls_back_entire_wake_finish(store):
     assert store.spending_since_review("parent")["amount_usd"] == "1.000000"
 
 
+def test_explicit_snapshot_cutoff_keeps_cost_arriving_before_wake_unreviewed(store):
+    agent(store)
+    store.record_spend("parent", "already-seen", 10, NOW)
+    observed = store.spending_since_review("parent")
+    store.record_spend("parent", "arrived-after-preview", 7, NOW)
+    wake = store.start_wake("review captured snapshot", NOW, "wake",
+                            review_seq=observed["through_seq"])
+    assert wake["review_seq"] == observed["through_seq"]
+    store.finish_wake("wake", "succeeded", ["parent"], NOW)
+    remaining = Store(store.path).spending_since_review("parent")
+    assert remaining["amount_usd"] == "7.000000"
+    assert remaining["event_count"] == 1
+
+
+def test_explicit_zero_cutoff_preserves_first_cost_after_empty_snapshot(store):
+    agent(store)
+    store.record_spend("parent", "new-event", 2, NOW)
+    store.start_wake("empty snapshot", NOW, "wake", review_seq=0)
+    store.finish_wake("wake", "succeeded", ["parent"], NOW)
+    assert store.spending_since_review("parent")["amount_usd"] == "2.000000"
+
+
+@pytest.mark.parametrize("cutoff", [True, False, -1, 1.5, "1", 2])
+def test_invalid_or_future_review_cutoff_creates_no_wake(store, cutoff):
+    agent(store)
+    store.record_spend("parent", "one-event", 1, NOW)
+    with pytest.raises(ValueError, match="review_seq"):
+        store.start_wake("invalid cutoff", NOW, review_seq=cutoff)
+    assert store.snapshot(NOW)["wakes"] == []
+
+
+def test_reused_wake_cannot_change_explicit_review_cutoff(store):
+    agent(store)
+    store.record_spend("parent", "first", 1, NOW)
+    store.start_wake("review", NOW, "wake", review_seq=1)
+    store.record_spend("parent", "later", 2, NOW)
+    reopened = Store(store.path)
+    assert reopened.start_wake("review", NOW, "wake", review_seq=1)["reused"]
+    assert reopened.start_wake("review", NOW, "wake")["review_seq"] == 1
+    with pytest.raises(ValueError, match="different review cutoff"):
+        reopened.start_wake("review", NOW, "wake", review_seq=2)
+
+
+@pytest.mark.parametrize("field,value", [("unreviewed_cost_usd", "0"),
+                                         ("unreviewed_through_seq", 999)])
+def test_agent_updates_cannot_forge_derived_spending(store, field, value):
+    agent(store)
+    store.record_spend("parent", "real-cost", 12, NOW)
+    with pytest.raises(ValueError, match="derived"):
+        store.register_agent({"agent_id": "parent", field: value})
+    with pytest.raises(ValueError, match="derived"):
+        store.heartbeat("parent", {field: value}, NOW)
+    assert store.spending_since_review("parent")["amount_usd"] == "12.000000"
+    assert field not in store.list_agents()[0]
+
+
 def test_agent_upsert_and_heartbeat_preserve_evidence_costs_and_review(store):
     agent(store, "worker", provider="claude", goals=["any_means"], started_at=NOW)
     store.record_spend("worker", "cost", 1, NOW)

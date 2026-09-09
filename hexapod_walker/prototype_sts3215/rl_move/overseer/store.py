@@ -101,6 +101,7 @@ class Store:
             saved = con.execute("SELECT wake,daily FROM limits WHERE singleton=1").fetchone()
             if (saved["wake"], saved["daily"]) != (self.wake_limit, self.daily_limit):
                 raise ValueError("Existing store limits differ; budgets cannot be reset on reopen")
+        self.path.chmod(0o600)
 
     @contextmanager
     def _transaction(self, *, write=True):
@@ -145,8 +146,9 @@ class Store:
         for name in ("started_at", "last_heartbeat_at", "last_progress_at"):
             if record.get(name) is not None:
                 record[name] = _stamp(record[name])
-        if "last_reviewed_at" in record or "reviewed_seq" in record:
-            raise ValueError("Review acknowledgements are owned by finish_wake")
+        if {"last_reviewed_at", "reviewed_seq", "unreviewed_cost_usd",
+                "unreviewed_through_seq"} & record.keys():
+            raise ValueError("Review acknowledgements and unreviewed spending are derived by the store")
         _json(record)
         return record
 
@@ -217,20 +219,33 @@ class Store:
         result["reviewed_agent_ids"] = json.loads(result.pop("reviewed_agents_json") or "[]")
         return result
 
-    def start_wake(self, reason, now=None, wake_id=None) -> dict:
-        """Create one wake, or recover the same wake without resetting its caps."""
+    def start_wake(self, reason, now=None, wake_id=None, *, review_seq=None) -> dict:
+        """Create or resume a wake, retaining its budget and review cutoff.
+
+        Pass the cost snapshot's ``review_seq`` when observations were collected
+        before this transaction. Later-arriving costs must not be acknowledged
+        merely because the wake began after their insertion.
+        """
         reason, now = _text(reason, "reason"), _stamp(now)
         wake_id = _text(wake_id, "wake_id") if wake_id is not None else uuid.uuid4().hex
+        if review_seq is not None and (isinstance(review_seq, bool)
+                or not isinstance(review_seq, int) or review_seq < 0):
+            raise ValueError("review_seq must be a nonnegative integer")
         with self._transaction() as con:
-            existing = con.execute("SELECT reason FROM wakes WHERE wake_id=?", (wake_id,)).fetchone()
+            current_seq = con.execute("SELECT COALESCE(MAX(seq),0) FROM spend_events").fetchone()[0]
+            if review_seq is not None and review_seq > current_seq:
+                raise ValueError("review_seq exceeds recorded spending history")
+            existing = con.execute("SELECT reason,review_seq FROM wakes WHERE wake_id=?", (wake_id,)).fetchone()
             if existing:
-                if existing[0] != reason:
+                if existing["reason"] != reason:
                     raise ValueError("Wake ID already has a different reason")
+                if review_seq is not None and review_seq != existing["review_seq"]:
+                    raise ValueError("Wake ID already has a different review cutoff")
                 return {**self._wake(con, wake_id), "reused": True}
             active = con.execute("SELECT wake_id FROM wakes WHERE status='active'").fetchone()
             if active:
                 raise WakeConflict(f"Wake {active[0]} is still active; resume it explicitly")
-            seq = con.execute("SELECT COALESCE(MAX(seq),0) FROM spend_events").fetchone()[0]
+            seq = current_seq if review_seq is None else review_seq
             con.execute("INSERT INTO wakes(wake_id,reason,status,started_at,review_seq) VALUES(?,?,'active',?,?)", (wake_id, reason, now, seq))
             return {**self._wake(con, wake_id), "reused": False}
 
@@ -294,8 +309,8 @@ class Store:
     def finish_wake(self, wake_id, outcome, reviewed_agent_ids=None, now=None) -> dict:
         """Close a wake without refunding unknown costs.
 
-        Only ``outcome='succeeded'`` acknowledges reviews, and only events that
-        existed when this wake began. Late/new events remain visible next time.
+        Only ``outcome='succeeded'`` acknowledges reviews, and only events at
+        or before this wake's saved review cutoff. Late events remain visible.
         An empty/omitted agent list never acknowledges all agents implicitly.
         """
         outcome, now = _text(outcome, "outcome"), _stamp(now)
