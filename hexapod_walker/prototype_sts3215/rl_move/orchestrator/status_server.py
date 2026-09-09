@@ -2660,10 +2660,15 @@ class Handler(http.server.BaseHTTPRequestHandler):
             # everything else a plain 401.
             if user:
                 return self._send(204, extra=[("X-Hexapod-User", user)])
+            # The relay's forward_auth hop reaches us through this host's own
+            # Caddy, which rewrites X-Forwarded-Host to *this* host on the way
+            # in. The relay therefore also sends the untouched original URL in
+            # X-Hexapod-Original; _sso_safe_next still confines it to lab hosts.
             proto = self.headers.get("X-Forwarded-Proto", "https")
             host = self.headers.get("X-Forwarded-Host", "")
             uri = self.headers.get("X-Forwarded-Uri", "/")
-            original = f"{proto}://{host}{uri}" if host else "/now"
+            original = (self.headers.get("X-Hexapod-Original", "").strip()
+                        or (f"{proto}://{host}{uri}" if host else "/now"))
             if "text/html" in (self.headers.get("Accept") or "") and \
                     self.headers.get("X-Forwarded-Method", "GET") in ("GET", "HEAD"):
                 from urllib.parse import quote

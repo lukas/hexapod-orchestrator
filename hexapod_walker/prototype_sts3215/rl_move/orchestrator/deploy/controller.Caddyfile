@@ -16,6 +16,7 @@ hexapod.cwd1f0-new-cluster.coreweave.app {
     forward_auth @browser 127.0.0.1:8090 {
         uri /auth
         copy_headers X-Hexapod-User
+        header_up X-Hexapod-Original {http.request.scheme}://{http.request.host}{http.request.uri}
     }
     reverse_proxy 127.0.0.1:8090
 }
