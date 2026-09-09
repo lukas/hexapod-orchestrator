@@ -22,7 +22,7 @@ with the script, the script is right; fix the doc.**
    **This is a placement rule, not a demand for a full backlog.**
    Allocation follows `../../RL_GOALS.md` and `../../RL_PLAN.md`
    (operator clarification, 2026-09-08): keep justified runnable work
-   moving toward both physical outcomes, `any_means` and `rl_only`,
+   moving toward `any_means` and `rl_only`, each with sim and physical deliverables,
    within existing caps. Every queued spec needs a named outcome,
    method, gap and met preconditions. The 09-05 easy-walking focus
    does not reserve every slot or block practical physical delivery

@@ -1,4 +1,4 @@
-# STATUS — two physical walking goals
+# STATUS — two walking goals, each in sim and on hardware
 
 Goal structure clarified by Lukas on 2026-09-08. This is an operator-facing
 digest, not a live fleet snapshot. `RL_GOALS.md` owns purpose and priorities;
@@ -7,16 +7,21 @@ track journals for current run/queue status.
 
 ## Parent outcomes
 
-1. **`any_means`: smooth physical joystick walking by any effective means.**
+1. **`any_means`: smooth joystick walking in sim and physically by any effective means.**
    Use scripted, searched, demonstration-assisted or learned controllers to
    make progress on physical builds now. Methods: `joystick`, `amp`, `cpg`,
    `standwalk`, `assistfade`, `todaypolicy`.
-2. **`rl_only`: the same physical outcome, learned entirely through RL with
+2. **`rl_only`: the same sim and physical outcome, learned entirely through RL with
    no demonstrations anywhere in the walking policy's training lineage.**
    Method: `walkcurr`. Random initialization followed by BC/AMP or scripted
    gait assistance belongs to `any_means`, even if assistance later ends.
 
-Both proceed in parallel. Neither outcome is established by the simulation
+Both proceed in parallel. Each needs an interactive joystick sim demo and
+viewable video as well as physical walking evidence. Report readiness, demo
+link/launch command and remaining limits separately for each deliverable.
+The candidate below has recorded sim evidence with unresolved command limits;
+this digest does not establish a complete sim demo for either goal.
+Neither whole outcome is established by the simulation
 or packaging evidence summarized below. Physical acceptance needs a named
 build/controller, a bounded joystick trial with video and telemetry, and
 reported direction/speed/yaw/start/stop limits; `rl_only` also needs clean
@@ -82,7 +87,7 @@ camera/telemetry/abort rules. Routine calibration, bounded motion, deployment
 and recovery are not blanket operator blockers. Only concrete hands-on
 needs, spend/capacity increases beyond guardrails, or an unresolved product
 choice requiring Lukas's decision should be reported as operator waits.
-No fresh physical verification was performed for this goal clarification.
+No fresh sim demo or physical verification was performed for this clarification.
 
 ## Doc rules
 

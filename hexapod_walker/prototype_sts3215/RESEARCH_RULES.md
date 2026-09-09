@@ -23,7 +23,10 @@ The fleet supports the two parallel physical outcomes in `RL_GOALS.md`:
 physical builds progress now; `rl_only` reaches the same result with walking
 learned entirely through RL and no demonstrations anywhere in its lineage.
 `tracks.json` maps seven methods to these outcomes. No all-methods-green
-requirement applies, and a method/simulation PASS is not physical completion.
+requirement applies. Each goal requires a visible interactive joystick sim
+demo and video as well as physical evidence; report readiness separately.
+A method/simulation PASS is not physical completion. The demonstration-free
+training boundary applies to Goal 2 in both sim and hardware.
 
 Every launch or CPU search names its parent outcome, method and the gap it
 closes. Keep justified runnable work moving within existing caps, including

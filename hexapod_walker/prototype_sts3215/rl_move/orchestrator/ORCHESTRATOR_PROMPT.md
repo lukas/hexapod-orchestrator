@@ -48,9 +48,14 @@ Method gates retain their existing thresholds and historical verdicts: a
 are method milestones, not physical completion of either parent goal.
 This clarification does not reopen closed recipes or change guardrail caps.
 
-Both outcomes require a bounded, recorded physical joystick trial per
-`RL_GOALS.md`; `rl_only` additionally requires demonstration-free training
-provenance. Cloud cycles prepare candidates, transfer manifests and evidence.
+Each goal requires BOTH an interactive joystick sim demo with a viewable
+video/reproducible launch path AND a bounded, recorded physical joystick trial
+per `RL_GOALS.md`. Make sim demos visible as soon as ready and report sim and
+hardware readiness separately; do not wait for physical completion to show sim
+progress. `rl_only` requires demonstration-free training provenance for both.
+Verify the active controller and model/config; a scripted fallback cannot
+stand in for an RL-only demo. Cloud cycles prepare candidates, demos,
+transfer manifests and evidence.
 Physical work (including AMP M6) goes to Robot Lab's serialized guarded runner;
 this cloud cycle never controls the physical robot directly. Robot Lab uses
 standing authority, live camera, fresh telemetry and an abort path.

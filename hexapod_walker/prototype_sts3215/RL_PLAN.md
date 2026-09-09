@@ -1,4 +1,4 @@
-# Walking plan — two parallel physical outcomes
+# Walking plan — two parallel goals, each demonstrated in sim and physically
 
 Purpose and priorities: `RL_GOALS.md` (Lukas, 2026-09-08). Method registry:
 `rl_move/orchestrator/tracks.json`. Current evidence: `CURRENT_TRUTHS.md`,
@@ -7,11 +7,11 @@ the state ledger, and `rl_docs/tracks/<track>/STATUS.md`. History belongs in
 
 ## Outcomes and methods
 
-1. **`any_means`: smooth physical joystick walking by any effective means.**
+1. **`any_means`: smooth joystick walking in sim and physically by any effective means.**
    Scripted gaits, CPG search, demonstrations, BC, AMP, RL and composed
    controllers are valid. Deliver usable walking to improve physical builds
    while harder research continues.
-2. **`rl_only`: the same physical outcome, learned entirely through RL with
+2. **`rl_only`: the same sim and physical outcome, learned entirely through RL with
    no demonstrations anywhere in the walking policy's training lineage.**
    A teacher used only during training still disqualifies that lineage.
 
@@ -24,11 +24,14 @@ Method gates remain useful evidence with their existing thresholds. They are
 not seven independent product requirements. One policy for sit/rise/walk/lower,
 AMP's full pipeline, and fault tolerance are optional approaches/extensions;
 physical delivery does not wait for all of them. Simulation or packaging
-PASS is not physical acceptance of either outcome.
+PASS is not physical acceptance of either outcome. Each goal also requires
+its own visible, runnable joystick sim demo and video, per `RL_GOALS.md`.
+Publish sim progress when ready; neither demo waits for physical completion
+or for the other goal. Track the two deliverables separately for each goal.
 
 ## Startup packet
 
-1. `RL_GOALS.md` — purpose, demonstration boundary, physical acceptance.
+1. `RL_GOALS.md` — purpose, demonstration boundary, sim and physical acceptance.
 2. `CURRENT_TRUTHS.md` — accepted facts and run verdicts.
 3. This file, the live ledger, and the relevant method's track journal.
 4. `RESEARCH_RULES.md` + `RUN_INTERPRETATION_RULES.md`.
@@ -42,7 +45,8 @@ PASS is not physical acceptance of either outcome.
    and recorded command limits; do not rerun already proven recipes simply
    to fill capacity.
 2. Prepare a named controller/build bundle, calibration and runtime checks,
-   and a bounded joystick trial with explicit acceptance criteria. Use
+   an interactive full-mesh MuJoCo joystick demo plus video, and a bounded
+   physical joystick trial with explicit acceptance criteria. Use
    `todaypolicy` for delivery/handoff work; a scripted baseline is valid.
 3. Hand physical trials to Robot Lab's serialized guarded runner. Record
    video, requested/achieved motion and telemetry across headings, speed,
@@ -62,7 +66,8 @@ PASS is not physical acceptance of either outcome.
    success there does not prove realistic walking or physical transfer.
 3. Progress from walking discovery to command range, smooth transitions and
    realistic model/actuator conditions, with held-out behavioral evidence.
-4. Export and validate the clean policy/runtime, then hand off a bounded
+4. Export and validate the clean policy/runtime, deliver an interactive
+   full-mesh MuJoCo joystick demo plus video, then hand off a bounded
    physical joystick trial under the same acceptance standard as Goal 1.
    Calibration and physical measurements can be shared; demonstration-trained
    weights and gait supervision cannot cross into this lineage.
@@ -96,8 +101,9 @@ increases beyond guardrails remain operator-owned.
 
 Report each parent outcome separately from its method milestones. Track
 journals and the ledger retain historical results, including closed recipes;
-this reorganization does not alter them. State the best physical evidence,
-remaining joystick limits and next measurable step for each outcome. Do not
+this reorganization does not alter them. For each goal, report sim demo
+readiness/link/launch command and physical evidence separately, plus remaining
+joystick limits and the next measurable step for each deliverable. Do not
 claim physical success from a MuJoCo PASS or a controller export.
 
 ## Documentation discipline
