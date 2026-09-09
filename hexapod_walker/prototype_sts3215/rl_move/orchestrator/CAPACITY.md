@@ -19,17 +19,16 @@ with the script, the script is right; fix the doc.**
 3. **The drain is mechanical.** The watcher drains `backlog.json` into
    free slots (`launch_run.py drain`) with no agent deliberation — a
    queued spec that sits unplaced next to a free slot is a bug.
-   **This is a placement rule, not a demand for a full backlog**
-   (prime directive, 08-10): nothing enters the backlog unless it
-   removes an unresolved blocker to the next hardware test. Idle
-   slots with an empty backlog are a normal, healthy state.
-   **SUPERSEDED while the 09-05 teacher-free easy-walking priority is
-   unmet (operator order, 09-05 focus note):** the orchestrator must
-   keep every ready slot supplied with useful pre-registered
-   easy-campaign work (or name a concrete resource/scientific
-   blocker); idle slots next to that unmet priority are a failure,
-   not health. The historical retirement text does not override the
-   active order.
+   **This is a placement rule, not a demand for a full backlog.**
+   Allocation follows `../../RL_GOALS.md` and `../../RL_PLAN.md`
+   (operator clarification, 2026-09-08): keep justified runnable work
+   moving toward both physical outcomes, `any_means` and `rl_only`,
+   within existing caps. Every queued spec needs a named outcome,
+   method, gap and met preconditions. The 09-05 easy-walking focus
+   does not reserve every slot or block practical physical delivery
+   and its supporting work. An empty backlog with no justified work
+   is a legitimate idle state; do not invent filler runs or reopen
+   closed recipes simply to fill capacity.
 4. Slot list lives in `guardrails.yaml compute.gpu_pods`; pod specs in
    `rl_move/sim/coreweave_pods_mjx_scaleout.yaml`; fresh-pod setup via
    `bootstrap_train_pod.sh <pod>`.

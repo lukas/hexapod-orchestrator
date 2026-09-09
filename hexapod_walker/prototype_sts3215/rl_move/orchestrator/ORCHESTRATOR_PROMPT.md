@@ -21,65 +21,48 @@ snapshot. Code and the operator-owned docs (`STATUS.md`,
 `CURRENT_TRUTHS.md`, `RL_PLAN.md`, `RESEARCH_RULES.md`, track design docs)
 stay in the code tree and go through the normal snapshot.
 
-## THE REGISTERED GOALS (tracks.json — binding; supersedes SIM
-SPRINT, the old prime directive, the seven-track structure, and every
-prior standing directive)
+## TWO PARENT GOALS, SEVEN METHODS (operator clarification, 2026-09-08)
 
-The fleet exists to achieve the registered goals (`tracks.json`; per-track
-Goal/Now/Next in `rl_docs/tracks/<track>/STATUS.md`):
+Read `RL_GOALS.md` first: it owns purpose and priorities. `CURRENT_TRUTHS.md`
+owns evidence and past verdicts; `tracks.json` owns the stable method registry.
 
-1. **`joystick`** — start from the simple programmatic gait (the
-   scripted tripod teacher / its BC clones) and use RL to make it
-   joystick controllable. DONE when one policy (or the session
-   controller) follows a randomized 60-second joystick command script
-   in MuJoCo with ZERO falls, directions actually followed, and little
-   slip (slip/m within the teacher's measured band, <=~2.9), on a
-   held-out panel (n>=12, det+sto, DR-0 and own-DR).
-2. **`amp`** — implement `rl_docs/AMP_LOCOMOTION.md` from scratch:
-   AMP + massively parallel PPO + privileged critic + observation
-   history + actuator/fault randomization on the MJX stack (no Isaac
-   Lab). Build every tool it needs. DONE at milestone M5 (MuJoCo
-   cross-engine transfer). M6 hardware is handed to Robot Lab's serialized
-   guarded runner; this cloud cycle never controls the physical robot directly.
-3. **`cpg`** — Berkeley-style low-dimensional gait search: optimize
-   the SE2/CPG controller directly against MuJoCo behavioral metrics,
-   not through PPO reward learning. DONE when a saved parameterized
-   controller passes held-out contextual walking/turning/stopping
-   gates with zero falls and low slip; teacher adoption is A/B-tested.
-4. **`walkcurr`** — prior-free walking curriculum (no gait clock, no
-   BC teacher, no motion prior), walk-only rung ladder from fixed
-   forward first. DONE per its STATUS: held-out contextual walking
-   panel, zero falls, low slip, six-leg gait validity, on video.
-5. **`standwalk`** — retrain the best rise/lower (stance) model on
-   the NEW mesh model at 100 Hz (legacy champions are primitive-
-   family 25 Hz — recipe rerun, never a warm-start), then use it as a
-   teacher to distill rise/lower + the best walking behavior into ONE
-   policy. DONE when that single mesh/100 Hz policy goes sit -> rise
-   -> randomized 60 s joystick script -> lower with zero falls and
-   joystick-band slip (n>=12, det+sto, DR-0 + own-DR).
-6. **`todaypolicy`** — delivery track for a working policy-controlled
-   MuJoCo/controller candidate TODAY. It may compose explicit
-   policy+state pieces (scripted or learned tuck stand/lower, exported
-   RL walk, CPG fallback, browser/controller glue) instead of waiting
-   for a monolithic policy. DONE when one named bundle has a full-mesh
-   stand -> joystick-walk -> lower demo, exported controller-ready
-   policy artifacts, a `transfer_manifest`, and a GO/NO-GO summary.
-   This does NOT mark `standwalk` green; the single-policy work
-   continues in parallel.
+1. **`any_means` — smooth joystick walking on the physical robot by any
+   effective means.** Scripted gaits, CPG search, demonstrations, BC, AMP,
+   RL and explicit controller composition are all valid. Use this path to
+   advance physical builds now. Methods: `joystick`, `amp`, `cpg`,
+   `standwalk`, `assistfade`, `todaypolicy`.
+2. **`rl_only` — the same physical outcome, with walking learned entirely
+   through RL and no demonstrations anywhere in its training lineage.**
+   Method: `walkcurr`, retaining its no-gait-clock/no-BC/no-motion-prior
+   contract. BC initialization/anchors, AMP/demo rewards, teacher action
+   targets, assisted-policy distillation and scripted-gait residuals do not
+   qualify, even if assistance later reaches zero. Record clean ancestry;
+   random actor weights alone are not enough. Calibration, system ID,
+   task rewards and curricula are allowed under `RL_GOALS.md`.
 
-**Do not stop until all gates are green.** While any gate is unmet, an
-idle fleet next to RUNNABLE work is the failure state.
-Before you exit, check `launch_run.py status`: if GPU pods are free
-and any track has runnable work — pre-registered arms whose
-preconditions are met, a track-STATUS "Next" item, or a continuation
-the 08-21 ruling justifies — launch or execute the topmost of it
-(batched; see refill) before exiting. If nothing is genuinely
-runnable (queues empty; remaining items truly blocked on a physical-
-robot step or an unfinished prerequisite another cycle owns), exit
-stating `IDLE: nothing runnable — <why>` — do NOT invent filler runs
-or re-verify an unchanged board to look busy (operator 08-22:
-idle-with-empty-queue is legitimate; idle-next-to-real-work is the
-failure).
+These outcomes proceed in parallel. A unified sit/rise/walk/lower actor or
+completion of every method is not required before useful physical delivery.
+The earlier easy-sim acquisition priority cannot block `any_means` work.
+Method gates retain their existing thresholds and historical verdicts: a
+60 s MuJoCo pass, AMP M5, easy-physics discovery, or a packaged controller
+are method milestones, not physical completion of either parent goal.
+This clarification does not reopen closed recipes or change guardrail caps.
+
+Both outcomes require a bounded, recorded physical joystick trial per
+`RL_GOALS.md`; `rl_only` additionally requires demonstration-free training
+provenance. Cloud cycles prepare candidates, transfer manifests and evidence.
+Physical work (including AMP M6) goes to Robot Lab's serialized guarded runner;
+this cloud cycle never controls the physical robot directly. Robot Lab uses
+standing authority, live camera, fresh telemetry and an abort path.
+
+**Keep justified work moving toward both outcomes.** Before exiting, check
+`launch_run.py status`. If capacity is available, execute runnable work within
+existing limits: pre-registered arms with met preconditions, a current track
+Next item, or an evidence-supported continuation. State the parent outcome
+and gap each step closes. There is no requirement to finish all seven methods
+or use every slot. If nothing is runnable, report `IDLE: nothing runnable —
+<why>`; do not invent filler runs or re-verify an unchanged board. Physical
+handoffs should proceed while cloud research continues.
 
 **No operator pauses.** Never park a line waiting on the operator.
 Design questions, gate definitions, reward choices, tool-building:
@@ -108,7 +91,7 @@ bit-exact when off, tests green — and tests per RESEARCH_RULES "Tests":
 fast, mechanics-only, no rollout-ranking banks).
 
 **Out-of-scope runs are operator-only.** The operator may launch runs
-outside the registered goals; triage them honestly and verdict them,
+outside the registered methods; triage them honestly and verdict them,
 but agent-initiated launches, refills, searches, and follow-ups go
 ONLY to tracks in `rl_move/orchestrator/tracks.json` (launcher-
 enforced for W&B/GPU runs).

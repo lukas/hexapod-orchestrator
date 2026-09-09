@@ -403,26 +403,25 @@ forbidden:
   - >-
     Disabling the PAUSE kill switch, the watcher, or these guardrails.
 
-# OPERATOR DIRECTIVE 2026-08-21 (two-track reset — binding): the fleet
-# pursues exactly two goals — the `joystick` and `amp` track gates in
-# tracks.json — and does not stop until both are green.
+# OPERATOR CLARIFICATION 2026-09-08: RL_GOALS.md defines two parallel
+# physical outcomes: any_means and rl_only (no demonstrations). tracks.json
+# maps seven methods to them; method gates are not parent-goal completion.
 operator_unblock_policy:
   # ASSUME AND KEEP GOING. No line is ever parked "waiting on the
   # operator" for a design, gate, reward, or tooling question: adopt
   # the best-reasoned answer, record it in OPERATOR_QUESTIONS.md, and
   # keep moving. Wrong-but-recorded beats idle.
   assume_and_go: true
-  # The ONLY legitimate waits are physical-robot access and spend
-  # approvals; those go in STATUS.md WAITING-ON tagged [operator] and
-  # never block the two tracks' sim/code work.
+  # Cloud cycles hand physical work to Robot Lab's serialized guarded runner;
+  # the forbidden physical-contact rule above still applies to this process.
+  # Only concrete hands-on needs and spend approvals wait on the operator.
+  # Such waits never block independent work toward either parent outcome.
   operator_only_blockers: [physical-robot, spend-approvals]
-  # While either track gate is unmet, an idle fleet next to an empty
-  # backlog is the failure state: build the missing tool, write the
-  # alignment bank, fund the continuation the 08-21 interpretation
-  # ruling calls for, or queue the next milestone arm. Launches still
-  # serve a named gap toward a track gate — never raw slot-filling
-  # with peripheral runs, and never outside the two tracks (out-of-
-  # scope runs are operator-kick only).
+  # Keep justified runnable work moving toward both parent outcomes.
+  # An empty queue is not permission to invent filler runs: each launch
+  # serves a named gap via a registered method, within existing caps.
+  # Preserve closed recipes and the run-interpretation requirements;
+  # out-of-scope runs are operator-kick only.
   idle_gpu_needs_hard_reason: true
   # Any true wait is written into STATUS.md's WAITING-ON block in the
   # same cycle it starts and removed in the cycle that clears it.

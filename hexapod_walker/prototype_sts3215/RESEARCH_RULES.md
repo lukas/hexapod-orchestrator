@@ -1,7 +1,7 @@
 # RESEARCH_RULES — binding agent behavior (operator, 08-21 reset)
 
 How the autonomous loop designs, launches, continues, and interprets
-experiments. Startup reading order: `CURRENT_TRUTHS.md` →
+experiments. Startup reading order: `RL_GOALS.md` → `CURRENT_TRUTHS.md` →
 `RL_PLAN.md` → the relevant `rl_docs/tracks/<track>/STATUS.md` → this
 file + `RUN_INTERPRETATION_RULES.md` before launch/triage.
 
@@ -18,18 +18,25 @@ answers back into these docs and close the question.
 
 ## Prime directive
 
-The fleet pursues the registered track gates in
-`rl_move/orchestrator/tracks.json` and does not stop until all are
-green. Every launch or CPU search answers: which gap between the
-current state and this track's DONE gate does this work close? Idle
-capacity next to an unmet gate is the failure state; there is almost
-always a tool to build, an alignment bank to write, a continuation to
-fund, or the next milestone arm to queue. Do not park lines waiting on
-the operator: assume-and-go with a recorded assumption. Only irreducible
-hands-on robot work and spend approvals may wait; live camera plus fresh
-telemetry makes guarded remote robot access runnable. The operator may
-launch out-of-scope runs; triage them honestly, but agent follow-ups
-go only to registered tracks.
+The fleet supports the two parallel physical outcomes in `RL_GOALS.md`:
+`any_means` delivers smooth joystick walking using any effective method so
+physical builds progress now; `rl_only` reaches the same result with walking
+learned entirely through RL and no demonstrations anywhere in its lineage.
+`tracks.json` maps seven methods to these outcomes. No all-methods-green
+requirement applies, and a method/simulation PASS is not physical completion.
+
+Every launch or CPU search names its parent outcome, method and the gap it
+closes. Keep justified runnable work moving within existing caps, including
+practical delivery alongside demonstration-free research. Do not invent filler
+runs or reopen closed recipes just because capacity is idle. Use measured
+runs and evals for behavioral hypotheses, with tests as specified below.
+Do not park lines waiting on the operator: assume-and-go with a recorded
+assumption. Only irreducible hands-on robot work and spend approvals may wait;
+live camera plus fresh telemetry makes guarded remote robot access runnable
+for Robot Lab's serialized runner. Cloud cycles hand physical steps to that
+runner and never control the robot directly. The operator may launch
+out-of-scope runs; triage them honestly, but agent follow-ups go only to
+registered methods serving these two outcomes.
 
 ## Interpretation (operator, 08-21/08-22 - full text in
 RUN_INTERPRETATION_RULES.md)

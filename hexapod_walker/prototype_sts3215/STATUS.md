@@ -1,116 +1,90 @@
-# STATUS - campaign dashboard
+# STATUS — two physical walking goals
 
-Last updated: 2026-09-05 ~05:4x. Operator-facing dashboard, not a
-history file. `CURRENT_TRUTHS.md` wins on conflict. Run-level evidence
-lives in `rl_docs/runs/`, `RL_LOG.md`, and W&B.
+Goal structure clarified by Lukas on 2026-09-08. This is an operator-facing
+digest, not a live fleet snapshot. `RL_GOALS.md` owns purpose and priorities;
+`CURRENT_TRUTHS.md` owns accepted evidence. Consult the state ledger and
+track journals for current run/queue status.
 
-## Current Ruling
+## Parent outcomes
 
-The campaign has six registered tracks in
-`rl_move/orchestrator/tracks.json`.
+1. **`any_means`: smooth physical joystick walking by any effective means.**
+   Use scripted, searched, demonstration-assisted or learned controllers to
+   make progress on physical builds now. Methods: `joystick`, `amp`, `cpg`,
+   `standwalk`, `assistfade`, `todaypolicy`.
+2. **`rl_only`: the same physical outcome, learned entirely through RL with
+   no demonstrations anywhere in the walking policy's training lineage.**
+   Method: `walkcurr`. Random initialization followed by BC/AMP or scripted
+   gait assistance belongs to `any_means`, even if assistance later ends.
 
-1. `joystick` - GATE GREEN (08-23): legacy RL-from-scripted-gait
-   joystick champion `stotight45-seed13` passes the 60 s randomized
-   MuJoCo joystick gate with zero falls. Hardware drive is owned by the
-   serialized Robot Lab guarded runner.
-2. `amp` - GATE GREEN at M5 (08-23): AMP from-scratch sim goal met by
-   the `phasehz11_s29` family. M6 hardware transfer is a Robot Lab guarded handoff.
-3. `cpg` - GATE GREEN (08-23): parameterized CPG controller passes its
-   contextual walking/turning/stopping gate; maintenance/adoption
-   comparisons only.
-4. `walkcurr` - REOPENED BOUNDED 09-05 (operator focus note): real-
-   physics discovery stays RETIRED (08-31, static-stand basin, see
-   `rl_docs/tracks/walkcurr/STATUS.md`); a bounded EASY-SIM-ONLY
-   teacher-free campaign is now the fleet's primary GPU allocation
-   (11 seeds training a 2x2 base/sde/halfgrav/sdehalfgrav family at
-   40M). First 40M return (`sdehalfgrav-s0`) ACQ FAIL: fast 2-leg
-   lurch/facepolant, reward-misalignment hypothesis under review.
-5. `standwalk` - OPEN: continue the hard single-policy goal, one
-   mesh/100 Hz policy for sit -> rise -> joystick walk -> lower.
-6. `todaypolicy` - NEW (08-30): delivery track for a working
-   policy-controlled bundle today, allowed to compose explicit
-   policy+state pieces while `standwalk` continues in parallel.
+Both proceed in parallel. Neither outcome is established by the simulation
+or packaging evidence summarized below. Physical acceptance needs a named
+build/controller, a bounded joystick trial with video and telemetry, and
+reported direction/speed/yaw/start/stop limits; `rl_only` also needs clean
+training ancestry. The next delivery step is the best-supported candidate's
+measured physical comparison through Robot Lab, after its contract and
+readiness checks. It does not wait for every method or a monolithic policy.
 
-## What Works Today
+## Recorded usable candidate and limitations
 
-Best current MuJoCo bundle candidate:
-`todaypolicy-mlpsf-tuck-v1` =
-scripted-or-learned tuck stand/lower +
-`cw-walk-allheading-mlp-singleframe-acq1-stdanneal`.
+`todaypolicy-mlpsf-tuck-v1` was PACKAGED 08-30 with all TODAY bars passing on
+a fresh controller-side full-mesh regeneration: scripted-or-learned tuck
+stand/lower plus `cw-walk-allheading-mlp-singleframe-acq1-stdanneal`.
+Evidence: 0 terminations, no sacrificed legs, course error median 2.42° /
+p90 6.98°, wrong-course fraction 0.0, progress ratio 0.418,
+current 2.64/1.886 A. This was GO for controller handoff, not physical
+joystick-walking acceptance. It remained speed-soft with zero turn authority
+in that walk diet.
 
-DELIVERED 08-30: `todaypolicy-mlpsf-tuck-v1` PACKAGED, all TODAY bars
-PASS on a fresh controller-side full-mesh regen
-(`logs/manual_drive/todaypolicy_mlpsf_tuck_v1_fullmesh/`): 0
-terminations, full_mesh, no sacrificed legs, course_err_1s med 2.42 /
-p90 6.98 / wrong 0.0, progress_ratio 0.418, cur 2.64/1.886 A. GO for
-controller handoff; durable evidence + GO/NO-GO + selector path in
-`rl_docs/tracks/todaypolicy/bundle_mlpsf_tuck_v1/`. Still speed-soft
-(teacher-ceiling); zero turn authority in this walk diet.
+- Bundle evidence and selector path:
+  `rl_docs/tracks/todaypolicy/bundle_mlpsf_tuck_v1/`.
+- Exported walk:
+  `linux_control/policies/walk_allheading_mlp_singleframe_acq1_stdanneal.json`.
+- `cw-walkteach-scripted-allhead-acq12m{,-s1}` finished 08-30 with 2/2
+  acquisition/joystick passes, but authority remained teacher-ceiling-bound.
+- The 09-05 delivery verification flagged a model/regeneration mismatch and
+  actor-dependent filter/noise effects. Resolve candidate-specific readiness
+  from `rl_docs/tracks/todaypolicy/hardware_delivery/STATUS.md` before transfer.
 
-Exported walk artifact:
-`linux_control/policies/walk_allheading_mlp_singleframe_acq1_stdanneal.json`.
+## Recorded method milestones — not parent-goal completion
 
-## Active Training
+- `joystick`: GREEN 08-23 at the legacy 60 s randomized MuJoCo gate
+  (`stotight45-seed13`, zero falls); physical drive goes through Robot Lab.
+- `amp`: GREEN 08-23 at simulation-transfer M5 (`phasehz11_s29` family).
+  Demonstration-assisted; hardware M6 goes through Robot Lab under Goal 1.
+- `cpg`: GREEN 08-23 at the contextual walking/turning/stopping gate.
+  Its saved controller remains a candidate for measured adoption comparisons.
+- `walkcurr`: the 08-31 negative result and the 09-05 bounded easy-physics
+  reopening are distinct scopes. Easy-sim acquisition is an intermediate
+  milestone for Goal 2, not a reason to delay Goal 1. Use its live journal
+  and `CURRENT_TRUTHS.md` for later mechanism findings and closed recipes.
+- `standwalk`: the single-policy method remains separate from useful
+  controller composition. The recorded steering lever failures are preserved;
+  check its journal for later results before proposing another mechanism.
+- `assistfade`: rungs 1–4 were closed 09-07 under the tested recipes;
+  persistent BC-anchor rung 0 remained production-usable. The 09-08
+  opposite-seed recovery claim was withdrawn after comparator correction.
+  Subsequent mechanism verdicts belong in its journal/ledger. Assisted
+  ancestry cannot qualify for Goal 2.
+- `todaypolicy`: the 08-30 bundle packaging is a milestone. In the 09-05
+  CPU command-envelope study, `env_yawpri` gained yaw at a 55% progress cost;
+  shared and fixed-duty time-slice variants were refuted. See the delivery
+  journal for limits, model mismatch and measured next steps.
 
-- `cw-walkteach-scripted-allhead-acq12m{,-s1}` FINISHED 08-30: 2/2
-  ACQUISITION PASS incl. the formal joystick gate, but authority is
-  teacher-ceiling-bound.
-- `standwalk`: phase-scheduled multi-teacher canary grid (4 arms,
-  `...-multiteach-b{05,10}{,-s1}`) — seed0 half (b05/b10) FAILed
-  (matches ~20-arm pattern); seed1 half IN FLIGHT on another cycle —
-  see Track Snapshot.
+Registry: `rl_move/orchestrator/tracks.json`. Method evidence and queues:
+`rl_docs/tracks/<track>/STATUS.md`. No closed recipe is reopened by this
+reorganization; there is no requirement to make every method green.
 
-## Track Snapshot
+## Ownership and actual waits
 
-- `todaypolicy`: DONE for 08-30 (bundle packaged, GO); bundle unchanged
-  primary. `hardware_delivery` sub-track REOPENED 09-05 (op note
-  fb_20260905T071610_749846): built+tested opt-in `CommandEnvelope`
-  command governor (shared/yaw_priority/time_slice modes) on a paired
-  CPU scripted suite. `env_yawpri` is the real yaw-authority candidate
-  (-55% progress cost); `shared` and all 3 `time_slice` duty doses are
-  REFUTED (dominated/tied). See
-  `rl_docs/tracks/todaypolicy/hardware_delivery/STATUS.md`.
-- `standwalk`: reward/architecture lever search for steering is
-  EXHAUSTED (~22 arms now, all FAIL/CLOSED incl. the literal DONE-gate
-  read on mlcontprice8); frozen `cap29-stdwalklo-hi{,-s1}` remains the
-  reference. The last surviving lever, a phase-scheduled multi-teacher
-  BC-anchor mechanism, FAILed both seed0 doses (blend 0.5 and 1.0) on
-  the family's own probe_turn_authority gate — pure-turn regressed
-  21-48% past the 10% cap, combined-tick didn't beat the comparator on
-  both signs. Seed1 pair still training (another cycle). If it
-  matches, the axis closes for good; next moves are a genuine gait-
-  structure change (not another magnitude rescale) or a DONE-gate
-  turn-authority renegotiation — both deferred to a dedicated design
-  pass, not rushed. Details: `rl_docs/tracks/standwalk/STATUS.md`.
-- `walkcurr`: RETIRED 08-31, DONE-negative scope finding (see above);
-  reopened 09-05 as the primary GPU campaign on EASY-physics
-  teacher-free walking (operator order) — see
-  `rl_docs/tracks/walkcurr/STATUS.md`.
-- `assistfade`: rungs 1-4 of the assist-removal ladder CLOSED 09-07
-  (~20 canary arms) — only rung 0 (persistent BC anchor, never faded)
-  reaches ignition on mesh/100Hz; do not relaunch rung 1-4 recipes
-  without a new unscoped reward-mechanism design. Rung 0's recipe
-  stays PROVEN/production-usable. 09-08 ~02:2x: the named new-mechanism
-  lead (`reward.walk_leg_duty_ratio_charge`, validated on walkcurr) was
-  applied to rung 3 for the first time — `cw-assistfade-rung3-
-  legdutyratio-{s0,s1}` 2M canaries. The s0 opposite-seed recovery
-  claim is withdrawn after correcting its comparator (16/24 -> 15/24
-  gait, 7/24 -> 9/24 safety terms); formal verdicts remain with the
-  coordinating review. See
-  `rl_docs/tracks/assistfade/STATUS.md` TRACK-LEVEL FINDING (09-07) and
-  the 09-08 ~02:2x entry above it.
-- `joystick`, `amp`, `cpg`: green/maintenance unless the operator
-  explicitly reopens them.
+Cloud cycles prepare sim evidence and controller handoffs; Robot Lab owns
+serialized physical experiments under standing authority and the live
+camera/telemetry/abort rules. Routine calibration, bounded motion, deployment
+and recovery are not blanket operator blockers. Only concrete hands-on
+needs, spend/capacity increases beyond guardrails, or an unresolved product
+choice requiring Lukas's decision should be reported as operator waits.
+No fresh physical verification was performed for this goal clarification.
 
-## Waiting On
+## Doc rules
 
-- `[operator]` Any physical robot motion, bench promotion, calibration,
-  or hardware drive.
-- `[operator]` AMP M6 hardware transfer.
-- `[operator]` recover/flip product decision.
-
-## Doc Rules
-
-Keep this file under 100 lines. Replace stale status, do not append
-history. Use `RL_LOG.md` for one-line cycle history and
-`rl_docs/runs/` for run facts. Long audits belong in `archive/`.
+Keep under 100 lines. Replace stale status; put history in `RL_LOG.md` and
+generated run docs. Do not infer current fleet activity from this digest.

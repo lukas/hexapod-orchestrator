@@ -1,115 +1,107 @@
-# RL Plan — six registered tracks
+# Walking plan — two parallel physical outcomes
 
-Reset by operator 2026-08-21; `walkcurr` added 2026-08-23;
-`standwalk` and `todaypolicy` added during the mesh/100 Hz push.
-Binding track registry: `rl_move/orchestrator/tracks.json`. History
-belongs in `archive/`, `RL_LOG.md`, and generated run docs. Keep under
-150 lines.
+Purpose and priorities: `RL_GOALS.md` (Lukas, 2026-09-08). Method registry:
+`rl_move/orchestrator/tracks.json`. Current evidence: `CURRENT_TRUTHS.md`,
+the state ledger, and `rl_docs/tracks/<track>/STATUS.md`. History belongs in
+`archive/`, `RL_LOG.md`, and generated run docs. Keep this plan under 150 lines.
 
-## Tracks
+## Outcomes and methods
 
-1. `joystick` — RL from scripted gait to joystick control. Gate: 60 s
-   randomized MuJoCo joystick script, zero falls, directions followed,
-   teacher-band slip, held-out det+sto DR panels.
-2. `amp` — AMP from scratch per `rl_docs/AMP_LOCOMOTION.md`; done at
-   M5 MuJoCo transfer, M6 guarded hardware transfer.
-3. `cpg` — direct low-dimensional CPG/SE2 controller search; teacher
-   adoption only by A/B.
-4. `walkcurr` — prior-free PPO walking: no gait clock, no BC teacher,
-   no motion prior; reward bank required. **PRIMARY GPU CAMPAIGN since
-   09-05 (operator order): teacher-free walking on EASY sim physics —
-   keep the fleet full of pre-registered easy-campaign arms + stocked
-   backlog until its acquisition milestone is met or the operator
-   redirects; other tracks get GPU launches only if this priority is
-   already supplied (or Lukas directs otherwise).**
-5. `standwalk` — keep trying to make ONE mesh/100 Hz policy for sit ->
-   rise -> joystick walk -> lower.
-6. `todaypolicy` — ship a working policy-controlled bundle today, using
-   explicit policy+state composition if that is what works. Does not
-   mark `standwalk` green.
+1. **`any_means`: smooth physical joystick walking by any effective means.**
+   Scripted gaits, CPG search, demonstrations, BC, AMP, RL and composed
+   controllers are valid. Deliver usable walking to improve physical builds
+   while harder research continues.
+2. **`rl_only`: the same physical outcome, learned entirely through RL with
+   no demonstrations anywhere in the walking policy's training lineage.**
+   A teacher used only during training still disqualifies that lineage.
 
-Each track has its live Goal/Now/Next page at
-`rl_docs/tracks/<track>/STATUS.md`. The loop does not stop until all
-registered gates are green. Out-of-scope operator runs get honest
-triage but no agent follow-ups.
+| Method IDs | Parent outcome |
+|------------|----------------|
+| `joystick`, `amp`, `cpg`, `standwalk`, `assistfade`, `todaypolicy` | `any_means` |
+| `walkcurr` | `rl_only` |
 
-## Startup Packet
+Method gates remain useful evidence with their existing thresholds. They are
+not seven independent product requirements. One policy for sit/rise/walk/lower,
+AMP's full pipeline, and fault tolerance are optional approaches/extensions;
+physical delivery does not wait for all of them. Simulation or packaging
+PASS is not physical acceptance of either outcome.
 
-1. `CURRENT_TRUTHS.md`
-2. this file
-3. the relevant `rl_docs/tracks/<track>/STATUS.md`
-4. `RESEARCH_RULES.md` + `RUN_INTERPRETATION_RULES.md`
-5. `rl_docs/COMMANDS.md`
+## Startup packet
 
-## Binding Rulings
+1. `RL_GOALS.md` — purpose, demonstration boundary, physical acceptance.
+2. `CURRENT_TRUTHS.md` — accepted facts and run verdicts.
+3. This file, the live ledger, and the relevant method's track journal.
+4. `RESEARCH_RULES.md` + `RUN_INTERPRETATION_RULES.md`.
+5. `rl_docs/COMMANDS.md` and the applicable hardware runbook for the agent
+   that owns a physical step.
 
-- Reward/eval agreement first. Bad eval plus rising reward means
-  reward/eval/simulator mismatch or justified continuation, never an
-  automatic same-recipe seed sweep.
-- No operator pauses except irreducible hands-on physical work and spend
-  approvals. Guarded remote robot access is part of the active campaign.
-- Build missing tools/harnesses/banks/models in-cycle and test them.
-- New PPO/MJX policies use mesh-family 100 Hz unless a registered
-  legacy exception says otherwise.
+## Goal 1 work: make the physical builds useful
 
-## Active Queue
+1. Select the best supported controller for the current build from existing
+   scripted, searched or learned candidates. Check its model/control contract
+   and recorded command limits; do not rerun already proven recipes simply
+   to fill capacity.
+2. Prepare a named controller/build bundle, calibration and runtime checks,
+   and a bounded joystick trial with explicit acceptance criteria. Use
+   `todaypolicy` for delivery/handoff work; a scripted baseline is valid.
+3. Hand physical trials to Robot Lab's serialized guarded runner. Record
+   video, requested/achieved motion and telemetry across headings, speed,
+   yaw, starts and stops. Establish a useful physical baseline early.
+4. Fix the measured limiting factor — mechanics, calibration, command
+   handling, gait, model fidelity or training — and compare against that
+   baseline. Keep physical build iteration moving while Goal 2 learns.
 
-### todaypolicy
+## Goal 2 work: clean RL discovery through physical transfer
 
-1. Package `todaypolicy-mlpsf-tuck-v1`: tuck stand/lower plus exported
-   `walk_allheading_mlp_singleframe_acq1_stdanneal.json`, full-mesh
-   `ops.sh hybriddemo`, `transfer_manifest`, and GO/NO-GO summary.
-2. Compare scripted tuck against learned `stand_stancemix_tuckclock_scratch8m`
-   stand/lower in the same harness.
-3. When `cw-walkteach-scripted-allhead-acq12m{,-s1}` lands, compare it
-   against the mlp-singleframe bundle for joystick authority.
+1. Audit policy ancestry and training inputs before accepting a candidate.
+   Continue only a clean RL lineage: no BC initialization/anchor, AMP/demo
+   prior, teacher targets, assisted-policy distillation or scripted gait
+   residual. `walkcurr` also retains its no-gait-clock/no-motion-prior contract.
+2. Use the current ledger and mechanism evidence to select the next justified
+   prior-free experiment. Easy physics and curricula are acquisition tools;
+   success there does not prove realistic walking or physical transfer.
+3. Progress from walking discovery to command range, smooth transitions and
+   realistic model/actuator conditions, with held-out behavioral evidence.
+4. Export and validate the clean policy/runtime, then hand off a bounded
+   physical joystick trial under the same acceptance standard as Goal 1.
+   Calibration and physical measurements can be shared; demonstration-trained
+   weights and gait supervision cannot cross into this lineage.
 
-### standwalk
+## Allocation and interpretation
 
-1. Let `cw-walkteach-scripted-allhead-acq12m{,-s1}` run and triage the
-   authority/readiness gates.
-2. Triage `dualbc3-dagger-anchor14coef1-acq8m{,-s1}` mixedsession
-   errors before more unified-policy spending.
-3. Distill one policy only after the walk source and stance/lower
-   teacher are selected by evidence.
+- Pursue both outcomes in parallel within existing guardrails. The earlier
+  easy-sim primary-GPU focus is method history, not a prerequisite that can
+  block Goal 1's delivery or justified supporting work. No cap changes or
+  automatic cancellation/relaunch of existing experiments follow from this plan.
+- Every launch or engineering step states its parent outcome, method, current
+  gap, hypothesis and required evidence. There is no finish-all-methods rule.
+  Keep available capacity supplied with justified runnable work; do not invent
+  filler runs or reopen closed recipes without a new supported mechanism.
+- Reward/eval agreement first. Bad eval plus rising reward means an objective,
+  evaluator or simulator audit; it never automatically justifies a seed sweep.
+  Continue learning only when the interpretation rules and evidence support it.
+- New PPO/MJX policies use mesh-family 100 Hz unless a registered exception
+  says otherwise. Preserve model-family and control-rate provenance at transfer.
+- Missing tools are engineering work. Tests follow `RESEARCH_RULES.md`:
+  fast mechanics checks; behavioral hypotheses use measured runs and evals.
 
-### walkcurr
+## Ownership and reporting
 
-1. Continue only prior-free mechanisms. No BC, gait clock, motion prior,
-   or teacher shortcuts.
-2. On aligned fail: dig into reward/eval/simulator before seeds.
+Cloud RL cycles prepare candidates and evidence; Robot Lab owns serialized
+physical experiments. Standing authority covers observed bounded remote
+motion, calibration, deployment and recovery within the active task. Follow
+root `AGENTS.md` and `EMERGENCY_HANDLING.md`; ask for hands-on help only when
+fresh observations cannot establish or restore normal state. Spend/capacity
+increases beyond guardrails remain operator-owned.
 
-### joystick / amp / cpg
+Report each parent outcome separately from its method milestones. Track
+journals and the ledger retain historical results, including closed recipes;
+this reorganization does not alter them. State the best physical evidence,
+remaining joystick limits and next measurable step for each outcome. Do not
+claim physical success from a MuJoCo PASS or a controller export.
 
-1. Green or maintenance unless the operator reopens them.
-2. Keep their artifacts available as candidates or baselines for
-   `todaypolicy` and teachers/control arms for other tracks.
+## Documentation discipline
 
-## Inherited Assets
-
-- Scripted tripod teacher: measured tibia-150 plant, 0.06-0.10 m/s,
-  zero falls, slip/m 1.4-2.9.
-- `cw-walk-allheading-mlp-singleframe-acq1-stdanneal`: best exported
-  full-mesh RL walk role today, stable but speed-soft.
-- `stand_stancemix_tuckclock_scratch8m{,_s1}` and scripted tuck:
-  current tuck stand/lower options.
-- `cw-walkteach-scripted-allhead-acq12m{,-s1}`: active candidate for a
-  more authoritative all-heading walk.
-- MJX/Warp GPU stack, model DR, eval/video, desync, and `ops.sh`
-  helpers.
-
-## Operator-Owned Items
-
-- Hands-on manipulation or repair when camera/telemetry cannot establish or
-  restore a normal state; guarded remote motion, calibration, and hardware
-  drive remain available to the action-capable agent.
-- Spend/capacity changes beyond guardrails.
-- Product choices that require accepting an unsupported recover/flip
-  gap.
-
-## Documentation Discipline
-
-Replace stale narrative with current state. Budgets: `STATUS.md`
-<=100 lines, track STATUS <=120, this file <=150,
-`CURRENT_TRUTHS.md` <=80. One `RL_LOG.md` line per cycle via
-`ops.sh logline`. Long audits go to `archive/`.
+Replace stale narrative with current state. Budgets: `STATUS.md` <=100 lines,
+track STATUS <=120, this file <=150, `CURRENT_TRUTHS.md` <=80. One `RL_LOG.md`
+line per cycle via `ops.sh logline`. Long audits go to `archive/`.
