@@ -125,9 +125,10 @@ This version is a manual review and handoff system. Stop, repair and automation
 engineering actions are **proposals**, not executed commands. Existing owners
 (cloud controller, interactive task owner, guarded Robot Lab runner) remain the
 only execution paths. There is no generic kill/restart executor, queue resume,
-model-generated shell command, or physical-control adapter. In particular the
-existing Lab engineering pause-fencing gap must be addressed before any future
-automatic physical handoff is enabled. Nothing in this tool activates it.
+model-generated shell command, or physical-control adapter. Robot Lab checks its
+durable hardware pause at engineering admission and launch, and revokes active
+attempts when their pause/lease/cancellation state changes. Any future automated
+handoff must continue through that existing owner. Nothing in this tool activates it.
 
 ## Durable reviews and notifications
 
