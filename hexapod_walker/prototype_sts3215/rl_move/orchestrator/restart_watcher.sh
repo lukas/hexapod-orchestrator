@@ -15,6 +15,9 @@
 # not, hence the wrap-up protocol below stands. Copy lives in the repo;
 # the deployed copy is /workspace/restart_watcher.sh on the controller.
 set -u
+# Detached watchers must not reuse a dead parent W&B service socket.
+unset WANDB_SERVICE
+export UV_PYTHON=/usr/local/bin/python
 ORCH=/workspace/hexapod/hexapod_walker/prototype_sts3215/rl_move/orchestrator
 # The repo root carries a pyproject.toml/uv.lock for LAPTOP development.
 # The controller runs on its system Python with `uv pip install --system`
@@ -99,7 +102,7 @@ rm -f "$ORCH/PAUSE" "$ORCH/WRAPUP"
 # Keep the lifetime lock in this supervisor, never in the tmux server/watcher.
 tmux new-session -d -s orchestrator \
   "source /root/orchestrator.env && cd /workspace/hexapod && \
-   uv run --no-project python hexapod_walker/prototype_sts3215/rl_move/orchestrator/watch_loop.py" 8>&-
+   env -u WANDB_SERVICE UV_PYTHON=/usr/local/bin/python uv run --no-project python hexapod_walker/prototype_sts3215/rl_move/orchestrator/watch_loop.py" 8>&-
 sleep 5
 if tmux has-session -t orchestrator 8>&- 2>/dev/null; then
   log "RESTARTED ok (tmux session up)"
