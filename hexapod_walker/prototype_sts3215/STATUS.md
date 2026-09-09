@@ -52,9 +52,11 @@ Interactive launch: `sim_viewer/sim_web.sh --walk rl_move/sim/policies/<name
 above>` (one click in the default picker). Known limitation: a SUSTAINED
 (~15 s) off-forward heading (±90/±135/180°) still chronically sacrifices one
 front leg's swing (`rl_docs/tracks/walkcurr/STATUS.md` 09-09 ~11:2x on);
-forward/brief transitions are clean. Root-caused as a policy/exploration
-gap, not a kinematic limit; a fix is in progress, not required for this
-sim-demo deliverable.
+forward/brief transitions are clean; a fix is in progress, not required for
+this sim-demo deliverable. Physical-handoff prep (09-09): exported to the
+robot's numpy runtime (built N-layer/ELU export support for this
+architecture) with a transfer manifest + registered bounded-trial plan at
+`rl_docs/tracks/walkcurr/bundle_rlonly_v1/` — walk role only, not a trial.
 
 ## Recorded method milestones — not parent-goal completion
 
@@ -62,11 +64,10 @@ sim-demo deliverable.
   (`stotight45-seed13`, zero falls); physical drive goes through Robot Lab.
 - `amp`: GREEN 08-23 at simulation-transfer M5 (`phasehz11_s29` family).
   Demonstration-assisted; hardware M6 goes through Robot Lab under Goal 1.
-- `cpg`: GREEN 08-23 at the contextual walking/turning/stopping gate.
-  Its saved controller remains a candidate for measured adoption comparisons.
-- `walkcurr`: sim-demo candidate now recorded above (09-09). Easy-sim
-  acquisition remains an intermediate Goal-2 milestone; see its live journal
-  and `CURRENT_TRUTHS.md` for mechanism findings and closed recipes.
+- `cpg`: GREEN 08-23 at the contextual walking/turning/stopping gate; its
+  saved controller is a candidate for measured adoption comparisons.
+- `walkcurr`: sim-demo candidate recorded above (09-09); easy-sim acquisition
+  is an intermediate Goal-2 milestone — see its journal/`CURRENT_TRUTHS.md`.
 - `standwalk`: the single-policy method remains separate from useful
   controller composition. The recorded steering lever failures are preserved;
   check its journal for later results before proposing another mechanism.
@@ -75,10 +76,9 @@ sim-demo deliverable.
   closed — every tested "fade assist to full raw authority" mechanism fails
   on mesh/100Hz. Persistent BC-anchor rung 0 remains production-usable and
   is the track's live output; assisted ancestry cannot qualify for Goal 2.
-- `todaypolicy`: the 08-30 bundle packaging is a milestone. In the 09-05
-  CPU command-envelope study, `env_yawpri` gained yaw at a 55% progress cost;
-  shared and fixed-duty time-slice variants were refuted. See the delivery
-  journal for limits, model mismatch and measured next steps.
+- `todaypolicy`: the 08-30 bundle packaging is a milestone. 09-05
+  command-envelope study: `env_yawpri` gained yaw at a 55% progress cost;
+  shared/fixed-duty time-slice variants refuted. See delivery journal.
 
 Registry: `rl_move/orchestrator/tracks.json`. Method evidence and queues:
 `rl_docs/tracks/<track>/STATUS.md`. No closed recipe is reopened by this
