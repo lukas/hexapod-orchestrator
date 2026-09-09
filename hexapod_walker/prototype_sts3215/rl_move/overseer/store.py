@@ -95,6 +95,7 @@ class Store:
                 "CREATE UNIQUE INDEX IF NOT EXISTS one_active_wake ON wakes(status) WHERE status='active'",
                 "CREATE TABLE IF NOT EXISTS reservations (operation_id TEXT PRIMARY KEY, wake_id TEXT NOT NULL REFERENCES wakes(wake_id), reserved INTEGER NOT NULL CHECK(reserved>=0), actual INTEGER CHECK(actual>=0), created_at TEXT NOT NULL, settled_at TEXT)",
                 "CREATE INDEX IF NOT EXISTS spend_agent_seq ON spend_events(agent_id,seq)",
+                "CREATE TABLE IF NOT EXISTS wake_resumptions (operation_id TEXT PRIMARY KEY, wake_id TEXT NOT NULL REFERENCES wakes(wake_id), resumed_at TEXT NOT NULL, previous_finished_at TEXT NOT NULL)",
             ):
                 con.execute(statement)
             con.execute("INSERT OR IGNORE INTO limits VALUES(1,?,?)", (self.wake_limit, self.daily_limit))
@@ -220,7 +221,7 @@ class Store:
         return result
 
     def start_wake(self, reason, now=None, wake_id=None, *, review_seq=None) -> dict:
-        """Create or resume a wake, retaining its budget and review cutoff.
+        """Create a wake or look up the same identity without reopening it.
 
         Pass the cost snapshot's ``review_seq`` when observations were collected
         before this transaction. Later-arriving costs must not be acknowledged
@@ -248,6 +249,39 @@ class Store:
             seq = current_seq if review_seq is None else review_seq
             con.execute("INSERT INTO wakes(wake_id,reason,status,started_at,review_seq) VALUES(?,?,'active',?,?)", (wake_id, reason, now, seq))
             return {**self._wake(con, wake_id), "reused": False}
+
+    def resume_wake(self, wake_id, operation_id, now=None) -> dict:
+        """Explicitly reopen one blocked wake for a NEW manual attempt.
+
+        Preserve its original identity, review cutoff and every charge. A
+        continuation ID is single-use even if its request never reached reserve;
+        active/successful wakes cannot be reopened or implicitly retried.
+        """
+        wake_id = _text(wake_id, "wake_id")
+        operation_id, now = _text(operation_id, "operation_id"), _stamp(now)
+        with self._transaction() as con:
+            if (con.execute("SELECT 1 FROM wake_resumptions WHERE operation_id=?", (operation_id,)).fetchone()
+                    or con.execute("SELECT 1 FROM reservations WHERE operation_id=?", (operation_id,)).fetchone()):
+                raise ValueError("Continuation operation ID was already used; refusing replay")
+            active = con.execute("SELECT wake_id FROM wakes WHERE status='active'").fetchone()
+            if active:
+                raise WakeConflict(f"Wake {active[0]} is still active; finish it before manual continuation")
+            wake = self._wake(con, wake_id)
+            if wake['status'] != 'finished' or wake['outcome'] != 'blocked':
+                raise WakeConflict("Only a finished blocked wake can be resumed")
+            if now < wake['finished_at']:
+                raise ValueError("Continuation predates the blocked wake completion")
+            charged = sum(row[0] for row in con.execute(
+                "SELECT COALESCE(actual,reserved) FROM reservations WHERE wake_id=?", (wake_id,)))
+            if charged >= _money(15):
+                raise BudgetExceeded("Wrap-up threshold reached; no manual continuation calls")
+            if charged >= self.wake_limit or self._daily_charge(con, now) >= self.daily_limit:
+                raise BudgetExceeded("No remaining wake or rolling 24-hour budget")
+            con.execute("INSERT INTO wake_resumptions VALUES(?,?,?,?)",
+                        (operation_id, wake_id, now, wake['finished_at']))
+            con.execute("UPDATE wakes SET status='active',finished_at=NULL,outcome=NULL WHERE wake_id=?", (wake_id,))
+            return {**self._wake(con, wake_id), "operation_id": operation_id,
+                    "resumed_at": now, "previous_finished_at": wake['finished_at'], "reused": False}
 
     @staticmethod
     def _reservation(row):

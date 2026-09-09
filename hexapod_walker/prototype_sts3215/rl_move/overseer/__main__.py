@@ -175,16 +175,49 @@ def compact_for_review(report: dict, snapshot: dict) -> dict:
             'historical_states': dict(Counter(a.get('status','unknown') for a in report['agents']))}
 
 
+def prior_attempts(database: Path, wake_id: str) -> list[dict]:
+    """Read immutable earlier reports; continuation never replaces their rows."""
+    if not database.exists():
+        raise ValueError('Cannot resume a wake from a missing budget database')
+    db = sqlite3.connect(database.resolve().as_uri() + '?mode=ro', uri=True, timeout=2)
+    db.row_factory = sqlite3.Row
+    try:
+        if not db.execute("SELECT 1 FROM sqlite_master WHERE name='overseer_reports'").fetchone():
+            return []
+        prefix = wake_id + ':review:'
+        rows = db.execute('''SELECT report_id,created_at,outcome,body FROM overseer_reports
+            WHERE report_id=? OR substr(report_id,1,?)=? ORDER BY created_at,rowid''',
+            (wake_id, len(prefix), prefix))
+        result = []
+        for row in rows:
+            body = json.loads(row['body'])
+            if body.get('wake', {}).get('wake_id') != wake_id:
+                raise ValueError('Prior report has a conflicting wake identity')
+            result.append({'report_id': row['report_id'], 'generated_at': row['created_at'],
+                           'outcome': row['outcome'], 'llm_review': body.get('llm_review')})
+        return redact(result)
+    finally:
+        db.close()
+
+
 def run_review(args, database: Path) -> dict:
     provider = getattr(args, 'provider', None)
+    resume_id = getattr(args, 'resume_wake', None)
     if provider:
         if not args.reviewer_config:
             args.reviewer_config = str(database.parent/'reviewers'/f'{provider}.json')
         configured = read_json(args.reviewer_config)
         if configured.get('provider', 'claude') != provider:
             raise ValueError('Selected provider differs from reviewer configuration')
+    if resume_id and not args.reviewer_config:
+        raise ValueError('--resume-wake requires an explicit paid reviewer configuration')
     snapshot = collect(args, database)
-    report = evaluate(snapshot, history=read_history(database), force=args.force)
+    history = read_history(database)
+    if resume_id:
+        # An explicit continuation must still include unreviewed cost-bearing
+        # terminal agents; automatic unchanged-blocker suppression does not apply.
+        history = {key: value for key, value in history.items() if key != 'last_outcome'}
+    report = evaluate(snapshot, history=history, force=args.force or bool(resume_id))
     report['mode'] = args.command
     report['budget']['ledger'] = read_budget(database)
     report['goal_document_sources'] = [d['path'] for d in snapshot.get('goal_documents', [])]
@@ -195,27 +228,42 @@ def run_review(args, database: Path) -> dict:
     # No eligibility means no database mutation and, importantly, no paid call.
     if not report['wake']['eligible']:
         return {'mode': 'review', 'outcome': 'idle', 'paths': write_report(report, output)}
+    config = None
+    if args.reviewer_config:
+        from .reviewer import ReviewConfig, review_once
+        config = ReviewConfig(**read_json(args.reviewer_config))
+    if resume_id:
+        report['prior_attempts'] = prior_attempts(database, resume_id)
     store = Store(database)
-    for item in snapshot['agents']:
-        item = dict(item)
-        item.pop('last_reviewed_at', None)
-        item.pop('unreviewed_cost_usd', None)  # receipts, not observations, own spend
-        item.pop('unreviewed_through_seq', None)
-        store.register_agent(item)
     cutoff = max((a.get('unreviewed_through_seq',0) for a in snapshot['agents']), default=0)
-    wake = store.start_wake('; '.join(report['wake']['reasons']), review_seq=cutoff)
-    report['wake']['wake_id'] = wake['wake_id']
+    if resume_id:
+        operation_id = resume_id + ':review:' + uuid.uuid4().hex
+        wake = store.resume_wake(resume_id, operation_id)
+        report_id = operation_id
+    else:
+        wake = store.start_wake('; '.join(report['wake']['reasons']), review_seq=cutoff)
+        operation_id = wake['wake_id'] + ':review'
+        report_id = wake['wake_id']
+    report['report_id'] = report_id
+    report['wake'].update(wake_id=wake['wake_id'], started_at=wake['started_at'],
+                          reason=wake['reason'], review_seq=wake['review_seq'])
+    if resume_id:
+        report['wake'].update(resumed_at=wake['resumed_at'], previous_finished_at=wake['previous_finished_at'])
     outcome = 'no_change'
     reviewed = []
     try:
-        if args.reviewer_config:
-            from .reviewer import ReviewConfig, review_once
-            config = ReviewConfig(**read_json(args.reviewer_config))
+        for item in snapshot['agents']:
+            item = dict(item)
+            item.pop('last_reviewed_at', None)
+            item.pop('unreviewed_cost_usd', None)  # receipts, not observations, own spend
+            item.pop('unreviewed_through_seq', None)
+            store.register_agent(item)
+        if config is not None:
             before = store.snapshot()
             if Decimal(before['active_wake_charged_usd']) >= 15:
                 raise ValueError('wrap-up threshold reached; no more review calls')
             model_snapshot = compact_for_review(report, snapshot)
-            result = review_once(store, wake['wake_id'], wake['wake_id'] + ':review', model_snapshot, config)
+            result = review_once(store, wake['wake_id'], operation_id, model_snapshot, config)
             report['llm_review'] = result
             if result.get('status') == 'completed':
                 outcome = 'succeeded'
@@ -232,9 +280,11 @@ def run_review(args, database: Path) -> dict:
         else:
             report['notes'].append('Deterministic review only. Spend receipts are not acknowledged until a completed model review or an explicit human review receipt.')
         totals = store.snapshot()
-        report['budget']['additional_model_cost_usd'] = totals['active_wake_charged_usd']
+        attempt = next((row for row in totals['reservations'] if row['operation_id'] == operation_id), None)
+        report['budget']['additional_model_cost_usd'] = attempt['charged_usd'] if attempt else '0.000000'
+        report['budget']['wake_charged_usd'] = totals['active_wake_charged_usd']
         report['budget']['ledger'] = {k:v for k,v in totals.items() if k not in {'agents','wakes','reservations'}}
-        Journal(database).record(wake['wake_id'], report, outcome)
+        Journal(database).record(report_id, report, outcome)
         store.finish_wake(wake['wake_id'], outcome, reviewed_agent_ids=reviewed)
     except Exception:
         # Keep uncertain reservations charged; finishing cannot erase them.
@@ -260,6 +310,7 @@ def parser() -> argparse.ArgumentParser:
         if command == 'review':
             item.add_argument('--reviewer-config', help='explicit verified model/pricing JSON; enables one paid call')
             item.add_argument('--provider', choices=('claude', 'codex'), help='select state-dir/reviewers/PROVIDER.json, or validate an explicit config')
+            item.add_argument('--resume-wake', metavar='ID', help='explicitly continue one finished blocked wake using its remaining budget; makes at most one new call')
     sub.add_parser('status')
     sub.add_parser('actions')
     item = sub.add_parser('register')

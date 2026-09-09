@@ -173,6 +173,32 @@ uv run python -m rl_move.metaagent review --force \
   --reviewer-config /private/path/verified-reviewer.json
 ```
 
+After a blocked attempt, an explicit manual continuation can use the remaining
+budget of that **same wake**:
+
+```sh
+uv run python -m rl_move.metaagent review --resume-wake WAKE_ID \
+  --reviewer-config /private/path/verified-reviewer.json
+```
+
+This makes at most one new call, with a new operation ID. It never replays the
+timed-out request, creates another wake, refunds an uncertain charge, or schedules
+a retry. Only a finished `blocked` wake can resume, with no other active wake.
+The original start time, reason, receipt cutoff and all reservations survive.
+Continuation is rejected once cumulative charges reach the $15 wrap-up threshold;
+every new reservation still has to fit the $20 wake and $80 rolling-day caps.
+Choose an explicitly verified reviewer whose maximum reservation fits the
+remaining budget. An active wake requires inspection and explicit `finish-wake`
+before continuation; a successful wake cannot resume.
+
+Each continuation has an immutable report identified by its new operation ID;
+`wake.wake_id` continues to identify the original wake. Its `prior_attempts` lists
+earlier report IDs, timestamps, outcomes and model results, and the earlier full
+reports remain stored. `budget.additional_model_cost_usd` counts this invocation;
+`budget.wake_charged_usd` includes previous attempts and uncertain reservations.
+Receipt acknowledgement after success retains the original wake's cutoff, so
+spending that arrived later remains due for a future review.
+
 `ReviewConfig` requires an explicit model, `input_usd_per_million`,
 `output_usd_per_million`, `model_context_tokens`, `pricing_verified:true`, and a
 `pricing_reference`. Verify the model's enforced context and the **highest
