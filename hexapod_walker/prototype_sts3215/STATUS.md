@@ -21,12 +21,12 @@ link/launch command and remaining limits separately for each deliverable.
 Non-interactive reproducible sim video now exists for a candidate under each
 goal (below); the interactive-viewer click-through (needs a display, no
 cloud pod has one) is the one piece still open for both — irreducible-to-
-cloud, not a design gap. Neither whole outcome is established yet. Physical
+cloud, not a design gap. Neither outcome is established yet. Physical
 acceptance needs a named build/controller, a bounded joystick trial with
-video and telemetry, and reported direction/speed/yaw/start/stop limits;
-`rl_only` also needs clean training ancestry. The next delivery step is the
-best-supported candidate's measured physical comparison through Robot Lab,
-after its contract and readiness checks; it does not wait for every method.
+video/telemetry, and reported direction/speed/yaw/start/stop limits;
+`rl_only` also needs clean training ancestry. Next step: the best-supported
+candidate's measured physical comparison through Robot Lab, after its
+contract/readiness checks; it does not wait for every method.
 
 ## Recorded sim-demo candidates and limitations
 
@@ -47,15 +47,14 @@ Reproducible non-interactive video (09-09, `ops.sh drivevideo ... --script
 human[_turn]`): forward/crab-right/diag-left/reverse/**stop**/**restart**,
 0 falls, `gait_valid=true`, `sacrificed_legs=[]` for the full 26 s episode.
 Interactive launch: `sim_viewer/sim_web.sh --walk rl_move/sim/policies/<name
-above>` (one click in the default picker). Known limitation: a SUSTAINED
-(~15 s) off-forward heading (±90/±135/180°) still chronically sacrifices one
-front leg's swing (`rl_docs/tracks/walkcurr/STATUS.md` 09-09 ~11:2x on);
-forward/brief transitions are clean. Seven independent repair mechanisms
-(reweight, gain-dose, log-std widen, self-distillation, heading-isolation,
-PPO per-heading advantage normalization, value-calibration) all CLOSED FAIL
-(09-09 ~20:3x/~21:3x/~22:3x) — exposure/composition, PPO-loss and critic
-angles are all exhausted; reopening needs a genuinely new structural
-mechanism (unbuilt); not required for this sim-demo deliverable.
+above>` (one click). Known limitations: a SUSTAINED (~15s) off-forward
+heading (±90/±135/180°) still chronically sacrifices one front leg's swing
+(`rl_docs/tracks/walkcurr/STATUS.md` 09-09 ~11:2x on) — 8 repair mechanisms
+across all 4 candidate classes (termination/price/exposure/PPO-loss/critic)
+CLOSED FAIL (09-09 ~20:3x-~23:4x), needs a new unbuilt mechanism; and the
+joystick track's own formal randomized DONE-gate (re-read for free, ~23:5x)
+FAILS, driven by slip (>3x band) not falls/direction. Neither blocks this
+sim-demo deliverable but both are honest, unfixed gaps.
 Physical-handoff prep (09-09): exported to the robot's numpy runtime (built
 N-layer/ELU export support) with a transfer manifest + registered bounded-
 trial plan at `rl_docs/tracks/walkcurr/bundle_rlonly_v1/` (walk role only).
@@ -79,8 +78,8 @@ trial plan at `rl_docs/tracks/walkcurr/bundle_rlonly_v1/` (walk role only).
   mesh/100Hz. Persistent BC-anchor rung 0 stays production-usable and is
   the track's live output; assisted ancestry cannot qualify for Goal 2.
 - `todaypolicy`: the 08-30 bundle packaging is a milestone. 09-05
-  command-envelope study: `env_yawpri` gained yaw at a 55% progress cost;
-  shared/fixed-duty time-slice variants refuted. See delivery journal.
+  command-envelope study: `env_yawpri` gained yaw at a 55% cost; shared/
+  fixed-duty time-slice variants refuted. See delivery journal.
 
 Registry: `rl_move/orchestrator/tracks.json`. Method evidence and queues:
 `rl_docs/tracks/<track>/STATUS.md`. No closed recipe is reopened by this
@@ -90,10 +89,9 @@ reorganization; there is no requirement to make every method green.
 
 Cloud cycles prepare sim evidence and controller handoffs; Robot Lab owns
 serialized physical experiments under standing authority and the live
-camera/telemetry/abort rules. Routine calibration, bounded motion, deployment
-and recovery are not blanket operator blockers. Only concrete hands-on needs,
-spend/capacity increases beyond guardrails, or an unresolved product choice
-for Lukas should be reported as operator waits.
+camera/telemetry/abort rules. Routine calibration/bounded motion/deployment/
+recovery are not blanket operator blockers; only concrete hands-on needs or
+spend/capacity increases beyond guardrails are operator waits.
 
 ## Doc rules
 
