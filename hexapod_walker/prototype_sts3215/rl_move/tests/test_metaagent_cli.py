@@ -28,3 +28,12 @@ def test_provider_mismatch_rejected_before_collection(tmp_path,monkeypatch,capsy
     assert metaagent.main(['--state-dir',str(tmp_path/'state'),'review','--provider','codex','--reviewer-config',str(cfg)])==2
     assert 'differs' in capsys.readouterr().err
     assert not (tmp_path/'state').exists()
+
+
+def test_failed_connector_export_is_disclosed(tmp_path):
+    source=tmp_path/'codex.json'
+    source.write_text(json.dumps({'collected_at':'2026-09-09T14:00:00Z','data':{'isError':True,'content':[{'text':'private provider error'}]}}))
+    result=engine.supplement(str(source),'codex',tmp_path)
+    assert result['agents']==[]
+    assert result['errors'][0]['code']=='export_failed'
+    assert 'private' not in json.dumps(result)

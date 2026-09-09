@@ -120,6 +120,8 @@ def supplement(path: str, kind: str, root: Path) -> dict:
     envelope = read_json(path)
     if not isinstance(envelope, dict) or not envelope.get('collected_at') or 'data' not in envelope:
         raise ValueError('source exports need {collected_at: ISO timestamp, data: tool result}; timestamps must reflect actual collection')
+    if isinstance(envelope['data'], dict) and envelope['data'].get('isError'):
+        return {'agents': [], 'services': [], 'errors': [{'source': kind, 'code': 'export_failed', 'message': 'Authenticated source export returned an error; coverage is unavailable.'}]}
     if kind == 'cloud':
         return normalize_cloud_activity(envelope['data'], now=envelope['collected_at'])
     return {'agents': normalize_codex_threads(envelope['data'], root, now=envelope['collected_at'])}

@@ -1,4 +1,4 @@
-"""Human-readable, explicitly non-executing overseer reports."""
+"""Human-readable, explicitly non-executing metaagent reports."""
 from __future__ import annotations
 import json
 from pathlib import Path
@@ -38,7 +38,7 @@ def markdown(report: dict) -> str:
         '**Scheduling is off.** This report does not stop agents, restart services, launch training, move the robot, or send messages.', '',
         '## Wake decision', '',
         f"Would request a review: **{'yes' if report['wake']['eligible'] else 'no'}**.",
-        f"Fresh active agents eligible for oversight: {report['wake']['active_agent_count']} (excludes this overseer and its children).", '',
+        f"Fresh active agents eligible for oversight: {report['wake']['active_agent_count']} (excludes this metaagent and its children).", '',
         *['- ' + safe(x) for x in report['wake']['reasons']], '',
         '## Budget', '',
         f"Limit: ${report['budget']['wake_limit_usd']} per wake; ${report['budget']['rolling_24h_limit_usd']} per rolling 24 hours, including subagents.",
