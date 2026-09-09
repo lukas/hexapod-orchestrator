@@ -8,27 +8,25 @@ track journals for current run/queue status.
 ## Parent outcomes
 
 1. **`any_means`: smooth joystick walking in sim and physically by any effective means.**
-   Use scripted, searched, demonstration-assisted or learned controllers to
-   make progress on physical builds now. Methods: `joystick`, `amp`, `cpg`,
-   `standwalk`, `assistfade`, `todaypolicy`.
-2. **`rl_only`: the same sim and physical outcome, learned entirely through RL with
-   no demonstrations anywhere in the walking policy's training lineage.**
-   Method: `walkcurr`. Random initialization followed by BC/AMP or scripted
-   gait assistance belongs to `any_means`, even if assistance later ends.
+   Scripted, searched, demonstration-assisted or learned controllers all
+   count. Methods: `joystick`, `amp`, `cpg`, `standwalk`, `assistfade`, `todaypolicy`.
+2. **`rl_only`: the same outcome, learned entirely through RL with no
+   demonstrations anywhere in the walking policy's training lineage.**
+   Method: `walkcurr`. BC/AMP/scripted-gait assistance belongs to
+   `any_means`, even if assistance later ends.
 
 Both proceed in parallel. Each needs an interactive joystick sim demo and
 viewable video as well as physical walking evidence. Report readiness, demo
 link/launch command and remaining limits separately for each deliverable.
 Non-interactive reproducible sim video now exists for a candidate under each
 goal (below); the interactive-viewer click-through step (needs a display, no
-cloud pod has one) is the one piece still open for both, tracked as an
-irreducible-to-cloud item, not a design gap. Neither whole outcome is
-established yet. Physical acceptance needs a named build/controller, a
-bounded joystick trial with video and telemetry, and reported direction/
-speed/yaw/start/stop limits; `rl_only` also needs clean training ancestry.
-The next delivery step is the best-supported candidate's measured physical
-comparison through Robot Lab, after its contract and readiness checks. It
-does not wait for every method or a monolithic policy.
+cloud pod has one) is the one piece still open for both — irreducible-to-
+cloud, not a design gap. Neither whole outcome is established yet. Physical
+acceptance needs a named build/controller, a bounded joystick trial with
+video and telemetry, and reported direction/speed/yaw/start/stop limits;
+`rl_only` also needs clean training ancestry. The next delivery step is the
+best-supported candidate's measured physical comparison through Robot Lab,
+after its contract and readiness checks; it does not wait for every method.
 
 ## Recorded sim-demo candidates and limitations
 
@@ -52,11 +50,14 @@ Interactive launch: `sim_viewer/sim_web.sh --walk rl_move/sim/policies/<name
 above>` (one click in the default picker). Known limitation: a SUSTAINED
 (~15 s) off-forward heading (±90/±135/180°) still chronically sacrifices one
 front leg's swing (`rl_docs/tracks/walkcurr/STATUS.md` 09-09 ~11:2x on);
-forward/brief transitions are clean; a fix is in progress, not required for
-this sim-demo deliverable. Physical-handoff prep (09-09): exported to the
-robot's numpy runtime (built N-layer/ELU export support for this
-architecture) with a transfer manifest + registered bounded-trial plan at
-`rl_docs/tracks/walkcurr/bundle_rlonly_v1/` — walk role only, not a trial.
+forward/brief transitions are clean. Four independent repair mechanisms
+(reweight, gain-dose, log-std widen, self-distillation) all CLOSED FAIL
+(09-09 ~19:4x) — reopening needs a genuinely new structural idea, not
+another dose/variant; not required for this sim-demo deliverable.
+Physical-handoff prep (09-09): exported to the robot's numpy runtime
+(built N-layer/ELU export support) with a transfer manifest + registered
+bounded-trial plan at `rl_docs/tracks/walkcurr/bundle_rlonly_v1/` (walk
+role only, not a trial).
 
 ## Recorded method milestones — not parent-goal completion
 
@@ -89,9 +90,9 @@ reorganization; there is no requirement to make every method green.
 Cloud cycles prepare sim evidence and controller handoffs; Robot Lab owns
 serialized physical experiments under standing authority and the live
 camera/telemetry/abort rules. Routine calibration, bounded motion, deployment
-and recovery are not blanket operator blockers. Only concrete hands-on
-needs, spend/capacity increases beyond guardrails, or an unresolved product
-choice requiring Lukas's decision should be reported as operator waits.
+and recovery are not blanket operator blockers. Only concrete hands-on needs,
+spend/capacity increases beyond guardrails, or an unresolved product choice
+for Lukas should be reported as operator waits.
 
 ## Doc rules
 
