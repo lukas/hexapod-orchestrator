@@ -66,10 +66,12 @@ in that walk diet.
   controller composition. The recorded steering lever failures are preserved;
   check its journal for later results before proposing another mechanism.
 - `assistfade`: rungs 1–4 were closed 09-07 under the tested recipes;
-  persistent BC-anchor rung 0 remained production-usable. The 09-08
-  opposite-seed recovery claim was withdrawn after comparator correction.
-  Subsequent mechanism verdicts belong in its journal/ledger. Assisted
-  ancestry cannot qualify for Goal 2.
+  the 09-09 behavior-gated residual-anneal mechanism (both named levers)
+  and 6/6 per-leg reward-shaping addons are now ALSO closed, so every
+  tested "fade assist to full raw authority" mechanism has failed on
+  mesh/100Hz. Persistent BC-anchor rung 0 remains production-usable and
+  is the track's live output. Subsequent mechanism verdicts belong in
+  its journal/ledger. Assisted ancestry cannot qualify for Goal 2.
 - `todaypolicy`: the 08-30 bundle packaging is a milestone. In the 09-05
   CPU command-envelope study, `env_yawpri` gained yaw at a 55% progress cost;
   shared and fixed-duty time-slice variants were refuted. See the delivery
