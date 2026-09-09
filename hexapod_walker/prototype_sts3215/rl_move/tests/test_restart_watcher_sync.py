@@ -4,6 +4,7 @@ import pathlib
 import shutil
 import time
 import subprocess
+import sys
 
 import pytest
 
@@ -29,7 +30,7 @@ case "$name" in
     ;;
   flock)
     if [ "$1" = "-n" ]; then
-      "$REAL_UV" run --no-project --offline python - "$4" <<'PY'
+      "$REAL_UV" run --no-project --offline --python "$TEST_PYTHON" python - "$4" <<'PY'
 import fcntl, sys
 try:
     fcntl.flock(int(sys.argv[1]), fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -101,6 +102,9 @@ def _setup_restart(tmp_path, *, sync_rc=0, lock_rc=0, parse_rc=0,
     env = {
         **os.environ, "PATH": str(bin_dir) + os.pathsep + os.environ["PATH"],
         "TRACE": str(trace), "PS_COUNT": str(count), "REAL_UV": shutil.which("uv"),
+        # The real lock double uses this test runner's interpreter, overriding
+        # the production script's controller-specific UV_PYTHON path.
+        "TEST_PYTHON": sys.executable,
         "ACTIVE_POLLS": str(active_polls), "LOCK_RC": str(lock_rc),
         "SYNC_RC": str(sync_rc), "PARSE_RC": str(parse_rc),
         "OLD_WATCHER": str(old), "NEW_WATCHER": str(new),
