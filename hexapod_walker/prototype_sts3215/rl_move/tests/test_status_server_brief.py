@@ -93,7 +93,10 @@ def test_research_brief_renders_running_track_first(monkeypatch) -> None:
     assert "Latest result" in html
     assert "cw-walkcurr-overnight1" in html
     assert "/run/cw-walkcurr-overnight1" in html
-    assert "/llm/doc/rl_docs/tracks/walkcurr/STATUS.md" in html
+    # 2026-09-09: the per-topic footer now links to the track drill-down
+    # page (full history + spend + videos) instead of the raw doc; the
+    # drill-down page itself still links onward to the STATUS.md doc.
+    assert "/track/walkcurr" in html
 
 
 def test_research_brief_marks_retired_track_closed(monkeypatch) -> None:
@@ -139,9 +142,17 @@ Read the experiment.
 
 This describes the future completion criteria.
 """
+    # 2026-09-09: badge activity now comes ONLY from the ledger (RUNNING
+    # entries) or an explicit registry 'lifecycle', never from prose like
+    # "a new experiment is running" -- stale journal text used to cause
+    # permanent false-ACTIVE badges long after a run finished. With no
+    # recent ledger entries and no lifecycle set, this falls through to
+    # the open-ended default; the original property under test (a "DONE
+    # gate" heading describing FUTURE criteria must never read as an
+    # actual DONE/green track) still holds.
     badge, cls = status_server._track_badge("newtrack", text, [], {})
-    assert badge == "ACTIVE"
-    assert cls == "active"
+    assert badge == "IDLE / OPEN"
+    assert cls == "open"
 
 
 def test_llm_research_brief_links_to_track_status(monkeypatch) -> None:
