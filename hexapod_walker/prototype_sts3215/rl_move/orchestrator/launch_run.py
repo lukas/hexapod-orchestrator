@@ -126,10 +126,15 @@ def canary_update_error(entry: dict) -> str:
     verdict = str(entry.get("verdict", "")).strip().upper()
     if not verdict:
         return ""
+    # Meta 09-09: 92 REFUSED bounces in 48h were spelling, not semantics
+    # ("CANARY FAIL-MECHANISM", "Result: ... CANARY PASS ..."). Normalize
+    # separator noise and accept the category tag anywhere in the opening;
+    # the requirement stays "the verdict names its canary category".
+    head = re.sub(r"[\s_:/–—-]+", " ", verdict)[:160]
     allowed = (
-        verdict.startswith("CANARY PASS"),
-        verdict.startswith("CANARY FAIL - INFRASTRUCTURE"),
-        verdict.startswith("CANARY FAIL - MECHANISM"),
+        "CANARY PASS" in head,
+        "CANARY FAIL INFRASTRUCTURE" in head,
+        "CANARY FAIL MECHANISM" in head,
     )
     if not any(allowed):
         return ("canary verdict must begin CANARY PASS, CANARY FAIL - "

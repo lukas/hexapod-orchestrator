@@ -760,6 +760,39 @@ review)  # review <run> — THE standard triage read in one command:
     echo "$v_existing"
     echo "=== (only continue if you have NEW evidence; FORCE=1 to overwrite) ==="
   fi
+  # Claim check (meta 09-09: 55 verdict races in 24h — full triage done,
+  # then "another cycle beat you"). If a LIVE cycle (pid alive, not an
+  # ancestor of this shell = not us) was assigned this run, say so FIRST.
+  claim=$(uv run python - "$run" <<'EOF'
+import json, os, sys
+try:
+    cycles = json.load(open("/workspace/cycle_logs/cycles.json"))
+except Exception:
+    sys.exit()
+anc, pid = set(), os.getpid()
+while pid > 1:
+    anc.add(pid)
+    try:
+        with open(f"/proc/{pid}/stat") as f:
+            pid = int(f.read().rsplit(") ", 1)[1].split()[1])
+    except Exception:
+        break
+for c in cycles:
+    p = c.get("pid")
+    if (c.get("status") == "running" and p and p not in anc
+            and sys.argv[1] in (c.get("runs") or [])):
+        try:  # alive AND not a zombie (unreaped exited cycles linger as Z)
+            with open(f"/proc/{p}/stat") as f:
+                if f.read().rsplit(") ", 1)[1].split()[0] == "Z":
+                    continue
+        except Exception:
+            continue
+        print(f"cycle {c.get('stamp')} pid={p} model={c.get('model', '?')}")
+EOF
+)
+  [ -n "$claim" ] && {
+    echo "=== CLAIMED: assigned to live $claim — leave this triage to that cycle ==="
+  }
   echo "status=$st  pod=$(entry_field "$run" pod)"
   echo "gate: $gate"
   echo "##### wandb"
