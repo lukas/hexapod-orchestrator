@@ -50,11 +50,12 @@ Interactive launch: `sim_viewer/sim_web.sh --walk rl_move/sim/policies/<name
 above>` (one click in the default picker). Known limitation: a SUSTAINED
 (~15 s) off-forward heading (±90/±135/180°) still chronically sacrifices one
 front leg's swing (`rl_docs/tracks/walkcurr/STATUS.md` 09-09 ~11:2x on);
-forward/brief transitions are clean. Five independent repair mechanisms
-(reweight, gain-dose, log-std widen, self-distillation, heading-isolation)
-all CLOSED FAIL (09-09 ~20:3x), closing the exposure/batch-composition axis
-end-to-end; reopening needs a different PPO-level mechanism (per-heading
-advantage normalization, unbuilt); not required for this sim-demo deliverable.
+forward/brief transitions are clean. Seven independent repair mechanisms
+(reweight, gain-dose, log-std widen, self-distillation, heading-isolation,
+PPO per-heading advantage normalization, value-calibration) all CLOSED FAIL
+(09-09 ~20:3x/~21:3x/~22:3x) — exposure/composition, PPO-loss and critic
+angles are all exhausted; reopening needs a genuinely new structural
+mechanism (unbuilt); not required for this sim-demo deliverable.
 Physical-handoff prep (09-09): exported to the robot's numpy runtime (built
 N-layer/ELU export support) with a transfer manifest + registered bounded-
 trial plan at `rl_docs/tracks/walkcurr/bundle_rlonly_v1/` (walk role only).
