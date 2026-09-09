@@ -133,11 +133,20 @@ def _agents(db) -> tuple[list[dict], bool]:
     return agents, len(rows) > MAX_RECORDS
 
 
+def _latest_report(db, wake_id: str):
+    # Continuations have immutable report IDs of their own, but share one
+    # wake and its spending cap. Legacy reports used the wake ID directly.
+    return db.execute(
+        "SELECT report_id,body,"
+        "json_extract(body,'$.llm_review.model') AS model,"
+        "json_extract(body,'$.llm_review.provider') AS provider FROM overseer_reports "
+        "WHERE report_id=? OR json_extract(body,'$.wake.wake_id')=? "
+        "ORDER BY created_at DESC,rowid DESC LIMIT 1",
+        (wake_id, wake_id)).fetchone() if _table(db, "overseer_reports") else None
+
+
 def _run_row(db, row) -> dict:
-    report = db.execute(
-        "SELECT json_extract(body,'$.llm_review.model') AS model,"
-        "json_extract(body,'$.llm_review.provider') AS provider FROM overseer_reports WHERE report_id=?",
-        (row["wake_id"],)).fetchone() if _table(db, "overseer_reports") else None
+    report = _latest_report(db, row["wake_id"])
     report_available = report is not None
     model = report["model"] if report else None
     provider = report["provider"] if report else None
@@ -163,14 +172,14 @@ def _run_detail(db, wake_id: str) -> dict:
     row = db.execute("SELECT * FROM wakes WHERE wake_id=?", (wake_id,)).fetchone() if _table(db, "wakes") else None
     if row is None:
         raise HTTPException(404, "Unknown review run")
-    report_row = db.execute("SELECT body FROM overseer_reports WHERE report_id=?", (wake_id,)).fetchone() if _table(db, "overseer_reports") else None
+    report_row = _latest_report(db, wake_id)
     reservations = []
     if _table(db, "reservations"):
         for reservation in db.execute("SELECT * FROM reservations WHERE wake_id=? ORDER BY created_at LIMIT ?", (wake_id, MAX_RECORDS)):
             reservations.append({"operation_id": reservation["operation_id"], "reserved_usd": _usd(reservation["reserved"]),
                                  "actual_usd": _usd(reservation["actual"]), "status": "pending" if reservation["actual"] is None else "settled",
                                  "created_at": reservation["created_at"], "settled_at": reservation["settled_at"]})
-    return {"run": _run_row(db, row), "report": _decode(report_row[0]) if report_row else None, "reservations": reservations}
+    return {"run": _run_row(db, row), "report": _decode(report_row["body"]) if report_row else None, "reservations": reservations}
 
 
 def _recommendations(db) -> dict:

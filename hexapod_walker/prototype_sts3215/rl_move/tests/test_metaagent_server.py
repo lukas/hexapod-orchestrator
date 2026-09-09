@@ -1,6 +1,6 @@
 """Synthetic HTTP/MCP/auth/accounting checks; no paid calls or live services."""
 import base64
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import hashlib
 import hmac
 import json
@@ -179,6 +179,34 @@ def test_malformed_and_oversized_mcp_inputs_do_not_start_work(client):
     malformed = {"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": ["bad"]}
     assert client.post("/mcp", headers=HEADERS, json=malformed).json()["error"]["code"] == -32602
     assert client.get("/api/runs/missing", headers=HEADERS).status_code == 404
+
+
+def test_continuation_displays_latest_advice_and_preserves_all_wake_costs(tmp_path):
+    store = Store(tmp_path / "overseer.sqlite3")
+    now = datetime.now(timezone.utc)
+    store.start_wake("manual review", now, wake_id="wake")
+    store.reserve("wake", "original", "10.15", now)
+    store.reserve("wake", "continuation", "4.04", now)
+    store.settle("continuation", "0.12", now)
+    journal = Journal(store.path)
+    original = {"generated_at": now.isoformat(), "wake": {"wake_id": "wake"},
+                "llm_review": {"provider": "claude", "model": "original-model", "status": "blocked"}}
+    journal.record("wake", original, "blocked")
+    latest = {"generated_at": (now + timedelta(seconds=1)).isoformat(), "wake": {"wake_id": "wake"},
+              "prior_attempts": [{"report_id": "wake", "llm_review": original["llm_review"]}],
+              "llm_review": {"provider": "claude", "model": "continuation-model", "status": "completed"}}
+    journal.record("wake:continuation", latest, "succeeded")
+    client = TestClient(create_app(tmp_path, api_token=OPERATOR))
+    runs = client.get("/api/runs", headers=HEADERS).json()["runs"]
+    assert len(runs) == 1
+    assert runs[0]["model"] == "continuation-model"
+    assert runs[0]["actual_cost_usd"] == "0.120000"
+    assert runs[0]["pending_reserved_usd"] == "10.150000"
+    detail = call(client, "get_run", {"wake_id": "wake"}).json()["result"]["structuredContent"]
+    assert detail["report"] == latest
+    assert len(detail["reservations"]) == 2
+    with journal.connect() as db:
+        assert json.loads(db.execute("SELECT body FROM overseer_reports WHERE report_id='wake'").fetchone()[0]) == original
 
 
 def test_static_assets_are_public_but_private_data_stays_authenticated(tmp_path):
