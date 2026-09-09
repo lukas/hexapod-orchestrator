@@ -162,3 +162,23 @@ kubectl delete deployment metaagent-relay
 Stop the separate metaagent HTTP service only if needed. Preserve the existing
 overseer database, relay keys, ConfigMaps and certificate PVC for investigation
 or redeploy. Do not touch Robot Lab's launch jobs or queue state during rollback.
+
+## Installed HTTP launcher
+
+`run-server.sh` reads the dedicated `api-token` file from the private
+`~/Library/Application Support/Hexapod Metaagent` directory and starts only the
+HTTP process in its stable `runtime` checkout. The checked-in
+`com.lbiewald.hexapod-metaagent.plist` keeps that HTTP process available; it has
+no review timer or scheduled model call. Install these alongside the independent
+tunnel launcher after syncing the runtime's own uv environment.
+
+The private client configuration is `~/.hexapod/metaagent-mcp.json`; keep it
+outside Git. Both provider configuration examples are under `../reviewers/`.
+Copy them into the existing state directory's `reviewers/` folder after verifying
+prices/context limits. Manual Claude runs need `ANTHROPIC_API_KEY`; manual Codex
+runs need `OPENAI_API_KEY`. The HTTP service needs neither provider credential.
+
+Initial public acceptance on 2026-09-09 verified HTTPS, existing SSO sign-in,
+unauthenticated/forged credential rejection, authenticated status and costs,
+and MCP initialization plus tool discovery. The original Robot Lab and camera
+relay services were not restarted.

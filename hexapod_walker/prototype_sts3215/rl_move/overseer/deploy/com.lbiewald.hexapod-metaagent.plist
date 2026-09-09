@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>KeepAlive</key>
+	<true/>
+	<key>Label</key>
+	<string>com.lbiewald.hexapod-metaagent</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/bin/sh</string>
+		<string>/Users/lukas/Library/Application Support/Hexapod Metaagent/run-server.sh</string>
+	</array>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>StandardErrorPath</key>
+	<string>/Users/lukas/Library/Logs/hexapod-metaagent.log</string>
+	<key>StandardOutPath</key>
+	<string>/Users/lukas/Library/Logs/hexapod-metaagent.log</string>
+	<key>ThrottleInterval</key>
+	<integer>30</integer>
+	<key>WorkingDirectory</key>
+	<string>/Users/lukas/Library/Application Support/Hexapod Metaagent</string>
+</dict>
+</plist>
