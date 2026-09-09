@@ -268,6 +268,10 @@ uv run python -m rl_move.metaagent serve --host 127.0.0.1 --port 8768
 Choose a backend for one manual run. Provider configurations live in
 `<state-dir>/reviewers/claude.json` and `codex.json`:
 
+The supplied Claude default uses Sonnet 5 for a concise, lower-cost review.
+`reviewers/claude-opus.json` retains the Opus 5 option; select it explicitly with
+`--reviewer-config` when needed. Neither profile can bypass the shared budget.
+
 ```sh
 uv run python -m rl_move.metaagent review --force --provider claude
 uv run python -m rl_move.metaagent review --force --provider codex
