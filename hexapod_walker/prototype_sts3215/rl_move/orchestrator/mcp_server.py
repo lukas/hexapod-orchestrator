@@ -273,7 +273,9 @@ def _read_doc(rel: str) -> str | None:
     if not rel.endswith(".md") or ".." in rel:
         return None
     p = (PROTO / rel).resolve()
-    if not p.is_relative_to(PROTO.resolve()):
+    # symlinked journals/run stories resolve into the state repo (state_dir.py)
+    if not (p.is_relative_to(PROTO.resolve())
+            or p.is_relative_to(state_dir.STATE_DIR.resolve())):
         return None
     try:
         return p.read_text(errors="replace")

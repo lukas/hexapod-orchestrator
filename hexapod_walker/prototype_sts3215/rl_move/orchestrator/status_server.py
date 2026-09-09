@@ -2314,7 +2314,11 @@ def llm_doc_file(rel: str) -> bytes | None:
     if not rel.endswith(".md") or ".." in rel:
         return None
     p = (PROTO / rel).resolve()
-    if not p.is_relative_to(PROTO.resolve()):
+    # Journals and run stories are symlinks from the prototype tree into the
+    # state repo (state_dir.py), so the resolved path may live under
+    # STATE_DIR instead of PROTO. Anything else outside both is traversal.
+    if not (p.is_relative_to(PROTO.resolve())
+            or p.is_relative_to(state_dir.STATE_DIR.resolve())):
         return None
     try:
         return p.read_bytes()
