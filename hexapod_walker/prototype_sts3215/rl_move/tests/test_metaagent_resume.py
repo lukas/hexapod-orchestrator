@@ -246,3 +246,23 @@ def test_cli_resume_requires_configuration_without_reopening(cli_case, monkeypat
     assert main(args) == 2
     assert store.snapshot()["active_wake"] is None
     assert len(store.snapshot()["reservations"]) == 1
+
+
+def test_cli_reads_prior_attempts_after_claiming_exclusive_wake(cli_case, monkeypatch):
+    from rl_move.overseer import __main__ as cli
+    store, _, _, args = cli_case
+    real_reader = cli.prior_attempts
+    reads = []
+
+    def read_after_claim(database, wake_id):
+        assert store.snapshot()["active_wake"]["wake_id"] == wake_id
+        reads.append(wake_id)
+        return real_reader(database, wake_id)
+
+    def transport(*args):
+        assert reads == ["blocked"]
+        return completed_response()
+
+    monkeypatch.setattr(cli, "prior_attempts", read_after_claim)
+    monkeypatch.setattr(reviewer, "_post_messages", transport)
+    assert main(args) == 0

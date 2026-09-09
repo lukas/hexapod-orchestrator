@@ -232,8 +232,8 @@ def run_review(args, database: Path) -> dict:
     if args.reviewer_config:
         from .reviewer import ReviewConfig, review_once
         config = ReviewConfig(**read_json(args.reviewer_config))
-    if resume_id:
-        report['prior_attempts'] = prior_attempts(database, resume_id)
+    if resume_id and not database.exists():
+        raise ValueError('Cannot resume a wake from a missing budget database')
     store = Store(database)
     cutoff = max((a.get('unreviewed_through_seq',0) for a in snapshot['agents']), default=0)
     if resume_id:
@@ -252,6 +252,10 @@ def run_review(args, database: Path) -> dict:
     outcome = 'no_change'
     reviewed = []
     try:
+        if resume_id:
+            # Claim first: another completed continuation must not slip between
+            # reading prior reports and acquiring this wake's exclusive owner.
+            report['prior_attempts'] = prior_attempts(database, resume_id)
         for item in snapshot['agents']:
             item = dict(item)
             item.pop('last_reviewed_at', None)
