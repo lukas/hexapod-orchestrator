@@ -126,6 +126,13 @@ watcher log tail:
     assert result["errors"][0]["code"] == "authentication_failure"
     assert result["errors"][0]["freshness"] == "fresh"
     assert "sk-private" not in json.dumps(result)
+    service = result["services"][0]
+    assert service["auth_failure"] is True
+    assert service["auth_failure_count"] == 1
+    assert service["last_auth_failure_at"] == "2026-09-09T03:00:00Z"
+    assert service["auth_failure_freshness"] == "fresh"
+    assert service["active_cycle_count"] == 0
+    assert service["auth_recovery_status"] == "unknown"
 
 
 def test_cloud_advancing_cycle_and_stale_cycle_are_distinguished():
@@ -187,3 +194,50 @@ def test_attempt_cost_scan_budget_and_malformed_usage_stay_unknown(tmp_path):
     put_json(tmp_path / "codex-runs/job/attempt-1/metadata.json", {"provider": "claude", "usage": []})
     assert collectors._job_cost(tmp_path, "job", 1, [10])[0] == "unknown"
     assert collectors._job_cost(tmp_path, "job", 1, [0])[0] == "unknown"
+
+
+@pytest.mark.parametrize("timestamp,expected,last", [
+    ("2026-09-08T03:00:00", "stale", "2026-09-08T03:00:00Z"),
+    ("undated", "unknown", None),
+    ("2026-09-08T20:00:00-07:00", "fresh", "2026-09-09T03:00:00Z"),
+])
+def test_cloud_auth_service_preserves_source_freshness(timestamp, expected, last):
+    text = f"""watcher: UP
+active cycles (0):
+watcher log tail:
+[{timestamp}] AuthenticationError: invalid x-api-key sk-do-not-export
+[{timestamp}] AuthenticationError: invalid x-api-key sk-do-not-export
+[{timestamp}] AuthenticationError: invalid x-api-key sk-do-not-export
+"""
+    service = collectors.normalize_cloud_activity(text, NOW)["services"][0]
+    assert service["auth_failure_count"] == 3
+    assert service["auth_failure_freshness"] == expected
+    assert service["last_auth_failure_at"] == last
+    assert service["auth_failure_timestamps"] == [last] * 3
+    assert "sk-do-not-export" not in json.dumps(service)
+
+
+def test_cloud_auth_log_samples_do_not_infer_recovery_from_other_success():
+    text = """watcher: UP
+active cycles (0):
+watcher log tail:
+[2026-09-09T03:00:00] AuthenticationError: invalid x-api-key
+[2026-09-09T03:01:00] some unrelated service succeeded
+"""
+    service = collectors.normalize_cloud_activity(text, NOW)["services"][0]
+    assert service["auth_recovery_status"] == "unknown"
+    assert service["auth_failure_count"] == 1
+
+
+def test_cloud_auth_mentions_in_narration_do_not_become_watcher_faults():
+    text = """watcher: UP
+active cycles (1):
+## useful (model claude-sonnet-5, started 2026-09-09T03:55:00, pid 42)
+   live narration (last write 30 s ago; full log: hidden):
+   Reading old incident documentation: AuthenticationError
+watcher log tail:
+[2026-09-09T03:01:00] watch cycle polling
+"""
+    result = collectors.normalize_cloud_activity(text, NOW)
+    assert result["services"][0]["active_cycle_count"] == 1
+    assert "auth_failure" not in result["services"][0]

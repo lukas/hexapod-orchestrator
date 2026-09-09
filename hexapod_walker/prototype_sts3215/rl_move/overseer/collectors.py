@@ -425,15 +425,19 @@ def normalize_cloud_activity(text: Any, now: str | None = None) -> dict:
         return result
     text = text[:131072]
     watcher = re.search(r"^watcher:\s*([^\n]+)", text, re.MULTILINE)
+    watcher_service = None
     if watcher:
         watcher_state = watcher.group(1)
         status = "paused" if "PAUSED" in watcher_state else "running" if watcher_state.startswith("UP") else "unknown"
-        result["services"].append({"service_id": "cloud:watcher", "name": "Cloud RL watcher",
-                                   "status": status, "state": status, "kind": "controller", "domain": "cloud_rl",
-                                   "desired_state": "paused" if "PAUSED" in watcher_state else "unknown",
-                                   "source": "rl:mcp:orchestrator_activity", "observed_at": observed,
-                                   "evidence": ["Watcher liveness alone does not establish active reasoning or training."]})
+        watcher_service = {"service_id": "cloud:watcher", "name": "Cloud RL watcher",
+                           "status": status, "state": status, "kind": "controller", "domain": "cloud_rl",
+                           "desired_state": "paused" if "PAUSED" in watcher_state else "unknown",
+                           "source": "rl:mcp:orchestrator_activity", "observed_at": observed,
+                           "evidence": ["Watcher liveness alone does not establish active reasoning or training."]}
+        result["services"].append(watcher_service)
     active_match = re.search(r"^active cycles \((\d+)[^\n]*\):", text, re.MULTILINE)
+    if watcher_service is not None:
+        watcher_service["active_cycle_count"] = int(active_match.group(1)) if active_match else None
     if not active_match:
         result["errors"].append(_error("rl:mcp:orchestrator_activity", "unrecognized", "Active cycle section unavailable"))
     else:
@@ -456,14 +460,30 @@ def normalize_cloud_activity(text: Any, now: str | None = None) -> dict:
                                                     "Narration activity is not measured goal progress."]))
         if len(result["agents"]) != int(active_match.group(1)):
             result["errors"].append(_error("rl:mcp:orchestrator_activity", "incomplete", "Some reported active cycles could not be normalized"))
-    # Export error class and time only: the original error line can contain keys.
-    auth_lines = [line for line in text.splitlines() if re.search(r"AuthenticationError|invalid.?api.?key|invalid x-api-key|authentication failed|401 Unauthorized", line, re.IGNORECASE)]
+    # Authentication diagnostics belong to the watcher log, not quoted text in
+    # an agent's narration. Export only error counts and normalized timestamps.
+    watcher_tail = text.split("watcher log tail:", 1)[1].split("HOW TO WAIT", 1)[0] if "watcher log tail:" in text else ""
+    auth_lines = [line for line in watcher_tail.splitlines() if re.search(
+        r"AuthenticationError|invalid.?api.?key|invalid x-api-key|authentication failed|401 Unauthorized", line, re.IGNORECASE)]
     if auth_lines:
-        latest = auth_lines[-1]
-        timestamp = re.search(r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d+)?(?:Z|[+-]\d\d:\d\d)?", latest)
-        result["errors"].append({**_error("cloud:watcher", "authentication_failure", f"Authentication failure appears in {len(auth_lines)} sampled log lines; inspect current credential health before retrying."),
-                                 **_freshness(timestamp.group(0) if timestamp else None, observed)})
-    watcher_tail = text.split("watcher log tail:", 1)[-1].split("HOW TO WAIT", 1)[0]
+        samples = []
+        for line in auth_lines:
+            match = re.search(r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d+)?(?:Z|[+-]\d\d:\d\d)?", line)
+            parsed = _time(match.group(0)) if match else None
+            samples.append(_stamp(parsed.isoformat()) if parsed else None)
+        latest = samples[-1]
+        freshness = _freshness(latest, observed)
+        evidence = (f"Authentication failure appears in {len(auth_lines)} sampled watcher log lines; "
+                    "current credential health and recovery status are unknown.")
+        result["errors"].append({**_error("cloud:watcher", "authentication_failure", evidence), **freshness})
+        if watcher_service is not None:
+            watcher_service.update(auth_failure=True, auth_failure_count=len(auth_lines),
+                                   last_auth_failure_at=latest,
+                                   auth_failure_freshness=freshness["freshness"],
+                                   auth_failure_source_age_seconds=freshness["source_age_seconds"],
+                                   auth_failure_timestamps=samples,
+                                   auth_recovery_status="unknown")
+            watcher_service["evidence"].append(evidence)
     if re.search(r"ConnectionError|TimeoutError|Traceback \(most recent call last\)", watcher_tail):
         result["errors"].append(_error("cloud:watcher", "service_error_observed", "A service exception appears in the bounded watcher log sample; current failure and recovery state need verification."))
     return result
