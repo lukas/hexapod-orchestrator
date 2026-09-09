@@ -2446,7 +2446,6 @@ def _load_token() -> str:
 
 
 TOKEN = _load_token()
-TRUST_PROXY_USER = os.environ.get("STATUS_TRUST_PROXY_USER", "") in ("1", "true", "yes")
 
 # ---- single sign-on for every lab hostname ------------------------------
 # Browsers sign in once on this host's /login form (which the Mac's password
@@ -2510,6 +2509,8 @@ def sso_verify(token: str, now: float | None = None) -> str | None:
     if not secret or not token or "." not in token or len(token) > 512:
         return None
     body, _, sig = token.rpartition(".")
+    if len(sig) != 64 or any(c not in "0123456789abcdef" for c in sig):
+        return None
     try:
         payload = base64.urlsafe_b64decode(body + "=" * (-len(body) % 4))
     except (ValueError, TypeError):
@@ -2704,13 +2705,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
     def _authed(self) -> bool:
         if not TOKEN:
             return True
-        # The public host is fronted by Caddy on this pod, which challenges
-        # browsers with the one shared lab login and forwards the verified
-        # user as X-Hexapod-User (overwriting anything the client sent). With
-        # STATUS_TRUST_PROXY_USER set, that counts as signed in, so the key
-        # form below is only for direct/port-forward visitors and scripts.
-        if TRUST_PROXY_USER and self.headers.get("X-Hexapod-User", "").strip():
-            return True
+        # Verify the signed cookie here too. Requests with API credentials
+        # can skip Caddy's forward_auth, so a forwarded user header alone is
+        # never evidence of authentication (including on direct connections).
         if sso_cookie_user(self.headers.get("Cookie", "")):
             return True
         from urllib.parse import parse_qs, urlparse
