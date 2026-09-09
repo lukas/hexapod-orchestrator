@@ -484,7 +484,7 @@ def review_once(
         return result
     result.update(provider_usage=usage, actual_cost_usd=str(actual))
     if isinstance(response.get("id"), str):
-        result["provider_response_id"] = _sanitize(response["id"][:200], api_key)
+        result["provider_response_id"] = _sanitize(response["id"], api_key)[:200]
     # Settlement happens even for invalid advisory JSON: model work still costs.
     store.settle(operation_id, str(actual))
     result["billing_reconciliation_required"] = False
