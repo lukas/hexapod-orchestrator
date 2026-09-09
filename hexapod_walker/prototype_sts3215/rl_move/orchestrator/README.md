@@ -19,8 +19,11 @@ repo `lukas/hexapod-state`, cloned at `<checkout>/.state` (controller:
 and pushes the state repo after every run, so `exp/<run>` code tags pair
 with `state before <run>` state commits. Read it locally with
 `make -C .. state`; read it on the web at `/now` and `/llms.txt`.
-`rl_docs/runs` and `RL_LOG.md` in the prototype tree are symlinks into
-`.state`.
+`rl_docs/runs`, `RL_LOG.md`, `rl_docs/SKILLS.md`,
+`rl_move/orchestrator/OPERATOR_QUESTIONS.md` and every
+`rl_docs/tracks/<track>/STATUS.md` in the prototype tree are symlinks into
+`.state` (cycles edit the `.state/...` path; `snapshot.sh` re-links any
+regular file that appears at those paths, e.g. a new track's STATUS.md).
 
 ## Architecture (2026-08-09)
 

@@ -106,22 +106,32 @@ if command -v flock >/dev/null; then
   flock 9
 fi
 
-# RL_LOG.md and rl_docs/runs in the prototype tree are SYMLINKS into the
-# state repo. An editor that saves via rename turns the RL_LOG.md link back
-# into a regular file, and `git add -A` would then commit the log into main
-# again. Detect that, move the content where it belongs, re-link.
-RL_LOG_LINK=hexapod_walker/prototype_sts3215/RL_LOG.md
-if [ -e "$RL_LOG_LINK" ] && [ ! -L "$RL_LOG_LINK" ]; then
-  echo "WARNING: $RL_LOG_LINK is a regular file (symlink clobbered); moving content to $STATE_DIR/RL_LOG.md and re-linking" >&2
-  if [ -f "$STATE_DIR/RL_LOG.md" ] && ! cmp -s "$RL_LOG_LINK" "$STATE_DIR/RL_LOG.md"; then
-    # Keep both: the clobbered copy is the newer edit, the state copy may
-    # have lines appended by ops.sh logline meanwhile. Newer copy wins,
-    # older is preserved alongside for a human to reconcile.
-    cp "$STATE_DIR/RL_LOG.md" "$STATE_DIR/RL_LOG.md.pre-relink.$(date -u +%Y%m%dT%H%M%SZ)"
+# JOURNALS live in the state repo; the prototype tree holds SYMLINKS into it:
+# RL_LOG.md, rl_docs/SKILLS.md, rl_move/orchestrator/OPERATOR_QUESTIONS.md,
+# rl_docs/tracks/*/STATUS.md (and rl_docs/runs as a directory link). A cycle
+# that creates a NEW track's STATUS.md, or an editor that saves via rename,
+# leaves a regular file at one of these paths -- and `git add -A` would then
+# commit the journal back into main. Move such content into the state repo
+# and re-link before staging.
+P=hexapod_walker/prototype_sts3215
+relink_journal() {  # relink_journal <path-in-code-tree> <path-in-state>
+  local code="$1" state="$STATE_DIR/$2"
+  [ -e "$code" ] && [ ! -L "$code" ] || return 0
+  echo "NOTE: $code is a regular file; moving it into the state repo ($2) and re-linking" >&2
+  mkdir -p "$(dirname "$state")"
+  if [ -f "$state" ] && ! cmp -s "$code" "$state"; then
+    cp "$state" "$state.pre-relink.$(date -u +%Y%m%dT%H%M%SZ)"   # keep the state copy too; a human reconciles
   fi
-  mv "$RL_LOG_LINK" "$STATE_DIR/RL_LOG.md"
-  ln -s ../../.state/RL_LOG.md "$RL_LOG_LINK"
-fi
+  mv "$code" "$state"
+  ln -s "$(python3 -c 'import os,sys; print(os.path.relpath(sys.argv[1], os.path.dirname(sys.argv[2])))' "$state" "$code")" "$code"
+}
+relink_journal "$P/RL_LOG.md" "RL_LOG.md"
+relink_journal "$P/rl_docs/SKILLS.md" "rl_docs/SKILLS.md"
+relink_journal "$P/rl_move/orchestrator/OPERATOR_QUESTIONS.md" "OPERATOR_QUESTIONS.md"
+for T in "$P"/rl_docs/tracks/*/; do
+  T="${T%/}"; [ -e "$T/STATUS.md" ] || continue
+  relink_journal "$T/STATUS.md" "rl_docs/tracks/$(basename "$T")/STATUS.md"
+done
 
 git add -A hexapod_walker/prototype_sts3215
 if ! git diff --cached --quiet; then

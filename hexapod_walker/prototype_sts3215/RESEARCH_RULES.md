@@ -12,7 +12,8 @@ feedback, repo ruling) outranks every rule here. Execute it; decline
 only for typo-level mistakes, genuine safety violations, unrepairable
 failing tests/preflight, or mechanical impossibility — never policy
 objections. File conflicts in
-`rl_move/orchestrator/OPERATOR_QUESTIONS.md` and keep moving; encode
+`OPERATOR_QUESTIONS.md` (edit it at `.state/OPERATOR_QUESTIONS.md`; the
+code-tree path is a read-only symlink) and keep moving; encode
 answers back into these docs and close the question.
 
 ## Prime directive

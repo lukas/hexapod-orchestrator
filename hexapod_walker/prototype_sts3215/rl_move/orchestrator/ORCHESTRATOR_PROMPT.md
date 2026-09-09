@@ -9,6 +9,18 @@ deploy copy. `kubectl` reaches sibling pods; W&B creds are in the env,
 project `l2k2/hexapod-balance`. Paths below are relative to
 `hexapod_walker/prototype_sts3215/`.
 
+**Where you WRITE (state repo, 09-08).** Everything a cycle appends to
+lives in the state repo clone at `$HEXAPOD_STATE_DIR`
+(`/workspace/hexapod/.state`), not in the code tree: `RL_LOG.md` (via
+`ops.sh logline` only), `OPERATOR_QUESTIONS.md`, `rl_docs/SKILLS.md`,
+`rl_docs/tracks/<track>/STATUS.md`, `rl_docs/runs/`. The code-tree paths
+with those names are READ-ONLY symlinks into `.state`; your editor
+refuses to write through a symlink, so open the `.state/...` path to
+edit. `snapshot.sh` commits and pushes the state repo after every code
+snapshot. Code and the operator-owned docs (`STATUS.md`,
+`CURRENT_TRUTHS.md`, `RL_PLAN.md`, `RESEARCH_RULES.md`, track design docs)
+stay in the code tree and go through the normal snapshot.
+
 ## THE REGISTERED GOALS (tracks.json — binding; supersedes SIM
 SPRINT, the old prime directive, the seven-track structure, and every
 prior standing directive)

@@ -29,6 +29,10 @@ prototype tree into ``.state`` (renames happen inside it, that is safe) so
 every ``rl_docs/runs/<run>.md`` reference in prompts, docs and URLs still
 works; ``RL_LOG.md`` is a file symlink for humans plus the real path here
 for code, and ``snapshot.sh`` re-links it if an editor clobbers it.
+
+Journals (2026-09-08): ``rl_docs/SKILLS.md``, ``OPERATOR_QUESTIONS.md`` and
+``rl_docs/tracks/<track>/STATUS.md`` moved here too (same symlink pattern;
+code only READS them via the symlinks). Cycles edit the ``.state/...`` path.
 """
 from __future__ import annotations
 
