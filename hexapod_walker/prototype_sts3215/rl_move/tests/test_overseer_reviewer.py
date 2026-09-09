@@ -230,7 +230,7 @@ def test_prompt_limit_and_missing_key_fail_before_reserving(config, monkeypatch)
     {"output_usd_per_million": "Infinity"}, {"output_usd_per_million": "-1"},
     {"model_context_tokens": True}, {"model_context_tokens": 0}, {"max_output_tokens": 9000},
     {"pricing_verified": False}, {"pricing_verified": "true"}, {"pricing_reference": " "},
-    {"timeout_seconds": float("nan")}, {"timeout_seconds": 61},
+    {"timeout_seconds": float("nan")}, {"timeout_seconds": 301},
 ])
 def test_missing_or_invalid_pricing_and_limit_metadata_fail_closed(config, change):
     fields = deepcopy(config.__dict__)

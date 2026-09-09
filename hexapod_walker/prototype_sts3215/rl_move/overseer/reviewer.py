@@ -149,8 +149,8 @@ class ReviewConfig:
         _integer(self.max_prompt_bytes, "max_prompt_bytes", minimum=1024, maximum=262144)
         if self.max_output_tokens > self.model_context_tokens:
             raise ValueError("Output limit exceeds the verified model context")
-        if isinstance(self.timeout_seconds, bool) or not isinstance(self.timeout_seconds, (float, int)) or not math.isfinite(self.timeout_seconds) or not 1 <= self.timeout_seconds <= 60:
-            raise ValueError("timeout_seconds must be finite and between 1 and 60")
+        if isinstance(self.timeout_seconds, bool) or not isinstance(self.timeout_seconds, (float, int)) or not math.isfinite(self.timeout_seconds) or not 1 <= self.timeout_seconds <= 300:
+            raise ValueError("timeout_seconds must be finite and between 1 and 300")
 
     def cost(self, input_tokens: int, output_tokens: int, *, cached_input_tokens: int = 0,
              cache_write_tokens: int = 0) -> Decimal:

@@ -10,5 +10,5 @@
   "pricing_reference": "Verified 2026-09-09: https://platform.claude.com/docs/en/models/opus-5/overview and https://platform.claude.com/docs/en/about-claude/pricing ; global standard tier, no fast mode, thinking disabled, full context standard rates; cache writes conservatively at 1h maximum.",
   "max_output_tokens": 6144,
   "max_prompt_bytes": 262144,
-  "timeout_seconds": 60
+  "timeout_seconds": 180
 }
