@@ -75,7 +75,9 @@ Return ONLY one JSON object with exactly these fields:
     "rl_only": {"sim": "evidence/status", "physical": "evidence/status", "next_step": "bounded step"}
   }
 }
-Use at most 20 risks/actions and keep each string under 4000 characters.
+Prioritize at most five actions and six risks. Use concise sentences, and keep
+the complete JSON under 1200 words so the bounded response can finish. The schema
+permits at most 20 risks/actions; keep every string under 4000 characters.
 """
 
 _ACTIONS = {"continue", "inspect", "pause_agent", "repair_auth", "notify", "automate", "stop_review"}
