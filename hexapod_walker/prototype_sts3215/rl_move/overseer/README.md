@@ -210,6 +210,14 @@ Codex counts reasoning tokens inside its output limit. Optional explicit
 `cached_input_usd_per_million` and `cache_write_usd_per_million` record those
 usage categories; reservations use the highest applicable input rate.
 
+Claude requests schema-constrained JSON through `output_config.format`; the
+local validator still checks every response before accepting advice. Invalid
+paid responses retain their usage, provider response ID when available, and a
+bounded, redacted excerpt of visible text for private diagnosis. Reasoning and
+tool inputs are not retained in that excerpt. This permits inspection without
+buying the same model work again. Current Claude profiles allow 180 seconds for
+one response; the configurable maximum is 300 seconds, with no automatic retry.
+
 Before dispatch, reserve the full context at the supplied maximum input rate
 plus bounded output. This conservative admission cap depends on those provider
 limits/rates being correct; it is not a provider-enforced invoice cap. At $15,
