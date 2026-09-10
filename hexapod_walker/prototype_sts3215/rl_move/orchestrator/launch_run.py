@@ -72,6 +72,11 @@ GPU_TORCH_PYTHON = "/workspace/venv_torchgpu/bin/python"
 UV_PYTHON = "uv run python"
 WANDB_PROJECT = "l2k2/hexapod-balance"
 DEFAULT_TRAIN_CONTROL_HZ = 100.0
+# Deployment control rate (operator order 2026-09-10, hexapod2 Uno Q
+# MCU-bridge timing measurements): explicit control.hz=50 launches are
+# first-class deployment-candidate runs, accepted without
+# --allow-legacy-control-hz. The no-key injected default stays 100.
+DEPLOY_TRAIN_CONTROL_HZ = 50.0
 # SIM MODEL FAMILIES continuity guard (2026-08-25, gaitgate-scratch1
 # triage dig-in): commit 47110285 flipped servo_model.resolve_model_source's
 # default from (implicitly) primitive to "mesh" at this instant. Any
@@ -526,6 +531,18 @@ def _with_default_control_hz(extra: list[str], entry: dict,
         hz = float(got)
     except ValueError:
         return refuse(entry, f"bad control.hz cfg-set: {got!r}")
+    if abs(hz - DEPLOY_TRAIN_CONTROL_HZ) < 1e-9:
+        # Operator order 2026-09-10 (hexapod2 Uno Q bridge timing:
+        # an 18-servo feedback read costs 9-13 ms + sync write
+        # ~4.4 ms, so 100 Hz trips the runner timing fault while
+        # 50 Hz/20 ms fits): explicit control.hz=50 is the DEPLOYMENT
+        # rate for robot-bound candidates, first-class alongside the
+        # 100 Hz sim default -- not a "legacy isolation" run and no
+        # escape hatch needed. No-key injection stays 100 (sim
+        # research contract unchanged; bit-exact for every other hz).
+        entry.setdefault("checks", {})["control_hz_defaulted"] = (
+            "explicit-deploy-50")
+        return extra
     if abs(hz - DEFAULT_TRAIN_CONTROL_HZ) > 1e-9:
         if not allow_legacy:
             return refuse(entry, f"new PPO launches must train at "

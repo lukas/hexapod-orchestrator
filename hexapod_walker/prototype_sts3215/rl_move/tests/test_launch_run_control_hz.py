@@ -110,3 +110,29 @@ def test_dynrep_trainer_is_untouched_regardless_of_allow_legacy():
         [], entry, is_dynrep=True, allow_legacy=True)
     assert out == []
     assert entry == {}
+
+
+def test_explicit_deploy_50_passes_without_escape_hatch():
+    """Operator order 2026-09-10: control.hz=50 is the deployment rate
+    (hexapod2 MCU-bridge timing), first-class alongside 100 -- no
+    --allow-legacy-control-hz needed, recorded distinctly."""
+    entry: dict = {}
+    extra = ["--cfg-set", "control.hz=50"]
+    out = lr._with_default_control_hz(list(extra), entry, is_dynrep=False)
+    assert out == extra
+    assert "refused_reason" not in entry
+    assert entry["checks"]["control_hz_defaulted"] == "explicit-deploy-50"
+
+
+def test_explicit_deploy_50_unaffected_by_allow_legacy_flag():
+    entry_a: dict = {}
+    entry_b: dict = {}
+    extra = ["--cfg-set", "control.hz=50"]
+    out_a = lr._with_default_control_hz(
+        list(extra), entry_a, is_dynrep=False, allow_legacy=False)
+    out_b = lr._with_default_control_hz(
+        list(extra), entry_b, is_dynrep=False, allow_legacy=True)
+    assert out_a == out_b == extra
+    assert (entry_a["checks"]["control_hz_defaulted"]
+            == entry_b["checks"]["control_hz_defaulted"]
+            == "explicit-deploy-50")

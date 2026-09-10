@@ -219,6 +219,13 @@ compute:
   # a hold, recorded in the ledger) is OPERATOR-ONLY: an agent passing it
   # is a guardrail violation — an operator-ordered launch in chat is the
   # operator's assistant's to fire, not a cycle's.
+  # SCOPED EXCEPTION (operator order op_20260910_50hz, 09-10 focus
+  # note: retrain the most promising gaits at 50 Hz — enumerates 5
+  # arms: walk x2, turn x2, stand/sit x1): the 09-10 50 Hz retrain
+  # fill may place 5 launches / 40M GPU steps in that one cycle
+  # (walk50hz singleframe 20M + walkteach 10M, turn50hz amp-mesh 2M +
+  # standwalk 2M, stance50hz 6M). Ordinary caps apply again after
+  # that fill.
   max_new_launches_per_cycle: 4  # restored 08-10 ~15:0x UTC: LAUNCH_HOLD file cleared (operator lifted the morning hold); was 0 during the hold
   # CPU-stack steps (smokes on sweep pods). GPU steps are ~18x cheaper
   # in wall clock and have their own cycle cap below — do NOT count GPU
