@@ -29,25 +29,26 @@ one real tool bug (missing joystick heartbeat resend, now fixed).
 **`rl_only` result:** genuine interactive PASS on its champion below —
 `stalled_phases: []`, 0 falls, 0 rejected commands, real direction-correct
 translation every phase (`CURRENT_TRUTHS.md` 09-10 root-cause entry).
-**`any_means` result:** SUBSTANTIALLY IMPROVED, not yet a clean PASS —
-root cause found (09-10, later cycle): the interactive session's
-velocity-command ramp used a fixed RATE instead of training's fixed-
-DURATION blend, producing a genuine coincidental full-stop for the
-diag-left->reverse command pair; fixed (`_PlayTraj`,
-`rl_move/sim/play_core.py`). Reverse-phase locomotion fraction improves
-from a consistent 0.19-0.21 (pre-fix, FAIL, 2/2 runs) to 0.246/0.313/
-0.333/0.273 across 4 post-fix repeats (mean 0.291, 3/4 clean PASS, one
-still fractionally under the 0.25 stall floor) — do not call this fully
-closed; a residual short-window gait-reversal transient and/or HTTP
-timing jitter may explain the remaining borderline run. Full derivation:
-`CURRENT_TRUTHS.md` 09-10, top of file.
+**`any_means` result:** IMPROVED BUT NOT CLEAN — the fix is real (09-10,
+same day): the interactive session's velocity-command ramp used a fixed
+RATE instead of training's fixed-DURATION blend, producing a genuine
+coincidental full-stop for the diag-left->reverse command pair; fixed
+(`_PlayTraj`, `rl_move/sim/play_core.py`). At n=8 repeats (settled 09-10,
+later cycle — the repeat count this entry previously called for), the
+reverse-phase locomotion fraction is 0.246/0.313/0.333/0.267/0.231/0.274/
+0.293/0.360 (mean 0.289) — **6/8 clear the 0.25 stall floor, 2/8 still
+fail it** (worst 0.231). All 8 clear the old pre-fix band (0.19-0.21)
+with no overlap, so the fix roughly halves the failure rate, but this is
+now a settled, real ~25% intermittent residual, not noise near a
+threshold — do not call this a clean pass. Root cause of the residual
+itself (a candidate short-window gait-reversal transient) is not yet
+chased. Full derivation: `CURRENT_TRUTHS.md` 09-10 (top of file).
 Physical acceptance needs a named build/controller, a bounded joystick
 trial with video/telemetry, and reported direction/speed/yaw/start/stop
-limits; `rl_only` also needs clean training ancestry. Next: a larger
-held-out repeat count (n>=8-12) or a phase-window review to settle the
-residual `any_means` borderline case, then the best-supported
-candidate's measured physical comparison through Robot Lab; neither
-waits for every method.
+limits; `rl_only` also needs clean training ancestry. Next: root-cause
+the ~25% reverse-phase residual itself (mechanism, not another repeat
+count), then the best-supported candidate's measured physical comparison
+through Robot Lab; neither waits for every method.
 
 ## Recorded sim-demo candidates and limitations
 
