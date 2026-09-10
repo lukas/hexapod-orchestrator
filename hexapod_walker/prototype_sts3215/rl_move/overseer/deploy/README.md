@@ -178,6 +178,50 @@ Copy them into the existing state directory's `reviewers/` folder after verifyin
 prices/context limits. Manual Claude runs need `ANTHROPIC_API_KEY`; manual Codex
 runs need `OPENAI_API_KEY`. The HTTP service needs neither provider credential.
 
+## Recurring reviews
+
+Lukas requested recurring operation on 2026-09-09 after the manual trial. The
+separate `com.lbiewald.hexapod-metaagent-scheduler` LaunchAgent invokes a free
+deterministic gate every five minutes. Each invocation exits. At most once every
+six hours, changed eligible work may request one bounded API review. The timer
+does not invoke a Codex/Claude agent CLI to reason about whether it should run.
+The old Codex watchdog automations remain paused.
+
+Install `run-scheduler.sh` mode 0700 in the existing Metaagent home and its plist
+mode 0600 in `~/Library/LaunchAgents`. The launcher reads a private, owner-only
+0600 `reviewer-credentials.json` in Metaagent home, containing the selected
+provider's existing API credential under `ANTHROPIC_API_KEY` or `OPENAI_API_KEY`.
+Never include credentials in plists, Git, shell arguments or logs. This file is
+separate from the read-only HTTP service. Credential rotation must update it.
+
+Run in the stable runtime checkout, preserving the original state directory:
+
+```sh
+uv run --frozen python -m rl_move.overseer.scheduler configure --enable --provider claude
+launchctl bootstrap "gui/$(id -u)" "$HOME/Library/LaunchAgents/com.lbiewald.hexapod-metaagent-scheduler.plist"
+uv run --frozen python -m rl_move.overseer.scheduler status
+launchctl print "gui/$(id -u)/com.lbiewald.hexapod-metaagent-scheduler"
+```
+
+The dashboard shows saved enablement and actual last-check evidence separately.
+An overdue expected check indicates a sleeping/offline host or missing runner,
+not successful supervision. Sources use bounded authenticated reads; unavailable
+Codex runtime status or costs stay unknown. Partial coverage can review known
+active work, but cannot establish that the whole project is idle.
+
+Idle/unchanged checks and budget waits spend no tokens. Failed/uncertain paid
+reviews create a persistent hold, visible on the dashboard. Inspect the original
+wake, usage and corrected configuration before explicitly enabling again; never
+erase pending reservations or resume a wake automatically. Recommendations and
+outbox notifications remain proposals for existing owners.
+
+Disable scheduling without removing the website or history:
+
+```sh
+uv run --frozen python -m rl_move.overseer.scheduler configure --disable
+launchctl bootout "gui/$(id -u)/com.lbiewald.hexapod-metaagent-scheduler"
+```
+
 Initial public acceptance on 2026-09-09 verified HTTPS, existing SSO sign-in,
 unauthenticated/forged credential rejection, authenticated status and costs,
 and MCP initialization plus tool discovery. The original Robot Lab and camera

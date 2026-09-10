@@ -33,9 +33,9 @@ def safe(value) -> str:
 
 def markdown(report: dict) -> str:
     preview = report.get('mode') == 'preview'
-    lines = ['# Metaagent — ' + ('manual preview' if preview else 'manual review'), '',
+    lines = ['# Metaagent — ' + ('preview' if preview else 'review'), '',
         f"Observed/reviewed: {safe(report['generated_at'])}", '',
-        '**Scheduling is off.** This report does not stop agents, restart services, launch training, move the robot, or send messages.', '',
+        f"**Scheduling is {'enabled' if report.get('scheduler_enabled') else 'off'}.** This report is advisory; execution stays with the existing owners.", '',
         '## Wake decision', '',
         f"Would request a review: **{'yes' if report['wake']['eligible'] else 'no'}**.",
         f"Fresh active agents eligible for oversight: {report['wake']['active_agent_count']} (excludes this metaagent and its children).", '',

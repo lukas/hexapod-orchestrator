@@ -1,8 +1,8 @@
 # Metaagent
 
 Metaagent inventories project agents, checks progress and spending, and writes
-an evidence-based review with proposed actions. **No scheduler is installed or
-enabled.** Importing the package does nothing. A preview never invokes a model,
+an evidence-based review with proposed actions. Recurring reviews are explicitly
+opt-in through the deterministic scheduler below. Importing the package does nothing. A preview never invokes a model,
 creates/updates a registry, sends a message, or changes a worker/service/queue.
 
 Run from `hexapod_walker/prototype_sts3215`:
@@ -121,7 +121,7 @@ useful trainers/checkpoints. Paused/disabled desired state survives recovery.
 Authentication incidents use only bounded documented recovery, then one
 actionable notification when help is needed. Credential values stay private.
 
-This version is a manual review and handoff system. Stop, repair and automation
+This version is an advisory review and handoff system. Stop, repair and automation
 engineering actions are **proposals**, not executed commands. Existing owners
 (cloud controller, interactive task owner, guarded Robot Lab runner) remain the
 only execution paths. There is no generic kill/restart executor, queue resume,
@@ -251,7 +251,7 @@ The CoreWeave dashboard is
 history, each review's provider/model, settled actual cost, uncertain cost
 reservations, recommendations, goal assessments and missing cost coverage.
 The website reads the same durable database as manual reviews. Page refreshes
-and MCP reads never run a model. There is no periodic review scheduler.
+and MCP reads never run a model. The separate timer runs only when explicitly enabled.
 
 The MCP endpoint is `/mcp` on that host. Use a Metaagent bearer credential;
 the browser uses the existing Hexapod SSO cookie or an explicit token sign-in.
@@ -287,3 +287,32 @@ compatible; renaming does not reset budget, registry or action history.
 See [deployment instructions](deploy/README.md) for the dedicated CoreWeave
 relay and Mac services. These services keep the webpage reachable; they do
 not wake the reviewer or enable Robot Lab/robot execution.
+
+## Recurring reviews and retained context
+
+The separate deterministic timer is opt-in. It checks every five minutes,
+exits when idle or unchanged, and admits at most one paid review per six hours.
+The policy still requires fresh eligible activity, new task spending of at least
+$100, or a new supported incident. A failed/interrupted paid attempt holds future
+paid reviews for operator inspection. All calls use the original $20/wake,
+$15 wrap-up and $80/rolling-day ledger, including unknown reservations. There is
+no automatic continuation, worker control or model-generated command execution.
+
+```sh
+uv run python -m rl_move.overseer.scheduler configure --enable --provider claude
+uv run python -m rl_move.overseer.scheduler tick
+uv run python -m rl_move.overseer.scheduler status
+uv run python -m rl_move.overseer.scheduler configure --disable
+```
+
+`configure` changes the saved setting; installing the operating system timer is
+separate. See [deployment instructions](deploy/README.md#recurring-reviews).
+The dashboard/MCP show enablement, last/expected-next check, free checks and paid
+attempts. Missing source coverage and overdue checks are not evidence of idleness.
+
+Future reviewers receive bounded prior successful reviews and explicit saved
+lessons. Historical model recommendations remain hypotheses; owner corrections
+have separate provenance and never rewrite old reports. This is retained context,
+not model training or autonomous rule changes. `memory` reads the saved context;
+`remember-lesson FILE.json` records an explicit operator lesson. The website's
+`/api/memory` and MCP `get_memory` are read-only views of that same context.
