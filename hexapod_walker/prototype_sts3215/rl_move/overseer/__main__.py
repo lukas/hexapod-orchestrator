@@ -14,6 +14,7 @@ import uuid
 
 from .collectors import collect_local, normalize_cloud_activity, normalize_codex_threads
 from .journal import Journal, read_history
+from .memory import fit_memory, read_memory, remember_lesson
 from .policy import evaluate
 from .report import redact, write_report
 from .store import Store
@@ -33,6 +34,17 @@ def default_state_dir() -> Path:
     if sys.platform == 'darwin':
         return Path.home() / 'Library/Application Support/Hexapod Lab/overseer'
     return Path(os.environ.get('XDG_STATE_HOME', Path.home()/'.local/state')) / 'hexapod-overseer'
+
+
+def scheduling_status(database: Path) -> dict:
+    """Optional scheduler integration; reading status never initializes it."""
+    try:
+        from .scheduler import scheduler_status
+    except ModuleNotFoundError as exc:
+        if exc.name != __package__ + '.scheduler':
+            raise
+        return {'enabled': False, 'configured': False}
+    return scheduler_status(database)
 
 
 def read_json(path: str | Path, limit: int = 2_000_000):
@@ -166,13 +178,22 @@ def collect(args, database: Path) -> dict:
 def compact_for_review(report: dict, snapshot: dict) -> dict:
     """Reserve the prompt for current work; terminal job history remains in JSON."""
     due = set(report['wake']['spend_due_agents'])
-    current = [a for a in report['agents'] if a['agent_id'] in due]
-    current += [a for a in report['agents'] if a['agent_id'] not in due and a.get('status') not in {'succeeded','completed','failed','dead','unknown'}]
+    excluded = {a['agent_id'] for a in report['agents'] if a.get('is_overseer') or a.get('overseer_wake_id')}
+    while True:
+        descendants = {a['agent_id'] for a in report['agents'] if a.get('parent_id') in excluded}
+        if descendants <= excluded:
+            break
+        excluded.update(descendants)
+    agents = [a for a in report['agents'] if a['agent_id'] not in excluded]
+    current = [a for a in agents if a['agent_id'] in due]
+    current += [a for a in agents if a['agent_id'] not in due and a.get('status') not in {'succeeded','completed','failed','dead','unknown'}]
     return {'generated_at': report['generated_at'], 'wake': report['wake'],
             'agents': current[:60], 'findings': report['findings'],
             'source_errors': report['source_errors'], 'notes': report['notes'],
             'goal_documents': snapshot.get('goal_documents', []),
-            'historical_states': dict(Counter(a.get('status','unknown') for a in report['agents']))}
+            'memory': snapshot.get('memory', {}),
+            'metaagent_budget': report.get('budget', {}).get('ledger', {}),
+            'historical_states': dict(Counter(a.get('status','unknown') for a in agents))}
 
 
 def prior_attempts(database: Path, wake_id: str) -> list[dict]:
@@ -200,6 +221,16 @@ def prior_attempts(database: Path, wake_id: str) -> list[dict]:
         db.close()
 
 
+def fit_review_memory(model_snapshot: dict, config) -> dict:
+    """Do not let retained history overflow an otherwise valid current prompt."""
+    from .reviewer import REVIEW_SYSTEM_PROMPT
+    bounded = {**model_snapshot, 'memory': {}}
+    base_bytes = len(json.dumps(bounded, ensure_ascii=False, allow_nan=False, sort_keys=True).encode('utf-8'))
+    available = config.max_prompt_bytes - len(REVIEW_SYSTEM_PROMPT.encode('utf-8')) - base_bytes + 2
+    bounded['memory'] = fit_memory(model_snapshot.get('memory', {}), max(2, min(65536, available)))
+    return bounded
+
+
 def run_review(args, database: Path) -> dict:
     provider = getattr(args, 'provider', None)
     resume_id = getattr(args, 'resume_wake', None)
@@ -212,6 +243,8 @@ def run_review(args, database: Path) -> dict:
     if resume_id and not args.reviewer_config:
         raise ValueError('--resume-wake requires an explicit paid reviewer configuration')
     snapshot = collect(args, database)
+    # Never accept authority/status claims from an imported snapshot's memory.
+    snapshot['memory'] = read_memory(database)
     history = read_history(database)
     if resume_id:
         # An explicit continuation must still include unreviewed cost-bearing
@@ -219,6 +252,9 @@ def run_review(args, database: Path) -> dict:
         history = {key: value for key, value in history.items() if key != 'last_outcome'}
     report = evaluate(snapshot, history=history, force=args.force or bool(resume_id))
     report['mode'] = args.command
+    report['memory'] = snapshot['memory']
+    report['scheduler'] = scheduling_status(database)
+    report['scheduler_enabled'] = report['scheduler']['enabled']
     report['budget']['ledger'] = read_budget(database)
     report['goal_document_sources'] = [d['path'] for d in snapshot.get('goal_documents', [])]
     output = Path(args.output) if args.output else Path(args.project_root)/'artifacts/metaagent'/datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')
@@ -266,7 +302,14 @@ def run_review(args, database: Path) -> dict:
             before = store.snapshot()
             if Decimal(before['active_wake_charged_usd']) >= 15:
                 raise ValueError('wrap-up threshold reached; no more review calls')
-            model_snapshot = compact_for_review(report, snapshot)
+            report['budget']['ledger'] = {key: value for key, value in before.items()
+                                          if key not in {'agents', 'wakes', 'reservations'}}
+            model_snapshot = fit_review_memory(compact_for_review(report, snapshot), config)
+            report['memory_context'] = {
+                'recent_review_ids': [item['report_id'] for item in model_snapshot['memory'].get('recent_reviews', [])],
+                'lesson_ids': [item['lesson_id'] for item in model_snapshot['memory'].get('lessons', [])],
+                'truncated': model_snapshot['memory'].get('truncated', bool(snapshot['memory'])),
+            }
             result = review_once(store, wake['wake_id'], operation_id, model_snapshot, config)
             report['llm_review'] = result
             if result.get('status') == 'completed':
@@ -316,6 +359,9 @@ def parser() -> argparse.ArgumentParser:
             item.add_argument('--provider', choices=('claude', 'codex'), help='select state-dir/reviewers/PROVIDER.json, or validate an explicit config')
             item.add_argument('--resume-wake', metavar='ID', help='explicitly continue one finished blocked wake using its remaining budget; makes at most one new call')
     sub.add_parser('status')
+    sub.add_parser('memory', help='read bounded historical reviews and explicit corrections without changing state')
+    item = sub.add_parser('remember-lesson')
+    item.add_argument('record', help='explicit operator lesson JSON with source, evidence and status')
     sub.add_parser('actions')
     item = sub.add_parser('register')
     item.add_argument('record', help='JSON file with stable agent_id, task_id, execution_owner, goals and scope')
@@ -352,8 +398,13 @@ def main(argv=None) -> int:
         if args.command in {'preview','review'}:
             result = run_review(args, database)
         elif args.command == 'status':
-            result = {'service': 'hexapod-metaagent', 'scheduler_enabled': False, 'budget':read_budget(database),
+            scheduler = scheduling_status(database)
+            result = {'service': 'hexapod-metaagent', 'scheduler_enabled': scheduler['enabled'], 'scheduler': scheduler, 'budget':read_budget(database),
                       'agents': read_registry(database), 'history': read_history(database)}
+        elif args.command == 'memory':
+            result = read_memory(database)
+        elif args.command == 'remember-lesson':
+            result = remember_lesson(database, read_json(args.record), operator=True)
         else:
             store = Store(database)
             if args.command == 'register':
