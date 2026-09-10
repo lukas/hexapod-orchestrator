@@ -523,5 +523,6 @@ def normalize_codex_threads(tool_text: Any, project_root: Path,
         result.append(_agent(f"codex:{ident}", row.get("title", ident), "codex", "interactive", status,
                              "codex:list_threads", observed,
                              **_freshness(row.get("updatedAt") or row.get("updated_at"), observed),
-                             evidence=["Live app task status; cost and measured goal progress are unavailable from this listing."]))
+                             evidence=[("Persisted task metadata only; runtime activity is unknown. " if status == 'unknown' else "App-reported task status. ") +
+                                       "Cost and measured goal progress are unavailable from this listing."]))
     return result
