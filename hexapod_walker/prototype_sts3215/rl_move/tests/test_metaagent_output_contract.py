@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from rl_move.overseer.reviewer import ReviewConfig, review_once
+from rl_move.overseer.reviewer import ReviewConfig, bundled_reviewer_config, review_once
 from rl_move.overseer.store import Store
 
 
@@ -105,6 +105,13 @@ def test_fable_uses_adaptive_effort_and_accepts_private_thinking_blocks(harness)
     result = invoke(harness, reply, config=config, transport=transport)
     assert result["status"] == "completed"
     assert "private reasoning" not in json.dumps(result)
+
+
+def test_bundled_claude_profile_is_fable_and_fits_wrap_up_gate():
+    config = ReviewConfig(**json.loads(bundled_reviewer_config("claude").read_text()))
+    assert config.model == "claude-fable-5-1"
+    assert config.adaptive_thinking is True
+    assert config.reservation_usd < 15
 
 
 @pytest.mark.parametrize("effort", ["none", "minimal", "xhigh"])
