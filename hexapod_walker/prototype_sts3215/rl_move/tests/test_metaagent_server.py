@@ -1,16 +1,20 @@
 """Synthetic HTTP/MCP/auth/accounting checks; no paid calls or live services."""
 import base64
+from contextlib import closing
 from datetime import datetime, timedelta, timezone
 import hashlib
 import hmac
 import json
+import sqlite3
 import time
 
 from fastapi.testclient import TestClient
 import pytest
 
 from rl_move.overseer import reviewer
+from rl_move.overseer import scheduler
 from rl_move.overseer.journal import Journal
+from rl_move.overseer.memory import remember_lesson
 from rl_move.overseer.server import create_app, SESSION_COOKIE, MAX_BODY
 from rl_move.overseer.store import Store
 
@@ -43,10 +47,16 @@ def registered_record():
             "scope": "simulation", "cost_status": "unknown", "status": "running"}
 
 
+def model_advice(summary, actions=None):
+    return {"summary": summary, "risks": [], "recommended_actions": actions or [],
+            "goal_assessment": {goal: {"sim": "Unknown", "physical": "Unknown", "next_step": "Read current evidence"}
+                                for goal in ("any_means", "rl_only")}}
+
+
 def test_public_health_and_shell_never_disclose_private_records(client, tmp_path):
     assert client.get("/healthz").json() == {"service": "hexapod-metaagent", "status": "ok", "scheduler_enabled": False}
     assert client.get("/").status_code == 200
-    for path in ("/api/status", "/api/runs", "/api/runs/wake", "/api/costs", "/api/recommendations", "/api/session"):
+    for path in ("/api/status", "/api/runs", "/api/runs/wake", "/api/costs", "/api/recommendations", "/api/memory", "/api/session"):
         assert client.get(path).status_code == 401
     assert client.post("/mcp", json={}).status_code == 401
     assert not (tmp_path / "state").exists()
@@ -60,6 +70,9 @@ def test_read_only_empty_status_keeps_missing_costs_unknown_and_does_not_create_
     assert status.json()["data_available"] is False
     costs = call(client, "get_costs").json()["result"]["structuredContent"]
     assert costs["monitored_total_usd"] is None
+    assert client.get("/api/status", headers=HEADERS).json()["scheduler"]["configured_at"] is None
+    assert call(client, "get_memory").json()["result"]["structuredContent"]["lessons"] == []
+    assert client.get("/api/memory", headers=VIEW_HEADERS).json()["recent_reviews"] == []
     assert not (tmp_path / "state").exists()
 
 
@@ -75,7 +88,7 @@ def test_mcp_initialization_read_tools_and_no_review_executor(client):
     assert response.json()["result"]["serverInfo"]["name"] == "hexapod-metaagent"
     listed = client.post("/mcp", headers=VIEW_HEADERS, json={"jsonrpc": "2.0", "id": 2, "method": "tools/list"}).json()
     names = {tool["name"] for tool in listed["result"]["tools"]}
-    assert names == {"get_status", "list_runs", "get_run", "get_costs", "list_recommendations"}
+    assert names == {"get_status", "list_runs", "get_run", "get_costs", "list_recommendations", "get_memory"}
     assert call(client, "run_review").json()["error"]["code"] == -32601
 
 
@@ -207,6 +220,99 @@ def test_continuation_displays_latest_advice_and_preserves_all_wake_costs(tmp_pa
     assert len(detail["reservations"]) == 2
     with journal.connect() as db:
         assert json.loads(db.execute("SELECT body FROM overseer_reports WHERE report_id='wake'").fetchone()[0]) == original
+
+
+def test_recommendations_include_latest_model_advice_without_an_outbox_incident(tmp_path):
+    store = Store(tmp_path / "overseer.sqlite3")
+    stamp = datetime.now(timezone.utc)
+    store.start_wake("Review changed evidence", stamp, wake_id="wake")
+    journal = Journal(store.path)
+    action = {"action": "inspect", "target": "walking run", "reason": "Read changed evidence",
+              "evidence": ["run receipt"]}
+    journal.record("wake", {"generated_at": stamp.isoformat(), "wake": {"wake_id": "wake"}, "llm_review": {
+        "status": "completed", "provider": "test", "model": "old-model",
+        "review": model_advice("Superseded advice", [action])}}, "succeeded")
+    journal.record("wake:continuation", {"generated_at": (stamp + timedelta(seconds=1)).isoformat(), "wake": {"wake_id": "wake"}, "llm_review": {
+        "status": "completed", "provider": "test", "model": "current-model",
+        "review": model_advice("Current advice", [action])}}, "succeeded")
+    # A failed/invalid model response must not become accepted advice.
+    journal.record("invalid", {"generated_at": stamp.isoformat(), "llm_review": {"status": "blocked", "review": {
+        "summary": "Do not display as validated advice", "recommended_actions": [action]}}}, "blocked")
+    before = store.path.read_bytes()
+    client = TestClient(create_app(tmp_path, api_token=OPERATOR))
+    result = client.get("/api/recommendations", headers=HEADERS).json()
+    assert result["recommendations"] == []
+    assert len(result["model_recommendations"]) == 1
+    advice = result["model_recommendations"][0]
+    assert advice["wake_id"] == "wake" and advice["report_id"] == "wake:continuation"
+    assert advice["summary"] == "Current advice" and advice["model"] == "current-model"
+    assert advice["recommended_actions"] == [action]
+    assert advice["execution_status"] == "proposal_only"
+    assert call(client, "list_recommendations").json()["result"]["structuredContent"] == result
+    assert store.path.read_bytes() == before
+
+
+def test_status_reports_persisted_schedule_hold_and_free_checks_without_running_them(tmp_path, monkeypatch):
+    store = Store(tmp_path / "overseer.sqlite3")
+    scheduler.configure(store.path, enabled=True, project_root=tmp_path)
+    stamp = datetime.now(timezone.utc).isoformat()
+    with closing(sqlite3.connect(store.path)) as db, db:
+        config = json.loads(db.execute("SELECT body FROM metaagent_schedule").fetchone()[0])
+        config["review_hold"] = "Review failed; owner must inspect the retained charge"
+        db.execute("UPDATE metaagent_schedule SET body=?", (json.dumps(config),))
+        db.execute("INSERT INTO metaagent_checks(check_id,started_at,finished_at,outcome,detail,paid_review_started) VALUES(?,?,?,?,?,?)",
+                   ("check", stamp, stamp, "held", "No model called while held", 0))
+    store.start_wake("Separate retained wake", wake_id="active")
+    monkeypatch.setattr(scheduler, "tick", lambda *a, **k: pytest.fail("HTTP read ran the scheduler"))
+    before = store.path.read_bytes()
+    client = TestClient(create_app(tmp_path, api_token=OPERATOR, viewer_token=VIEWER))
+    status = client.get("/api/status", headers=VIEW_HEADERS).json()
+    assert status["scheduler_enabled"] is True
+    schedule = status["scheduler"]
+    assert schedule["last_check_at"] == stamp and schedule["last_outcome"] == "held"
+    assert schedule["last_detail"] == "No model called while held"
+    assert schedule["free_checks"] == 1 and schedule["paid_reviews_started"] == 0
+    assert schedule["review_hold"] == config["review_hold"]
+    assert datetime.fromisoformat(schedule["next_check_at"]) > datetime.fromisoformat(stamp)
+    assert status["budget"]["active_wake_id"] == "active"
+    assert client.get("/healthz").json()["scheduler_enabled"] is True
+    assert call(client, "get_status", headers=VIEW_HEADERS).json()["result"]["structuredContent"]["scheduler"] == schedule
+    assert store.path.read_bytes() == before
+    scheduler.configure(store.path, enabled=False)
+    status = client.get("/api/status", headers=HEADERS).json()
+    assert status["scheduler_enabled"] is False and status["scheduler"]["next_check_at"] is None
+
+
+def test_memory_views_preserve_provenance_corrections_unknown_costs_and_database(tmp_path):
+    store = Store(tmp_path / "overseer.sqlite3")
+    store.register_agent(registered_record())
+    remember_lesson(store.path, {"lesson_id": "hypothesis", "source": "review:wake",
+        "lesson": "Try a smaller observation set", "evidence": ["Synthetic review"], "status": "model_hypothesis"})
+    remember_lesson(store.path, {"lesson_id": "correction", "source": "Owner receipt", "owner": "operator",
+        "lesson": "Do not infer hardware readiness from sim; api_key=sk-private-credential", "evidence": ["Physical inspection receipt"],
+        "status": "owner_verified", "corrects": ["hypothesis"]}, operator=True)
+    store.start_wake("Recorded advice", wake_id="wake")
+    Journal(store.path).record("wake", {"generated_at": datetime.now(timezone.utc).isoformat(), "wake": {"wake_id": "wake"},
+        "llm_review": {"status": "completed", "provider": "test", "model": "test-model",
+                       "review": model_advice("Read the recorded corrections")}}, "succeeded")
+    before = store.path.read_bytes()
+    client = TestClient(create_app(tmp_path, api_token=OPERATOR, viewer_token=VIEWER))
+    response = client.get("/api/memory", headers=VIEW_HEADERS)
+    memory = response.json()
+    assert response.status_code == 200 and "sk-private-credential" not in response.text
+    assert memory["lessons"][0]["status"] == "owner_verified"
+    assert memory["lessons"][0]["provenance"] == "operator"
+    assert memory["lessons"][0]["corrects"] == ["hypothesis"]
+    assert memory["lessons"][1]["status"] == "model_hypothesis"
+    assert memory["recent_reviews"][0]["wake_id"] == "wake"
+    assert memory["recent_reviews"][0]["status"] == "model_hypothesis"
+    assert call(client, "get_memory", headers=VIEW_HEADERS).json()["result"]["structuredContent"] == memory
+    assert client.get("/api/costs", headers=HEADERS).json()["unknown_cost_agents"] == 1
+    for name in ("run_review", "configure_schedule", "remember_lesson"):
+        assert call(client, name).json()["error"]["code"] == -32601
+    assert client.post("/api/memory", headers=HEADERS, json={}).status_code == 405
+    assert client.post("/api/schedule", headers=HEADERS, json={}).status_code == 404
+    assert store.path.read_bytes() == before
 
 
 def test_static_assets_are_public_but_private_data_stays_authenticated(tmp_path):

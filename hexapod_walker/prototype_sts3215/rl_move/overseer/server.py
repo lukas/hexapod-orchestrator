@@ -1,7 +1,8 @@
 """Authenticated metaagent dashboard and MCP; reads never invoke a model.
 
 The legacy overseer database remains the only registry/budget journal. This
-service has no scheduler, review executor, operational controls or notifications.
+service reports persisted scheduler/memory state, but never runs a scheduler,
+review executor, operational control or notification itself.
 """
 from __future__ import annotations
 
@@ -24,7 +25,10 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from .__main__ import default_state_dir
+from .memory import read_memory
 from .report import redact
+from .reviewer import _validate_review
+from .scheduler import scheduler_status
 from .store import Store
 
 SESSION_COOKIE = "metaagent_session"
@@ -32,10 +36,11 @@ MAX_BODY = 128 * 1024
 MAX_RECORDS = 200
 READ_TOOLS = (
     ("get_status", "Read recorded project agents and metaagent status.", {}),
-    ("list_runs", "List recent manual review runs.", {}),
-    ("get_run", "Read one manual review and its recorded report.", {"wake_id": {"type": "string"}}),
+    ("list_runs", "List recent review runs, including scheduled and manual reviews.", {}),
+    ("get_run", "Read one review and its recorded report.", {"wake_id": {"type": "string"}}),
     ("get_costs", "Read actual spending, pending reservations, and unknown monitored costs separately.", {}),
     ("list_recommendations", "Read recommendations and owner/delivery receipts; this executes nothing.", {}),
+    ("get_memory", "Read saved lessons and recent review context with their provenance; this executes nothing.", {}),
 )
 WRITE_TOOLS = (
     ("register_agent", "Register an agent's purpose and ownership; starts no work.", {"record": {"type": "object"}}),
@@ -191,10 +196,40 @@ def _recommendations(db) -> dict:
             item[key] = _decode(row[key]) if key in row.keys() else None
         item["notification_receipt"] = row["notification_receipt"] if "notification_receipt" in row.keys() else None
         items.append(item)
-    return {"recommendations": items, "limit": 100, "truncated": len(rows) > 100}
+    # A model's advice is stored in its report, not necessarily in the
+    # deterministic incident outbox. Keep those distinct, and show only the
+    # latest report for each wake so a resumed attempt cannot duplicate advice.
+    reports = db.execute(
+        "WITH ranked AS (SELECT report_id,body,created_at,"
+        "COALESCE(NULLIF(json_extract(body,'$.wake.wake_id'),''),report_id) AS wake_id,"
+        "ROW_NUMBER() OVER (PARTITION BY COALESCE(NULLIF(json_extract(body,'$.wake.wake_id'),''),report_id) "
+        "ORDER BY created_at DESC,rowid DESC) AS position FROM overseer_reports) "
+        "SELECT report_id,body,created_at,wake_id FROM ranked WHERE position=1 "
+        "ORDER BY created_at DESC,report_id DESC LIMIT 101"
+    ).fetchall() if _table(db, "overseer_reports") else []
+    advice = []
+    for row in reports[:100]:
+        report = _decode(row["body"])
+        model = report.get("llm_review") or {}
+        if not isinstance(model, dict) or model.get("status") != "completed":
+            continue
+        try:
+            assessment = _validate_review(model.get("review"))
+        except (ValueError, TypeError):
+            continue
+        advice.append({"wake_id": row["wake_id"], "report_id": row["report_id"],
+                       "created_at": row["created_at"], "provider": model.get("provider"),
+                       "model": model.get("model"), "summary": assessment.get("summary"),
+                       "recommended_actions": assessment.get("recommended_actions") or [],
+                       "source": "model_advice", "execution_status": "proposal_only"})
+    return {"recommendations": items, "limit": 100, "truncated": len(rows) > 100,
+            "model_recommendations": advice, "model_limit": 100,
+            "model_truncated": len(reports) > 100}
 
 
 def _projection(path: Path, name: str, role: str, wake_id: str | None = None) -> dict:
+    if name == "memory":
+        return redact(read_memory(path))
     with _reader(path) as db:
         if name == "runs":
             result = _runs(db)
@@ -223,7 +258,10 @@ def _projection(path: Path, name: str, role: str, wake_id: str | None = None) ->
         else:
             agents, truncated = _agents(db)
             runs = _runs(db)["runs"]
-            result = {"service": "hexapod-metaagent", "scheduler_enabled": False, "review_execution": "cli_only",
+            schedule = scheduler_status(path)
+            result = {"service": "hexapod-metaagent", "scheduler_enabled": schedule["enabled"],
+                      "scheduler": schedule,
+                      "review_execution": "scheduler_or_cli" if schedule["enabled"] else "cli_only",
                       "authenticated_role": role, "generated_at": _now(), "source": "durable_records",
                       "data_available": db is not None, "agents": agents, "agents_truncated": truncated,
                       "agent_counts": dict(Counter(item.get("status", "unknown") for item in agents)),
@@ -337,7 +375,8 @@ def create_app(state_dir: Path | None = None, api_token: str | None = None,
 
     @app.get("/healthz")
     def health():
-        return {"service": "hexapod-metaagent", "status": "ok", "scheduler_enabled": False}
+        return {"service": "hexapod-metaagent", "status": "ok",
+                "scheduler_enabled": scheduler_status(database)["enabled"]}
 
     @app.get("/api/session")
     def session(identity: dict = Depends(authenticate)):
@@ -390,6 +429,10 @@ def create_app(state_dir: Path | None = None, api_token: str | None = None,
     def recommendations(identity: dict = Depends(authenticate)):
         return _projection(database, "recommendations", identity["role"])
 
+    @app.get("/api/memory")
+    def memory(identity: dict = Depends(authenticate)):
+        return _projection(database, "memory", identity["role"])
+
     @app.post("/mcp")
     async def mcp(request: Request, identity: dict = Depends(authenticate)):
         body = await _body(request)
@@ -416,7 +459,7 @@ def create_app(state_dir: Path | None = None, api_token: str | None = None,
                 name, arguments = params.get("name"), params.get("arguments") or {}
                 if not isinstance(arguments, dict):
                     raise ValueError("Tool arguments must be an object")
-                projections = {"get_status": "status", "list_runs": "runs", "get_run": "run", "get_costs": "costs", "list_recommendations": "recommendations"}
+                projections = {"get_status": "status", "list_runs": "runs", "get_run": "run", "get_costs": "costs", "list_recommendations": "recommendations", "get_memory": "memory"}
                 if name in projections:
                     value = _projection(database, projections[name], identity["role"], arguments.get("wake_id"))
                 elif name in {t[0] for t in WRITE_TOOLS}:
