@@ -1586,6 +1586,26 @@ def research_brief(f: dict, pending: dict[str, str]) -> dict:
     return {"summary": summary, "topics": topics}
 
 
+HOW_TO_READ = (
+    "<section style='margin:16px 0;padding:14px 18px;border:1px solid #d29922;"
+    "border-left:4px solid #d29922;border-radius:10px;background:#1c1710'>"
+    "<div style='font-weight:700;margin-bottom:6px'>What this page is</div>"
+    "<div style='color:#c9d1d9;line-height:1.6'>"
+    "The goal is <b>smooth joystick stand / walk / turn \u2014 in simulation "
+    "<i>and</i> on the physical robot</b>. Everything below is a "
+    "<b>MuJoCo&nbsp;simulation</b> run on the GPU fleet, rendered with a "
+    "simplified collision-mesh robot (the full-detail and real-robot views are "
+    "not what these clips show). "
+    "A green sim gate is a <b>method milestone, not physical acceptance</b> "
+    "(RL_PLAN): no policy has passed hardware qualification, and the robot is "
+    "not yet running these gaits. A track marked <b>DONE</b> means \u201cno "
+    "experiment left worth running,\u201d not \u201cdemo-ready.\u201d "
+    "For the honest per-capability state read the "
+    "<a href='/llm/brief.md'>research brief</a>."
+    "</div></section>"
+)
+
+
 def render_research_brief(brief: dict) -> list[str]:
     h = ["<style>.topic{position:relative}.tracklink:after{content:'';position:absolute;inset:0}"
          ".topicfoot a{position:relative;z-index:1}.tracklink:focus-visible{outline:2px solid #58a6ff}</style>",
@@ -1692,6 +1712,7 @@ def render(base: str = "") -> str:
              f"auto-reloads every 30 s · fleet/token data every "
              f"{SLOW_S} s · bookmark <a href='/now'>/now</a>"
              f"{(' · ' + esc(sub)) if sub else ''}</div>")
+    h.append(HOW_TO_READ)
 
     # finished on W&B but no verdict in the ledger = not yet analyzed.
     # W&B is the ground truth for "finished"; the triage field only adds
