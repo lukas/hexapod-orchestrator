@@ -19,17 +19,26 @@ Both proceed in parallel. Each needs an interactive joystick sim demo and
 viewable video as well as physical walking evidence. Report readiness, demo
 link/launch command and remaining limits separately for each deliverable.
 Non-interactive reproducible sim video now exists for a candidate under each
-goal (below). **UPDATE 09-10:** "needs a display, irreducible-to-cloud" was
-WRONG — only the optional native viewer window needs one; the browser's own
-HTTP joystick API is headlessly drivable (`web_session_drivecapture.py`),
-which also found+fixed a real joint-action-box config bug. **Same-day
-follow-up:** that tool's own PASS check was a false positive — with every
-cfg knob now verified matching training, the live-drive path still fails to
-sustain forward motion (chassis rises, velocity decays to ~0, sometimes
-falls) while `drive_video.py`'s direct capture of the same checkpoint walks
-cleanly (`CURRENT_TRUTHS.md` 09-10 follow-up). No interactive session can
-yet stand in as sim-demo WALKING evidence; only `drive_video.py` can, for
-either goal. Neither outcome is established yet. Physical acceptance needs
+goal (below), and as of 09-10 so does a genuine INTERACTIVE-session capture.
+**UPDATE 09-10:** "needs a display, irreducible-to-cloud" was WRONG — only
+the optional native viewer window needs one; the browser's own HTTP
+joystick API is headlessly drivable (`web_session_drivecapture.py`), which
+also found+fixed a real joint-action-box config bug. **Same-day
+follow-up (superseded, see next update):** that tool's own PASS check was a
+false positive — with every cfg knob verified matching training, the
+live-drive path appeared to fail to sustain forward motion. **Same-day
+ROOT-CAUSE FIX:** that "stall" was the capture tool's own drive loop, not
+the champion or the interactive server — it only resent `/api/rl/drive/cmd`
+once per scripted-phase transition instead of continuously the way the
+real browser UI does (5 Hz heartbeat), so the session's own dead-man's-
+switch (correctly designed for real hardware) silently froze it into a
+safety hold for most of every phase. Fixed (resend every ~0.2s, matching
+the browser); re-run is a genuine PASS — real sustained direction-correct
+translation, 0 falls, 0 rejected commands, `stalled_phases: []`
+(`CURRENT_TRUTHS.md` 09-10 root-cause entry). **The interactive joystick
+sim-demo requirement is now met for the `rl_only` candidate below** (the
+mechanism is checkpoint-agnostic, so it applies to `any_means` candidates
+too). Physical acceptance needs
 a named build/controller, a bounded joystick trial with video/telemetry,
 and reported direction/speed/yaw/start/stop limits; `rl_only` also needs
 clean training ancestry. Next: the best-supported candidate's measured
@@ -54,9 +63,13 @@ Reproducible non-interactive video (09-09, `ops.sh drivevideo ... --script
 human[_turn]`): forward/crab-right/diag-left/reverse/**stop**/**restart**,
 0 falls, `gait_valid=true`, `sacrificed_legs=[]` for the full 26 s episode.
 Interactive launch: `sim_viewer/sim_web.sh --walk rl_move/sim/policies/<name
-above>`; headless HTTP capture (09-10, `web_session_drivecapture.py`) does
-NOT yet reproduce real walking (velocity decays to ~0 despite a fully
-matched cfg — `CURRENT_TRUTHS.md` 09-10 follow-up, root cause open). Known
+above>`; headless HTTP capture (09-10, `web_session_drivecapture.py`, fixed
+same day to resend the drive heartbeat like the real browser does) now
+PASSES with real translation: `stalled_phases: []`, 0 falls, 0 rejected
+commands, per-phase `vx_body`/`vy_body` direction-correct and nonzero
+through forward/crab-right/diag-left/reverse/restart
+(`logs/manual_drive/rlonly_champion_websession_capture_09-10_heartbeatfix/`,
+`CURRENT_TRUTHS.md` 09-10 root-cause entry). Known
 limits: a SUSTAINED (~15s) off-forward heading chronically sacrifices one
 front leg's swing (8 repair mechanisms CLOSED FAIL, `walkcurr/STATUS.md`
 09-09); joystick DONE-gate FAILS on slip (>3x band) — neither blocks the
