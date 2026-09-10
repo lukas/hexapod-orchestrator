@@ -10,6 +10,7 @@ import argparse
 from contextlib import closing
 from datetime import datetime, timedelta, timezone
 import fcntl
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -172,7 +173,11 @@ def tick(database, *, collector=None, reviewer=None):
             snapshot = collect(args, database)
             snapshot['errors'].extend(sources.get('errors', []))
             plan = evaluate(snapshot, history=read_history(database))
-            fingerprint = plan['wake']['fingerprint']
+            # A new loop/auth threshold or first six-hour no-progress finding
+            # can be meaningful even when the task's checkpoint is unchanged.
+            findings = sorted(item['incident_id'] for item in plan['findings']
+                              if item['severity'] in {'warning', 'review'})
+            fingerprint = hashlib.sha256(json.dumps([plan['wake']['fingerprint'], findings]).encode()).hexdigest()
             coverage = len(snapshot['errors'])
             if not plan['wake']['eligible']:
                 return finish('idle', f'No eligible observed work, new spending or incident. Source limitations: {coverage}. No model call.')

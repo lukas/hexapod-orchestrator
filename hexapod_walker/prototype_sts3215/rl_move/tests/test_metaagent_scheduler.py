@@ -166,3 +166,15 @@ def test_source_failure_remains_free_and_does_not_invent_idle(setup):
     assert scheduler.tick(database, collector=broken, reviewer=reviewer)['outcome'] == 'error'
     assert scheduler.scheduler_status(database)['free_checks'] == 1
     assert calls == []
+
+
+def test_new_proven_loop_is_not_hidden_by_unchanged_checkpoint(setup):
+    database, state, calls, collector, reviewer = setup
+    active(state)
+    assert scheduler.tick(database, collector=collector, reviewer=reviewer)['outcome'] == 'succeeded'
+    age_check(database)
+    state['agents'][0]['loop_evidence'] = dict(same_failure_count=3, window_seconds=1800,
+        unchanged_progress=True, no_progressing_children=True,
+        failure_signature='same compiler failure', operation='build')
+    assert scheduler.tick(database, collector=collector, reviewer=reviewer)['outcome'] == 'succeeded'
+    assert len(calls) == 2
