@@ -82,6 +82,32 @@ def reflection(record: dict) -> dict:
             "verification": "self-reported; check linked artifacts independently"}
 
 
+ROBOT_LAB_PENDING_STATUSES = ("queued", "running", "waiting_for_operator")
+
+
+def robot_lab_queue_drained(services: list) -> bool:
+    """Whether Robot Lab has no experiment queued, running or waiting.
+
+    Read from the queue state the Robot Lab collector already exports. This
+    deliberately says nothing about whether the robot is physically ready:
+    live hardware readiness belongs to Robot Lab, which owns the guarded
+    runner and re-checks it before asking for a plan. An empty campaign queue
+    is a strategy question, and that is what a review answers.
+    """
+    for service in services:
+        if not isinstance(service, dict):
+            continue
+        if service.get("service_id") != "lab:experiments":
+            continue
+        counts = service.get("counts")
+        if not isinstance(counts, dict):
+            return False
+        return not any(
+            int(counts.get(name) or 0) for name in ROBOT_LAB_PENDING_STATUSES
+        )
+    return False
+
+
 def evaluate(snapshot: dict, *, history: dict | None = None,
              now: str | None = None, force: bool = False) -> dict:
     """Return an advisory plan. This function cannot invoke tools or send messages.
@@ -255,6 +281,22 @@ def evaluate(snapshot: dict, *, history: dict | None = None,
         reasons.append("at least $100 of new unreviewed task spending")
     if six_hour_due:
         reasons.append("six-hour active-work review due")
+    # An empty Robot Lab queue is the campaign having nothing to do next. On
+    # 09-10 that state persisted eight hours after ten successful experiments,
+    # because every existing trigger keys off activity and there was none. It
+    # is rate-limited exactly like the others: the six-hour interval and the
+    # unchanged-state fingerprint both still apply, so a queue that stays
+    # empty does not buy a second review.
+    queue_drained = (
+        robot_lab_queue_drained(services)
+        and not unchanged
+        and (last is None or last >= REVIEW_SECONDS)
+    )
+    if queue_drained:
+        reasons.append(
+            "Robot Lab has no queued, running or waiting experiment; the "
+            "campaign needs a next step toward smooth walking"
+        )
     run_review = bool(reasons)
     notes = []
     if unknown_cost:
@@ -263,8 +305,10 @@ def evaluate(snapshot: dict, *, history: dict | None = None,
         notes.append("Some active agents have no registered goal mapping; ask their owners to register task purpose and evidence.")
     if unchanged:
         notes.append("The previously reviewed blocked/unchanged work state is unchanged; the timer alone does not request another LLM session.")
-    if not active and not spend_due and not new_incidents:
+    if not active and not spend_due and not new_incidents and not queue_drained:
         notes.append("No eligible active work, new spending or new incident: exit without a model call.")
+    if queue_drained:
+        notes.append("Robot Lab's experiment queue is empty. Recommending the next experiment toward smooth walking is advisory: Robot Lab's own analysis lane and guarded runner remain the only path that queues or executes one.")
     notifications = [dict(f, notification_status="proposed") for f in findings
                      if f["notify"] and f["incident_id"] not in set(history.get("notified_incidents", []))]
     return {"schema_version": 1, "generated_at": current.isoformat(),
