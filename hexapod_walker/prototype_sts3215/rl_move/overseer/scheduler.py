@@ -188,10 +188,12 @@ def tick(database, *, collector=None, reviewer=None):
             key_name = 'ANTHROPIC_API_KEY' if config['provider'] == 'claude' else 'OPENAI_API_KEY'
             if not os.environ.get(key_name, '').strip():
                 return finish('credentials_missing', f'{config["provider"]} credential unavailable to timer. Restore the documented credential source, then explicitly enable to clear this hold.', hold=True)
-            from .reviewer import ReviewConfig
+            from .reviewer import ReviewConfig, bundled_reviewer_config
             from decimal import Decimal
-            profile = config.get('reviewer_config') or database.parent/'reviewers'/f'{config["provider"]}.json'
+            profile = (Path(config['reviewer_config']) if config.get('reviewer_config')
+                       else bundled_reviewer_config(config['provider']))
             settings = ReviewConfig(**read_json(profile))
+            args.reviewer_config = str(profile)
             if settings.provider != config['provider']:
                 return finish('configuration_error', 'Provider and verified pricing profile disagree; correct the configuration and enable again.', hold=True)
             budget = read_budget(database)

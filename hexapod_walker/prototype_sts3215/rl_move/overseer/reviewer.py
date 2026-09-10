@@ -27,6 +27,7 @@ import http.client
 import json
 import math
 import os
+from pathlib import Path
 import re
 import ssl
 import time
@@ -81,6 +82,15 @@ Automation improvements are bounded follow-up proposals within the SAME wake's
 remaining $20 total, not unbounded delegated work. Begin wrapping up by $15
 committed; the daily cap is $80. Don't create another wake to escape a cap.
 If nothing changed, recommend exiting.
+
+This review must drive follow-through, not merely paraphrase the dashboard. For
+each incomplete goal, propose at least one concrete next action aimed at an
+existing observed owner or service, with a verifiable completion condition in
+the reason. If an expected software service is observed stopped, or its owner
+heartbeat is stale while the goal is incomplete, prioritize a bounded
+inspection/recovery handoff over a generic status notification. Never invent an
+owner, claim an action ran, resume an intentionally paused queue, or request
+physical motion without fresh operator authorization and safety evidence.
 
 Return ONLY one JSON object with exactly these fields:
 {
@@ -184,8 +194,12 @@ class ReviewConfig:
         for field in ("cached_input_usd_per_million", "cache_write_usd_per_million"):
             if getattr(self, field) is not None:
                 _rate(getattr(self, field), field)
-        if not isinstance(self.reasoning_effort, str) or self.reasoning_effort not in {"none", "minimal", "low", "medium", "high", "xhigh"}:
-            raise ValueError("Unsupported reasoning_effort; verify support for the configured Codex model")
+        codex_efforts = {"none", "minimal", "low", "medium", "high", "xhigh"}
+        fable_efforts = {"low", "medium", "high", "max"}
+        supported_efforts = fable_efforts if self.adaptive_thinking else codex_efforts
+        if not isinstance(self.reasoning_effort, str) or self.reasoning_effort not in supported_efforts:
+            provider_label = "Claude Fable" if self.adaptive_thinking else "configured model"
+            raise ValueError(f"Unsupported reasoning_effort for {provider_label}")
         _integer(self.model_context_tokens, "model_context_tokens", minimum=1)
         _integer(self.max_output_tokens, "max_output_tokens", minimum=1, maximum=8192)
         _integer(self.max_prompt_bytes, "max_prompt_bytes", minimum=1024, maximum=262144)
@@ -216,6 +230,18 @@ class ReviewConfig:
         return ((max(rates) * self.model_context_tokens
                  + _rate(self.output_usd_per_million, "output_usd_per_million") * self.max_output_tokens)
                 / Decimal(1000000)).quantize(_MICRODOLLAR, rounding=ROUND_CEILING)
+
+    @property
+    def adaptive_thinking(self) -> bool:
+        """Fable 5-family models require adaptive thinking to remain enabled."""
+        return self.provider == "claude" and self.model.startswith("claude-fable-5")
+
+
+def bundled_reviewer_config(provider: str) -> Path:
+    """Return the versioned default profile used unless the operator overrides it."""
+    if provider not in {"claude", "codex"}:
+        raise ValueError("provider must be claude or codex")
+    return Path(__file__).resolve().parent / "reviewers" / f"{provider}.json"
 
 
 def _sanitize(value: Any, api_key: str) -> Any:
@@ -392,14 +418,26 @@ def _openai_usage(response: Mapping[str, Any], usage: Mapping[str, Any], inputs:
                 inputs, outputs, cached_input_tokens=cached, cache_write_tokens=written)
 
 
-def _review_text(response: Mapping[str, Any], provider: str) -> str:
-    if provider == "claude":
+def _review_text(response: Mapping[str, Any], config: ReviewConfig) -> str:
+    if config.provider == "claude":
         if response.get("stop_reason") != "end_turn":
             raise ValueError("Review was incomplete or refused")
         content = response.get("content")
-        if not isinstance(content, list) or not content or any(not isinstance(block, dict) or block.get("type") != "text" or not isinstance(block.get("text"), str) for block in content):
+        if not isinstance(content, list) or not content:
             raise ValueError("Unexpected provider content type")
-        return "".join(block["text"] for block in content)
+        pieces = []
+        for block in content:
+            if not isinstance(block, dict):
+                raise ValueError("Unexpected provider content type")
+            if block.get("type") == "text" and isinstance(block.get("text"), str):
+                pieces.append(block["text"])
+            elif config.adaptive_thinking and block.get("type") in {"thinking", "redacted_thinking"}:
+                continue
+            else:
+                raise ValueError("Unexpected provider content type")
+        if not pieces:
+            raise ValueError("Response contains no advisory text")
+        return "".join(pieces)
     if response.get("status") != "completed" or response.get("error") or response.get("incomplete_details"):
         raise ValueError("Review was incomplete, failed, or refused")
     pieces = []
@@ -471,9 +509,13 @@ def review_once(
         payload = {
             "model": config.model, "max_tokens": config.max_output_tokens,
             "system": REVIEW_SYSTEM_PROMPT, "messages": [{"role": "user", "content": prompt}],
-            "thinking": {"type": "disabled"}, "service_tier": "standard_only", "stream": False,
             "output_config": {"format": {"type": "json_schema", "schema": REVIEW_SCHEMA}},
+            "service_tier": "standard_only", "stream": False,
         }
+        if config.adaptive_thinking:
+            payload["output_config"]["effort"] = config.reasoning_effort
+        else:
+            payload["thinking"] = {"type": "disabled"}
         default_transport = _post_messages
     else:
         payload = {
@@ -515,7 +557,7 @@ def review_once(
                       error="Provider usage exceeded its verified bound; stop this wake and reconcile billing")
         return result
     try:
-        review = _validate_review(json.loads(_review_text(response, config.provider)))
+        review = _validate_review(json.loads(_review_text(response, config)))
     except (TypeError, ValueError) as exc:
         # Keep a private, bounded diagnostic so paid model work is inspectable
         # without buying a duplicate call. Never retain reasoning or tool input.

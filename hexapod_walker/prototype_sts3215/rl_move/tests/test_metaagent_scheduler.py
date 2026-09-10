@@ -64,6 +64,7 @@ def test_cadence_and_unchanged_success_never_rebuy_review(setup):
     tick = lambda: scheduler.tick(database, collector=collector, reviewer=reviewer)
     assert tick()['outcome'] == 'succeeded'
     assert calls[0].force is False and calls[0].resume_wake is None
+    assert Path(calls[0].reviewer_config) == (Path(scheduler.__file__).parent/'reviewers/claude.json')
     assert tick()['outcome'] == 'cooldown'
     age_check(database)
     assert tick()['outcome'] == 'unchanged'

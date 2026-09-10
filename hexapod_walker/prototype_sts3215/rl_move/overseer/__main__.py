@@ -283,7 +283,8 @@ def run_review(args, database: Path) -> dict:
     resume_id = getattr(args, 'resume_wake', None)
     if provider:
         if not args.reviewer_config:
-            args.reviewer_config = str(database.parent/'reviewers'/f'{provider}.json')
+            from .reviewer import bundled_reviewer_config
+            args.reviewer_config = str(bundled_reviewer_config(provider))
         configured = read_json(args.reviewer_config)
         if configured.get('provider', 'claude') != provider:
             raise ValueError('Selected provider differs from reviewer configuration')

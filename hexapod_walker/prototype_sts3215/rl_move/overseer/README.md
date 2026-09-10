@@ -265,10 +265,14 @@ Start the local data service with:
 uv run python -m rl_move.metaagent serve --host 127.0.0.1 --port 8768
 ```
 
-Choose a backend for one manual run. Provider configurations live in
-`<state-dir>/reviewers/claude.json` and `codex.json`:
+Choose a backend for one manual run. Versioned provider defaults live in
+`reviewers/claude.json` and `reviewers/codex.json`; pass `--reviewer-config`
+to use an operator-managed override:
 
-The supplied Claude default uses Sonnet 5 for a concise, lower-cost review.
+The supplied Claude default uses Fable 5.1 with adaptive thinking for project
+follow-through. Its bounded worst-case reservation remains below the $15
+wrap-up threshold. `reviewers/claude-sonnet.json` retains the lower-cost Sonnet
+5 option, and
 `reviewers/claude-opus.json` retains the Opus 5 option; select it explicitly with
 `--reviewer-config` when needed. Neither profile can bypass the shared budget.
 
@@ -279,7 +283,8 @@ uv run python -m rl_move.metaagent review --force --provider codex
 
 Alternatively pass an explicit `--reviewer-config` file, optionally with
 `--provider` to require a matching provider. Example verified configuration
-shapes are in `reviewers/`; reverify rates and context limits before using them.
+shapes are in `reviewers/`; reverify rates, context limits, and reasoning
+controls before using them.
 Both providers and every child share the same original `overseer.sqlite3`.
 The legacy CLI and internal `is_overseer`/`overseer_wake_id` fields remain
 compatible; renaming does not reset budget, registry or action history.

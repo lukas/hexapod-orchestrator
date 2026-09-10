@@ -174,8 +174,9 @@ tunnel launcher after syncing the runtime's own uv environment.
 
 The private client configuration is `~/.hexapod/metaagent-mcp.json`; keep it
 outside Git. Both provider configuration examples are under `../reviewers/`.
-Copy them into the existing state directory's `reviewers/` folder after verifying
-prices/context limits. Manual Claude runs need `ANTHROPIC_API_KEY`; manual Codex
+The versioned default follows the runtime checkout after deployment; use an
+explicit `--reviewer-config` path for a private override after verifying prices,
+context limits, and reasoning controls. Manual Claude runs need `ANTHROPIC_API_KEY`; manual Codex
 runs need `OPENAI_API_KEY`. The HTTP service needs neither provider credential.
 
 ## Recurring reviews

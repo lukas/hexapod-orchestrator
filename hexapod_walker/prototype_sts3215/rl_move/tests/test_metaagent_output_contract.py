@@ -91,6 +91,28 @@ def test_claude_requests_closed_json_schema_and_retains_bounded_single_call(harn
     assert "invalid_advisory_excerpt" not in result
 
 
+def test_fable_uses_adaptive_effort_and_accepts_private_thinking_blocks(harness):
+    config = replace(harness[2], model="claude-fable-5-1", reasoning_effort="high")
+    reply = response(config)
+    reply["content"].insert(0, {"type": "thinking", "thinking": "private reasoning",
+                                "signature": "opaque-signature"})
+
+    def transport(payload, key, timeout):
+        assert "thinking" not in payload
+        assert payload["output_config"]["effort"] == "high"
+        return reply
+
+    result = invoke(harness, reply, config=config, transport=transport)
+    assert result["status"] == "completed"
+    assert "private reasoning" not in json.dumps(result)
+
+
+@pytest.mark.parametrize("effort", ["none", "minimal", "xhigh"])
+def test_fable_rejects_unsupported_effort_values(harness, effort):
+    with pytest.raises(ValueError, match="Claude Fable"):
+        replace(harness[2], model="claude-fable-5-1", reasoning_effort=effort)
+
+
 @pytest.mark.parametrize("mutation", ["malformed-json", "unsupported-action", "missing-goal-field", "oversized-string", "too-many-risks"])
 def test_invalid_advice_still_charges_and_reports_validation_reason(harness, mutation):
     value = advice()
