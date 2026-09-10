@@ -85,13 +85,14 @@ def scheduler_status(database):
         return result
     with closing(sqlite3.connect(database.resolve().as_uri()+'?mode=ro', uri=True, timeout=2)) as db:
         db.row_factory = sqlite3.Row
+        db.execute('BEGIN')
         if not db.execute("SELECT 1 FROM sqlite_master WHERE name='metaagent_schedule'").fetchone():
             return result
         config = _configuration(db)
         result.update({key: config.get(key) for key in ('provider', 'configured_at', 'review_hold')})
         result['enabled'] = bool(config.get('enabled'))
-        count = db.execute('SELECT COUNT(*),COALESCE(SUM(paid_review_started),0) FROM metaagent_checks').fetchone()
-        result.update(checks_total=count[0], paid_reviews_started=count[1], free_checks=count[0]-count[1])
+        count = db.execute('SELECT COUNT(*),COALESCE(SUM(paid_review_started),0),COALESCE(SUM(finished_at IS NOT NULL AND paid_review_started=0),0) FROM metaagent_checks').fetchone()
+        result.update(checks_total=count[0], paid_reviews_started=count[1], free_checks=count[2])
         checks = [dict(row) for row in db.execute('SELECT * FROM metaagent_checks ORDER BY started_at DESC LIMIT 12')]
         for check in checks:
             check['paid_review_started'] = bool(check['paid_review_started'])
