@@ -1106,11 +1106,13 @@ def _ago(iso: str | None) -> tuple[str, float | None]:
     return f"{int(secs // 86400)} d ago", secs
 
 
-def _row(kind, name, href, up, detail="", last=None, note=""):
+def _row(kind, name, href, up, detail="", last=None, note="",
+         cost_total=None, cost_24h=None):
     ago, secs = _ago(last) if isinstance(last, str) else (last or "", None)
     return {"kind": kind, "name": name, "href": href,
             "status": "up" if up is True else "down" if up is False else "unknown",
-            "detail": detail, "last_active": ago, "last_active_s": secs, "note": note}
+            "detail": detail, "last_active": ago, "last_active_s": secs, "note": note,
+            "cost_total": cost_total, "cost_24h": cost_24h}
 
 
 def _hub_group(name: str) -> str:
@@ -1138,14 +1140,20 @@ def hub_collect() -> list[dict]:
             newest.stat().st_mtime, datetime.timezone.utc).isoformat()
     except (ValueError, OSError):
         last_iso = None
+    tok = SNAP.get("slow", {}).get("tokens", {})
+    tot_usd = (tok.get("total") or {}).get("usd")
+    today_usd = (tok.get("today") or {}).get("usd")
     if w:
         state = "paused" if w.get("pause") else ("running training cycles" if w.get("tmux") else "tmux session missing")
         rows.append(_row("agent", "RL watcher (runs the campaign)", "/now",
                          bool(w.get("tmux")) and not w.get("pause"),
-                         state, last_iso, "last decision cycle"))
+                         state, last_iso, "cost = its own Claude usage (today, not rolling)",
+                         cost_total=tot_usd, cost_24h=today_usd))
     else:
         rows.append(_row("agent", "RL watcher (runs the campaign)", "/now", None,
-                         "snapshot still collecting", last_iso, "last decision cycle"))
+                         "snapshot still collecting", last_iso,
+                         "cost = its own Claude usage (today, not rolling)",
+                         cost_total=tot_usd, cost_24h=today_usd))
 
     # Robot Lab service, robot, cameras, agent lanes, queue.
     code, health, dt = _hub_fetch(HUB_HOSTS["lab"] + "/healthz")
@@ -1181,13 +1189,17 @@ def hub_collect() -> list[dict]:
         by_kind: dict[str, dict] = {}
         for a in recent:
             by_kind.setdefault(a.get("kind", "?"), a)
+        by_role = (st or {}).get("by_role") or {}
+        by_role_24h = (st or {}).get("by_role_24h") or {}
         for kind in ("analysis", "advance", "engineering"):
             a = by_kind.get(kind)
             last = (a or {}).get("finished_at") or (a or {}).get("started_at")
             detail = (f"{a.get('provider')} · {a.get('model')} · rc={a.get('returncode')}" if a else "no attempts recorded")
             rows.append(_row("agent", f"Robot Lab {kind} lane", HUB_HOSTS["lab"] + "/stats",
                              None if paused is None else (not paused), detail, last,
-                             "queue PAUSED" if paused else (f"backend {agent.get('label', '?')}" if agent else "")))
+                             "queue PAUSED" if paused else (f"backend {agent.get('label', '?')}" if agent else ""),
+                             cost_total=(by_role.get(kind) or {}).get("cost_usd"),
+                             cost_24h=(by_role_24h.get(kind) or {}).get("cost_usd")))
 
     # BuildViz.
     code, bv, dt = _hub_fetch(HUB_HOSTS["buildviz"] + "/__buildviz/status")
@@ -1203,12 +1215,18 @@ def hub_collect() -> list[dict]:
         code, ms, _ = _hub_fetch(HUB_HOSTS["metaagent"] + "/api/status", cookie=True)
         if code == 200 and isinstance(ms, dict):
             lr = ms.get("latest_run") or {}; counts = ms.get("agent_counts") or {}
+            bud = ms.get("budget") or {}
             watched = sum(v for v in counts.values() if isinstance(v, int))
+            def _f(x):
+                try: return float(x)
+                except (TypeError, ValueError): return None
             rows.append(_row("agent", "Metaagent reviewer", HUB_HOSTS["metaagent"] + "/", True,
-                             f"last run {lr.get('outcome', '?')} \u00b7 ${float(lr.get('actual_cost_usd') or 0):.2f} \u00b7 "
-                             f"watching {watched} agents ({counts.get('succeeded', 0)} ok, {counts.get('blocked', 0)} blocked, {counts.get('dead', 0)} dead)",
+                             f"last run {lr.get('outcome', '?')} \u00b7 watching {watched} agents "
+                             f"({counts.get('succeeded', 0)} ok, {counts.get('blocked', 0)} blocked, {counts.get('dead', 0)} dead)",
                              lr.get("finished_at") or lr.get("started_at"),
-                             "budget 24h $%.2f" % float((ms.get("budget") or {}).get("rolling_24h_actual_usd") or 0)))
+                             "24h = rolling actual spend",
+                             cost_total=_f(bud.get("lifetime_actual_usd")),
+                             cost_24h=_f(bud.get("rolling_24h_actual_usd"))))
         else:
             rows.append(_row("agent", "Metaagent reviewer", HUB_HOSTS["metaagent"] + "/", None, f"status {code}"))
 
@@ -1239,13 +1257,19 @@ def hub_table_html() -> str:
     def pill(st):
         col = {"up": "#3c6", "down": "#e55", "unknown": "#999"}[st]
         return f"<span style='color:{col};font-weight:700'>\u25cf {esc(st)}</span>"
+    def money(v):
+        return f"${v:,.2f}" if isinstance(v, (int, float)) else "\u2014"
     def tr(r):
         href = esc(r["href"]); last = esc(r["last_active"] or "\u2014")
         stale = r.get("last_active_s") is not None and r["kind"] == "agent" and r["last_active_s"] > 6 * 3600
         return (f"<tr><td>{esc(r['kind'])}</td><td><a href='{href}'>{esc(r['name'])}</a></td>"
                 f"<td>{pill(r['status'])}</td><td{' style=color:#e9a' if stale else ''}>{last}</td>"
+                f"<td style='text-align:right'>{money(r.get('cost_total'))}</td>"
+                f"<td style='text-align:right'>{money(r.get('cost_24h'))}</td>"
                 f"<td>{esc(r['detail'])}</td><td class='dim'>{esc(r.get('note') or '')}</td></tr>")
-    head = ("<tr><th>what</th><th>name</th><th>status</th><th>last active</th><th>detail</th><th></th></tr>")
+    head = ("<tr><th>what</th><th>name</th><th>status</th><th>last active</th>"
+            "<th style='text-align:right'>cost</th><th style='text-align:right'>24h</th>"
+            "<th>detail</th><th></th></tr>")
     upd, _ = _ago(datetime.datetime.fromtimestamp(HUB_STATE.get("updated") or 0, datetime.timezone.utc).isoformat()) if HUB_STATE.get("updated") else ("never", None)
     err = f"<div class='dim' style='color:#e55'>poll error: {esc(HUB_STATE.get('error'))}</div>" if HUB_STATE.get("error") else ""
     # One section per system, services before agents within each; anything
@@ -1256,7 +1280,11 @@ def hub_table_html() -> str:
     for g in seen:
         grp = [r for r in rows if r.get("group") == g]
         grp.sort(key=lambda r: (r["kind"] != "service", r["name"]))
-        sections.append(f"<h3 style='margin:18px 0 4px;font-size:14px'>{esc(g)}</h3>"
+        sub_t = sum(r["cost_total"] for r in grp if isinstance(r.get("cost_total"), (int, float)))
+        sub_d = sum(r["cost_24h"] for r in grp if isinstance(r.get("cost_24h"), (int, float)))
+        tag = (f" <span class='dim' style='font-weight:400'>\u00b7 ${sub_t:,.2f} total \u00b7 ${sub_d:,.2f} in 24h</span>"
+               if (sub_t or sub_d) else "")
+        sections.append(f"<h3 style='margin:18px 0 4px;font-size:14px'>{esc(g)}{tag}</h3>"
                         f"<table class='hub'>{head}{''.join(tr(r) for r in grp)}</table>")
     return (f"<style>table.hub{{width:100%;border-collapse:collapse;margin:2px 0 12px}}table.hub th,table.hub td"
             f"{{text-align:left;padding:6px 10px;border-bottom:1px solid #333;vertical-align:top}}table.hub th{{opacity:.6;font-weight:600}}</style>"
