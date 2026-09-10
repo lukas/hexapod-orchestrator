@@ -108,29 +108,31 @@ status)  # fleet in one shot: active ledger entries, live procs, watcher tail
   # finished/verdicted back in 2026-08-25 as still "RUNNING" today.
   # Now takes the run's genuinely LAST entry (any status, ledger
   # order) and only prints it if THAT is RUNNING/INTENT.
+  # FIX 2026-09-10 (refill cycle): a REFUSED entry (e.g. a rejected
+  # duplicate-launch/respec attempt logged AFTER the run's own real
+  # RUNNING/FINISHED entry) was overwriting `last[r]` here and hiding
+  # the run from this view entirely -- REFUSED never touches the pod/
+  # process, so it must not clobber the run's real lifecycle state.
+  # Caught live: a REFUSED duplicate respec attempt on an actually-
+  # RUNNING run made `status` report it as not-running. Switched to
+  # the shared, tested `ledger_view.current_entries` (already used by
+  # mcp_server.py/status_server.py) instead of re-deriving this dedup
+  # by hand a third time (ops.sh already had two SLIGHTLY different
+  # hand-rolled versions in `entry_field`/`triage`).
   uv run python - <<'EOF'
-import json, os
-last = {}
-order = []
-for e in json.load(open(os.environ["LEDGER"])):
-    if not isinstance(e, dict):
-        continue
-    r = e.get("run")
-    if r not in last:
-        order.append(r)
-    last[r] = e
-for r in order:
-    e = last[r]
+import json, os, sys
+sys.path.insert(0, os.environ["HERE"])
+from ledger_view import current_entries
+last = current_entries(json.load(open(os.environ["LEDGER"])))
+for r, e in last.items():
     if e.get("status") in ("RUNNING", "INTENT"):
         print(f"{e.get('status'):8s} {r}  pod={e.get('pod')}")
 EOF
   for pod in $(uv run python -c "
-import json,os
-led=json.load(open(os.environ['LEDGER']))
-last={}
-for e in led:
-    if isinstance(e,dict) and e.get('run'):
-        last[e['run']]=e
+import json, os, sys
+sys.path.insert(0, os.environ['HERE'])
+from ledger_view import current_entries
+last = current_entries(json.load(open(os.environ['LEDGER'])))
 pods={e.get('pod') for e in last.values() if e.get('status')=='RUNNING'}
 print(' '.join(sorted(p for p in pods if p)))"); do
     echo "--- $pod live procs:"
@@ -149,17 +151,22 @@ board)  # board — one-screen refill digest: free slots, backlog count,
   # `ops.sh status` / capacity.py; for W&B-vs-ledger leaks use
   # `ops.sh triage`.
   uv run python - <<'EOF'
-import json, os, pathlib, re, time
-state = pathlib.Path(os.environ["STATE_DIR"])
+import json, os, pathlib, re, sys, time
 proto = pathlib.Path(os.environ["PROTO"])
+state = pathlib.Path(os.environ["STATE_DIR"])
+sys.path.insert(0, os.environ["HERE"])
+from ledger_view import current_entries
 try:
     backlog = len(json.load(open(state / "backlog.json")))
 except Exception:
     backlog = "?"
-last = {}
-for e in json.load(open(os.environ["LEDGER"])):
-    if isinstance(e, dict) and e.get("run"):
-        last[e["run"]] = e
+# FIX 2026-09-10 (refill cycle, same as `status` above): don't let a
+# REFUSED/KILLED husk entry (rejected duplicate launch/respec attempt,
+# logged AFTER the run's real RUNNING/FINISHED entry) clobber the
+# run's genuine last-known state -- it hid a real FINISHED-unverdicted
+# canary (and a real RUNNING sibling) from this exact board this
+# cycle. Uses the shared, tested `ledger_view.current_entries`.
+last = current_entries(json.load(open(os.environ["LEDGER"])))
 live = [(e.get("status"), r) for r, e in last.items()
         if e.get("status") in ("RUNNING", "INTENT")]
 unverd = [r for r, e in last.items()
