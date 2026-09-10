@@ -173,7 +173,14 @@ def _runs(db) -> dict:
     return {"runs": [_run_row(db, row) for row in rows[:100]], "limit": 100, "truncated": len(rows) > 100}
 
 
-def _run_detail(db, wake_id: str) -> dict:
+def _matching_corrections(memory: dict, wake_id: str, report_id: str | None = None) -> list[dict]:
+    references = {wake_id, report_id} - {None}
+    return [lesson for lesson in memory.get("lessons", [])
+            if lesson.get("status") == "owner_verified" and lesson.get("provenance") == "operator"
+            and references.intersection(lesson.get("corrects", []))]
+
+
+def _run_detail(db, wake_id: str, memory: dict) -> dict:
     row = db.execute("SELECT * FROM wakes WHERE wake_id=?", (wake_id,)).fetchone() if _table(db, "wakes") else None
     if row is None:
         raise HTTPException(404, "Unknown review run")
@@ -184,10 +191,12 @@ def _run_detail(db, wake_id: str) -> dict:
             reservations.append({"operation_id": reservation["operation_id"], "reserved_usd": _usd(reservation["reserved"]),
                                  "actual_usd": _usd(reservation["actual"]), "status": "pending" if reservation["actual"] is None else "settled",
                                  "created_at": reservation["created_at"], "settled_at": reservation["settled_at"]})
-    return {"run": _run_row(db, row), "report": _decode(report_row["body"]) if report_row else None, "reservations": reservations}
+    return {"run": _run_row(db, row), "report": _decode(report_row["body"]) if report_row else None,
+            "reservations": reservations,
+            "corrections": _matching_corrections(memory, wake_id, report_row["report_id"] if report_row else None)}
 
 
-def _recommendations(db) -> dict:
+def _recommendations(db, memory: dict) -> dict:
     rows = db.execute("SELECT * FROM overseer_outbox ORDER BY created_at DESC LIMIT 101").fetchall() if _table(db, "overseer_outbox") else []
     items = []
     for row in rows[:100]:
@@ -221,6 +230,7 @@ def _recommendations(db) -> dict:
                        "created_at": row["created_at"], "provider": model.get("provider"),
                        "model": model.get("model"), "summary": assessment.get("summary"),
                        "recommended_actions": assessment.get("recommended_actions") or [],
+                       "corrections": _matching_corrections(memory, row["wake_id"], row["report_id"]),
                        "source": "model_advice", "execution_status": "proposal_only"})
     return {"recommendations": items, "limit": 100, "truncated": len(rows) > 100,
             "model_recommendations": advice, "model_limit": 100,
@@ -234,9 +244,9 @@ def _projection(path: Path, name: str, role: str, wake_id: str | None = None) ->
         if name == "runs":
             result = _runs(db)
         elif name == "run":
-            result = _run_detail(db, wake_id)
+            result = _run_detail(db, wake_id, read_memory(path))
         elif name == "recommendations":
-            result = _recommendations(db)
+            result = _recommendations(db, read_memory(path))
         elif name == "costs":
             agents, truncated = _agents(db)
             excluded = {item["agent_id"] for item in agents if item.get("is_overseer") or item.get("overseer_wake_id")

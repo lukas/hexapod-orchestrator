@@ -252,6 +252,51 @@ def test_recommendations_include_latest_model_advice_without_an_outbox_incident(
     assert store.path.read_bytes() == before
 
 
+@pytest.mark.parametrize("reference", ["corrected", "corrected:latest"])
+def test_owner_correction_attaches_to_exact_review_without_rewriting_history(tmp_path, reference):
+    store = Store(tmp_path / "overseer.sqlite3")
+    journal = Journal(store.path)
+    stamp = datetime.now(timezone.utc)
+    reports = {}
+    for index, wake_id in enumerate(("corrected", "uncorrected")):
+        store.start_wake("Synthetic review", wake_id=wake_id)
+        store.finish_wake(wake_id, "no_change")
+        reports[wake_id] = {"generated_at": (stamp + timedelta(seconds=index)).isoformat(),
+            "wake": {"wake_id": wake_id}, "llm_review": {"status": "completed", "provider": "test",
+            "model": "test-model", "review": model_advice("Original historical assessment")}}
+        journal.record(wake_id + ":latest", reports[wake_id], "succeeded")
+    client = TestClient(create_app(tmp_path, api_token=OPERATOR))
+    baseline = client.get("/api/runs/uncorrected", headers=HEADERS).json()
+    assert baseline["corrections"] == []
+    remember_lesson(store.path, {"lesson_id": "stale-observation", "source": "Owner inspection", "owner": "operator",
+        "lesson": "The reported RL activity was thirteen hours old, not current evidence.",
+        "evidence": ["Observation timestamp predates the review"], "corrects": [reference],
+        "status": "owner_verified"}, operator=True)
+    # Mere model suggestions and unrelated verified lessons must not acquire
+    # the authority or scope of an owner correction to this report.
+    remember_lesson(store.path, {"lesson_id": "model-suggestion", "source": "Model hypothesis",
+        "lesson": "A possible alternative", "evidence": ["Unverified suggestion"],
+        "corrects": ["uncorrected"], "status": "model_hypothesis"})
+    remember_lesson(store.path, {"lesson_id": "unrelated", "source": "Other inspection", "owner": "operator",
+        "lesson": "Correction for another run", "evidence": ["Other evidence"], "corrects": ["other-wake"],
+        "status": "owner_verified"}, operator=True)
+    before = store.path.read_bytes()
+    result = client.get("/api/runs/corrected", headers=HEADERS).json()
+    assert [item["lesson_id"] for item in result["corrections"]] == ["stale-observation"]
+    assert result["corrections"][0]["provenance"] == "operator"
+    assert result["report"] == reports["corrected"]
+    assert call(client, "get_run", {"wake_id": "corrected"}).json()["result"]["structuredContent"] == result
+    assert client.get("/api/runs/uncorrected", headers=HEADERS).json() == baseline
+    advice = call(client, "list_recommendations").json()["result"]["structuredContent"]["model_recommendations"]
+    by_wake = {item["wake_id"]: item for item in advice}
+    assert by_wake["corrected"]["corrections"] == result["corrections"]
+    assert by_wake["uncorrected"]["corrections"] == []
+    assert by_wake["corrected"]["summary"] == "Original historical assessment"
+    assert store.path.read_bytes() == before
+    with journal.connect() as db:
+        assert json.loads(db.execute("SELECT body FROM overseer_reports WHERE report_id='corrected:latest'").fetchone()[0]) == reports["corrected"]
+
+
 def test_status_reports_persisted_schedule_hold_and_free_checks_without_running_them(tmp_path, monkeypatch):
     store = Store(tmp_path / "overseer.sqlite3")
     scheduler.configure(store.path, enabled=True, project_root=tmp_path)

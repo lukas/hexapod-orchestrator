@@ -2,3 +2,5 @@
 
 pre{white-space:pre-wrap;overflow-wrap:anywhere}
 .schedule-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1.5rem;margin:0 0 1rem}.schedule-grid dt{font-size:.8rem;color:var(--muted);margin-bottom:.4rem}.schedule-grid dd{margin:0;overflow-wrap:anywhere;font-weight:600}.active-wake{color:var(--accent)}.lesson{padding:1rem 0;border-bottom:1px solid var(--line)}.lesson:last-child{border-bottom:0}.lesson .pill{margin-right:.7rem}.lesson .hypothesis{color:var(--warn);border-color:#755f3c}.lesson ul{padding-left:1.2rem}.review-link{margin-bottom:1rem}@media(max-width:800px){.schedule-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem}}@media(max-width:420px){.schedule-grid{grid-template-columns:1fr}}
+
+.correction-notice{border:1px solid #755f3c;border-left:4px solid var(--warn);border-radius:7px;background:#282217;padding:1rem;margin:0 0 1.2rem}.correction-notice strong{color:var(--warn)}.correction-notice p:last-child{margin-bottom:0}
