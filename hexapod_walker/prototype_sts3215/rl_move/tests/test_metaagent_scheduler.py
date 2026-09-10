@@ -178,3 +178,14 @@ def test_new_proven_loop_is_not_hidden_by_unchanged_checkpoint(setup):
         failure_signature='same compiler failure', operation='build')
     assert scheduler.tick(database, collector=collector, reviewer=reviewer)['outcome'] == 'succeeded'
     assert len(calls) == 2
+
+
+def test_provider_changed_during_collection_fences_old_configuration(setup):
+    database, state, calls, collector, reviewer = setup
+    active(state)
+    def replace(*a, **kw):
+        scheduler.configure(database, enabled=True, provider='codex', project_root=database.parent)
+        return {'errors': []}
+    assert scheduler.tick(database, collector=replace, reviewer=reviewer)['outcome'] == 'configuration_changed'
+    assert scheduler.scheduler_status(database)['provider'] == 'codex'
+    assert calls == []

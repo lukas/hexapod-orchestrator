@@ -61,7 +61,7 @@ def configure(database, *, enabled, provider='claude', project_root=None, review
         raise ValueError('enabling requires a project root')
     with closing(_connect(database)) as db, db:
         config = _configuration(db)
-        config.update(enabled=bool(enabled), configured_at=_now())
+        config.update(enabled=bool(enabled), configured_at=_now(), generation=uuid.uuid4().hex)
         if enabled:
             config.update(provider=provider, project_root=str(Path(project_root).resolve()),
                 reviewer_config=str(Path(reviewer_config).resolve()) if reviewer_config else None,
@@ -201,13 +201,21 @@ def tick(database, *, collector=None, reviewer=None):
             snapshot_path.write_text(json.dumps(redact(snapshot)))
             args.snapshot = str(snapshot_path)
             args.cloud_activity = args.codex_threads = None
-            # Explicit enablement is checked again before handing off to ledger.
-            if not scheduler_status(database)['enabled']:
-                return finish('disabled', 'Scheduling was disabled while collecting; no model call.')
             # Persist the attempt before dispatch. Crash recovery may never
-            # silently reopen/retry a possibly billed attempt.
+            # silently reopen/retry a possibly billed attempt. Configuration is
+            # fenced in the same transaction: never dispatch a replaced profile.
+            rejected = None
             with closing(_connect(database)) as db, db:
-                db.execute('UPDATE metaagent_checks SET paid_review_started=1 WHERE check_id=?', (check_id,))
+                db.execute('BEGIN IMMEDIATE')
+                current = _configuration(db)
+                if not current.get('enabled'):
+                    rejected = ('disabled', 'Scheduling was disabled while collecting; no model call.')
+                elif current.get('generation') != config.get('generation'):
+                    rejected = ('configuration_changed', 'Scheduling configuration changed while collecting; the next free check will use it. No model call.')
+                else:
+                    db.execute('UPDATE metaagent_checks SET paid_review_started=1 WHERE check_id=?', (check_id,))
+            if rejected:
+                return finish(*rejected)
             paid = True
             result = (reviewer or run_review)(args, database)
             wake_id = result.get('wake_id')
