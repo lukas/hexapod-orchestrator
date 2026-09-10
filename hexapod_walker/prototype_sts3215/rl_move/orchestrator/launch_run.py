@@ -2186,6 +2186,47 @@ def _respec_plain_warm_activation(
     return out
 
 
+def _respec_plain_warm_use_sde(
+        args: list[str], *, init_from_source: bool,
+        explicit_args: list[str] | None) -> list[str]:
+    """Drop inherited --use-sde (and its --sde-sample-freq value) when respec
+    loads a whole policy via a plain checkpoint warm start.
+
+    Mirrors _respec_plain_warm_activation: gSDE exploration state is baked
+    into the saved policy at export time, and train_ppo_mjx's own
+    _validate_use_sde_scratch_only guard refuses --use-sde alongside a plain
+    --init-from, raising SystemExit before any training step. Root cause of
+    the 2026-09-10 decleg-sde-s0-acq1 launch: respec cloned a from-scratch
+    gSDE canary's --use-sde flag verbatim onto its own plain-warm-start
+    acquisition continuation, which died within seconds with zero training
+    (FAIL-INFRASTRUCTURE, not a decleg/gSDE finding). The two transplant
+    modes the trainer's guard exempts (--init-from-actor-only /
+    --init-from-policy-backbone) may keep it.
+    """
+    if not init_from_source or any(flag in args for flag in (
+            "--init-from-actor-only", "--init-from-policy-backbone")):
+        return args
+    explicit = [spec for spec in explicit_args or []
+                if spec.partition("=")[0] == "--use-sde"]
+    if explicit:
+        raise ValueError(
+            "explicit --use-sde cannot be added on a plain checkpoint warm "
+            "start; omit it (the checkpoint's own saved exploration mode is "
+            "preserved), or request a supported transplant explicitly")
+    out = []
+    i = 0
+    while i < len(args):
+        token = args[i]
+        if token == "--use-sde":
+            i += 1
+        elif token == "--sde-sample-freq":
+            i += 2
+        else:
+            out.append(token)
+            i += 1
+    return out
+
+
 def cmd_respec(g: dict, a: argparse.Namespace) -> int:
     """Queue (or directly launch) a follow-up run by CLONING a ledger
     entry's trainer args with targeted overrides — the mechanical form of
@@ -2310,6 +2351,16 @@ def cmd_respec(g: dict, a: argparse.Namespace) -> int:
         if warm_args != args:
             print("respec: removed inherited --activation-fn; "
                   "plain warm start preserves checkpoint activation")
+        args = warm_args
+        try:
+            warm_args = _respec_plain_warm_use_sde(
+                args, init_from_source=True, explicit_args=a.arg)
+        except ValueError as exc:
+            print(f"REFUSED: {exc}")
+            return 1
+        if warm_args != args:
+            print("respec: removed inherited --use-sde/--sde-sample-freq; "
+                  "plain warm start preserves checkpoint exploration mode")
         args = warm_args
     if not is_dynrep_source:
         set_flag("--out-name", "ppo_goal_" + a.run.replace("-", "_"))
