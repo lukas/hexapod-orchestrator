@@ -350,8 +350,19 @@ def remote_eval_running(pod: str, out_rel: str, module: str = "rl_move.sim.eval_
     return cp.returncode == 0 and bool(cp.stdout.strip())
 
 
-def find_checkpoint(pod: str, run: str, task: str) -> str | None:
-    names = ["ppo_goal_" + run.replace("-", "_") + ".zip"]
+def find_checkpoint(pod: str, run: str, task: str,
+                     out_name: str | None = None) -> str | None:
+    # 2026-09-10 (decleg-sde-s0-acq1r2 triage): a hand-relaunched retry
+    # (an "r2"-suffixed run name after the original launch died before
+    # writing a checkpoint) commonly keeps the ORIGINAL --out-name so
+    # the checkpoint lands under the intended lineage name, not the
+    # retry's own run name — e.g. run "..-acq1r2" but
+    # --out-name ppo_goal_..._acq1 (no "r2"). Guessing from run name
+    # alone then reports "no checkpoint ... nothing to eval" even
+    # though the checkpoint exists under its own recorded out-name.
+    # Try the ledger's own --out-name FIRST when the caller has one.
+    names = ([out_name + ".zip"] if out_name else [])
+    names += ["ppo_goal_" + run.replace("-", "_") + ".zip"]
     names += [f"ppo_mjx_{t}_{run}.zip"
               for t in (task, "joint_walk", "joint_goal", "goal")]
     names = list(dict.fromkeys(names))
@@ -500,7 +511,7 @@ def main() -> int:
     else:
         modes = ""
 
-    ckpt = find_checkpoint(pod, run, task)
+    ckpt = find_checkpoint(pod, run, task, out_name=val("--out-name"))
     if ckpt is None:
         print(f"no checkpoint for {run} on {pod} — nothing to eval")
         core_synced(run)  # nothing to wait for; don't stall the cycle
