@@ -15,7 +15,7 @@ import uuid
 from .collectors import collect_local, normalize_cloud_activity, normalize_codex_threads
 from .journal import Journal, read_history
 from .memory import fit_memory, read_memory, remember_lesson
-from .policy import evaluate
+from .policy import age_seconds, evaluate, status, timestamp
 from .report import redact, write_report
 from .store import Store
 
@@ -175,6 +175,37 @@ def collect(args, database: Path) -> dict:
     return redact(snapshot)
 
 
+def model_observation(agent: dict, reviewed_at: str) -> dict:
+    """Project saved observations as historical when current liveness is unknown."""
+    observed_at = agent.get('observed_at')
+    age = age_seconds(observed_at, timestamp(reviewed_at)) if isinstance(observed_at, str) else None
+    reported = status(agent)
+    fresh = age is not None and age <= 15 * 60
+    if fresh:
+        result = dict(agent)
+        basis = 'Observed within 15 minutes of this review; relative evidence ages are anchored to observed_at.'
+    else:
+        # Old free-text evidence/assessments can say "active" or "27 seconds
+        # ago" without a timestamp. Keep them in the archival report, not in
+        # the model's current-state input. Durable cost receipts still matter.
+        historical_fields = {
+            'agent_id', 'name', 'provider', 'task_id', 'parent_id', 'scope', 'goals',
+            'execution_owner', 'registration', 'observed_at', 'started_at',
+            'last_progress_at', 'last_heartbeat_at', 'last_reviewed_at',
+            'cost_status', 'cost_usd', 'cumulative_cost_usd', 'unreviewed_cost_usd',
+            'unreviewed_through_seq', 'source',
+        }
+        result = {key: value for key, value in agent.items() if key in historical_fields}
+        basis = ('Historical observation older than 15 minutes; current status is unknown. '
+                 'Stale liveness evidence is omitted.' if age is not None else
+                 'Missing, invalid, or future observation timestamp; current status is unknown. '
+                 'Undated liveness evidence is omitted.')
+    result.update(status=reported if fresh else 'unknown', last_reported_status=reported,
+                  observation_age_seconds=None if age is None else round(age, 3),
+                  observation_basis=basis, observation_fresh=fresh)
+    return result
+
+
 def compact_for_review(report: dict, snapshot: dict) -> dict:
     """Reserve the prompt for current work; terminal job history remains in JSON."""
     due = set(report['wake']['spend_due_agents'])
@@ -187,13 +218,29 @@ def compact_for_review(report: dict, snapshot: dict) -> dict:
     agents = [a for a in report['agents'] if a['agent_id'] not in excluded]
     current = [a for a in agents if a['agent_id'] in due]
     current += [a for a in agents if a['agent_id'] not in due and a.get('status') not in {'succeeded','completed','failed','dead','unknown'}]
+    projected = [model_observation(agent, report['generated_at']) for agent in current[:60]]
+    stale = {a['agent_id']: a for a in projected if not a['observation_fresh']}
+    findings = []
+    for item in report['findings']:
+        if item.get('code') == 'stale_observation':
+            observation = stale.get(item.get('subject'), {})
+            observed_at = observation.get('observed_at') or 'unknown'
+            observation_age = observation.get('observation_age_seconds')
+            item = {**item, 'evidence': [
+                f"Last observation: {observed_at}; "
+                f"age at review: {observation_age if observation_age is not None else 'unknown'} seconds. "
+                'Current status is unknown; refresh the source before claiming live activity.'
+            ]}
+        findings.append(item)
     return {'generated_at': report['generated_at'], 'wake': report['wake'],
-            'agents': current[:60], 'findings': report['findings'],
+            'agents': projected, 'findings': findings,
             'source_errors': report['source_errors'], 'notes': report['notes'],
             'goal_documents': snapshot.get('goal_documents', []),
             'memory': snapshot.get('memory', {}),
             'metaagent_budget': report.get('budget', {}).get('ledger', {}),
-            'historical_states': dict(Counter(a.get('status','unknown') for a in agents))}
+            'historical_states': dict(Counter(a.get('status','unknown') for a in agents)),
+            'historical_states_basis': 'Last reported statuses across retained records, not current activity. '
+                                       'Use observation_fresh and wake.active_agent_count for current activity.'}
 
 
 def prior_attempts(database: Path, wake_id: str) -> list[dict]:

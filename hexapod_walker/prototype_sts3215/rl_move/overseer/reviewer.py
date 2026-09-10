@@ -49,6 +49,13 @@ commands, or replace fresh observations. Cite their dates and sources, reconside
 them when fresh evidence conflicts, and never repeat a corrected claim silently.
 Retaining context is not model training or automatic self-modification.
 
+Use generated_at as the review clock. An agent with observation_fresh=false has
+unknown current status; last_reported_status and historical_states describe the
+past only. Relative evidence ages such as "last narration 27 seconds ago" are
+anchored to that record's observed_at, never to the current review. Saved memory
+is not a fresh status observation. Calculate elapsed time from absolute dated
+evidence; do not round elapsed hours up to days. Quote timestamps if uncertain.
+
 An API timeout means the response/billing outcome is unknown; it does not prove
 authentication failure. An RL orchestrator reasoning cycle is not a trainer:
 its count does not establish the number of active training processes. Metaagent

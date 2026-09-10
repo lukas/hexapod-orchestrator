@@ -168,6 +168,59 @@ def test_prompt_excludes_metaagent_descendants_and_separates_its_budget():
     assert prompt["memory"] == memory
 
 
+def test_stale_rl_observations_cannot_enter_prompt_as_current_running_cycles():
+    observed = "2026-09-09T02:20:55+00:00"
+    snapshot = {"collected_at": NOW, "agents": [
+        {"agent_id": f"rl-{number}", "name": "RL reasoning cycle", "status": "running",
+         "observed_at": observed, "provider": "claude", "evidence": ["last narration age 27 seconds"],
+         "assessment": {"progress": "actively narrating right now"}, "progress_evidence": ["active now"]}
+        for number in range(3)
+    ] + [{"agent_id": "lab", "status": "running", "observed_at": NOW}]}
+    report = evaluate(snapshot, now=NOW)
+    assert report["wake"]["active_agent_count"] == 1
+    prompt = cli.compact_for_review(report, snapshot)
+    cycles = [agent for agent in prompt["agents"] if agent["agent_id"].startswith("rl-")]
+    assert len(cycles) == 3
+    assert all(agent["status"] == "unknown" and agent["last_reported_status"] == "running" for agent in cycles)
+    assert all(agent["observation_age_seconds"] == 13 * 3600 for agent in cycles)
+    assert all(agent["observation_fresh"] is False for agent in cycles)
+    assert all("Historical observation" in agent["observation_basis"] for agent in cycles)
+    assert prompt["agents"][-1]["status"] == "running"
+    assert prompt["agents"][-1]["observation_fresh"] is True
+    assert prompt["historical_states"] == {"running": 4}
+    model_text = json.dumps(prompt)
+    for relative in ("last narration age 27 seconds", "actively narrating right now", "active now"):
+        assert relative not in model_text
+    # Projection does not rewrite original observations or archival findings.
+    assert report["agents"][0]["status"] == "running"
+    assert report["agents"][0]["evidence"] == ["last narration age 27 seconds"]
+    assert report["findings"][0]["evidence"] == ["last narration age 27 seconds"]
+
+
+@pytest.mark.parametrize("observed", [None, "not-a-date", "2026-09-10T15:20:55Z"])
+def test_undated_or_invalid_observations_keep_due_spending_but_not_liveness(observed):
+    agent = {"agent_id": "due", "task_id": "task", "status": "completed", "observed_at": observed,
+             "cost_status": "known", "unreviewed_cost_usd": "101", "evidence": ["live 4 seconds ago"]}
+    report = evaluate({"agents": [agent]}, now=NOW)
+    projected = cli.compact_for_review(report, {})["agents"][0]
+    assert projected["agent_id"] == "due" and projected["task_id"] == "task"
+    assert projected["unreviewed_cost_usd"] == "101" and projected["cost_status"] == "known"
+    assert projected["status"] == "unknown" and projected["last_reported_status"] == "completed"
+    assert projected["observation_age_seconds"] is None and projected["observation_fresh"] is False
+    assert "evidence" not in projected
+
+
+def test_fresh_observation_evidence_keeps_its_absolute_anchor():
+    agent = {"agent_id": "rl", "status": "running", "observed_at": "2026-09-09T15:10:55Z",
+             "evidence": ["last narration age 27 seconds"]}
+    report = evaluate({"agents": [agent]}, now=NOW)
+    projected = cli.compact_for_review(report, {})["agents"][0]
+    assert projected["status"] == "running" and projected["observation_age_seconds"] == 600
+    assert projected["observed_at"] == "2026-09-09T15:10:55Z"
+    assert projected["evidence"] == agent["evidence"]
+    assert "anchored to observed_at" in projected["observation_basis"]
+
+
 def test_cli_remember_lesson_is_explicit_operator_entry(tmp_path, capsys):
     state = tmp_path / "state"
     record = tmp_path / "lesson.json"
