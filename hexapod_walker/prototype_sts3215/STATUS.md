@@ -18,32 +18,27 @@ track journals for current run/queue status.
 Both proceed in parallel. Each needs an interactive joystick sim demo and
 viewable video as well as physical walking evidence. Report readiness, demo
 link/launch command and remaining limits separately for each deliverable.
-Non-interactive reproducible sim video now exists for a candidate under each
-goal (below), and as of 09-10 so does a genuine INTERACTIVE-session capture.
-**UPDATE 09-10:** "needs a display, irreducible-to-cloud" was WRONG — only
-the optional native viewer window needs one; the browser's own HTTP
-joystick API is headlessly drivable (`web_session_drivecapture.py`), which
-also found+fixed a real joint-action-box config bug. **Same-day
-follow-up (superseded, see next update):** that tool's own PASS check was a
-false positive — with every cfg knob verified matching training, the
-live-drive path appeared to fail to sustain forward motion. **Same-day
-ROOT-CAUSE FIX:** that "stall" was the capture tool's own drive loop, not
-the champion or the interactive server — it only resent `/api/rl/drive/cmd`
-once per scripted-phase transition instead of continuously the way the
-real browser UI does (5 Hz heartbeat), so the session's own dead-man's-
-switch (correctly designed for real hardware) silently froze it into a
-safety hold for most of every phase. Fixed (resend every ~0.2s, matching
-the browser); re-run is a genuine PASS — real sustained direction-correct
-translation, 0 falls, 0 rejected commands, `stalled_phases: []`
-(`CURRENT_TRUTHS.md` 09-10 root-cause entry). **The interactive joystick
-sim-demo requirement is now met for the `rl_only` candidate below** (the
-mechanism is checkpoint-agnostic, so it applies to `any_means` candidates
-too). Physical acceptance needs
-a named build/controller, a bounded joystick trial with video/telemetry,
-and reported direction/speed/yaw/start/stop limits; `rl_only` also needs
-clean training ancestry. Next: the best-supported candidate's measured
-physical comparison through Robot Lab, after contract/readiness checks;
-this does not wait for every method.
+Non-interactive reproducible sim video exists for a candidate under each
+goal (below). **UPDATE 09-10:** the browser's own HTTP joystick API
+(`/api/rl/...`) is headlessly drivable from a cloud pod with no display
+(`web_session_drivecapture.py`) — the earlier "needs a display,
+irreducible-to-cloud" read was wrong about that specific claim. Chasing
+it found and fixed two real config-threading bugs (silently-clobbered
+`joint_action_box`/`bias` and `walk_obs_body_vel` explicit overrides) and
+one real tool bug (missing joystick heartbeat resend, now fixed).
+**`rl_only` result:** genuine interactive PASS on its champion below —
+`stalled_phases: []`, 0 falls, 0 rejected commands, real direction-correct
+translation every phase (`CURRENT_TRUTHS.md` 09-10 root-cause entry).
+**`any_means` result:** NOT yet a clean PASS — its champion below
+translates correctly on forward/crab-right/diag-left/restart but stalls
+specifically on "reverse" (~19-21% of commanded speed) for a cause not
+yet found, even after both config-bug fixes; do not extrapolate the
+`rl_only` PASS onto it (`CURRENT_TRUTHS.md` 09-10 entry, top of file).
+Physical acceptance needs a named build/controller, a bounded joystick
+trial with video/telemetry, and reported direction/speed/yaw/start/stop
+limits; `rl_only` also needs clean training ancestry. Next: root-cause the
+`any_means` reverse stall, then the best-supported candidate's measured
+physical comparison through Robot Lab; neither waits for every method.
 
 ## Recorded sim-demo candidates and limitations
 
@@ -55,6 +50,9 @@ progress ratio 0.418 — GO for controller handoff, not physical acceptance;
 speed-soft, zero turn authority. Evidence: `todaypolicy/bundle_mlpsf_
 tuck_v1/`. The 09-05 delivery verification flagged a model/regen mismatch —
 resolve from `todaypolicy/hardware_delivery/STATUS.md` before transfer.
+Interactive HTTP capture (09-10): real checkpoint, 0 falls, 0 rejected
+commands, but a not-yet-root-caused "reverse" stall — see the top-of-file
+09-10 update and `CURRENT_TRUTHS.md`; not yet a clean interactive PASS.
 
 **`rl_only`: `ppo_goal_cw_walkscratch_crutchoff_s0_widen8_legdutyratio_
 swinggap_dose10_plusduty_acq1_cont10m.zip`** (walkcurr, no BC/AMP/demo in
