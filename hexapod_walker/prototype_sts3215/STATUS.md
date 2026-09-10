@@ -29,16 +29,25 @@ one real tool bug (missing joystick heartbeat resend, now fixed).
 **`rl_only` result:** genuine interactive PASS on its champion below —
 `stalled_phases: []`, 0 falls, 0 rejected commands, real direction-correct
 translation every phase (`CURRENT_TRUTHS.md` 09-10 root-cause entry).
-**`any_means` result:** NOT yet a clean PASS — its champion below
-translates correctly on forward/crab-right/diag-left/restart but stalls
-specifically on "reverse" (~19-21% of commanded speed) for a cause not
-yet found, even after both config-bug fixes; do not extrapolate the
-`rl_only` PASS onto it (`CURRENT_TRUTHS.md` 09-10 entry, top of file).
+**`any_means` result:** SUBSTANTIALLY IMPROVED, not yet a clean PASS —
+root cause found (09-10, later cycle): the interactive session's
+velocity-command ramp used a fixed RATE instead of training's fixed-
+DURATION blend, producing a genuine coincidental full-stop for the
+diag-left->reverse command pair; fixed (`_PlayTraj`,
+`rl_move/sim/play_core.py`). Reverse-phase locomotion fraction improves
+from a consistent 0.19-0.21 (pre-fix, FAIL, 2/2 runs) to 0.246-0.333
+(post-fix, 3 repeats, 2/3 clean PASS, one still fractionally under the
+0.25 stall floor) — do not call this fully closed; a residual short-
+window gait-reversal transient and/or HTTP timing jitter may explain
+the remaining borderline run. Full derivation: `CURRENT_TRUTHS.md` 09-10
+later entry, top of file.
 Physical acceptance needs a named build/controller, a bounded joystick
 trial with video/telemetry, and reported direction/speed/yaw/start/stop
-limits; `rl_only` also needs clean training ancestry. Next: root-cause the
-`any_means` reverse stall, then the best-supported candidate's measured
-physical comparison through Robot Lab; neither waits for every method.
+limits; `rl_only` also needs clean training ancestry. Next: a few more
+reverse-phase repeats (or a phase-window review) to settle the residual
+`any_means` borderline case, then the best-supported candidate's
+measured physical comparison through Robot Lab; neither waits for every
+method.
 
 ## Recorded sim-demo candidates and limitations
 
@@ -51,8 +60,11 @@ speed-soft, zero turn authority. Evidence: `todaypolicy/bundle_mlpsf_
 tuck_v1/`. The 09-05 delivery verification flagged a model/regen mismatch —
 resolve from `todaypolicy/hardware_delivery/STATUS.md` before transfer.
 Interactive HTTP capture (09-10): real checkpoint, 0 falls, 0 rejected
-commands, but a not-yet-root-caused "reverse" stall — see the top-of-file
-09-10 update and `CURRENT_TRUTHS.md`; not yet a clean interactive PASS.
+commands; the "reverse" stall found earlier the same day is root-caused
+and mostly fixed (later 09-10 cycle, `_PlayTraj` command-blend fix) —
+reverse-phase locomotion fraction now 0.246-0.333 across 3 repeats (2/3
+clean PASS) vs. 0.19-0.21 pre-fix; still not a clean unanimous PASS, see
+`CURRENT_TRUTHS.md`.
 
 **`rl_only`: `ppo_goal_cw_walkscratch_crutchoff_s0_widen8_legdutyratio_
 swinggap_dose10_plusduty_acq1_cont10m.zip`** (walkcurr, no BC/AMP/demo in
