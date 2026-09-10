@@ -16,6 +16,7 @@ Run on the controller pod inside tmux:
 Kill switch: `touch rl_move/orchestrator/PAUSE` (loop idles until removed).
 """
 import datetime
+import hashlib
 import json
 import os
 import pathlib
@@ -405,6 +406,40 @@ def acknowledge_pending_evals(ready: list[dict]) -> None:
         log(f"pending eval acknowledgement failed: {exc!r}")
 
 
+def board_fingerprint() -> str:
+    """Cheap hash of everything that can make new work runnable for a
+    partial-refill cycle: ledger bytes, backlog bytes, code + state repo
+    HEADs. Measured at the 09-10 meta-analysis: 18/48 refill cycles in
+    24h ended "IDLE: nothing runnable" against a byte-identical board
+    (~$46 + 4 agent-hours of re-surveys) because zero-GPU doc work kept
+    resetting the grace backoff. After a refill declares IDLE, the
+    watcher skips further refills until this fingerprint changes; run
+    completions, verdicts, backlog adds, code snapshots and state-repo
+    pushes all change it. Idle kicks (4h-capped), operator/MCP kicks and
+    finish-triggered triage are NOT gated."""
+    h = hashlib.sha256()
+    for p in (LEDGER, BACKLOG):
+        try:
+            h.update(p.read_bytes())
+        except OSError:
+            h.update(b"?")
+    for repo in (HERE, state_dir.STATE_DIR):
+        try:
+            head = subprocess.run(
+                ["git", "-C", str(repo), "rev-parse", "HEAD"],
+                capture_output=True, text=True, timeout=30).stdout.strip()
+        except (OSError, subprocess.SubprocessError):
+            head = "?"
+        h.update(head.encode())
+    return h.hexdigest()
+
+
+# Set by reap_cycles when a refill-owner cycle exits declaring
+# "IDLE: nothing runnable"; consumed by main() to arm the
+# board-fingerprint refill gate above.
+IDLE_REFILL_REAPED: list[bool] = []
+
+
 def has_refill_owner(active: list[dict]) -> bool:
     """A focused owner already checks capacity; ordinary triage may coexist."""
     return any(c.get("label") in {
@@ -440,7 +475,10 @@ def partial_refill_trigger(capacity: dict | None, active: list[dict]) -> str | N
         "No run completion is required for this refill cycle. Canonical "
         f"capacity found {capacity['slots_free']} ready slots without trainers "
         f"({pods}), while the launch backlog is empty. Other runs may still "
-        "be training. Check current capacity and existing cycle ownership, "
+        "be training. Start from `rl_move/orchestrator/ops.sh board` (one-"
+        "shot local digest: backlog, unverdicted runs, newest journal entry "
+        "per track) instead of re-reading every STATUS doc, verify capacity "
+        "and existing cycle ownership, "
         "then queue and launch justified continuations or concrete next "
         "experiments from the registered tracks. Preserve healthy trainers "
         "and claimed work; do not duplicate runs, change spending limits, or "
@@ -1356,6 +1394,9 @@ def reap_cycles(active: list[dict], processed: set[str]) -> tuple[list[dict], in
         if rc == 0:
             processed |= c["runs"]
             n_ok += 1
+            if (c.get("label") in ("refill", "partial-refill", "kick")
+                    and "IDLE: nothing runnable" in tail):
+                IDLE_REFILL_REAPED.append(True)
         else:
             n_failed += 1
         if c.get("model") != AGENT_MODEL_DEEP:
@@ -1432,6 +1473,7 @@ def main() -> None:
     idle_kick_streak = 0  # consecutive idle kicks with no real activity
     partial_idle_since: float | None = None
     partial_refill_streak = 0
+    idle_board_fp: str | None = None  # board hash at last IDLE refill
     next_capacity_check = 0.0
     active: list[dict] = []
     prestage_started: dict[str, float] = {}  # run -> first-seen ts
@@ -1455,6 +1497,11 @@ def main() -> None:
                     idle_polls = 0
                 elif n_failed:
                     failed_cycles += n_failed
+            if IDLE_REFILL_REAPED:
+                IDLE_REFILL_REAPED.clear()
+                idle_board_fp = board_fingerprint()
+                log("refill declared IDLE: nothing runnable — holding "
+                    "further refills until the board fingerprint changes")
 
             if WORKED.exists():
                 WORKED.unlink(missing_ok=True)
@@ -1464,6 +1511,7 @@ def main() -> None:
                 idle_kick_streak = 0
                 idle_polls = 0
                 partial_refill_streak = 0
+                idle_board_fp = None
 
             if PAUSE.exists():
                 log("PAUSE present; idling")
@@ -1703,6 +1751,14 @@ def main() -> None:
                 next_capacity_check = now + POLL_S
                 capacity = partial_idle_capacity()
                 candidate = partial_refill_trigger(capacity, active)
+                if candidate and idle_board_fp is not None:
+                    if board_fingerprint() == idle_board_fp:
+                        log("board unchanged since last IDLE refill; "
+                            "skipping refill spawn")
+                        candidate = None
+                        partial_idle_since = None
+                    else:
+                        idle_board_fp = None  # board moved — re-arm refills
                 if candidate:
                     if partial_idle_since is None:
                         partial_idle_since = now

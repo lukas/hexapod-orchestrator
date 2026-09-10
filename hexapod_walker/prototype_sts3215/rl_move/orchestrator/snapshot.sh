@@ -10,6 +10,14 @@ cd "$(git rev-parse --show-toplevel)"
 # commit of the same name. Code commits below only happen when CODE changed.
 STATE_DIR="${HEXAPOD_STATE_DIR:-$(pwd)/.state}"
 
+# Guard (09-10 meta): called with no arg / a flag-looking arg, this used
+# to tag the literal string (a real snapshot landed as "before --help",
+# 09-10 07:01). Require a plain run-name.
+if [ -z "${1:-}" ] || { [ "${1:0:1}" = "-" ] && [ "$1" != "--sync" ]; }; then
+  echo "usage: snapshot.sh <run-name> | snapshot.sh --sync <pod>" >&2
+  exit 2
+fi
+
 if [ "${1:-}" = "--sync" ]; then
   POD="$2"
   KC="${KUBECONFIG:-$HOME/.kube/coreweave.yaml}"

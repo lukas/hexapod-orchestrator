@@ -140,6 +140,51 @@ print(' '.join(sorted(p for p in pods if p)))"); do
   tail -3 /workspace/orchestrator.log 2>/dev/null || true
   ;;
 
+board)  # board — one-screen refill digest: free slots, backlog count,
+  # unverdicted ledger runs, and the LATEST journal heading per track
+  # (journals are reverse-chron, top heading = newest state). Built at
+  # the 09-10 meta-analysis: refill cycles were spending 100-220 turns
+  # re-deriving exactly this from capacity.py + 7 STATUS docs. Local
+  # files only (no W&B, no kubectl) — for live pod truth use
+  # `ops.sh status` / capacity.py; for W&B-vs-ledger leaks use
+  # `ops.sh triage`.
+  uv run python - <<'EOF'
+import json, os, pathlib, re, time
+state = pathlib.Path(os.environ["STATE_DIR"])
+proto = pathlib.Path(os.environ["PROTO"])
+try:
+    backlog = len(json.load(open(state / "backlog.json")))
+except Exception:
+    backlog = "?"
+last = {}
+for e in json.load(open(os.environ["LEDGER"])):
+    if isinstance(e, dict) and e.get("run"):
+        last[e["run"]] = e
+live = [(e.get("status"), r) for r, e in last.items()
+        if e.get("status") in ("RUNNING", "INTENT")]
+unverd = [r for r, e in last.items()
+          if e.get("status") == "FINISHED" and not e.get("verdict")]
+print(f"backlog={backlog}  ledger RUNNING/INTENT={len(live)}  "
+      f"FINISHED-unverdicted={len(unverd)}")
+for s, r in sorted(live): print(f"  {s:8s} {r}")
+for r in sorted(unverd): print(f"  UNVERDICTED {r}")
+def head(p):
+    try:
+        txt = p.read_text(errors="ignore")
+    except OSError:
+        return "(missing)"
+    m = re.search(r"^## (.+)$", txt, re.M)
+    age = (time.time() - p.stat().st_mtime) / 3600
+    return f"[{age:5.1f}h] {(m.group(1) if m else '(no heading)')[:150]}"
+tracks = json.load(open(proto / "rl_move/orchestrator/tracks.json"))
+for t in tracks:
+    print(f"{t:11s} {head(state / 'rl_docs' / 'tracks' / t / 'STATUS.md')}")
+print(f"{'STATUS.md':11s} {head(proto / 'STATUS.md')}")
+print(f"{'TRUTHS':11s} {head(proto / 'CURRENT_TRUTHS.md')}")
+print("(capacity: `uv run python rl_move/orchestrator/capacity.py`)")
+EOF
+  ;;
+
 procs)  # procs <pod> — training/eval processes (pods have NO ps)
   list_procs "$2"
   ;;
