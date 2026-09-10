@@ -5,6 +5,16 @@ digest, not a live fleet snapshot. `RL_GOALS.md` owns purpose and priorities;
 `CURRENT_TRUTHS.md` owns accepted evidence. Consult the state ledger and
 track journals for current run/queue status.
 
+**UPDATE 09-10 (op_20260910_50hz):** deployment control rate is now
+**50 Hz** — hexapod2's MCU bridge (18-servo read 9-13 ms + write
+~4.4 ms) trips the timing fault at 100 Hz within 3-52 ticks, while
+25 Hz ran 150 ticks clean; the 08-24 100 Hz order is superseded for
+robot-bound candidates (CURRENT_TRUTHS top entry). A 5-arm 50 Hz
+retrain fill (walk x2, turn x2, stand/sit x1) launched 09-10; every
+PASS exports v2-stamped `--training-hz 50` artifacts into
+`linux_control/policies/*50hz*` toward a 50 Hz todaypolicy bundle
+(stand/lower + walk + turn). See standwalk/amp/todaypolicy STATUS.
+
 ## Parent outcomes
 
 1. **`any_means`: smooth joystick walking in sim and physically by any effective means.**
