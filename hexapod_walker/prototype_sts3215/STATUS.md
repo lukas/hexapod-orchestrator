@@ -82,8 +82,10 @@ through forward/crab-right/diag-left/reverse/restart
 (`logs/manual_drive/rlonly_champion_websession_capture_09-10_heartbeatfix/`,
 `CURRENT_TRUTHS.md` 09-10 root-cause entry). Known
 limits: a SUSTAINED (~15s) off-forward heading chronically sacrifices one
-front leg's swing (8 repair mechanisms CLOSED FAIL, `walkcurr/STATUS.md`
-09-09); joystick DONE-gate FAILS on slip (>3x band) — neither blocks the
+front leg's swing (12 repair mechanisms CLOSED FAIL incl. the entire named
+RND family — full-obs/heading-gated/per-leg-obs-masked — `walkcurr/
+STATUS.md` 09-10; no named lever remains, needs a fresh design note);
+joystick DONE-gate FAILS on slip (>3x band) — neither blocks the
 non-interactive deliverable above. Physical-handoff prep (09-09): exported
 to the robot's numpy runtime (N-layer/ELU support) with a transfer manifest
 + registered bounded-trial plan at `walkcurr/bundle_rlonly_v1/` (walk only).
