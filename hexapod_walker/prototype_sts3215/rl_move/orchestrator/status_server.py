@@ -1113,27 +1113,39 @@ def _row(kind, name, href, up, detail="", last=None, note=""):
             "detail": detail, "last_active": ago, "last_active_s": secs, "note": note}
 
 
+def _hub_group(name: str) -> str:
+    low = name.lower()
+    if name.startswith("RL ") or "watcher" in low or "status dashboard" in low:
+        return "RL orchestrator"
+    if name.startswith("Robot") or "camera" in low or "vision" in low:
+        return "Robot Lab"
+    if name.startswith("Metaagent"):
+        return "Metaagent"
+    return "Other"
+
+
 def hub_collect() -> list[dict]:
     rows: list[dict] = []
     f = SNAP.get("fast", {}); w = f.get("watcher", {})
 
     # RL dashboard + its watcher agent (this process; data already in SNAP).
-    rows.append(_row("service", "RL orchestrator dashboard", "/now", True,
-                     "this server", note="token or SSO"))
-    if w:
-        state = "paused" if w.get("pause") else ("running" if w.get("tmux") else "tmux session missing")
-        logs = recent_cycle_logs(1)
+    rows.append(_row("service", "Status dashboard (this page)", "/now", True,
+                     "serving now", note="the page you are viewing"))
+    last_iso = None
+    try:
+        newest = max(CYCLE_DIR.glob("cycle_*.log"), key=lambda q: q.stat().st_mtime)
+        last_iso = datetime.datetime.fromtimestamp(
+            newest.stat().st_mtime, datetime.timezone.utc).isoformat()
+    except (ValueError, OSError):
         last_iso = None
-        if logs:
-            try:
-                last_iso = datetime.datetime.fromtimestamp(
-                    (CYCLE_DIR / logs[0]["name"]).stat().st_mtime, datetime.timezone.utc).isoformat()
-            except (OSError, KeyError, TypeError):
-                last_iso = None
-        rows.append(_row("agent", "RL watcher (watch_loop)", "/now", bool(w.get("tmux")) and not w.get("pause"),
-                         state, last_iso, "last cycle log write"))
+    if w:
+        state = "paused" if w.get("pause") else ("running training cycles" if w.get("tmux") else "tmux session missing")
+        rows.append(_row("agent", "RL watcher (runs the campaign)", "/now",
+                         bool(w.get("tmux")) and not w.get("pause"),
+                         state, last_iso, "last decision cycle"))
     else:
-        rows.append(_row("agent", "RL watcher (watch_loop)", "/now", None, "snapshot collecting"))
+        rows.append(_row("agent", "RL watcher (runs the campaign)", "/now", None,
+                         "snapshot still collecting", last_iso, "last decision cycle"))
 
     # Robot Lab service, robot, cameras, agent lanes, queue.
     code, health, dt = _hub_fetch(HUB_HOSTS["lab"] + "/healthz")
@@ -1205,6 +1217,8 @@ def hub_collect() -> list[dict]:
         code, _, dt = _hub_fetch(url, method="POST", body=b'{"jsonrpc":"2.0","id":1,"method":"tools/list"}')
         rows.append(_row("service", name, url if url.startswith("https") else "/mcp", code in (200, 401, 403, 405),
                          f"{code or 'unreachable'} · {dt*1000:.0f} ms", note="auth-gated"))
+    for r in rows:
+        r["group"] = _hub_group(r["name"])
     return rows
 
 
@@ -1231,14 +1245,23 @@ def hub_table_html() -> str:
         return (f"<tr><td>{esc(r['kind'])}</td><td><a href='{href}'>{esc(r['name'])}</a></td>"
                 f"<td>{pill(r['status'])}</td><td{' style=color:#e9a' if stale else ''}>{last}</td>"
                 f"<td>{esc(r['detail'])}</td><td class='dim'>{esc(r.get('note') or '')}</td></tr>")
-    services = [r for r in rows if r["kind"] == "service"]; agents = [r for r in rows if r["kind"] == "agent"]
-    head = ("<tr><th>kind</th><th>name</th><th>status</th><th>last active</th><th>detail</th><th></th></tr>")
+    head = ("<tr><th>what</th><th>name</th><th>status</th><th>last active</th><th>detail</th><th></th></tr>")
     upd, _ = _ago(datetime.datetime.fromtimestamp(HUB_STATE.get("updated") or 0, datetime.timezone.utc).isoformat()) if HUB_STATE.get("updated") else ("never", None)
     err = f"<div class='dim' style='color:#e55'>poll error: {esc(HUB_STATE.get('error'))}</div>" if HUB_STATE.get("error") else ""
-    return (f"<style>table.hub{{width:100%;border-collapse:collapse;margin:10px 0 24px}}table.hub th,table.hub td"
+    # One section per system, services before agents within each; anything
+    # uncategorised falls into "Other" last.
+    order = ["RL orchestrator", "Robot Lab", "Metaagent", "Other"]
+    seen = [g for g in order if any(r.get("group") == g for r in rows)]
+    sections = []
+    for g in seen:
+        grp = [r for r in rows if r.get("group") == g]
+        grp.sort(key=lambda r: (r["kind"] != "service", r["name"]))
+        sections.append(f"<h3 style='margin:18px 0 4px;font-size:14px'>{esc(g)}</h3>"
+                        f"<table class='hub'>{head}{''.join(tr(r) for r in grp)}</table>")
+    return (f"<style>table.hub{{width:100%;border-collapse:collapse;margin:2px 0 12px}}table.hub th,table.hub td"
             f"{{text-align:left;padding:6px 10px;border-bottom:1px solid #333;vertical-align:top}}table.hub th{{opacity:.6;font-weight:600}}</style>"
-            f"<div class='dim'>services and agents \u00b7 refreshed {esc(upd)} \u00b7 <a href='/hub.json'>json</a></div>{err}"
-            f"<table class='hub'>{head}{''.join(tr(r) for r in services)}{''.join(tr(r) for r in agents)}</table>")
+            f"<div class='dim'>live status \u00b7 refreshed {esc(upd)} \u00b7 <a href='/hub.json'>json</a></div>{err}"
+            + "".join(sections))
 
 
 def hub_body() -> str:
