@@ -26,44 +26,29 @@ irreducible-to-cloud" read was wrong about that specific claim. Chasing
 it found and fixed two real config-threading bugs (silently-clobbered
 `joint_action_box`/`bias` and `walk_obs_body_vel` explicit overrides) and
 one real tool bug (missing joystick heartbeat resend, now fixed).
-**`rl_only` result:** interactive PASS on its champion below on the
-existing checks — `stalled_phases: []` (magnitude-based), 0 falls, 0
-rejected commands, strong direction-correct translation on
-forward/crab-right/diag-left/restart. **CORRECTED 09-10 (later
-cycle):** a direction-aware re-read (`directional_locomotion_fraction`,
-projects velocity onto the commanded axis instead of taking raw speed
-magnitude) shows the **reverse phase specifically** nets only ~0.15 of
-commanded speed in the commanded direction (vs 1.0-1.7 on every other
-phase) — real speed is present (magnitude 0.51) but much of it is not
-backward; "direction-correct translation every phase" was an overclaim
-for this one phase. Same pattern, same magnitude, as the `any_means`
-finding below — reverse (no forward velocity component) is this
-champion's softest tracked direction too. **`any_means` result:**
-IMPROVED BUT NOT A CLEAN REVERSE-SPECIFIC BUG — the velocity-blend fix
-is real (09-10, same day): the interactive session's velocity-command
-ramp used a fixed RATE instead of training's fixed-DURATION blend,
-producing a genuine coincidental full-stop for the diag-left->reverse
-command pair; fixed (`_PlayTraj`, `rl_move/sim/play_core.py`), reverse
-directional tracking moved from ~0.00-0.06 (genuinely zero net
-progress) pre-fix to ~0.14-0.26 post-fix (real, weak). **CORRECTED
-09-10 (later cycle):** the magnitude-only re-read that called this
-"6/8 pass, 2/8 fail, ~25% intermittent" cannot see direction; a
-direction-aware re-read shows ALL 8 repeats uniformly weak
-(0.137-0.258, no clean split) and the SAME weak pattern on every OTHER
-phase too, worst on reverse and pure-lateral crab-right (no forward
-velocity component) vs forward-leaning commands (forward/restart/
-diag-left, all higher) — a general, forward-axis-favoring directional
-softness on this champion, not a reverse-only intermittent freeze.
-Full derivation + per-phase table: `CURRENT_TRUTHS.md` 09-10 (top of
-file). Physical acceptance needs a named build/controller, a bounded
-joystick trial with video/telemetry, and reported direction/speed/yaw/
-start/stop limits; `rl_only` also needs clean training ancestry. Next:
-determine whether the off-forward-axis directional softness (both
-champions) is a real undertrained-direction skill gap or a
-telemetry-sampling artifact (coarse ~0.26s polling vs stride period) —
-needs finer per-tick telemetry or a true net-displacement measure, then
-the best-supported candidate's measured physical comparison through
-Robot Lab; neither waits for every method.
+**`rl_only` result:** interactive PASS on its champion below — 0 falls,
+0 rejected commands, strong direction-correct translation on
+forward/crab-right/diag-left/restart, but the **reverse phase is a
+genuine, confirmed defect**: it nets only ~0.15-0.06 of commanded speed
+in the commanded direction (two independent metrics agree closely),
+despite real motion (magnitude ~0.5-1.0) — consistent with (not a new
+instance of) the already fully-closed `walkcurr` 180-degree-heading
+front-pair leg-sacrifice mechanism. **`any_means` result:** interactive
+PASS with 0 falls/rejections on every phase incl. reverse; a
+`web_session_drivecapture.py` timebase bug (this tool's phases were
+scheduled on wall-clock while the server it drives over HTTP was
+quietly stepping physics at ~0.26-0.87x real time, model-source
+dependent) had made "reverse" look like a standout-soft, ~25%-
+intermittent residual through most of 09-10's investigation — fixed
+(phase transitions now gate on the server's own simulated clock), and
+the properly-measured picture is a smaller, general (not reverse-
+specific) softness on commands with no forward-velocity component
+(crab-right now the weakest, reverse mid-pack). **Full derivation,
+per-phase tables, and which earlier same-day numbers this supersedes:**
+`CURRENT_TRUTHS.md` 2026-09-10, top entry ("ROOT CAUSE + FIX"). Physical
+acceptance needs a named build/controller, a bounded joystick trial
+with video/telemetry, and reported direction/speed/yaw/start/stop
+limits; `rl_only` also needs clean training ancestry.
 
 ## Recorded sim-demo candidates and limitations
 
