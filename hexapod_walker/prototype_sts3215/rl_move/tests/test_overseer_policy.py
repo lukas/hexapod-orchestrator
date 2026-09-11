@@ -239,7 +239,7 @@ def test_an_empty_robot_lab_queue_requests_a_review():
                for note in report["notes"])
 
 
-@pytest.mark.parametrize("pending", ["queued", "running", "waiting_for_operator"])
+@pytest.mark.parametrize("pending", ["queued", "building", "running"])
 def test_work_still_pending_is_not_an_empty_queue(pending):
     report = evaluate(
         snapshot(services=[lab_experiments(succeeded=51, **{pending: 1})]),

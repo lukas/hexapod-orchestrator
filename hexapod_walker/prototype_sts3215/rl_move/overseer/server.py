@@ -310,7 +310,7 @@ def create_app(state_dir: Path | None = None, api_token: str | None = None,
     users = sso_users if sso_users is not None else os.environ.get("METAAGENT_SSO_USERS", "")
     sso = None
     if secret and users:
-        from hexapod_lab.sso import SsoAuth
+        from hexapod_lab2.sso import SsoAuth
         sso = SsoAuth(Path(secret), users)
     signing_key = hashlib.sha256(("metaagent/session/v1:" + operator_token + ":" + read_token).encode()).digest()
     app = FastAPI(title="Hexapod metaagent", docs_url=None, redoc_url=None, openapi_url=None)

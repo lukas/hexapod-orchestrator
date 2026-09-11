@@ -1,7 +1,7 @@
 """Explicit manual iMessage delivery from the durable overseer outbox.
 
 No scheduler, polling, automatic retry, or import-time delivery. The native
-Messages transport follows experiment_lab.hexapod_lab.blocker_monitor's private
+Messages transport follows experiment_lab.hexapod_lab2.alerts's private
 file/argv pattern, with a shorter timeout. An accepted AppleScript submission is
 not proof that the recipient received the message.
 """
