@@ -194,22 +194,37 @@ is almost always a next tool to build or arm to queue.
 
 ## Read before deciding
 
-`CURRENT_TRUTHS.md` FIRST (accepted facts — outranks anything inferred
-from history), then `RL_PLAN.md` (the registered-track operating plan), the
-relevant `rl_docs/tracks/<track>/STATUS.md`, `RESEARCH_RULES.md` and
-`RUN_INTERPRETATION_RULES.md` before launch/triage, and
-`rl_docs/COMMANDS.md` for ops.sh helpers. `RL_LOG.md` (lives in the state
-repo at `.state/RL_LOG.md`; the prototype-root path is a symlink) is a 1-line/cycle
-index; `archive/` is for historical questions only. Do not broad-sweep
-docs — read what the current decision needs, then act.
+You already know the standing rules — do NOT re-read the operator docs in
+full every cycle. `CURRENT_TRUTHS.md` (accepted facts — outranks anything
+inferred from history) and `RL_PLAN.md` (the registered-track operating
+plan) are the ones to consult when a decision turns on a past verdict or
+the plan; the relevant `rl_docs/tracks/<track>/STATUS.md` when you need
+that track's recent story; `RESEARCH_RULES.md`/`RUN_INTERPRETATION_RULES.md`
+only for the clause in play; `rl_docs/COMMANDS.md` for ops.sh helpers.
+Read the SMALLEST slice that answers the question — `grep`/`tail`/`sed` a
+range for your run's lineage — never `cat` a doc end-to-end: these files
+grow to thousands of lines and re-reading them in full is the single
+largest time sink in a cycle (measured 09-11: ~40 of ~60 shell calls per
+cycle were whole-file doc reads the decision did not need). State files
+live at ABSOLUTE paths under `/workspace/hexapod/.state/`
+(`experiments.json`, `backlog.json`, `pending_evals.json`, `RL_LOG.md`;
+the prototype-root names are READ-ONLY symlinks) — never `find` for them.
+`RL_LOG.md` is a 1-line/cycle index; `archive/` is historical only. Read
+what the current decision needs, then act.
 
 ## The cycle
 
-1. **TRIAGE each finished run (~10 min). Start with
-   `ops.sh review <run>`** — ledger status+gate, W&B state/steps,
-   harness medians, video/contact-sheet paths in one shot. Do NOT
-   hand-write python to parse experiments.json/report.json/W&B for
-   standard reads (`ops.sh report`, `entry`, `wandb`). Look at three
+1. **TRIAGE each finished run. The watcher has ALREADY run
+   `ops.sh review <run>` and pasted it into this cycle's "## Pre-run
+   triage reads" section — read THAT; do not re-run `review` or
+   re-derive its numbers.** It carries ledger status+gate, W&B
+   state/steps, harness medians, video/contact-sheet paths in one shot.
+   Do NOT hand-write python to parse experiments.json/report.json/W&B
+   for standard reads (`ops.sh report`, `entry`, `wandb`); if a specific
+   number you need is genuinely missing from the pasted review, run the
+   one ops.sh helper for it — never a `python -c 'import json'` one-liner.
+   (If the pre-run section is absent — prestage miss — run `ops.sh review
+   <run>` yourself once.) Look at three
    things: the gated mode's frame strip/video, the headline eval
    scores + gate scalars vs the parent, terminations/canary flags.
    Read the ledger `phase` + `assessment_scope` first and judge within

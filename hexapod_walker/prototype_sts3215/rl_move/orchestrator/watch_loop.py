@@ -145,6 +145,38 @@ def prestage_sentinel(run: str) -> pathlib.Path:
             / (run.replace("-", "_") + "_prestage.synced"))
 
 
+def prestage_review(run: str) -> pathlib.Path:
+    """Cache of `ops.sh review <run>` written by the prestage worker so
+    spawn_cycle can paste the consolidated triage read (ledger status +
+    gate + W&B quarters + eval report table + frame paths) straight into
+    the cycle prompt. The 09-11 doc-toil fix: verdict cycles were
+    re-deriving these exact numbers with ~18 hand-written `python -c
+    'import json'` calls per cycle despite the prompt already forbidding
+    it — moving the read out of the billed LLM session and INTO the
+    prompt removes the need, not just the permission."""
+    return (HERE.parent.parent / "logs" / "ckpt_eval"
+            / (run.replace("-", "_") + "_prestage_review.txt"))
+
+
+def _cache_ops_review(run: str) -> None:
+    """Best-effort: run `ops.sh review <run>` on the (cheap) watcher and
+    cache it for prompt injection. Never raises; a miss just means the
+    cycle falls back to running review itself (today's behaviour)."""
+    try:
+        rv = subprocess.run(
+            ["bash", str(HERE / "ops.sh"), "review", run],
+            capture_output=True, text=True, timeout=180,
+            cwd=str(HERE.parent.parent))
+        txt = ((rv.stdout or "") + (rv.stderr or "")).strip()
+        if txt:
+            p = prestage_review(run)
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_text(txt[:8000])
+            log(f"prestage {run}: cached ops.sh review ({len(txt)} chars)")
+    except Exception as exc:  # noqa: BLE001 (best-effort, must never block)
+        log(f"prestage {run}: review cache failed: {exc!r}")
+
+
 def _meta_last_day() -> str:
     try:
         return json.loads(META_STATE.read_text()).get("last_day", "")
@@ -1056,6 +1088,8 @@ def prestage_finished(run: str) -> None:
                         cwd=str(HERE.parent.parent))
                 except Exception as exc:
                     log(f"prestage {run}: wandbdump refresh failed: {exc!r}")
+                # Re-cache review off the refreshed (post-finalizer) dump.
+                _cache_ops_review(run)
 
             threading.Thread(target=_refresh, daemon=True).start()
             return
@@ -1087,6 +1121,7 @@ def prestage_finished(run: str) -> None:
                 # No checkpoint (e.g. run died at init, 0 steps): a gate
                 # eval can only FileNotFoundError (c37, cw-walk-longdist).
                 log(f"prestage {run}: pullckpt failed; skipping evals")
+                _cache_ops_review(run)  # ledger/W&B read still useful
                 sentinel()  # nothing to wait on — release the cycle
             else:
                 # Evals run ON THE RUN'S OWN POD (operator 08-10): the
@@ -1110,6 +1145,7 @@ def prestage_finished(run: str) -> None:
                 out = ((r.stdout or "") + (r.stderr or "")).strip()
                 log(f"prestage {run}: pod evals rc={r.returncode} "
                     f"{out[-400:]}")
+                _cache_ops_review(run)  # consolidated triage read for the prompt
                 sentinel()  # belt-and-braces; normally already written
         except Exception as exc:
             log(f"prestage {run} failed: {exc!r} (cycle will do it manually)")
@@ -1282,6 +1318,33 @@ def spawn_cycle(newly_finished: set[str], still_running: set[str],
             "any EXTRA evals on the run's own pod (kubectl exec / "
             "ops.sh podeval), never the controller.\n"
         )
+        # Paste the watcher's own `ops.sh review <run>` output (cached in
+        # prestage) straight in, so triage reads the consolidated ledger/
+        # gate/W&B/eval numbers here instead of re-deriving them with
+        # hand-written `python -c 'import json'` (09-11 doc-toil fix:
+        # ~18 such calls per verdict cycle were the single biggest time
+        # sink). Best-effort — a missing/empty cache just falls back.
+        reviews = []
+        for r in sorted(newly_finished):
+            try:
+                txt = prestage_review(r).read_text().strip()
+            except OSError:
+                txt = ""
+            if txt:
+                reviews.append(f"### `ops.sh review {r}` (watcher-run "
+                               f"THIS cycle — authoritative)\n{txt}")
+        if reviews:
+            cycle_prompt += (
+                "\n## Pre-run triage reads (do NOT re-run `ops.sh review` "
+                "or re-derive these numbers by hand)\n"
+                "The watcher already ran `ops.sh review` for each finished "
+                "run and pasted the output below. Verdict from THIS plus "
+                "one video/frame strip per the cycle rules; only shell out "
+                "if a specific number you need is missing here. Do NOT "
+                "re-run review, `ops.sh report`, `entry`, wandb, or "
+                "`python -c 'import json'` for these runs.\n\n"
+                + "\n\n".join(reviews) + "\n"
+            )
     if findings:
         cycle_prompt += (
             "\n## Watcher checkup findings (act on these first)\n"
