@@ -82,7 +82,6 @@ def reflection(record: dict) -> dict:
             "verification": "self-reported; check linked artifacts independently"}
 
 
-ROBOT_LAB_PENDING_STATUSES = ("queued", "running", "waiting_for_operator")
 ROBOT_LAB2_PENDING_STATUSES = ("queued", "building", "running")
 _PORTFOLIO_VOLATILE_FIELDS = {"source", "observed_at", "collected_at", "source_age_seconds"}
 
@@ -98,16 +97,14 @@ def _stable_portfolio(value):
 
 
 def robot_lab_queue_drained(services: list) -> bool:
-    """Whether Robot Lab has no experiment queued, running or waiting.
+    """Whether Robot Lab v2 has no plan queued, building or running.
 
-    Read from the queue state the Robot Lab collector already exports. This
+    Read from the plan counts the Robot Lab collector already exports. This
     deliberately says nothing about whether the robot is physically ready:
-    live hardware readiness belongs to Robot Lab, which owns the guarded
-    runner and re-checks it before asking for a plan. An empty campaign queue
-    is a strategy question, and that is what a review answers.
+    live hardware readiness belongs to Robot Lab, which re-checks it before
+    every run. An empty plan queue is a strategy question, and that is what a
+    review answers. A missing service is not evidence of an empty queue.
     """
-    # V2 replaced the old orchestrator. Prefer its current plan queue when
-    # both historical databases are visible on the same Mac.
     for service in services:
         if not isinstance(service, dict) or service.get("service_id") != "lab2:plans":
             continue
@@ -115,17 +112,6 @@ def robot_lab_queue_drained(services: list) -> bool:
         if not isinstance(counts, dict):
             return False
         return not any(int(counts.get(name) or 0) for name in ROBOT_LAB2_PENDING_STATUSES)
-    for service in services:
-        if not isinstance(service, dict):
-            continue
-        if service.get("service_id") != "lab:experiments":
-            continue
-        counts = service.get("counts")
-        if not isinstance(counts, dict):
-            return False
-        return not any(
-            int(counts.get(name) or 0) for name in ROBOT_LAB_PENDING_STATUSES
-        )
     return False
 
 
@@ -320,7 +306,7 @@ def evaluate(snapshot: dict, *, history: dict | None = None,
     )
     if queue_drained:
         reasons.append(
-            "Robot Lab has no queued, running or waiting experiment; the "
+            "Robot Lab has no plan queued, building or running; the "
             "campaign needs a next step toward smooth walking"
         )
     run_review = bool(reasons)

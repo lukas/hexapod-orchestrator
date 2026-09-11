@@ -25,7 +25,7 @@ them by default.
 - Codex: a fresh authenticated `list_threads` export. A child agent should register
   its own stable ID and parent/task IDs because the app listing does not expose
   every internal child. App usage percentages are not per-task dollar costs.
-- Robot Lab: read-only legacy queue history plus Robot Lab v2 plan/run counts,
+- Robot Lab: Robot Lab v2 plan/run counts,
   recent wall times, hypotheses, findings, spend, events and its 10/60/120/900
   second timing contract. A historical run is evidence, not a live worker.
 - Cloud RL: a fresh authenticated `orchestrator_activity` export. Active cycles

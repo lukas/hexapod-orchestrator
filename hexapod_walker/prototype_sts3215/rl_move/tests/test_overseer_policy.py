@@ -217,9 +217,9 @@ def test_evaluation_does_not_mutate_collected_data_or_history():
     assert (data, history) == original
 
 
-def lab_experiments(**counts):
-    """The Robot Lab experiment-count service the collector exports."""
-    return {"service_id": "lab:experiments", "name": "Robot Lab experiments",
+def lab_plans(**counts):
+    """The Robot Lab v2 plan-count service the collector exports."""
+    return {"service_id": "lab2:plans", "name": "Robot Lab v2 plans",
             "status": "observed", "observed_at": stamp(), "counts": counts}
 
 
@@ -230,19 +230,19 @@ def test_an_empty_robot_lab_queue_requests_a_review():
     the campaign could go quiet indefinitely without anyone asking why.
     """
     report = evaluate(
-        snapshot(services=[lab_experiments(succeeded=51, failed=21)]),
+        snapshot(services=[lab_plans(done=51, failed=21)]),
         now=stamp(), history={"last_review_at": stamp(-7)})
     assert report["wake"]["eligible"] is True
-    assert any("no queued, running or waiting experiment" in reason
+    assert any("no plan queued, building or running" in reason
                for reason in report["wake"]["reasons"])
     assert any("only path that queues or executes" in note
                for note in report["notes"])
 
 
-@pytest.mark.parametrize("pending", ["queued", "running", "waiting_for_operator"])
+@pytest.mark.parametrize("pending", ["queued", "building", "running"])
 def test_work_still_pending_is_not_an_empty_queue(pending):
     report = evaluate(
-        snapshot(services=[lab_experiments(succeeded=51, **{pending: 1})]),
+        snapshot(services=[lab_plans(done=51, **{pending: 1})]),
         now=stamp(), history={"last_review_at": stamp(-7)})
     assert report["wake"]["eligible"] is False, report["wake"]["reasons"]
 
@@ -250,7 +250,7 @@ def test_work_still_pending_is_not_an_empty_queue(pending):
 def test_an_empty_queue_still_obeys_the_six_hour_interval():
     """The new trigger must not buy a review the old ones could not."""
     report = evaluate(
-        snapshot(services=[lab_experiments(succeeded=51)]),
+        snapshot(services=[lab_plans(done=51)]),
         now=stamp(), history={"last_review_at": stamp(-1)})
     assert report["wake"]["eligible"] is False, report["wake"]["reasons"]
 
@@ -277,13 +277,3 @@ def test_changed_portfolio_evidence_requests_strategy_review_without_live_agent(
     data["portfolio_evidence"]["rl_campaign"]["recent_runs"] = "run-b tested exploration"
     assert evaluate(data, now=stamp(), history={"last_review_at": stamp(-7),
                     "last_outcome": "blocked", "fingerprint": first["wake"]["fingerprint"]})["wake"]["eligible"]
-
-
-def test_robot_lab_v2_plan_queue_supersedes_legacy_history():
-    services = [lab_experiments(succeeded=51),
-                {"service_id": "lab2:plans", "counts": {"running": 1}}]
-    report = evaluate(snapshot(services=services), now=stamp(), history={"last_review_at": stamp(-7)})
-    assert report["wake"]["eligible"] is False
-    services[1]["counts"] = {"done": 3}
-    assert evaluate(snapshot(services=services), now=stamp(),
-                    history={"last_review_at": stamp(-7)})["wake"]["eligible"] is True

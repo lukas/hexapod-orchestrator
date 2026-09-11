@@ -54,38 +54,6 @@ def test_stale_active_session_is_unknown_and_unrelated_sessions_are_omitted(tmp_
     assert rows[0]["freshness"] == "stale"
 
 
-def test_lab_read_only_handles_pause_expired_lease_and_cost_missing_attempt(tmp_path):
-    lab = tmp_path / "lab"
-    data = lab / "data"
-    data.mkdir(parents=True)
-    database = data / "lab.sqlite3"
-    with sqlite3.connect(database) as connection:
-        connection.executescript("""
-            CREATE TABLE codex_queue_controls(sequence INTEGER,action TEXT,created_at TEXT);
-            INSERT INTO codex_queue_controls VALUES(1,'pause','2026-09-09T03:00:00Z');
-            CREATE TABLE codex_jobs(id TEXT,kind TEXT,experiment_id TEXT,status TEXT,
-                attempts INTEGER,updated_at TEXT,lease_expires_at TEXT);
-            INSERT INTO codex_jobs VALUES('live','analysis','exp','running',1,
-                '2026-09-09T03:59:00Z','2026-09-09T04:05:00Z');
-            INSERT INTO codex_jobs VALUES('expired','advance','exp','running',2,
-                '2026-09-08T03:59:00Z','2026-09-08T04:05:00Z');
-        """)
-    original = database.read_bytes()
-    (lab / "agent-provider").write_text("claude")
-    put_json(data / "codex-runs/live/attempt-1/metadata.json", {"provider": "claude", "usage": {"cost_usd": 12.5}})
-    put_json(data / "codex-runs/expired/attempt-1/metadata.json", {"provider": "claude", "usage": {"cost_usd": 9}})
-    snapshot = collectors.collect_local(tmp_path / "hexapod", home=tmp_path / "home", lab_root=lab, now=NOW)
-    rows = {a["agent_id"]: a for a in snapshot["agents"]}
-    assert rows["lab:live"]["status"] == "running"
-    assert rows["lab:live"]["reported_cost_usd"] == 12.5
-    assert rows["lab:live"]["provider"] == "claude"
-    assert rows["lab:expired"]["status"] == "stale"
-    assert rows["lab:expired"]["cost_status"] == "unknown"
-    assert "reported_cost_usd" not in rows["lab:expired"]
-    assert next(s for s in snapshot["services"] if s["service_id"] == "lab:queue")["status"] == "paused"
-    assert database.read_bytes() == original
-
-
 def test_automation_prompt_is_not_exported_and_pause_preserved(tmp_path):
     home = tmp_path / "home"
     path = home / ".codex/automations/watch/automation.toml"
@@ -130,6 +98,7 @@ def test_robot_lab_v2_exports_recent_throughput_and_findings_read_only(tmp_path)
     assert evidence["recent_spend"][0]["usd"] == 0.18
     plans = next(s for s in snapshot["services"] if s["service_id"] == "lab2:plans")
     assert plans["counts"] == {"done": 1}
+    assert plans["kind"] == "queue" and plans["domain"] == "robot_lab"
     assert database.read_bytes() == original
 
 
@@ -137,12 +106,12 @@ def test_robot_lab_v2_exports_recent_throughput_and_findings_read_only(tmp_path)
 def test_launchctl_only_exports_fixed_service_fields(monkeypatch, disabled_value):
     def run(argv):
         if "print-disabled" in argv:
-            return subprocess.CompletedProcess(argv, 0, f'"com.lbiewald.hexapod-codex-orchestrator" => {disabled_value}', "")
+            return subprocess.CompletedProcess(argv, 0, f'"com.lbiewald.hexapod-lab2" => {disabled_value}', "")
         return subprocess.CompletedProcess(argv, 0, "state = running\nenvironment = { TOKEN = supersecret }", "")
     monkeypatch.setattr(collectors, "_run", run)
     errors = []
     rows = collectors._services(NOW, errors)
-    service = next(row for row in rows if row["service_id"] == "com.lbiewald.hexapod-codex-orchestrator")
+    service = next(row for row in rows if row["service_id"] == "com.lbiewald.hexapod-lab2")
     assert service["status"] == "disabled"
     assert next(row for row in rows if row["service_id"] == "com.lbiewald.hexapod-lab")["status"] == "running"
     assert "supersecret" not in json.dumps(rows)
@@ -203,6 +172,7 @@ def test_missing_sources_are_explicit_and_do_not_create_databases(tmp_path):
     snapshot = collectors.collect_local(tmp_path / "hexapod", home=tmp_path / "home", now=NOW)
     assert snapshot["agents"] == []
     assert len(snapshot["errors"]) >= 3
+    assert any(e["message"] == "Robot Lab v2 database unavailable" for e in snapshot["errors"])
     assert list(tmp_path.rglob("*.sqlite3")) == []
 
 
@@ -225,12 +195,6 @@ watcher log tail:
 HOW TO WAIT: A finished cycle has (=== CYCLE END).
 """
     assert collectors.normalize_cloud_activity(text, NOW)["agents"][0]["status"] == "running"
-
-
-def test_attempt_cost_scan_budget_and_malformed_usage_stay_unknown(tmp_path):
-    put_json(tmp_path / "codex-runs/job/attempt-1/metadata.json", {"provider": "claude", "usage": []})
-    assert collectors._job_cost(tmp_path, "job", 1, [10])[0] == "unknown"
-    assert collectors._job_cost(tmp_path, "job", 1, [0])[0] == "unknown"
 
 
 @pytest.mark.parametrize("timestamp,expected,last", [
