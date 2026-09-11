@@ -17,7 +17,7 @@ the state ledger, and `rl_docs/tracks/<track>/STATUS.md`. History belongs in
 
 | Method IDs | Parent outcome |
 |------------|----------------|
-| `joystick`, `amp`, `cpg`, `standwalk`, `assistfade`, `todaypolicy` | `any_means` |
+| `joystick`, `amp`, `cpg`, `standwalk`, `assistfade`, `todaypolicy`, `speed` | `any_means` |
 | `walkcurr` | `rl_only` |
 
 Method gates remain useful evidence with their existing thresholds. They are
@@ -54,6 +54,19 @@ or for the other goal. Track the two deliverables separately for each goal.
 4. Fix the measured limiting factor — mechanics, calibration, command
    handling, gait, model fidelity or training — and compare against that
    baseline. Keep physical build iteration moving while Goal 2 learns.
+
+### Speed path
+
+`speed` owns the operator-requested maximum-sustainable-speed frontier. It
+starts with forward sprinting on the current mesh/50 Hz transfer stack, then
+adds speed obedience and steering only after a faster gait exists. Rank actual
+body displacement together with six-leg gait validity, falls, slip, direction
+and body motion; commanded speed, cadence and reward cannot substitute. Treat
+the old primitive-model 0.117 m/s full-profile result as mechanism evidence,
+not a transferable checkpoint or hardware actuator setting. Promote only an
+export that Robot Lab can test under an independently verified conservative
+bus/slew/current contract. `speed` is assisted `any_means`; clean RL-only speed
+work stays within `walkcurr` and cannot inherit its weights or gait targets.
 
 ## Goal 2 work: clean RL discovery through physical transfer
 

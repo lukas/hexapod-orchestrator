@@ -38,6 +38,8 @@ PREFIX_MAP = (
     ("cw-todaypolicy-", "todaypolicy"),
     ("cw-workingpolicy-", "todaypolicy"),
     ("todaypolicy-", "todaypolicy"),
+    ("cw-speed-", "speed"),
+    ("speed-", "speed"),
 )
 
 
