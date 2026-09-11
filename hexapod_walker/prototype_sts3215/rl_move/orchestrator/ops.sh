@@ -814,13 +814,17 @@ review)  # review <run> — THE standard triage read in one command:
   fi
   # Claim check (meta 09-09: 55 verdict races in 24h — full triage done,
   # then "another cycle beat you"). If a LIVE cycle (pid alive, not an
-  # ancestor of this shell = not us) was assigned this run, say so FIRST.
-  claim=$(uv run python - "$run" <<'EOF'
-import json, os, sys
+  # ancestor of this shell = not us) was assigned OR claimed this run, say
+  # so FIRST. Otherwise AUTO-CLAIM it (09-11 meta): the claim (flock-
+  # appended claims.json, liveness-checked) also stops the watcher from
+  # spawning a duplicate triage cycle for this finished run.
+  claim=$(uv run python - "$run" "$v_existing" <<'EOF'
+import fcntl, json, os, sys, time
+run, verdicted = sys.argv[1], sys.argv[2] not in ("", "None")
 try:
     cycles = json.load(open("/workspace/cycle_logs/cycles.json"))
 except Exception:
-    sys.exit()
+    cycles = []
 anc, pid = set(), os.getpid()
 while pid > 1:
     anc.add(pid)
@@ -829,21 +833,47 @@ while pid > 1:
             pid = int(f.read().rsplit(") ", 1)[1].split()[1])
     except Exception:
         break
+def alive(p):
+    try:  # alive AND not a zombie (unreaped exited cycles linger as Z)
+        with open(f"/proc/{p}/stat") as f:
+            return f.read().rsplit(") ", 1)[1].split()[0] != "Z"
+    except Exception:
+        return False
 for c in cycles:
     p = c.get("pid")
     if (c.get("status") == "running" and p and p not in anc
-            and sys.argv[1] in (c.get("runs") or [])):
-        try:  # alive AND not a zombie (unreaped exited cycles linger as Z)
-            with open(f"/proc/{p}/stat") as f:
-                if f.read().rsplit(") ", 1)[1].split()[0] == "Z":
-                    continue
-        except Exception:
-            continue
+            and run in (c.get("runs") or []) and alive(p)):
         print(f"cycle {c.get('stamp')} pid={p} model={c.get('model', '?')}")
+        sys.exit()
+path = "/workspace/cycle_logs/claims.json"
+with open(path, "a+") as fh:
+    fcntl.flock(fh, fcntl.LOCK_EX)
+    fh.seek(0)
+    try:
+        entries = json.load(fh)
+        assert isinstance(entries, list)
+    except Exception:
+        entries = []
+    now = time.time()
+    for e in entries:
+        p = e.get("pid")
+        if (e.get("run") == run and p and p not in anc
+                and now - e.get("t", 0) < 3 * 3600 and alive(p)):
+            print(f"claim by pid={p} ({time.strftime('%H:%M', time.localtime(e['t']))})")
+            sys.exit()
+    if not verdicted:  # claim for OUR cycle (topmost live ancestor pid)
+        mine = max((c.get("pid") for c in cycles
+                    if c.get("status") == "running"
+                    and c.get("pid") in anc), default=os.getpid())
+        entries = [e for e in entries
+                   if now - e.get("t", 0) < 6 * 3600]  # rolling prune
+        entries.append({"run": run, "pid": mine, "t": now})
+        fh.seek(0); fh.truncate()
+        json.dump(entries, fh, indent=1)
 EOF
 )
   [ -n "$claim" ] && {
-    echo "=== CLAIMED: assigned to live $claim — leave this triage to that cycle ==="
+    echo "=== CLAIMED by live $claim — leave this triage to that cycle ==="
   }
   echo "status=$st  pod=$(entry_field "$run" pod)"
   echo "gate: $gate"

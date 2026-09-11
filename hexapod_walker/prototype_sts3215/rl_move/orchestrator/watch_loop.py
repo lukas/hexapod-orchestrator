@@ -212,6 +212,37 @@ CYCLE_OUT_DIR = pathlib.Path("/workspace/cycle_logs")
 # back to log parsing when it is missing (older deploys, laptop dev).
 CYCLE_REGISTRY = CYCLE_OUT_DIR / "cycles.json"
 CYCLE_REGISTRY_KEEP = 300  # rows retained; ~2 weeks at typical cadence
+# Cross-cycle triage claims (09-11 meta): `ops.sh review <run>` auto-
+# registers the reviewing cycle here (flock-appended, separate file so
+# cycles.json stays single-writer). A live claim keeps the watcher from
+# spawning a SECOND triage cycle for the same finished run — the
+# measured 09-10/11 waste was refill cycles triaging "unclaimed"
+# finished runs in parallel with the dedicated triage cycle (12
+# verdict-race collisions/24h, 2 FORCE-corrected verdicts).
+CYCLE_CLAIMS = CYCLE_OUT_DIR / "claims.json"
+
+
+def claimed_runs() -> set[str]:
+    """Runs claimed via `ops.sh review` by a still-alive process."""
+    try:
+        entries = json.loads(CYCLE_CLAIMS.read_text())
+        assert isinstance(entries, list)
+    except (OSError, ValueError, AssertionError):
+        return set()
+    out: set[str] = set()
+    now = time.time()
+    for e in entries:
+        run, pid, t = e.get("run"), e.get("pid"), e.get("t", 0)
+        if not run or not pid or now - t > CYCLE_TIMEOUT_S:
+            continue
+        try:  # claimer must be alive and not a zombie
+            with open(f"/proc/{pid}/stat") as f:
+                if f.read().rsplit(") ", 1)[1].split()[0] == "Z":
+                    continue
+        except OSError:
+            continue
+        out.add(str(run))
+    return out
 
 
 def registry_update(stamp: str, **fields) -> None:
@@ -367,6 +398,7 @@ def check_pending_evals() -> tuple[list[dict], int]:
         return [], 0
     ready: list[dict] = []
     keep: list[dict] = []
+    expired: list[dict] = []
     now = time.time()
     for e in entries:
         try:
@@ -374,7 +406,7 @@ def check_pending_evals() -> tuple[list[dict], int]:
         except (KeyError, TypeError, ValueError):
             added = now
         if now - added > PENDING_EVAL_TTL_S:
-            log(f"pending eval {e.get('label')!r} expired (>8h); ignoring")
+            expired.append(e)
             continue
         try:
             rc = subprocess.run(
@@ -385,6 +417,12 @@ def check_pending_evals() -> tuple[list[dict], int]:
             keep.append(e)  # pod unreachable: still in flight until TTL
             continue
         (ready if rc == 0 else keep).append(e)
+    if expired:
+        # Prune expired entries FROM THE FILE (09-11 meta: 55/57 stale
+        # entries survived forever and re-logged "expired" every poll).
+        log("pruning expired pending evals: "
+            + ", ".join(repr(e.get("label")) for e in expired))
+        acknowledge_pending_evals(expired)
     return ready, len(keep)
 
 
@@ -1336,6 +1374,9 @@ def spawn_cycle(newly_finished: set[str], still_running: set[str],
             "stamp": stamp, "render": render}
 
 
+_digin_spawned: dict[str, float] = {}  # run -> last deep-escalation time
+
+
 def reap_cycles(active: list[dict], processed: set[str]) -> tuple[list[dict], int, int]:
     """Collect finished cycles. Returns (still_active, n_ok, n_failed).
 
@@ -1401,8 +1442,18 @@ def reap_cycles(active: list[dict], processed: set[str]) -> tuple[list[dict], in
             n_failed += 1
         if c.get("model") != AGENT_MODEL_DEEP:
             digs = re.findall(r"^DIG-IN: (\S+)(.*)$", tail, re.M)
-            dig_runs = {r for r, _ in digs if r in c["runs"]}
+            # Dedupe (09-11 meta): two concurrent cycles flagging the same
+            # run each spawned their own deep dig-in (04:15 "dup spawn",
+            # $6+22min of duplicated mechanism design). One escalation per
+            # run per 4h window.
+            now_t = time.time()
+            for k in [k for k, v in _digin_spawned.items()
+                      if now_t - v > 4 * 3600]:
+                del _digin_spawned[k]
+            dig_runs = {r for r, _ in digs
+                        if r in c["runs"] and r not in _digin_spawned}
             if dig_runs:
+                _digin_spawned.update({r: now_t for r in dig_runs})
                 why = "; ".join(f"{r}:{w.strip(' —-')}" for r, w in digs)
                 log(f"escalating dig-in to {AGENT_MODEL_DEEP}: {sorted(dig_runs)}")
                 still.append(spawn_cycle(
@@ -1537,7 +1588,8 @@ def main() -> None:
             in_flight: set[str] = set()
             for c in active:
                 in_flight |= c["runs"]
-            newly = finished - processed - ledger_verdicted() - in_flight
+            newly = (finished - processed - ledger_verdicted() - in_flight
+                     - claimed_runs())
             for r in newly:
                 mark_triage(
                     r, f"awaiting since "

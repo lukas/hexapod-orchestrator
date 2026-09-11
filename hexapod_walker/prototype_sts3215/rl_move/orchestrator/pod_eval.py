@@ -521,6 +521,18 @@ def main() -> int:
     passes = [("gate", "0.0", f"/tmp/eval_{run}.log")]
     if dr > 0:
         passes.append(("owncfg", str(dr), f"/tmp/eval_{run}_owncfg.log"))
+    # Per-run pre-registered probe (09-11 meta): ledger field `probe_args`
+    # (set via `launch_run.py update --run X --set probe_args='...'`, raw
+    # eval_checkpoint args appended LAST so they override the standard
+    # gate shape) runs as a third DR-0 pass -> logs/ckpt_eval/<run>_probe.
+    # Built for lineages whose registered gate is NOT the mixed-start
+    # default (stand50hz flat-pinned probes: cycles hand-ran the same
+    # on-pod eval ~20x on 09-10/11, and the mixed-start `_gate` report
+    # standing in for it produced 2 wrong verdicts + 1 mispremised
+    # launch). Triage reads `<run>_probe` like any other pass.
+    probe_args = str(entry.get("probe_args") or "").strip()
+    if probe_args:
+        passes.append(("probe", "0.0", f"/tmp/eval_{run}_probe.log"))
 
     jobs = []
     video_args = None  # probe once, only when a new core pass is needed
@@ -568,7 +580,8 @@ def main() -> int:
                f" --seed 0 --stochastic"
                + (f" --episode-seconds {ep}" if ep else "")
                + "".join(f" --cfg-set {shlex.quote(c)}" for c in cfgs)
-               + video_args + f" --video-every 1 --out {out_rel}")
+               + video_args + f" --video-every 1 --out {out_rel}"
+               + (f" {probe_args}" if tag == "probe" else ""))
         fh = open(logpath, "w")
         p = subprocess.Popen(["kubectl", "exec", pod, "--", "bash", "-c", cmd],
                              stdout=fh, stderr=subprocess.STDOUT, text=True)
