@@ -168,7 +168,8 @@ def tick(database, *, collector=None, reviewer=None):
             sources = collector(Path(config['project_root']), work/'sources', timeout_seconds=30)
             args = argparse.Namespace(command='review', project_root=config['project_root'],
                 snapshot=None, cloud_activity=sources.get('cloud_activity'),
-                codex_threads=sources.get('codex_threads'), self_agent=[],
+                codex_threads=sources.get('codex_threads'),
+                strategy_evidence=sources.get('strategy_evidence'), self_agent=[],
                 output=str(work/'report'), force=False, resume_wake=None,
                 provider=config['provider'], reviewer_config=config.get('reviewer_config'))
             snapshot = collect(args, database)
@@ -203,7 +204,7 @@ def tick(database, *, collector=None, reviewer=None):
             snapshot_path = work/'snapshot.json'
             snapshot_path.write_text(json.dumps(redact(snapshot)))
             args.snapshot = str(snapshot_path)
-            args.cloud_activity = args.codex_threads = None
+            args.cloud_activity = args.codex_threads = args.strategy_evidence = None
             # Persist the attempt before dispatch. Crash recovery may never
             # silently reopen/retry a possibly billed attempt. Configuration is
             # fenced in the same transaction: never dispatch a replaced profile.

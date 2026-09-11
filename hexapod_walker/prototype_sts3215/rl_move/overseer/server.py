@@ -223,13 +223,14 @@ def _recommendations(db, memory: dict) -> dict:
         if not isinstance(model, dict) or model.get("status") != "completed":
             continue
         try:
-            assessment = _validate_review(model.get("review"))
+            assessment = _validate_review(model.get("review"), allow_legacy=True)
         except (ValueError, TypeError):
             continue
         advice.append({"wake_id": row["wake_id"], "report_id": row["report_id"],
                        "created_at": row["created_at"], "provider": model.get("provider"),
                        "model": model.get("model"), "summary": assessment.get("summary"),
                        "recommended_actions": assessment.get("recommended_actions") or [],
+                       "strategic_assessment": assessment.get("strategic_assessment") or {},
                        "corrections": _matching_corrections(memory, row["wake_id"], row["report_id"]),
                        "source": "model_advice", "execution_status": "proposal_only"})
     return {"recommendations": items, "limit": 100, "truncated": len(rows) > 100,

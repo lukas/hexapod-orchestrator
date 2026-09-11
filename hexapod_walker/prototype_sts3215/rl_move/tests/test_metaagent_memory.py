@@ -27,7 +27,12 @@ def saved_review(database, number=0, *, outcome="succeeded", summary=None):
               "recommended_actions": [{"action": "inspect", "target": "robot-lab",
                                        "reason": "Check evidence", "evidence": ["snapshot:jobs"]}],
               "goal_assessment": {goal: {"sim": "Unknown", "physical": "Unknown", "next_step": "Inspect demo"}
-                                  for goal in ("any_means", "rl_only")}}
+                                  for goal in ("any_means", "rl_only")},
+              "strategic_assessment": {topic: {"diagnosis": "Unknown", "evidence": [],
+                                                "decision": "Inspect evidence",
+                                                "next_review_trigger": "New measured result"}
+                                       for topic in ("robot_lab_throughput", "rl_experiment_portfolio",
+                                                     "integrated_policy")}}
     report = {"generated_at": f"2026-09-09T15:20:{number:02d}+00:00", "wake": {"wake_id": f"wake-{number}"},
               "findings": [], "memory": {"recursive": "not copied"}, "logs": "raw-log-must-not-copy",
               "llm_review": {"status": "completed" if outcome == "succeeded" else "invalid_response",
@@ -58,6 +63,8 @@ def test_memory_reuses_only_bounded_successful_advisory_json_without_paid_calls(
     assert memory["recent_reviews"][0]["wake_id"] == "wake-4"
     assert memory["recent_reviews"][0]["generated_at"] == "2026-09-09T15:20:04.000000+00:00"
     assert memory["recent_reviews"][0]["recommended_actions"][0]["action"] == "inspect"
+    assert set(memory["recent_reviews"][0]["strategic_assessment"]) == {
+        "robot_lab_throughput", "rl_experiment_portfolio", "integrated_policy"}
     assert memory["truncated"] is True and memory["omitted"]["reviews"] == 2
     text = json.dumps(memory)
     for forbidden in ("raw-log-must-not-copy", "private-diagnostic-must-not-copy", "recursive"):
@@ -285,7 +292,12 @@ def test_paid_review_receives_prior_valid_json_and_operator_correction(tmp_path,
 def saved_review_value():
     return {"summary": "New evidence-based review", "risks": [], "recommended_actions": [],
             "goal_assessment": {goal: {"sim": "Unknown", "physical": "Unknown", "next_step": "Inspect demo"}
-                                for goal in ("any_means", "rl_only")}}
+                                for goal in ("any_means", "rl_only")},
+            "strategic_assessment": {topic: {"diagnosis": "Unknown", "evidence": [],
+                                              "decision": "Inspect evidence",
+                                              "next_review_trigger": "New measured result"}
+                                     for topic in ("robot_lab_throughput", "rl_experiment_portfolio",
+                                                   "integrated_policy")}}
 
 
 def test_cli_status_and_preview_use_read_only_scheduler_status(tmp_path, monkeypatch, capsys):

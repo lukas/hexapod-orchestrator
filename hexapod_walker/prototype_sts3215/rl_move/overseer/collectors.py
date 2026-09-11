@@ -25,9 +25,11 @@ MAX_JOBS = 200
 MAX_COST_FILES = 400
 MAX_JSON_BYTES = 65536
 MAX_TAIL_BYTES = 65536
+MAX_LAB_HISTORY = 30
 FRESH_SECONDS = 6 * 3600
 SERVICE_LABELS = (
     "com.lbiewald.hexapod-lab",
+    "com.lbiewald.hexapod-lab2",
     "com.lbiewald.hexapod-codex-orchestrator",
     "com.lbiewald.hexapod-blocker-alerts",
     "com.lbiewald.hexapod-camera-tunnel",
@@ -301,15 +303,23 @@ def _job_cost(data_dir: Path, job_id: str, attempts: int, budget: list[int]) -> 
     return "known", total, provider
 
 
-def _lab(lab_root: Path, now: str, errors: list[dict]) -> tuple[list[dict], list[dict]]:
+def _elapsed_seconds(started: Any, finished: Any) -> float | None:
+    start, finish = _time(started), _time(finished)
+    if start is None or finish is None or finish < start:
+        return None
+    return round((finish - start).total_seconds(), 3)
+
+
+def _lab(lab_root: Path, now: str, errors: list[dict]) -> tuple[list[dict], list[dict], dict]:
     data_dir = lab_root / "data" if (lab_root / "data").is_dir() else lab_root
     database = data_dir / "lab.sqlite3"
     agents, services = [], []
     cost_budget = [MAX_COST_FILES]
     if not database.is_file():
         errors.append(_error(database, "unavailable", "Robot Lab database unavailable"))
-        return agents, services
+        return agents, services, {}
     provider = "unknown"
+    legacy_jobs: list[dict] = []
     try:
         value = (lab_root / "agent-provider").read_text()[:30].strip()
         if value in {"claude", "codex"}:
@@ -341,7 +351,9 @@ def _lab(lab_root: Path, now: str, errors: list[dict]) -> tuple[list[dict], list
                     errors.append(_error(database, "schema_unavailable", f"Lab {table} table unavailable"))
                     continue
                 columns = {r[1] for r in connection.execute(f"PRAGMA table_info({table})")}
-                allowed = [c for c in ("id", "kind", "experiment_id", "status", "attempts", "updated_at", "lease_expires_at") if c in columns]
+                allowed = [c for c in ("id", "kind", "experiment_id", "status", "attempts",
+                                       "created_at", "started_at", "finished_at", "updated_at",
+                                       "lease_expires_at") if c in columns]
                 if not {"id", "status", "updated_at"}.issubset(columns):
                     errors.append(_error(database, "schema_unavailable", f"Lab {table} columns unavailable"))
                     continue
@@ -366,11 +378,126 @@ def _lab(lab_root: Path, now: str, errors: list[dict]) -> tuple[list[dict], list
                     if cost is not None:
                         agent["reported_cost_usd"] = cost
                     agents.append(agent)
+            if "codex_jobs" in tables:
+                columns = {r[1] for r in connection.execute("PRAGMA table_info(codex_jobs)")}
+                timing = [c for c in ("id", "kind", "status", "attempts", "created_at",
+                                      "started_at", "finished_at", "updated_at") if c in columns]
+                if {"id", "status"}.issubset(columns):
+                    order_fields = [c for c in ("finished_at", "started_at", "updated_at", "created_at")
+                                    if c in columns]
+                    order = (f"COALESCE({','.join(order_fields)})" if len(order_fields) > 1
+                             else order_fields[0] if order_fields else "rowid")
+                    rows = connection.execute(
+                        f"SELECT {','.join(timing)} FROM codex_jobs "
+                        f"ORDER BY {order} DESC LIMIT {MAX_LAB_HISTORY}"
+                    ).fetchall()
+                    for row in rows:
+                        item = dict(row)
+                        legacy_jobs.append({
+                            "job_id": sanitize(item.get("id")),
+                            "kind": sanitize(item.get("kind", "unknown")),
+                            "status": sanitize(item.get("status", "unknown")),
+                            "attempts": item.get("attempts"),
+                            "created_at": item.get("created_at"),
+                            "started_at": item.get("started_at"),
+                            "finished_at": item.get("finished_at"),
+                            "execution_seconds": _elapsed_seconds(
+                                item.get("started_at"), item.get("finished_at")),
+                            "end_to_end_seconds": _elapsed_seconds(
+                                item.get("created_at"),
+                                item.get("finished_at") or item.get("updated_at")),
+                        })
     except (OSError, sqlite3.Error, ValueError) as exc:
         errors.append(_error(database, "unavailable", f"Read-only Lab query failed ({type(exc).__name__})"))
     if cost_budget[0] <= 0:
         errors.append(_error(database, "cost_scan_truncated", "Attempt-cost scan reached its bounded file limit; unscanned costs remain unknown"))
-    return agents, services
+    portfolio = {"robot_lab_legacy": {"source": str(database), "recent_jobs": legacy_jobs}}
+    return agents, services, portfolio
+
+
+def _lab2(lab_root: Path, now: str, errors: list[dict]) -> tuple[list[dict], dict]:
+    """Export bounded v2 throughput and findings, not artifact paths or logs."""
+    data_dir = lab_root / "v2"
+    if not data_dir.is_dir():
+        return [], {}
+    database = data_dir / "lab2.sqlite3"
+    if not database.is_file():
+        errors.append(_error(database, "unavailable", "Robot Lab v2 database unavailable"))
+        return [], {}
+    services: list[dict] = []
+    try:
+        with closing(sqlite3.connect(database.resolve().as_uri() + "?mode=ro", uri=True, timeout=0.25)) as connection:
+            connection.row_factory = sqlite3.Row
+            deadline = time.monotonic() + 1
+            connection.set_progress_handler(lambda: int(time.monotonic() > deadline), 1000)
+            tables = {r[0] for r in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+            if not {"plans", "runs"}.issubset(tables):
+                raise ValueError("Robot Lab v2 schema unavailable")
+            plan_counts = {sanitize(row["status"]): row["count"] for row in connection.execute(
+                "SELECT status,COUNT(*) AS count FROM plans GROUP BY status LIMIT 20")}
+            run_counts = {sanitize(row["status"]): row["count"] for row in connection.execute(
+                "SELECT status,COUNT(*) AS count FROM runs GROUP BY status LIMIT 20")}
+            updated = connection.execute(
+                "SELECT MAX(COALESCE(finished_at,started_at)) FROM runs").fetchone()[0]
+            services.extend([
+                {"service_id": "lab2:plans", "name": "Robot Lab v2 plans",
+                 "status": "paused" if (data_dir / "PAUSE").exists() else "observed",
+                 "source": str(database), "observed_at": now, "source_updated_at": updated,
+                 "counts": plan_counts},
+                {"service_id": "lab2:runs", "name": "Robot Lab v2 runs", "status": "observed",
+                 "source": str(database), "observed_at": now, "source_updated_at": updated,
+                 "counts": run_counts},
+            ])
+            rows = connection.execute(
+                "SELECT runs.id,runs.started_at,runs.finished_at,runs.status,runs.exit_code,"
+                "runs.summary_json,plans.title,plans.why,plans.protocol,plans.kind,plans.source "
+                "FROM runs JOIN plans ON plans.id=runs.plan_id "
+                f"ORDER BY runs.started_at DESC,runs.rowid DESC LIMIT {MAX_LAB_HISTORY}"
+            ).fetchall()
+            recent_runs = []
+            for row in rows:
+                item = dict(row)
+                finding = None
+                if "learnings" in tables:
+                    learned = connection.execute(
+                        "SELECT text FROM learnings WHERE run_id=? ORDER BY created_at DESC,rowid DESC LIMIT 1",
+                        (item["id"],)).fetchone()
+                    finding = learned[0] if learned else None
+                summary = None
+                try:
+                    parsed = json.loads(item.get("summary_json") or "null")
+                    if isinstance(parsed, dict):
+                        summary = sanitize(json.dumps(parsed, sort_keys=True), 700)
+                except (TypeError, ValueError):
+                    pass
+                recent_runs.append({
+                    "run_id": sanitize(item["id"]), "title": sanitize(item["title"], 300),
+                    "protocol": sanitize(item.get("protocol") or item.get("kind"), 200),
+                    "why": sanitize(item.get("why"), 400), "status": sanitize(item["status"]),
+                    "started_at": item.get("started_at"), "finished_at": item.get("finished_at"),
+                    "wall_seconds": _elapsed_seconds(item.get("started_at"), item.get("finished_at")),
+                    "exit_code": item.get("exit_code"), "source": sanitize(item.get("source")),
+                    "finding": sanitize(finding, 500) if finding else None,
+                    "runner_summary": summary,
+                })
+            spend = []
+            if "spend" in tables:
+                spend = [{"kind": sanitize(row["kind"]), "usd": row["usd"],
+                          "created_at": row["created_at"]} for row in connection.execute(
+                    "SELECT kind,usd,created_at FROM spend ORDER BY created_at DESC,rowid DESC LIMIT 60")]
+            events = []
+            if "events" in tables:
+                events = [{"kind": sanitize(row["kind"]), "created_at": row["created_at"],
+                           "text": sanitize(row["text"], 700)} for row in connection.execute(
+                    "SELECT kind,created_at,text FROM events ORDER BY created_at DESC,rowid DESC LIMIT 20")]
+            return services, {"robot_lab_v2": {"source": str(database),
+                "queue_counts": plan_counts, "run_counts": run_counts,
+                "recent_runs": recent_runs, "recent_spend": spend, "recent_events": events,
+                "timing_contract": {"health_seconds": 10, "postrun_seconds": 60,
+                                    "planning_seconds": 120, "run_timeout_seconds": 900}}}
+    except (OSError, sqlite3.Error, ValueError) as exc:
+        errors.append(_error(database, "unavailable", f"Read-only Robot Lab v2 query failed ({type(exc).__name__})"))
+        return services, {}
 
 
 def collect_local(project_root: Path, home: Path | None = None,
@@ -379,13 +506,17 @@ def collect_local(project_root: Path, home: Path | None = None,
     project_root, home = Path(project_root), Path(home) if home is not None else Path.home()
     lab_root = Path(lab_root) if lab_root is not None else home / "Library/Application Support/Hexapod Lab"
     observed = _stamp(now)
-    result = {"collected_at": observed, "agents": [], "services": [], "automations": [], "errors": []}
+    result = {"collected_at": observed, "agents": [], "services": [], "automations": [],
+              "portfolio_evidence": {}, "errors": []}
     errors = result["errors"]
     processes = _processes(errors)
     result["agents"] = _claude(home, project_root, lab_root, observed, processes, errors)
-    lab_agents, lab_services = _lab(lab_root, observed, errors)
+    lab_agents, lab_services, lab_portfolio = _lab(lab_root, observed, errors)
+    lab2_services, lab2_portfolio = _lab2(lab_root, observed, errors)
     result["agents"].extend(lab_agents)
-    result["services"] = lab_services + _services(observed, errors)
+    result["services"] = lab_services + lab2_services + _services(observed, errors)
+    result["portfolio_evidence"].update(lab_portfolio)
+    result["portfolio_evidence"].update(lab2_portfolio)
     for service in result["services"]:
         service.setdefault("state", service["status"])
         service.setdefault("kind", "queue" if service["service_id"] == "lab:queue" else "service")

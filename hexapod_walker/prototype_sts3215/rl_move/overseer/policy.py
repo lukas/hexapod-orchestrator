@@ -83,6 +83,18 @@ def reflection(record: dict) -> dict:
 
 
 ROBOT_LAB_PENDING_STATUSES = ("queued", "running", "waiting_for_operator")
+ROBOT_LAB2_PENDING_STATUSES = ("queued", "building", "running")
+_PORTFOLIO_VOLATILE_FIELDS = {"source", "observed_at", "collected_at", "source_age_seconds"}
+
+
+def _stable_portfolio(value):
+    """Remove collection metadata so a fresh read is not mistaken for progress."""
+    if isinstance(value, dict):
+        return {key: _stable_portfolio(item) for key, item in value.items()
+                if key not in _PORTFOLIO_VOLATILE_FIELDS}
+    if isinstance(value, list):
+        return [_stable_portfolio(item) for item in value]
+    return value
 
 
 def robot_lab_queue_drained(services: list) -> bool:
@@ -94,6 +106,15 @@ def robot_lab_queue_drained(services: list) -> bool:
     runner and re-checks it before asking for a plan. An empty campaign queue
     is a strategy question, and that is what a review answers.
     """
+    # V2 replaced the old orchestrator. Prefer its current plan queue when
+    # both historical databases are visible on the same Mac.
+    for service in services:
+        if not isinstance(service, dict) or service.get("service_id") != "lab2:plans":
+            continue
+        counts = service.get("counts")
+        if not isinstance(counts, dict):
+            return False
+        return not any(int(counts.get(name) or 0) for name in ROBOT_LAB2_PENDING_STATUSES)
     for service in services:
         if not isinstance(service, dict):
             continue
@@ -120,8 +141,10 @@ def evaluate(snapshot: dict, *, history: dict | None = None,
     history = history or {}
     agents = snapshot.get("agents", [])
     services = snapshot.get("services", [])
-    if not isinstance(agents, list) or not isinstance(services, list):
-        raise ValueError("agents and services must be lists")
+    portfolio = snapshot.get("portfolio_evidence", {})
+    if (not isinstance(agents, list) or not isinstance(services, list)
+            or not isinstance(portfolio, dict)):
+        raise ValueError("agents and services must be lists; portfolio_evidence must be an object")
     agents = [dict(a) if isinstance(a, dict) else a for a in agents]
     overseer_ids = {a.get('agent_id') for a in agents if isinstance(a,dict)
                     and (a.get('is_overseer') or a.get('overseer_wake_id'))}
@@ -258,7 +281,7 @@ def evaluate(snapshot: dict, *, history: dict | None = None,
     new_incidents = [f["incident_id"] for f in findings
                      if f["severity"] == "warning" and f["incident_id"] not in seen]
     last = age_seconds(history.get("last_review_at"), current)
-    six_hour_due = bool(active) and (last is None or last >= REVIEW_SECONDS)
+    six_hour_due = bool(active or portfolio) and (last is None or last >= REVIEW_SECONDS)
     unchanged = False
     fingerprint_data = [{"id": a.get("agent_id"), "status": status(a),
         "progress": a.get("last_progress_at"), "evidence": a.get("progress_evidence", []),
@@ -269,7 +292,10 @@ def evaluate(snapshot: dict, *, history: dict | None = None,
         'desired_state':s.get('desired_state'), 'auth_failure':s.get('auth_failure'),
         'auth_recovery_status':s.get('auth_recovery_status'), 'dependency_version':s.get('dependency_version')}
         for s in services], key=lambda s: str(s['id']))
-    fingerprint = hashlib.sha256(json.dumps({'agents':fingerprint_data,'dependencies':dependencies}, sort_keys=True, default=str).encode()).hexdigest()
+    fingerprint = hashlib.sha256(json.dumps(
+        {'agents': fingerprint_data, 'dependencies': dependencies,
+         'portfolio': _stable_portfolio(portfolio)},
+        sort_keys=True, default=str).encode()).hexdigest()
     if history.get("fingerprint") == fingerprint and history.get("last_outcome") in {"blocked", "no_change", "idle"}:
         unchanged = True
         six_hour_due = False
@@ -280,7 +306,7 @@ def evaluate(snapshot: dict, *, history: dict | None = None,
     if spend_due:
         reasons.append("at least $100 of new unreviewed task spending")
     if six_hour_due:
-        reasons.append("six-hour active-work review due")
+        reasons.append("six-hour project strategy review due")
     # An empty Robot Lab queue is the campaign having nothing to do next. On
     # 09-10 that state persisted eight hours after ten successful experiments,
     # because every existing trigger keys off activity and there was none. It
@@ -305,7 +331,7 @@ def evaluate(snapshot: dict, *, history: dict | None = None,
         notes.append("Some active agents have no registered goal mapping; ask their owners to register task purpose and evidence.")
     if unchanged:
         notes.append("The previously reviewed blocked/unchanged work state is unchanged; the timer alone does not request another LLM session.")
-    if not active and not spend_due and not new_incidents and not queue_drained:
+    if not active and not portfolio and not spend_due and not new_incidents and not queue_drained:
         notes.append("No eligible active work, new spending or new incident: exit without a model call.")
     if queue_drained:
         notes.append("Robot Lab's experiment queue is empty. Recommending the next experiment toward smooth walking is advisory: Robot Lab's own analysis lane and guarded runner remain the only path that queues or executes one.")
@@ -320,6 +346,7 @@ def evaluate(snapshot: dict, *, history: dict | None = None,
                    "wrap_up_usd": "15.00", "additional_model_cost_usd": "0.00",
                    "unknown_cost_agents": unknown_cost},
         "agents": agents, "services": services, "automations": snapshot.get("automations", []),
+        "portfolio_evidence": portfolio,
         "findings": findings, "proposed_notifications": notifications,
         "reflections": [reflection(a) for a in active],
         "goal_readiness": snapshot.get("goal_readiness", {
@@ -328,4 +355,4 @@ def evaluate(snapshot: dict, *, history: dict | None = None,
             for goal in sorted(GOALS)}),
         "notes": notes, "source_errors": snapshot.get("errors", []),
         "actions_executed": [], "notifications_sent": [],
-        "next_event": "new work/evidence, changed dependency, new $100 spending, or a new persistent failure"}
+        "next_event": "new work/evidence, changed portfolio, new $100 spending, or a new persistent failure"}

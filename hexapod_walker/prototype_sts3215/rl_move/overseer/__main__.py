@@ -136,6 +136,22 @@ def supplement(path: str, kind: str, root: Path) -> dict:
         return {'agents': [], 'services': [], 'errors': [{'source': kind, 'code': 'export_failed', 'message': 'Authenticated source export returned an error; coverage is unavailable.'}]}
     if kind == 'cloud':
         return normalize_cloud_activity(envelope['data'], now=envelope['collected_at'])
+    if kind == 'strategy':
+        data = envelope['data']
+        if not isinstance(data, dict):
+            raise ValueError('strategy source data must be an object')
+        allowed = {}
+        for key in ('research_brief', 'recent_runs'):
+            value = data.get(key)
+            if value is not None:
+                if not isinstance(value, str):
+                    raise ValueError('strategy source fields must be text')
+                limit = 16000 if key == 'research_brief' else 64000
+                allowed[key] = value[:limit]
+        if not allowed:
+            raise ValueError('strategy source contains no recognized evidence')
+        return {'portfolio_evidence': {'rl_campaign': {
+            'source': 'RL public read-only status', 'observed_at': envelope['collected_at'], **allowed}}}
     return {'agents': normalize_codex_threads(envelope['data'], root, now=envelope['collected_at'])}
 
 
@@ -146,15 +162,18 @@ def collect(args, database: Path) -> dict:
         raise ValueError('snapshot must be an object')
     for key in ('agents', 'services', 'automations', 'errors'):
         snapshot.setdefault(key, [])
-    for attr, kind in [('cloud_activity', 'cloud'), ('codex_threads', 'codex')]:
-        path = getattr(args, attr)
+    snapshot.setdefault('portfolio_evidence', {})
+    for attr, kind in [('cloud_activity', 'cloud'), ('codex_threads', 'codex'),
+                       ('strategy_evidence', 'strategy')]:
+        path = getattr(args, attr, None)
         if path:
             addition = supplement(path, kind, root)
             for key in ('agents', 'services', 'errors'):
                 snapshot[key].extend(addition.get(key, []))
+            snapshot['portfolio_evidence'].update(addition.get('portfolio_evidence', {}))
         elif not args.snapshot:
             snapshot['errors'].append({'source': kind, 'code': 'not_supplied',
-                                      'message': 'Fresh authenticated source export was not supplied; coverage is incomplete.'})
+                                      'message': 'Fresh source export was not supplied; coverage is incomplete.'})
     for item in snapshot['agents']:
         item.pop('unreviewed_through_seq', None)
     snapshot['agents'] = merge_registry(snapshot['agents'], read_registry(database))
@@ -164,11 +183,14 @@ def collect(args, database: Path) -> dict:
                 agent['is_overseer'] = True
     # Include dated documentation as evidence, never automatically declare a goal done.
     documents = []
-    for name in ('RL_GOALS.md', 'STATUS.md', 'CURRENT_TRUTHS.md'):
-        source = root/'hexapod_walker/prototype_sts3215'/name
+    document_sources = [
+        (root/'hexapod_walker/prototype_sts3215'/name, 16000)
+        for name in ('RL_GOALS.md', 'STATUS.md', 'CURRENT_TRUTHS.md')]
+    document_sources.append((root/'experiment_lab/hexapod_lab2/README.md', 8000))
+    for source, limit in document_sources:
         if source.is_file():
             with source.open('r', encoding='utf-8') as stream:
-                excerpt = stream.read(16000)
+                excerpt = stream.read(limit)
             documents.append({'path': str(source), 'excerpt': excerpt,
                               'basis': 'repository document, not a fresh robot observation'})
     snapshot['goal_documents'] = documents
@@ -234,6 +256,9 @@ def compact_for_review(report: dict, snapshot: dict) -> dict:
         findings.append(item)
     return {'generated_at': report['generated_at'], 'wake': report['wake'],
             'agents': projected, 'findings': findings,
+            'services': report.get('services', []),
+            'portfolio_evidence': snapshot.get('portfolio_evidence', {}),
+            'goal_readiness': report.get('goal_readiness', {}),
             'source_errors': report['source_errors'], 'notes': report['notes'],
             'goal_documents': snapshot.get('goal_documents', []),
             'memory': snapshot.get('memory', {}),
@@ -399,6 +424,7 @@ def parser() -> argparse.ArgumentParser:
         item.add_argument('--snapshot')
         item.add_argument('--cloud-activity')
         item.add_argument('--codex-threads')
+        item.add_argument('--strategy-evidence')
         item.add_argument('--self-agent', action='append', default=[])
         item.add_argument('--output')
         item.add_argument('--force', action='store_true', help='request one manual review even without an automatic trigger')

@@ -173,7 +173,12 @@ def cli_case(tmp_path, monkeypatch):
 def completed_response():
     advisory = {"summary": "Inspect the next walking demo", "risks": [], "recommended_actions": [],
                 "goal_assessment": {goal: {"sim": "Unknown", "physical": "Unknown", "next_step": "Inspect evidence"}
-                                    for goal in ("any_means", "rl_only")}}
+                                    for goal in ("any_means", "rl_only")},
+                "strategic_assessment": {topic: {"diagnosis": "Unknown", "evidence": [],
+                                                  "decision": "Inspect evidence",
+                                                  "next_review_trigger": "New measured result"}
+                                         for topic in ("robot_lab_throughput", "rl_experiment_portfolio",
+                                                       "integrated_policy")}}
     return {"model": "claude-fixture", "stop_reason": "end_turn",
             "usage": {"input_tokens": 100, "output_tokens": 200},
             "content": [{"type": "text", "text": json.dumps(advisory)}]}

@@ -59,6 +59,11 @@ def response(config):
             "any_means": {"sim": "No fresh demo evidence", "physical": "Unknown", "next_step": "Inspect pinned demo"},
             "rl_only": {"sim": "No fresh demo evidence", "physical": "Unknown", "next_step": "Inspect policy lineage"},
         },
+        "strategic_assessment": {
+            topic: {"diagnosis": "Unknown", "evidence": [], "decision": "Inspect evidence",
+                    "next_review_trigger": "New measured result"}
+            for topic in ("robot_lab_throughput", "rl_experiment_portfolio", "integrated_policy")
+        },
     }
     return {
         "model": config.model, "stop_reason": "end_turn", "usage": {"input_tokens": 100, "output_tokens": 200},

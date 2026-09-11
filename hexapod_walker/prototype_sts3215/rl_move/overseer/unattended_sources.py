@@ -37,6 +37,11 @@ from .collectors import _project_path
 from .report import redact
 
 RL_ENDPOINT = "https://hexapod.cwd1f0-new-cluster.coreweave.app/mcp"
+RL_STRATEGY_URLS = {
+    "research_brief": "https://hexapod.cwd1f0-new-cluster.coreweave.app/llm/brief.md",
+    "recent_runs": "https://hexapod.cwd1f0-new-cluster.coreweave.app/llm/runs.md",
+}
+RL_STRATEGY_LIMITS = {"research_brief": 16_000, "recent_runs": 64_000}
 MAX_BYTES = 1_500_000  # below the review CLI's two MB envelope limit
 MAX_THREADS = 200
 SOURCE_KINDS = ["cli", "vscode", "exec", "appServer", "subAgent", "subAgentReview",
@@ -306,6 +311,59 @@ def _cloud_source(destination, timeout, home):
         return path, "available", []
 
 
+def _strategy_source(destination, timeout):
+    """Read bounded public campaign digests; these are evidence, not commands."""
+    deadline = time.monotonic() + timeout
+    data, errors = {}, []
+    with tempfile.TemporaryDirectory(prefix=".metaagent-strategy-", dir=destination.parent) as private:
+        for name, url in RL_STRATEGY_URLS.items():
+            try:
+                remaining = _remaining(deadline)
+            except SourceUnavailable:
+                errors.append(_error(f"rl:{name}", "timeout",
+                                     "Strategic campaign evidence exceeded its time bound."))
+                break
+            response_path = Path(private) / f"{name}.txt"
+            limit = RL_STRATEGY_LIMITS[name]
+            argv = ["curl", "-q", "-f", "-L", "-sS", "--ignore-content-length", "--connect-timeout",
+                    str(min(10, remaining)), "--max-time", str(remaining),
+                    "--max-filesize", str(limit), url, "-o", str(response_path)]
+            try:
+                completed = subprocess.run(argv, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                                           stderr=subprocess.DEVNULL, timeout=remaining + 1, check=False)
+            except subprocess.SubprocessError:
+                errors.append(_error(f"rl:{name}", "timeout",
+                                     "Strategic campaign evidence exceeded its time bound."))
+                break
+            try:
+                raw = response_path.read_bytes()
+            except OSError:
+                errors.append(_error(f"rl:{name}", "source_unavailable",
+                                     "Fresh strategic campaign evidence is unavailable."))
+                continue
+            # Curl returns nonzero after writing exactly the allowed prefix when
+            # the public ledger is larger. That is our intended bounded read.
+            truncated = completed.returncode != 0 and len(raw) == limit
+            if completed.returncode and not truncated:
+                errors.append(_error(f"rl:{name}", "transport_unavailable",
+                                     "Fresh strategic campaign evidence is unavailable."))
+                continue
+            if len(raw) > limit:
+                errors.append(_error(f"rl:{name}", "payload_limit",
+                                     "Strategic campaign evidence exceeded its bounded read."))
+                continue
+            try:
+                text = redact(raw.decode("utf-8", errors="ignore" if truncated else "strict"))
+                data[name] = text + ("\n[bounded excerpt]" if truncated else "")
+            except UnicodeError:
+                errors.append(_error(f"rl:{name}", "invalid_response",
+                                     "Strategic campaign evidence was not valid text."))
+    if not data:
+        raise SourceUnavailable("strategy_unavailable")
+    path = _envelope(destination, data, mode="public_read_only")
+    return path, "partial" if errors else "available", errors
+
+
 def collect_unattended(project_root: Path, output_dir: Path, *, timeout_seconds: float = 30,
                        codex_bin: str | None = None, codex_socket: str | None = None,
                        home: Path | None = None) -> dict:
@@ -313,7 +371,7 @@ def collect_unattended(project_root: Path, output_dir: Path, *, timeout_seconds:
 
     Reads take at most the per-source timeout concurrently (plus child cleanup).
     Returned paths are fresh private JSON files, or None on failure. Old files
-    at the two owned export paths are removed before collection. ``home`` only
+    at the three owned export paths are removed before collection. ``home`` only
     selects the RL credential configuration; Codex respects its own CLI config.
     Unknown cost is untouched; these requests never invoke an LLM.
     """
@@ -324,14 +382,18 @@ def collect_unattended(project_root: Path, output_dir: Path, *, timeout_seconds:
     target.mkdir(parents=True, exist_ok=True)
     target.chmod(0o700)
     root, home = Path(project_root), Path(home) if home is not None else Path.home()
-    paths = {"codex_threads": target / "codex-threads.json", "cloud_activity": target / "cloud-activity.json"}
+    paths = {"codex_threads": target / "codex-threads.json",
+             "cloud_activity": target / "cloud-activity.json",
+             "strategy_evidence": target / "strategy-evidence.json"}
     for path in paths.values():
         path.unlink(missing_ok=True)
     result = {"collected_at": _stamp(), "codex_threads": None, "cloud_activity": None,
+              "strategy_evidence": None,
               "source_status": {}, "errors": []}
-    with ThreadPoolExecutor(max_workers=2, thread_name_prefix="metaagent-source") as pool:
+    with ThreadPoolExecutor(max_workers=3, thread_name_prefix="metaagent-source") as pool:
         pending = {"codex_threads": pool.submit(_codex_source, root, paths["codex_threads"], timeout, codex_bin, codex_socket),
-                   "cloud_activity": pool.submit(_cloud_source, paths["cloud_activity"], timeout, home)}
+                   "cloud_activity": pool.submit(_cloud_source, paths["cloud_activity"], timeout, home),
+                   "strategy_evidence": pool.submit(_strategy_source, paths["strategy_evidence"], timeout)}
         for source, future in pending.items():
             try:
                 path, status, errors = future.result()

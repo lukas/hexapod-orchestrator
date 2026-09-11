@@ -109,6 +109,16 @@ def test_terminal_task_due_for_spend_review_is_included_before_active_work():
     assert compact_for_review(report,{})['agents'][0]['agent_id'] == 'terminal'
 
 
+def test_review_packet_includes_services_portfolio_and_goal_readiness():
+    snapshot = {'agents': [], 'portfolio_evidence': {'rl_campaign': {'recent_runs': 'run-a'}},
+                'services': [{'service_id': 'lab2:runs', 'status': 'observed'}]}
+    report = evaluate(snapshot, now=NOW)
+    packet = compact_for_review(report, snapshot)
+    assert packet['services'][0]['service_id'] == 'lab2:runs'
+    assert packet['portfolio_evidence'] == snapshot['portfolio_evidence']
+    assert set(packet['goal_readiness']) == {'any_means', 'rl_only'}
+
+
 def test_overseer_attribution_follows_parent_chain():
     report = evaluate({'agents':[{'agent_id':'root','is_overseer':True},
         {'agent_id':'child','parent_id':'root'}, {'agent_id':'grandchild','parent_id':'child',

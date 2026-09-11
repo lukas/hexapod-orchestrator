@@ -37,3 +37,15 @@ def test_failed_connector_export_is_disclosed(tmp_path):
     assert result['agents']==[]
     assert result['errors'][0]['code']=='export_failed'
     assert 'private' not in json.dumps(result)
+
+
+def test_strategy_export_becomes_bounded_portfolio_evidence(tmp_path):
+    source = tmp_path / 'strategy.json'
+    source.write_text(json.dumps({'collected_at': '2026-09-09T14:00:00Z', 'data': {
+        'research_brief': 'current hypotheses', 'recent_runs': 'run-a then run-b',
+        'ignored': 'not exported'}}))
+    result = engine.supplement(str(source), 'strategy', tmp_path)
+    campaign = result['portfolio_evidence']['rl_campaign']
+    assert campaign['research_brief'] == 'current hypotheses'
+    assert campaign['recent_runs'] == 'run-a then run-b'
+    assert 'ignored' not in campaign

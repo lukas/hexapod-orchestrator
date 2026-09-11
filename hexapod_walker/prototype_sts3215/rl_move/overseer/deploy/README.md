@@ -206,9 +206,11 @@ launchctl print "gui/$(id -u)/com.lbiewald.hexapod-metaagent-scheduler"
 
 The dashboard shows saved enablement and actual last-check evidence separately.
 An overdue expected check indicates a sleeping/offline host or missing runner,
-not successful supervision. Sources use bounded authenticated reads; unavailable
-Codex runtime status or costs stay unknown. Partial coverage can review known
-active work, but cannot establish that the whole project is idle.
+not successful supervision. Sources use bounded reads: authenticated agent/RL
+activity, local Robot Lab v2 throughput, and the public RL research brief/run
+ledger. Unavailable Codex runtime status, portfolio evidence or costs stay
+unknown. Partial coverage can review known work, but cannot establish that the
+whole project is idle.
 
 Idle/unchanged checks and budget waits spend no tokens. Failed/uncertain paid
 reviews create a persistent hold, visible on the dashboard. Inspect the original

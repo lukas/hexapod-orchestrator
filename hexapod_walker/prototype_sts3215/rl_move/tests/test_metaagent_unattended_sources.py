@@ -134,6 +134,29 @@ def test_authenticated_cloud_read_is_bounded_sanitized_and_private(tmp_path, mon
     assert normalized["services"][0]["auth_failure"] is True
 
 
+def test_public_strategy_read_is_bounded_sanitized_and_private(tmp_path, monkeypatch):
+    calls = []
+
+    def run(argv, **kwargs):
+        calls.append((argv, kwargs))
+        url = next(value for value in argv if value.startswith("https://"))
+        body = ("brief password=private-secret" if url.endswith("brief.md")
+                else "run ledger Authorization: Bearer private-token")
+        Path(argv[argv.index("-o") + 1]).write_text(body)
+        return SimpleNamespace(returncode=0)
+
+    monkeypatch.setattr(sources.subprocess, "run", run)
+    path, status, errors = sources._strategy_source(tmp_path / "strategy.json", 8)
+    envelope = json.loads(Path(path).read_text())
+    assert status == "available" and not errors
+    assert set(envelope["data"]) == {"research_brief", "recent_runs"}
+    assert envelope["source_mode"] == "public_read_only"
+    assert "private-secret" not in json.dumps(envelope)
+    assert "private-token" not in json.dumps(envelope)
+    assert all("--max-filesize" in argv for argv, _ in calls)
+    assert not list(tmp_path.glob(".metaagent-strategy-*"))
+
+
 @pytest.mark.parametrize("response,code", [
     ({"id": 1, "error": {"message": "private-credential"}}, "mcp_request_failed"),
     ({"id": 1, "result": {"isError": True, "content": [{"type": "text", "text": "private-credential"}]}}, "mcp_request_failed"),
@@ -162,7 +185,7 @@ def test_cloud_credentials_environment_and_endpoint_allowlist(tmp_path, monkeypa
 
 
 def test_missing_sources_cannot_reuse_old_exports_or_leak_exception(tmp_path, monkeypatch):
-    for name in ("codex-threads.json", "cloud-activity.json"):
+    for name in ("codex-threads.json", "cloud-activity.json", "strategy-evidence.json"):
         (tmp_path / name).write_text("stale export")
 
     def failed(*args):
@@ -170,8 +193,10 @@ def test_missing_sources_cannot_reuse_old_exports_or_leak_exception(tmp_path, mo
 
     monkeypatch.setattr(sources, "_codex_source", failed)
     monkeypatch.setattr(sources, "_cloud_source", failed)
+    monkeypatch.setattr(sources, "_strategy_source", failed)
     result = sources.collect_unattended(tmp_path, tmp_path, home=tmp_path)
-    assert result["codex_threads"] is None and result["cloud_activity"] is None
+    assert (result["codex_threads"] is None and result["cloud_activity"] is None
+            and result["strategy_evidence"] is None)
     assert set(result["source_status"].values()) == {"unavailable"}
     assert "private-credential" not in json.dumps(result)
     assert not (tmp_path / "codex-threads.json").exists()
@@ -184,8 +209,10 @@ def test_one_source_failure_does_not_suppress_independent_fresh_source(tmp_path,
 
     monkeypatch.setattr(sources, "_codex_source", failed)
     monkeypatch.setattr(sources, "_cloud_source", lambda *a: ("fresh-cloud.json", "available", []))
+    monkeypatch.setattr(sources, "_strategy_source", lambda *a: ("fresh-strategy.json", "available", []))
     result = sources.collect_unattended(tmp_path, tmp_path)
     assert result["cloud_activity"] == "fresh-cloud.json"
+    assert result["strategy_evidence"] == "fresh-strategy.json"
     assert result["source_status"]["codex_threads"] == "unavailable"
 
 

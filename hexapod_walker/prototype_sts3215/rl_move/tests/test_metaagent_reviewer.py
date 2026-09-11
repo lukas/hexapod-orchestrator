@@ -32,6 +32,11 @@ def response(config):
             goal: {"sim": "Unknown", "physical": "Unknown", "next_step": "Inspect the latest demo"}
             for goal in ("any_means", "rl_only")
         },
+        "strategic_assessment": {
+            topic: {"diagnosis": "Unknown", "evidence": [], "decision": "Inspect evidence",
+                    "next_review_trigger": "New measured result"}
+            for topic in ("robot_lab_throughput", "rl_experiment_portfolio", "integrated_policy")
+        },
     }
     return {
         "model": config.model, "status": "completed", "service_tier": "default",

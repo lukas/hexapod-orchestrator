@@ -50,7 +50,12 @@ def registered_record():
 def model_advice(summary, actions=None):
     return {"summary": summary, "risks": [], "recommended_actions": actions or [],
             "goal_assessment": {goal: {"sim": "Unknown", "physical": "Unknown", "next_step": "Read current evidence"}
-                                for goal in ("any_means", "rl_only")}}
+                                for goal in ("any_means", "rl_only")},
+            "strategic_assessment": {topic: {"diagnosis": "Unknown", "evidence": [],
+                                              "decision": "Inspect evidence",
+                                              "next_review_trigger": "New measured result"}
+                                     for topic in ("robot_lab_throughput", "rl_experiment_portfolio",
+                                                   "integrated_policy")}}
 
 
 def test_public_health_and_shell_never_disclose_private_records(client, tmp_path):
@@ -247,6 +252,8 @@ def test_recommendations_include_latest_model_advice_without_an_outbox_incident(
     assert advice["wake_id"] == "wake" and advice["report_id"] == "wake:continuation"
     assert advice["summary"] == "Current advice" and advice["model"] == "current-model"
     assert advice["recommended_actions"] == [action]
+    assert set(advice["strategic_assessment"]) == {
+        "robot_lab_throughput", "rl_experiment_portfolio", "integrated_policy"}
     assert advice["execution_status"] == "proposal_only"
     assert call(client, "list_recommendations").json()["result"]["structuredContent"] == result
     assert store.path.read_bytes() == before

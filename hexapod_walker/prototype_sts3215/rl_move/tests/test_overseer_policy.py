@@ -260,3 +260,30 @@ def test_an_absent_lab_queue_service_is_not_treated_as_empty():
     report = evaluate(snapshot(), now=stamp(),
                       history={"last_review_at": stamp(-7)})
     assert report["wake"]["eligible"] is False, report["wake"]["reasons"]
+
+
+def test_changed_portfolio_evidence_requests_strategy_review_without_live_agent():
+    data = snapshot()
+    data["portfolio_evidence"] = {"rl_campaign": {"recent_runs": "run-a failed the same gate"}}
+    first = evaluate(data, now=stamp(), history={"last_review_at": stamp(-7)})
+    assert first["wake"]["eligible"] is True
+    assert "six-hour project strategy review due" in first["wake"]["reasons"]
+    unchanged = evaluate(data, now=stamp(), history={"last_review_at": stamp(-7),
+                         "last_outcome": "blocked", "fingerprint": first["wake"]["fingerprint"]})
+    assert unchanged["wake"]["eligible"] is False
+    data["portfolio_evidence"]["rl_campaign"]["observed_at"] = stamp(1)
+    assert evaluate(data, now=stamp(), history={"last_review_at": stamp(-7),
+                    "last_outcome": "blocked", "fingerprint": first["wake"]["fingerprint"]})["wake"]["eligible"] is False
+    data["portfolio_evidence"]["rl_campaign"]["recent_runs"] = "run-b tested exploration"
+    assert evaluate(data, now=stamp(), history={"last_review_at": stamp(-7),
+                    "last_outcome": "blocked", "fingerprint": first["wake"]["fingerprint"]})["wake"]["eligible"]
+
+
+def test_robot_lab_v2_plan_queue_supersedes_legacy_history():
+    services = [lab_experiments(succeeded=51),
+                {"service_id": "lab2:plans", "counts": {"running": 1}}]
+    report = evaluate(snapshot(services=services), now=stamp(), history={"last_review_at": stamp(-7)})
+    assert report["wake"]["eligible"] is False
+    services[1]["counts"] = {"done": 3}
+    assert evaluate(snapshot(services=services), now=stamp(),
+                    history={"last_review_at": stamp(-7)})["wake"]["eligible"] is True

@@ -25,13 +25,18 @@ them by default.
 - Codex: a fresh authenticated `list_threads` export. A child agent should register
   its own stable ID and parent/task IDs because the app listing does not expose
   every internal child. App usage percentages are not per-task dollar costs.
-- Robot Lab: read-only durable queue state, bounded job/attempt records, leases,
-  and fixed launchctl service labels. A historical job is not a live worker.
+- Robot Lab: read-only legacy queue history plus Robot Lab v2 plan/run counts,
+  recent wall times, hypotheses, findings, spend, events and its 10/60/120/900
+  second timing contract. A historical run is evidence, not a live worker.
 - Cloud RL: a fresh authenticated `orchestrator_activity` export. Active cycles
   and watcher liveness are separate; old zombie records are not active cycles.
   A broken status poll means trainer status may need independent verification.
+- RL strategy: bounded public excerpts from `/llm/brief.md` and `/llm/runs.md`
+  supply the campaign hypotheses, run families and outcomes needed to distinguish
+  useful replication from low-information repetition. They are read-only data.
 - Canonical goals and accepted evidence: bounded excerpts from `RL_GOALS.md`,
-  `STATUS.md` and `CURRENT_TRUTHS.md`. Operational liveness never proves walking.
+  `STATUS.md`, `CURRENT_TRUTHS.md`, and the Robot Lab v2 design/history README.
+  Operational liveness never proves walking.
 
 The CLI deliberately does not scrape app databases or extract credentials to
 make cloud calls. Use the project's authenticated MCP tools, or its documented
@@ -45,6 +50,7 @@ JSON-RPC fallback, and save each result in this envelope:
 uv run python -m rl_move.metaagent preview \
   --codex-threads /private/path/codex.json \
   --cloud-activity /private/path/cloud.json \
+  --strategy-evidence /private/path/strategy.json \
   --self-agent codex:THIS_OVERSEER_THREAD_ID
 ```
 
@@ -107,8 +113,9 @@ does not silently convert lifetime cost snapshots into repeated new charges.
 
 ## Wake and action policy
 
-The pure policy requests a review for fresh active work due at six hours, at
-least $100 unreviewed task spending, or a new persistent failure/ownership issue.
+The pure policy requests a review for changed project portfolio evidence or
+fresh active work due at six hours, at least $100 unreviewed task spending, or a
+new persistent failure/ownership issue.
 It exits without a model call when nothing qualifies. An unchanged blocked
 state does not purchase another review just because the timer fires. Overseer
 work and descendants marked `is_overseer`/`overseer_wake_id` cannot trigger
@@ -249,7 +256,8 @@ side-effect boundaries. They do not send messages or run robot motion.
 The CoreWeave dashboard is
 <https://metaagent.cwd1f0-new-cluster.coreweave.app/>. It displays saved run
 history, each review's provider/model, settled actual cost, uncertain cost
-reservations, recommendations, goal assessments and missing cost coverage.
+reservations, strategic assessments, recommendations, goal assessments and
+missing cost coverage.
 The website reads the same durable database as manual reviews. Page refreshes
 and MCP reads never run a model. The separate timer runs only when explicitly enabled.
 
@@ -297,8 +305,9 @@ not wake the reviewer or enable Robot Lab/robot execution.
 
 The separate deterministic timer is opt-in. It checks every five minutes,
 exits when idle or unchanged, and admits at most one paid review per six hours.
-The policy still requires fresh eligible activity, new task spending of at least
-$100, or a new supported incident. A failed/interrupted paid attempt holds future
+The policy still requires changed RL/Robot Lab portfolio evidence, fresh eligible
+activity, new task spending of at least $100, or a new supported incident. A
+failed/interrupted paid attempt holds future
 paid reviews for operator inspection. All calls use the original $20/wake,
 $15 wrap-up and $80/rolling-day ledger, including unknown reservations. There is
 no automatic continuation, worker control or model-generated command execution.
@@ -315,8 +324,8 @@ separate. See [deployment instructions](deploy/README.md#recurring-reviews).
 The dashboard/MCP show enablement, last/expected-next check, free checks and paid
 attempts. Missing source coverage and overdue checks are not evidence of idleness.
 
-Future reviewers receive bounded prior successful reviews and explicit saved
-lessons. Historical model recommendations remain hypotheses; owner corrections
+Future reviewers receive bounded prior successful reviews, their three required
+strategy assessments, and explicit saved lessons. Historical model recommendations remain hypotheses; owner corrections
 have separate provenance and never rewrite old reports. This is retained context,
 not model training or autonomous rule changes. `memory` reads the saved context;
 `remember-lesson FILE.json` records an explicit operator lesson. The website's

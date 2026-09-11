@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from rl_move.overseer.reviewer import ReviewConfig, bundled_reviewer_config, review_once
+from rl_move.overseer.reviewer import ReviewConfig, _validate_review, bundled_reviewer_config, review_once
 from rl_move.overseer.store import Store
 
 
@@ -25,7 +25,12 @@ def advice():
             "recommended_actions": [{"action": "inspect", "target": "demo",
                                      "reason": "Verify current evidence", "evidence": ["snapshot:demo"]}],
             "goal_assessment": {goal: {"sim": "Unknown", "physical": "Unknown", "next_step": "Inspect demo"}
-                                for goal in ("any_means", "rl_only")}}
+                                for goal in ("any_means", "rl_only")},
+            "strategic_assessment": {topic: {"diagnosis": "Unknown", "evidence": [],
+                                              "decision": "Inspect evidence",
+                                              "next_review_trigger": "New measured result"}
+                                     for topic in ("robot_lab_throughput", "rl_experiment_portfolio",
+                                                   "integrated_policy")}}
 
 
 def response(config, text=None):
@@ -68,7 +73,8 @@ def test_claude_requests_closed_json_schema_and_retains_bounded_single_call(harn
         output_format = payload["output_config"]["format"]
         assert output_format["type"] == "json_schema"
         schema = output_format["schema"]
-        assert_closed_object(schema, {"summary", "risks", "recommended_actions", "goal_assessment"})
+        assert_closed_object(schema, {"summary", "risks", "recommended_actions", "goal_assessment",
+                                      "strategic_assessment"})
         assert schema["properties"]["summary"]["type"] == "string"
         assert schema["properties"]["risks"]["type"] == "array"
         assert schema["properties"]["risks"]["items"]["type"] == "string"
@@ -76,13 +82,18 @@ def test_claude_requests_closed_json_schema_and_retains_bounded_single_call(harn
         assert actions["type"] == "array"
         assert_closed_object(actions["items"], {"action", "target", "reason", "evidence"})
         assert set(actions["items"]["properties"]["action"]["enum"]) == {
-            "continue", "inspect", "pause_agent", "repair_auth", "notify", "automate", "stop_review"}
+            "continue", "inspect", "change_strategy", "pause_agent", "repair_auth", "notify", "automate",
+            "stop_review"}
         assert actions["items"]["properties"]["evidence"]["items"]["type"] == "string"
         goals = schema["properties"]["goal_assessment"]
         assert_closed_object(goals, {"any_means", "rl_only"})
         for goal in goals["properties"].values():
             assert_closed_object(goal, {"sim", "physical", "next_step"})
             assert all(field["type"] == "string" for field in goal["properties"].values())
+        strategy = schema["properties"]["strategic_assessment"]
+        assert_closed_object(strategy, {"robot_lab_throughput", "rl_experiment_portfolio", "integrated_policy"})
+        for topic in strategy["properties"].values():
+            assert_closed_object(topic, {"diagnosis", "evidence", "decision", "next_review_trigger"})
         return reply
 
     result = invoke(harness, reply, transport=transport)
@@ -112,6 +123,14 @@ def test_bundled_claude_profile_is_fable_and_fits_wrap_up_gate():
     assert config.model == "claude-fable-5-1"
     assert config.adaptive_thinking is True
     assert config.reservation_usd < 15
+
+
+def test_new_calls_require_strategy_but_historical_advice_remains_readable():
+    legacy = advice()
+    legacy.pop("strategic_assessment")
+    with pytest.raises(ValueError, match="schema"):
+        _validate_review(legacy)
+    assert _validate_review(legacy, allow_legacy=True) is legacy
 
 
 @pytest.mark.parametrize("effort", ["none", "minimal", "xhigh"])

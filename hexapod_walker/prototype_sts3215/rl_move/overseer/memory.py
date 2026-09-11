@@ -161,13 +161,14 @@ def read_memory(database: Path | str, *, review_limit: int = 3, lesson_limit: in
                     model_result = json.loads(row["advisory"] or "null")
                     if not isinstance(model_result, dict) or model_result.get("status") != "completed":
                         continue
-                    review = _validate_review(model_result.get("review"))
+                    review = _validate_review(model_result.get("review"), allow_legacy=True)
                     result["recent_reviews"].append(redact({
                         "report_id": row["report_id"], "wake_id": row["wake_id"] or row["report_id"],
                         "generated_at": _stamp(row["created_at"]), "provider": model_result.get("provider"),
                         "model": model_result.get("model"), "status": "model_hypothesis",
                         "summary": review["summary"], "recommended_actions": review["recommended_actions"],
                         "goal_assessment": review["goal_assessment"],
+                        "strategic_assessment": review.get("strategic_assessment", {}),
                     }))
                 except (ValueError, TypeError):
                     continue

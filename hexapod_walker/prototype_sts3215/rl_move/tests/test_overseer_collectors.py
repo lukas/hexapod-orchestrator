@@ -97,6 +97,42 @@ def test_automation_prompt_is_not_exported_and_pause_preserved(tmp_path):
     assert "secret task" not in json.dumps(snapshot)
 
 
+def test_robot_lab_v2_exports_recent_throughput_and_findings_read_only(tmp_path):
+    lab = tmp_path / "lab"
+    data = lab / "v2"
+    data.mkdir(parents=True)
+    database = data / "lab2.sqlite3"
+    with sqlite3.connect(database) as connection:
+        connection.executescript("""
+            CREATE TABLE plans(id TEXT PRIMARY KEY,created_at TEXT,title TEXT,why TEXT,
+                protocol TEXT,kind TEXT,status TEXT,source TEXT,updated_at TEXT);
+            CREATE TABLE runs(id TEXT PRIMARY KEY,plan_id TEXT,started_at TEXT,finished_at TEXT,
+                status TEXT,exit_code INTEGER,summary_json TEXT);
+            CREATE TABLE learnings(id TEXT,created_at TEXT,run_id TEXT,text TEXT);
+            CREATE TABLE spend(id TEXT,created_at TEXT,kind TEXT,usd REAL);
+            CREATE TABLE events(id TEXT,created_at TEXT,kind TEXT,text TEXT);
+            INSERT INTO plans VALUES('p','2026-09-09T03:00:00Z','Joint compliance',
+                'Test whether the last result is outside its noise floor','sysid/p.yaml',
+                'existing','done','planner','2026-09-09T03:12:00Z');
+            INSERT INTO runs VALUES('r','p','2026-09-09T03:01:00Z','2026-09-09T03:11:00Z',
+                'ok',0,'{"samples": 12}');
+            INSERT INTO learnings VALUES('l','2026-09-09T03:12:00Z','r','Compliance changed measurably');
+            INSERT INTO spend VALUES('s','2026-09-09T03:12:00Z','planner',0.18);
+            INSERT INTO events VALUES('e','2026-09-09T03:13:00Z','note','Queued bounded follow-up');
+        """)
+    original = database.read_bytes()
+    snapshot = collectors.collect_local(tmp_path / "hexapod", home=tmp_path / "home",
+                                        lab_root=lab, now=NOW)
+    evidence = snapshot["portfolio_evidence"]["robot_lab_v2"]
+    assert evidence["recent_runs"][0]["wall_seconds"] == 600
+    assert evidence["recent_runs"][0]["finding"] == "Compliance changed measurably"
+    assert evidence["recent_runs"][0]["why"].startswith("Test whether")
+    assert evidence["recent_spend"][0]["usd"] == 0.18
+    plans = next(s for s in snapshot["services"] if s["service_id"] == "lab2:plans")
+    assert plans["counts"] == {"done": 1}
+    assert database.read_bytes() == original
+
+
 @pytest.mark.parametrize("disabled_value", ["true", "disabled"])
 def test_launchctl_only_exports_fixed_service_fields(monkeypatch, disabled_value):
     def run(argv):
@@ -106,8 +142,9 @@ def test_launchctl_only_exports_fixed_service_fields(monkeypatch, disabled_value
     monkeypatch.setattr(collectors, "_run", run)
     errors = []
     rows = collectors._services(NOW, errors)
-    assert rows[1]["status"] == "disabled"
-    assert rows[0]["status"] == "running"
+    service = next(row for row in rows if row["service_id"] == "com.lbiewald.hexapod-codex-orchestrator")
+    assert service["status"] == "disabled"
+    assert next(row for row in rows if row["service_id"] == "com.lbiewald.hexapod-lab")["status"] == "running"
     assert "supersecret" not in json.dumps(rows)
     assert not errors
 
