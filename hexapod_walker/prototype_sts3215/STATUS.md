@@ -96,9 +96,16 @@ front leg's swing (12 repair mechanisms CLOSED FAIL incl. the entire named
 RND family — full-obs/heading-gated/per-leg-obs-masked — `walkcurr/
 STATUS.md` 09-10; no named lever remains, needs a fresh design note);
 joystick DONE-gate FAILS on slip (>3x band) — neither blocks the
-non-interactive deliverable above. Physical-handoff prep (09-09): exported
-to the robot's numpy runtime (N-layer/ELU support) with a transfer manifest
-+ registered bounded-trial plan at `walkcurr/bundle_rlonly_v1/` (walk only).
+non-interactive deliverable above. **UPDATE 09-10/09-11 (op_20260910_50hz):**
+the deployable candidate is now `bundle_rlonly_v2` (v1's 100 Hz export trips
+the hexapod2 MCU-bridge timing fault, superseded) — a 100->50Hz warm-start
+transfer of this same clean-lineage champion, matched-parent-verified per
+seed; all n=3/3 seeds (s0/s1/s2) now PASSED their +18M acquisition
+continuation and are exported (`walkscratch_rlonly_widen8_crutchoff_{s0,s1,
+s2}_warmadapt_50hz_acq1.json`), completing the seed triplet. Same known
+limits carried forward unchanged (off-axis-heading front-pair sacrifice,
+broken rise/hold/lower — walk-role only). Transfer manifest + registered
+bounded-trial plan at `walkcurr/bundle_rlonly_v2/`.
 
 ## Recorded method milestones — not parent-goal completion
 
