@@ -1513,8 +1513,24 @@ def reap_cycles(active: list[dict], processed: set[str]) -> tuple[list[dict], in
             for k in [k for k, v in _digin_spawned.items()
                       if now_t - v > 4 * 3600]:
                 del _digin_spawned[k]
+            # A DIG-IN'd run need not be one of THIS cycle's own
+            # `c["runs"]` (the runs that triggered its spawn): idle-kick
+            # and (partial-)refill cycles are spawned with `runs=[]` and
+            # routinely discover and flag a DIFFERENT, incidentally-found
+            # finished-but-unverdicted run — the intersection-with-
+            # `c["runs"]` check silently dropped every one of those (found
+            # 09-11 ~19:0x: `pushfaultcurr-rampacq15m-r2` flagged by a
+            # speed-run-triage cycle at 18:32 never escalated, sat inert
+            # for the rest of the day). Accept any flagged run that
+            # actually exists in the ledger instead — cheap forgery guard,
+            # no longer tied to the spawning cycle's own run set.
+            try:
+                known_runs = {e.get("run") for e in json.loads(LEDGER.read_text())
+                              if e.get("run")}
+            except (OSError, ValueError):
+                known_runs = set(c["runs"])  # ledger unreadable: fall back
             dig_runs = {r for r, _ in digs
-                        if r in c["runs"] and r not in _digin_spawned}
+                        if r in known_runs and r not in _digin_spawned}
             if dig_runs:
                 _digin_spawned.update({r: now_t for r in dig_runs})
                 why = "; ".join(f"{r}:{w.strip(' —-')}" for r, w in digs)
