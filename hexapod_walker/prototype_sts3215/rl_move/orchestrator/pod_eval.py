@@ -431,7 +431,16 @@ def main() -> int:
 
     task = val("--task", "joint_walk")
     ep = val("--episode-seconds", "15" if task == "joint_walk" else None)
-    dr = float(val("--dr-scale", "0") or 0)
+    # 2026-09-11 (cw-walk50hz-amp-mesh-m2plain-styleoff-pushcurr-canary2m
+    # triage): a launch that never passes --dr-scale explicitly does NOT
+    # train at DR=0 -- train_ppo_mjx.py's own argparse default is 1.0
+    # (full DR). The old "0" fallback here silently matched neither the
+    # trainer's real behavior nor this run's own pre-registered gate
+    # (which required a push-survival read only obtainable at DR>0) --
+    # it just skipped the own-DR pass outright for any run relying on
+    # the trainer's default instead of stating it. `--no-dr` is the one
+    # flag that genuinely forces DR off regardless of --dr-scale.
+    dr = 0.0 if "--no-dr" in args else float(val("--dr-scale", "1.0") or 0)
     cfgs = [args[i + 1] for i, a in enumerate(args) if a == "--cfg-set"]
     # Unstripped/unpinned copy for the MIXED-SESSION gate below — that
     # harness scores the run's own env-native mode_seq sequencing, so
