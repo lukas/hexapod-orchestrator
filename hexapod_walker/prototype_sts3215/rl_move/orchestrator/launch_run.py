@@ -2244,6 +2244,48 @@ def _respec_plain_warm_use_sde(
     return out
 
 
+def _respec_plain_warm_obs_pad_transplant(
+        args: list[str], *, init_from_source: bool,
+        explicit_args: list[str] | None) -> list[str]:
+    """Drop inherited --obs-pad-transplant/--hist-stride-transplant when
+    respec loads a whole policy via a plain checkpoint warm start.
+
+    Both flags are ONE-SHOT obs-widening transplants: the source run's own
+    extra_args carry whichever flag IT used to widen ITS OWN parent's obs
+    into the source's own (already-widened) checkpoint. A plain
+    --init-from-source warm start loads that already-widened checkpoint
+    verbatim -- same obs width in, same obs width out -- so silently
+    re-running the same transplant against a same-shaped parent/child pair
+    makes train_ppo_sim.pad_obs_transplant's own width-mismatch guard raise
+    SystemExit before any training step (root cause of the 2026-09-11
+    cw-walk50hz-amp-mesh-m2plain-styleoff-pushfaultcurr-rampacq15m launch:
+    --obs-pad-transplant 18 inherited verbatim from rampcanary2m's own
+    build recipe, but rampcanary2m -> rampacq15m widens obs by 0 -- 240s of
+    dead-pod wall clock, zero training, no traceback, only the trainer's
+    plain stderr message in the log). Mirrors
+    _respec_plain_warm_activation/_respec_plain_warm_use_sde. An agent that
+    explicitly wants a NEW widening in THIS respec should pass
+    --arg='--obs-pad-transplant=N' (or --hist-stride-transplant=N) itself;
+    only a flag silently carried over from the source's own extra_args is
+    dropped here.
+    """
+    if not init_from_source:
+        return args
+    explicit_flags = {spec.partition("=")[0] for spec in explicit_args or []}
+    out = []
+    i = 0
+    while i < len(args):
+        token = args[i]
+        flag = token.split("=", 1)[0]
+        if (flag in ("--obs-pad-transplant", "--hist-stride-transplant")
+                and flag not in explicit_flags):
+            i += 1 if "=" in token else 2
+        else:
+            out.append(token)
+            i += 1
+    return out
+
+
 def cmd_respec(g: dict, a: argparse.Namespace) -> int:
     """Queue (or directly launch) a follow-up run by CLONING a ledger
     entry's trainer args with targeted overrides — the mechanical form of
@@ -2378,6 +2420,13 @@ def cmd_respec(g: dict, a: argparse.Namespace) -> int:
         if warm_args != args:
             print("respec: removed inherited --use-sde/--sde-sample-freq; "
                   "plain warm start preserves checkpoint exploration mode")
+        args = warm_args
+        warm_args = _respec_plain_warm_obs_pad_transplant(
+            args, init_from_source=True, explicit_args=a.arg)
+        if warm_args != args:
+            print("respec: removed inherited --obs-pad-transplant/"
+                  "--hist-stride-transplant; plain warm start loads the "
+                  "already-widened checkpoint verbatim")
         args = warm_args
     if not is_dynrep_source:
         set_flag("--out-name", "ppo_goal_" + a.run.replace("-", "_"))
