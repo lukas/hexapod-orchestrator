@@ -555,12 +555,29 @@ cfg = " ".join(f"--cfg-set {args[i+1]}" for i, a in enumerate(args)
               if a == "--cfg-set")
 name = "ppo_goal_" + run.replace("-", "_")
 run_ = run.replace("-", "_")
+# joint_walk's own EVAL_MODES default is 6 modes (hold/track/unload/
+# raise/rise/walk, walk_task.py) — a speed-track panel only wants
+# "walk" (+ the auto-appended walk_startjitter). Derive --modes from
+# the run's own --goal-mix the same way `evalcmd` does (found 09-11:
+# omitting this silently multiplied a panel's episode count ~2x on
+# irrelevant modes and cost ~20min before anyone noticed the mode
+# list on disk).
+goal_mix = None
+for i, a in enumerate(args):
+    if a == "--goal-mix":
+        goal_mix = args[i + 1]
+modes_flag = "--modes walk"
+if goal_mix:
+    mix_modes = [kv.partition("=")[0].strip() for kv in goal_mix.split(",")
+                 if kv.strip() and float(kv.partition("=")[2] or 0) > 0]
+    if mix_modes:
+        modes_flag = "--modes " + " ".join(mix_modes)
 print(pod)
 print("cd /workspace/prototype_sts3215 || exit 1")
 print(f"nohup uv run python -m rl_move.sim.eval_checkpoint "
       f"rl_move/sim/policies/{name}.zip \\")
-print("  --task joint_walk --per-mode 4 --dr-scale 0.0 --seed 0 "
-      "--stochastic --episode-seconds 20 \\")
+print(f"  --task joint_walk {modes_flag} --per-mode 4 --dr-scale 0.0 "
+      "--seed 0 --stochastic --episode-seconds 20 \\")
 print("  --pinned-speed-panel PINS_PLACEHOLDER \\")
 if cfg: print(f"  {cfg} \\")
 print("  --video-every 1 --video-fps 25 \\")
@@ -620,12 +637,22 @@ overrides = ["--cfg-set safety.max_delta_q_deg=0.75",
 cfg = " ".join(kept + overrides)
 name = "ppo_goal_" + run.replace("-", "_")
 run_ = run.replace("-", "_")
+goal_mix = None
+for i, a in enumerate(args):
+    if a == "--goal-mix":
+        goal_mix = args[i + 1]
+modes_flag = "--modes walk"
+if goal_mix:
+    mix_modes = [kv.partition("=")[0].strip() for kv in goal_mix.split(",")
+                 if kv.strip() and float(kv.partition("=")[2] or 0) > 0]
+    if mix_modes:
+        modes_flag = "--modes " + " ".join(mix_modes)
 print(pod)
 print("cd /workspace/prototype_sts3215 || exit 1")
 print(f"nohup uv run python -m rl_move.sim.eval_checkpoint "
       f"rl_move/sim/policies/{name}.zip \\")
-print("  --task joint_walk --per-mode 4 --dr-scale 0.0 --seed 0 "
-      "--stochastic --episode-seconds 20 \\")
+print(f"  --task joint_walk {modes_flag} --per-mode 4 --dr-scale 0.0 "
+      "--seed 0 --stochastic --episode-seconds 20 \\")
 print(f"  {cfg} \\")
 print("  --video-every 1 --video-fps 25 \\")
 print(f"  --out logs/ckpt_eval/{run_}_retention "
