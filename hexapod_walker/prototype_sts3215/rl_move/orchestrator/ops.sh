@@ -511,6 +511,137 @@ print(f"# then: ops.sh waitlog /tmp/eval_{run}.log 'artifacts|Traceback' 1800")
 EOF
   ;;
 
+speedpanel)  # speedpanel <run> [pod] [pin ...] — build + LAUNCH (kubectl
+  # exec, backgrounded on the pod) the speed track's own-pod literal
+  # pinned-speed panel (`eval_checkpoint.py --pinned-speed-panel`), the
+  # exact hand-rolled invocation the speed track has repeated by hand
+  # every cycle since 09-11 (see rl_docs/tracks/speed/STATUS.md) —
+  # deriving the FULL --cfg-set stack from the run's own ledger entry
+  # the same way `evalcmd` does (never hand-copy a sibling run's cfg
+  # stack: two speed arms one `--cfg-set` apart is exactly the kind of
+  # bug this exists to prevent). Default pins: 0.06 0.08 0.10 0.12,
+  # per-mode 4, det+sto (--stochastic), episode-seconds 20, one video
+  # per episode (matches every panel already on disk). pod defaults to
+  # the run's own ledger pod. Output: on the pod at
+  # logs/ckpt_eval/<run_>_speedpanel/, log at
+  # /tmp/eval_<run>_speedpanel.log (both run-underscored). Idempotent
+  # to re-invoke (just re-launches; does not check for an existing
+  # report first — check yourself before burning another ~15-30min).
+  # Poll with: ops.sh podwaitlog <pod> /tmp/eval_<run>_speedpanel.log
+  # 'artifacts|Traceback' 1800 ; then pull the dir back by hand
+  # (kubectl cp) same as any other manual pod eval.
+  shift; run="$1"; shift
+  pod=""
+  if [ -n "${1:-}" ] && [[ "$1" == hexapod-* ]]; then pod="$1"; shift; fi
+  pins=("$@")
+  [ ${#pins[@]} -eq 0 ] && pins=(0.06 0.08 0.10 0.12)
+  script=$(uv run python - "$run" "$pod" <<'EOF'
+import json, os, sys
+run, pod_override = sys.argv[1], sys.argv[2]
+entry = None
+fallback = None
+for e in json.load(open(os.environ["LEDGER"])):
+    if isinstance(e, dict) and e.get("run") == run and e.get("extra_args"):
+        fallback = e
+        if e.get("wandb_id") or e.get("checks", {}).get("pid"):
+            entry = e
+entry = entry or fallback
+if not entry:
+    print(f"# no ledger entry with extra_args for {run}", file=sys.stderr)
+    sys.exit(1)
+pod = pod_override or entry["pod"]
+args = entry["extra_args"]
+cfg = " ".join(f"--cfg-set {args[i+1]}" for i, a in enumerate(args)
+              if a == "--cfg-set")
+name = "ppo_goal_" + run.replace("-", "_")
+run_ = run.replace("-", "_")
+print(pod)
+print("cd /workspace/prototype_sts3215 || exit 1")
+print(f"nohup uv run python -m rl_move.sim.eval_checkpoint "
+      f"rl_move/sim/policies/{name}.zip \\")
+print("  --task joint_walk --per-mode 4 --dr-scale 0.0 --seed 0 "
+      "--stochastic --episode-seconds 20 \\")
+print("  --pinned-speed-panel PINS_PLACEHOLDER \\")
+if cfg: print(f"  {cfg} \\")
+print("  --video-every 1 --video-fps 25 \\")
+print(f"  --out logs/ckpt_eval/{run_}_speedpanel "
+      f"> /tmp/eval_{run}_speedpanel.log 2>&1 &")
+print('echo "started pid $!"')
+EOF
+) || { echo "$script"; exit 1; }
+  pod_line=$(echo "$script" | head -1)
+  body=$(echo "$script" | tail -n +2 | sed "s/PINS_PLACEHOLDER/${pins[*]}/")
+  echo "$body" > /tmp/speedpanel_cmd_$$.sh
+  kubectl cp /tmp/speedpanel_cmd_$$.sh "$pod_line:/tmp/speedpanel_cmd_$$.sh"
+  kubectl exec "$pod_line" -- bash "/tmp/speedpanel_cmd_$$.sh"
+  rm -f /tmp/speedpanel_cmd_$$.sh
+  echo "# poll: ops.sh podwaitlog $pod_line /tmp/eval_${run}_speedpanel.log 'artifacts|Traceback' 1800"
+  ;;
+
+speedretention)  # speedretention <run> [pod] — same derivation as
+  # `speedpanel` but overrides the actuator contract BACK to the
+  # legacy parent envelope (safety.max_delta_q_deg=0.75,
+  # bus.write_speed=400, bus.write_acc=20, no vel-max-counts
+  # override, no profile-ramp keys) — the speed track's RETENTION
+  # check that a wider-envelope checkpoint still walks safely if
+  # deployed under the OLD, conservative actuator contract. Any
+  # `bus.*`/`safety.max_delta_q_deg` cfg-set the run itself carries is
+  # dropped and replaced; every other cfg-set (task/goal/reward/
+  # train.bc_anchor_teacher_*) is kept verbatim from the ledger.
+  shift; run="$1"; shift
+  pod="${1:-}"
+  script=$(uv run python - "$run" "$pod" <<'EOF'
+import json, os, sys
+run, pod_override = sys.argv[1], sys.argv[2]
+entry = None
+fallback = None
+for e in json.load(open(os.environ["LEDGER"])):
+    if isinstance(e, dict) and e.get("run") == run and e.get("extra_args"):
+        fallback = e
+        if e.get("wandb_id") or e.get("checks", {}).get("pid"):
+            entry = e
+entry = entry or fallback
+if not entry:
+    print(f"# no ledger entry with extra_args for {run}", file=sys.stderr)
+    sys.exit(1)
+pod = pod_override or entry["pod"]
+args = entry["extra_args"]
+DROP = {"bus.write_speed", "bus.write_acc", "bus.servo_vel_max_counts_s",
+        "bus.servo_params", "bus.profile_ramp_steps",
+        "bus.profile_ramp_start_write_speed",
+        "bus.profile_ramp_start_write_acc",
+        "bus.profile_ramp_start_max_delta_q_deg",
+        "safety.max_delta_q_deg"}
+kept = [f"--cfg-set {args[i+1]}" for i, a in enumerate(args)
+        if a == "--cfg-set" and args[i+1].split("=", 1)[0] not in DROP]
+overrides = ["--cfg-set safety.max_delta_q_deg=0.75",
+             "--cfg-set bus.write_speed=400",
+             "--cfg-set bus.write_acc=20"]
+cfg = " ".join(kept + overrides)
+name = "ppo_goal_" + run.replace("-", "_")
+run_ = run.replace("-", "_")
+print(pod)
+print("cd /workspace/prototype_sts3215 || exit 1")
+print(f"nohup uv run python -m rl_move.sim.eval_checkpoint "
+      f"rl_move/sim/policies/{name}.zip \\")
+print("  --task joint_walk --per-mode 4 --dr-scale 0.0 --seed 0 "
+      "--stochastic --episode-seconds 20 \\")
+print(f"  {cfg} \\")
+print("  --video-every 1 --video-fps 25 \\")
+print(f"  --out logs/ckpt_eval/{run_}_retention "
+      f"> /tmp/eval_{run}_retention.log 2>&1 &")
+print('echo "started pid $!"')
+EOF
+) || { echo "$script"; exit 1; }
+  pod_line=$(echo "$script" | head -1)
+  body=$(echo "$script" | tail -n +2)
+  echo "$body" > /tmp/speedretention_cmd_$$.sh
+  kubectl cp /tmp/speedretention_cmd_$$.sh "$pod_line:/tmp/speedretention_cmd_$$.sh"
+  kubectl exec "$pod_line" -- bash "/tmp/speedretention_cmd_$$.sh"
+  rm -f /tmp/speedretention_cmd_$$.sh
+  echo "# poll: ops.sh podwaitlog $pod_line /tmp/eval_${run}_retention.log 'artifacts|Traceback' 1800"
+  ;;
+
 evalcmdstress)  # evalcmdstress <run> [own_dr=0.5] [n=6] [episode_s=60] —
   # launch rl_move/sim/eval_cmd_stress.py for <run> ON ITS OWN POD
   # (kubectl exec, backgrounded there via nohup), deriving pod +
@@ -1591,7 +1722,7 @@ prune)  # prune [--execute] [--run <name>] — mechanical seed-prune audit
   echo "subcommands: review <run> (START HERE for triage) | report <run|json> |"
   echo "  status | census | triage [hours] | procs <pod> | trainlog <run> [n] |"
   echo "  entry <run> | wandb <run> | quarters <run> [key...] | pullckpt <run> | pushckpt <pod> <ckpt> |"
-  echo "  podeval <run> [sfx] | m5eval <run> [pod] | evalcmd <run> | evalcmdstress <run> | drain | killrun <run> |"
+  echo "  podeval <run> [sfx] | m5eval <run> [pod] | evalcmd <run> | evalcmdstress <run> | speedpanel <run> [pod] [pins] | speedretention <run> [pod] | drain | killrun <run> |"
   echo "  waitlog <file> <regex> [t] | podwaitlog <pod> <file> <regex> [t] | evalpending add <pod> <file> <label> |"
   echo "  handoff <run> (deferred-artifacts registry: training/artifacts_pending/evaluated) |"
   echo "  prune [--execute] (mechanical seed-prune audit; watcher runs it live) |"
