@@ -54,38 +54,35 @@ def test_stale_active_session_is_unknown_and_unrelated_sessions_are_omitted(tmp_
     assert rows[0]["freshness"] == "stale"
 
 
-def test_lab_v2_read_only_reports_pause_active_plans_and_spend(tmp_path):
+def test_lab_read_only_handles_pause_expired_lease_and_cost_missing_attempt(tmp_path):
     lab = tmp_path / "lab"
-    data = lab / "v2"
+    data = lab / "data"
     data.mkdir(parents=True)
-    database = data / "lab2.sqlite3"
+    database = data / "lab.sqlite3"
     with sqlite3.connect(database) as connection:
         connection.executescript("""
-            CREATE TABLE plans(id TEXT,created_at TEXT,title TEXT,why TEXT,protocol TEXT,kind TEXT,
-                build_spec TEXT,force INTEGER,status TEXT,status_note TEXT,source TEXT,updated_at TEXT,robot TEXT);
-            INSERT INTO plans VALUES('live','2026-09-09T03:00:00Z','Stand','why',NULL,'needs_fix',NULL,0,
-                'running',NULL,'planner','2026-09-09T03:59:00Z','hexapod1');
-            INSERT INTO plans VALUES('old','2026-09-08T03:00:00Z','Old step','why','steps','existing',NULL,0,
-                'running',NULL,'planner','2026-09-08T03:59:00Z','hexapod1');
-            INSERT INTO plans VALUES('q1','2026-09-09T03:00:00Z','Queued','why','steps','existing',NULL,0,
-                'queued',NULL,'planner','2026-09-09T03:00:00Z','hexapod1');
-            CREATE TABLE spend(id TEXT,created_at TEXT,kind TEXT,usd REAL,note TEXT);
-            INSERT INTO spend VALUES('s1','2026-09-09T03:30:00Z','planner',1.25,NULL);
-            INSERT INTO spend VALUES('s2','2026-09-01T03:30:00Z','planner',99,NULL);
+            CREATE TABLE codex_queue_controls(sequence INTEGER,action TEXT,created_at TEXT);
+            INSERT INTO codex_queue_controls VALUES(1,'pause','2026-09-09T03:00:00Z');
+            CREATE TABLE codex_jobs(id TEXT,kind TEXT,experiment_id TEXT,status TEXT,
+                attempts INTEGER,updated_at TEXT,lease_expires_at TEXT);
+            INSERT INTO codex_jobs VALUES('live','analysis','exp','running',1,
+                '2026-09-09T03:59:00Z','2026-09-09T04:05:00Z');
+            INSERT INTO codex_jobs VALUES('expired','advance','exp','running',2,
+                '2026-09-08T03:59:00Z','2026-09-08T04:05:00Z');
         """)
     original = database.read_bytes()
-    (data / "PAUSE").write_text("spend cap reached")
+    (lab / "agent-provider").write_text("claude")
+    put_json(data / "codex-runs/live/attempt-1/metadata.json", {"provider": "claude", "usage": {"cost_usd": 12.5}})
+    put_json(data / "codex-runs/expired/attempt-1/metadata.json", {"provider": "claude", "usage": {"cost_usd": 9}})
     snapshot = collectors.collect_local(tmp_path / "hexapod", home=tmp_path / "home", lab_root=lab, now=NOW)
     rows = {a["agent_id"]: a for a in snapshot["agents"]}
     assert rows["lab:live"]["status"] == "running"
-    assert rows["lab:live"]["scope"] == "lab_engineering"
-    assert rows["lab:old"]["status"] == "stale"
-    assert "lab:q1" not in rows
-    services = {s["service_id"]: s for s in snapshot["services"]}
-    assert services["lab:queue"]["status"] == "paused"
-    assert "spend cap reached" in services["lab:queue"]["evidence"]
-    assert services["lab:experiments"]["counts"] == {"running": 2, "queued": 1}
-    assert services["lab:spend"]["reported_cost_usd"] == 1.25
+    assert rows["lab:live"]["reported_cost_usd"] == 12.5
+    assert rows["lab:live"]["provider"] == "claude"
+    assert rows["lab:expired"]["status"] == "stale"
+    assert rows["lab:expired"]["cost_status"] == "unknown"
+    assert "reported_cost_usd" not in rows["lab:expired"]
+    assert next(s for s in snapshot["services"] if s["service_id"] == "lab:queue")["status"] == "paused"
     assert database.read_bytes() == original
 
 
@@ -140,7 +137,7 @@ def test_robot_lab_v2_exports_recent_throughput_and_findings_read_only(tmp_path)
 def test_launchctl_only_exports_fixed_service_fields(monkeypatch, disabled_value):
     def run(argv):
         if "print-disabled" in argv:
-            return subprocess.CompletedProcess(argv, 0, f'"com.lbiewald.hexapod-lab2" => {disabled_value}', "")
+            return subprocess.CompletedProcess(argv, 0, f'"com.lbiewald.hexapod-codex-orchestrator" => {disabled_value}', "")
         return subprocess.CompletedProcess(argv, 0, "state = running\nenvironment = { TOKEN = supersecret }", "")
     monkeypatch.setattr(collectors, "_run", run)
     errors = []
@@ -228,6 +225,12 @@ watcher log tail:
 HOW TO WAIT: A finished cycle has (=== CYCLE END).
 """
     assert collectors.normalize_cloud_activity(text, NOW)["agents"][0]["status"] == "running"
+
+
+def test_attempt_cost_scan_budget_and_malformed_usage_stay_unknown(tmp_path):
+    put_json(tmp_path / "codex-runs/job/attempt-1/metadata.json", {"provider": "claude", "usage": []})
+    assert collectors._job_cost(tmp_path, "job", 1, [10])[0] == "unknown"
+    assert collectors._job_cost(tmp_path, "job", 1, [0])[0] == "unknown"
 
 
 @pytest.mark.parametrize("timestamp,expected,last", [
