@@ -72,7 +72,17 @@ scripted `tuck`) + 50 Hz walk, demoed end-to-end this cycle
 `walk_progress_ratio=0.402`, `cur_max_a=2.64A` in-contract). A validated
 turn-capable alternate walk role (real wz authority) is registered too but
 not the default (quality/robustness tradeoff, see the bundle's GO_NOGO) —
-first time this gap has a named, passing candidate at all. **UPDATE 09-11
+first time this gap has a named, passing candidate at all. **UPDATE 09-12:**
+that turn-capable alternate's own real defect — a sustained turn-in-place
+command freezes it into a static splayed crouch (a session-duration/action-
+distribution gap, not a mass or reward bug) — is now FIXED end-to-end by a
+non-RL scripted-teacher composition wrapper (`--compose-turn-blend-s`,
+default off/bit-exact) validated on the actual checkpoint: full walk/rise/
+lower/hold gate panel unregressed vs the uncomposed gate, plus a clean
+20 s `human_turn` drivevideo (0 falls, `wz_err_med_rad_s=0.075`, real
+per-frame leg reconfiguration). Composition is RECOMMENDED for any session
+needing joystick turning on this bundle. See `todaypolicy/bundle_50hz_v1/
+{GO_NOGO.md,composition.json}` and `amp/STATUS.md` 2026-09-12. **UPDATE 09-11
 (mass-audit-bug fix):** the stand/lower residual named here through 09-11
 ~11:4x (1/12 rise over_current mixed-start; 2/12 tilt_roll own-DR 0.2,
 closed short of PASS across pricing/pacing/budget/stacked-structural
