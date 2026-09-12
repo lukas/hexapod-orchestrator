@@ -72,11 +72,19 @@ scripted `tuck`) + 50 Hz walk, demoed end-to-end this cycle
 `walk_progress_ratio=0.402`, `cur_max_a=2.64A` in-contract). A validated
 turn-capable alternate walk role (real wz authority) is registered too but
 not the default (quality/robustness tradeoff, see the bundle's GO_NOGO) —
-first time this gap has a named, passing candidate at all. Known limit:
-stand/lower carries a small residual (1/12 rise over_current mixed-start;
-2/12 tilt_roll own-DR 0.2) that every tried lever (pricing/pacing/budget)
-failed to fully clear; next fix needs an unbuilt structural per-leg
-torque-headroom mechanism (`standwalk/STATUS.md`).
+first time this gap has a named, passing candidate at all. **UPDATE 09-11
+(mass-audit-bug fix):** the stand/lower residual named here through 09-11
+~11:4x (1/12 rise over_current mixed-start; 2/12 tilt_roll own-DR 0.2,
+closed short of PASS across pricing/pacing/budget/stacked-structural
+levers) turned out to be a physics-model bug, not a real ceiling — the
+checked-in mesh twin was 37.6% overweight (3.49kg real vs 4.806kg
+trained/evaluated); with the twin corrected, the SAME `curhot-b23k12`
+checkpoint (already shipped in `todaypolicy-50hz-v1`, zero retrain) reads
+0/36 over `over_current` across the whole hold/rise/lower det+sto panel.
+No unbuilt mechanism is needed for this residual; `reward.k_torque_headroom`
+was built anyway (default-off, kept) but the bracket that tested it landed
+on the same mass-bug-inflated floor as every other lever. See
+`CURRENT_TRUTHS.md` 2026-09-11 ~12:1x and `standwalk/STATUS.md` 09-11 ~12:1x.
 
 **`any_means`: `todaypolicy-mlpsf-tuck-v1`** (100 Hz, superseded for
 deployment by the 50 Hz bundle above; kept as the historical record), PACKAGED 08-30, all TODAY bars
