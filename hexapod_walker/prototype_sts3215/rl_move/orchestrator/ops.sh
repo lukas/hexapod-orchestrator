@@ -175,17 +175,31 @@ print(f"backlog={backlog}  ledger RUNNING/INTENT={len(live)}  "
       f"FINISHED-unverdicted={len(unverd)}")
 for s, r in sorted(live): print(f"  {s:8s} {r}")
 for r in sorted(unverd): print(f"  UNVERDICTED {r}")
-def head(p):
+def head(p, n=1):
+    # FIX 2026-09-12 (meta): tracks write newest-first entries as
+    # "Update, <date>" / "Last updated:" paragraphs, not "## " headings,
+    # so the old ^##-only search surfaced a STALE far-down section title
+    # for exactly the hot tracks (standwalk showed a 09-05 "Next", amp
+    # "WAITING-ON") — measured cost: refills re-tailing 7 STATUS docs
+    # 20-40x/cycle. Match all three conventions, first hit wins, and
+    # show the entry's opening lines (the state + next lever), not just
+    # its heading.
     try:
         txt = p.read_text(errors="ignore")
     except OSError:
         return "(missing)"
-    m = re.search(r"^## (.+)$", txt, re.M)
     age = (time.time() - p.stat().st_mtime) / 3600
-    return f"[{age:5.1f}h] {(m.group(1) if m else '(no heading)')[:150]}"
+    m = re.search(r"^(## .+|Update, .+|Last updated: .+)$", txt, re.M)
+    if not m:
+        return f"[{age:5.1f}h] (no entry heading)"
+    lines = [l.strip() for l in txt[m.start():].splitlines() if l.strip()][:n]
+    out = f"[{age:5.1f}h] {lines[0][:220]}"
+    for l in lines[1:]:
+        out += f"\n{'':11s} | {l[:220]}"
+    return out
 tracks = json.load(open(proto / "rl_move/orchestrator/tracks.json"))
 for t in tracks:
-    print(f"{t:11s} {head(state / 'rl_docs' / 'tracks' / t / 'STATUS.md')}")
+    print(f"{t:11s} {head(state / 'rl_docs' / 'tracks' / t / 'STATUS.md', n=4)}")
 print(f"{'STATUS.md':11s} {head(proto / 'STATUS.md')}")
 print(f"{'TRUTHS':11s} {head(proto / 'CURRENT_TRUTHS.md')}")
 print("(capacity: `uv run python rl_move/orchestrator/capacity.py`)")
@@ -1724,7 +1738,16 @@ podwaitlog)  # podwaitlog <pod> <remote_file> <regex> [timeout_s] — waitlog fo
   # file ON a pod; replaces the hand-rolled `for i in seq; sleep 60;
   # kubectl exec ... tail` loops (one cycle burned ~50 min on 7 of them,
   # 09-04). Prefer `evalpending add` + exit when nothing else is left.
-  pod="$2"; f="$3"; pat="$4"; t="${5:-1800}"; el=0
+  # CAP 2026-09-12 (meta): one cycle spent $35.65/519 turns babysitting
+  # two evals with 30-min waits — sync waits >10 min are exactly what
+  # `evalpending add` exists for. WAIT_LONG=1 overrides deliberately.
+  pod="$2"; f="$3"; pat="$4"; t="${5:-600}"; el=0
+  if [ "$t" -gt 600 ] && [ -z "${WAIT_LONG:-}" ]; then
+    echo "NOTE: podwaitlog capped at 600s (asked ${t}s). For longer evals:"
+    echo "  ops.sh evalpending add $pod $f <label>   # then EXIT the cycle;"
+    echo "  the watcher spawns a cycle the moment the file lands."
+    t=600
+  fi
   until kubectl exec "$pod" -- grep -qE "$pat" "$f" 2>/dev/null; do
     sleep 30; el=$((el+30))
     [ "$el" -ge "$t" ] && { echo "TIMEOUT after ${t}s; tail:"; kubectl exec "$pod" -- tail -5 "$f" 2>/dev/null; exit 1; }
