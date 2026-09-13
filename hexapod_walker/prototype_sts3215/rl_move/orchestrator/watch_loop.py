@@ -417,6 +417,77 @@ def maybe_autorestart_on_new_code() -> bool:
     return True
 
 
+EVAL_PROC_RE = (r"eval_checkpoint|eval_mixed_session|eval_done_gate"
+                r"|eval_cpg_gate|pinned.heading|probe_[a-z0-9_]+\.py"
+                r"|drive_video|web_session_drivecapture")
+_EVAL_HOLD_FIRST_SEEN: dict[str, float] = {}
+
+
+def live_unregistered_evals() -> list[str]:
+    """Long eval/probe processes nobody `evalpending add`-ed, on the
+    controller or any GPU pod. Called only when an idle kick is due
+    (never in the hot poll path). Measured 09-13: one ~4 h on-pod
+    heading-panel eval that was never registered drew 5 hand-polling
+    idle cycles (~$6.4); 09-01/02 had the same pattern pre-registry.
+    Holding the kick until the procs exit both saves the polling AND
+    kicks a cycle the moment the result is readable. TTL-capped per
+    location via PENDING_EVAL_TTL_S so a hung proc cannot deadlock."""
+    live: dict[str, str] = {}
+    now = time.time()
+
+    def note(loc: str, desc: str) -> None:
+        live.setdefault(loc, desc[:120])
+
+    def is_real_eval(line: str) -> bool:
+        # pgrep -f matches full argv: an agent (claude) process carries
+        # the whole standing prompt (which names eval_checkpoint etc.)
+        # in its command line — never a hold reason.
+        return not any(t in line for t in ("pgrep", "watch_loop",
+                                           "claude", "grep "))
+
+    try:  # controller-local detached probes (CPU sweeps etc.)
+        out = subprocess.run(["pgrep", "-af", EVAL_PROC_RE],
+                             capture_output=True, text=True, timeout=30)
+        for line in out.stdout.strip().splitlines():
+            if is_real_eval(line):
+                note("controller", line.split(None, 1)[-1])
+    except (OSError, subprocess.SubprocessError):
+        pass
+    try:
+        pods = subprocess.run(
+            ["kubectl", "--kubeconfig", KUBECONFIG, "get", "pods",
+             "-o", "name", "--field-selector=status.phase=Running"],
+            capture_output=True, text=True, timeout=60).stdout.split()
+    except (OSError, subprocess.SubprocessError):
+        pods = []
+    for pod in pods:
+        name = pod.split("/")[-1]
+        if not name.startswith(("hexapod-mjx-train", "hexapod-sweep")):
+            continue
+        try:
+            out = subprocess.run(
+                ["kubectl", "--kubeconfig", KUBECONFIG, "exec", name,
+                 "--", "pgrep", "-af", EVAL_PROC_RE],
+                capture_output=True, text=True, timeout=30)
+            for line in out.stdout.strip().splitlines():
+                if is_real_eval(line):
+                    note(name, line.split(None, 1)[-1])
+                    break  # one line per pod is enough
+        except (OSError, subprocess.SubprocessError):
+            continue
+    # forget locations whose procs are gone so a future eval re-arms;
+    # keep first-seen stamps for live ones so the TTL actually expires
+    for loc in list(_EVAL_HOLD_FIRST_SEEN):
+        if loc not in live:
+            del _EVAL_HOLD_FIRST_SEEN[loc]
+    found = []
+    for loc, desc in live.items():
+        first = _EVAL_HOLD_FIRST_SEEN.setdefault(loc, now)
+        if now - first <= PENDING_EVAL_TTL_S:
+            found.append(f"{loc}: {desc}")
+    return found
+
+
 def check_pending_evals() -> tuple[list[dict], int]:
     """Poll registered on-pod eval jobs.
 
@@ -1259,6 +1330,24 @@ def spawn_cycle(newly_finished: set[str], still_running: set[str],
             "empty may you declare a no-op (do NOT touch CYCLE_WORKED "
             "then). Skip eval steps for runs already logged.\n"
         )
+    if not newly_finished:
+        # Idle/refill/eval-ready/kick cycles start with a board survey.
+        # Paste `ops.sh board` (0.2 s local read) into the prompt so the
+        # cycle doesn't spend 10-30 turns re-deriving an unchanged board
+        # (meta 09-13: ~10 idle cycles/24h each re-surveyed all tracks).
+        try:
+            board = subprocess.run(
+                ["bash", str(HERE / "ops.sh"), "board"],
+                cwd=str(HERE.parent.parent), capture_output=True,
+                text=True, timeout=90).stdout.strip()
+        except (OSError, subprocess.SubprocessError):
+            board = ""
+        if board:
+            trigger += (
+                "\n### Board digest (`ops.sh board`, run by the watcher at "
+                "spawn — trust it; only open a track STATUS whose digest "
+                "line is insufficient for a decision)\n```\n"
+                + board + "\n```\n")
     # Fresh read every spawn: prompt edits (e.g. the shutdown protocol)
     # take effect without a watcher restart.
     cycle_prompt = (
@@ -1929,6 +2018,14 @@ def main() -> None:
                             + (f", kick streak {idle_kick_streak})"
                                if idle_kick_streak else ")")
                         )
+                        sleep_poll()
+                        continue
+                    live_evals = live_unregistered_evals()
+                    if live_evals:
+                        log("unregistered eval/probe proc(s) still live — "
+                            "holding idle kick (kicks the moment they "
+                            "finish): " + "; ".join(live_evals))
+                        idle_polls = threshold - 1  # recheck next poll
                         sleep_poll()
                         continue
                     log("pods idle too long — kicking a cycle to resume the "

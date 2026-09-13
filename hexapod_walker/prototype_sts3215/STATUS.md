@@ -96,21 +96,11 @@ was built anyway (default-off, kept) but the bracket that tested it landed
 on the same mass-bug-inflated floor as every other lever. See
 `CURRENT_TRUTHS.md` 2026-09-11 ~12:1x and `standwalk/STATUS.md` 09-11 ~12:1x.
 
-**`any_means`: `todaypolicy-mlpsf-tuck-v1`** (100 Hz, superseded for
-deployment by the 50 Hz bundle above; kept as the historical record), PACKAGED 08-30, all TODAY bars
-passing on a fresh controller-side full-mesh regen: scripted-or-learned tuck
-stand/lower plus `cw-walk-allheading-mlp-singleframe-acq1-stdanneal`. 0
-terminations, no sacrificed legs, course error median 2.42°/p90 6.98°,
-progress ratio 0.418 — GO for controller handoff, not physical acceptance;
-speed-soft, zero turn authority. Evidence: `todaypolicy/bundle_mlpsf_
-tuck_v1/`. The 09-05 delivery verification flagged a model/regen mismatch —
-resolve from `todaypolicy/hardware_delivery/STATUS.md` before transfer.
-Interactive HTTP capture (09-10): real checkpoint, 0 falls, 0 rejected
-commands; the "reverse" stall found earlier the same day is root-caused
-and mostly fixed (later 09-10 cycle, `_PlayTraj` command-blend fix) —
-reverse-phase locomotion fraction now 0.246/0.313/0.333/0.273 across 4
-repeats (3/4 clean PASS) vs. 0.19-0.21 pre-fix; still not a clean
-unanimous PASS, see `CURRENT_TRUTHS.md`.
+**`any_means` (historical): `todaypolicy-mlpsf-tuck-v1`** — 100 Hz bundle
+PACKAGED 08-30 (all TODAY bars passing), superseded for deployment by the
+50 Hz bundle above; interactive HTTP capture 09-10 PASS (3/4 reverse
+repeats clean after the `_PlayTraj` command-blend fix). Evidence:
+`todaypolicy/bundle_mlpsf_tuck_v1/`, `CURRENT_TRUTHS.md` 09-10.
 
 **`rl_only`: `ppo_goal_cw_walkscratch_crutchoff_s0_widen8_legdutyratio_
 swinggap_dose10_plusduty_acq1_cont10m.zip`** (walkcurr, no BC/AMP/demo in
@@ -174,6 +164,16 @@ serialized physical experiments under standing authority and live camera/
 telemetry/abort rules. Routine calibration/bounded motion/deployment are
 not blanket operator blockers; only hands-on needs or spend/capacity
 increases beyond guardrails are operator waits.
+
+WAITING-ON (2026-09-13, cloud queue fully drained — every registered
+track closed per its own STATUS):
+- `[operator]` PS200 hardware-run telemetry export (per-joint pos/current
+  + foot-contact timing) or a dashboard credential reachable from the
+  controller — sole open research lever (`speed/STATUS.md` 09-13; six sim
+  mechanisms screened and ruled out; dashboard returns SSO 401).
+- `[Robot Lab]` bounded physical joystick trials of the two GO bundles:
+  `todaypolicy-50hz-v1` (any_means) and `walkcurr/bundle_rlonly_v2`
+  (rl_only) — transfer manifests and trial plans already packaged.
 
 ## Doc rules
 
