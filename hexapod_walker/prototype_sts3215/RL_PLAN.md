@@ -61,15 +61,20 @@ or for the other goal. Track the two deliverables separately for each goal.
 ### Speed path
 
 `speed` owns the operator-requested maximum-sustainable-speed frontier. It
-starts with forward sprinting on the current mesh/50 Hz transfer stack, then
-adds speed obedience and steering only after a faster gait exists. Rank actual
-body displacement together with six-leg gait validity, falls, slip, direction
-and body motion; commanded speed, cadence and reward cannot substitute. Treat
-the old primitive-model 0.117 m/s full-profile result as mechanism evidence,
-not a transferable checkpoint or hardware actuator setting. Promote only an
-export that Robot Lab can test under an independently verified conservative
-bus/slew/current contract. `speed` is assisted `any_means`; clean RL-only speed
-work stays within `walkcurr` and cannot inherit its weights or gait targets.
+now has two linked phases: preserve the fast mesh/50 Hz frontier, then make its
+best gait survive the physical robot. The current priority is the second phase.
+Use the failed PS200 physical tape (16.78-degree roll versus 3.32 degrees in
+matched simulation) as evidence: search interacting, correlated and asymmetric
+model-error combinations, then compare current DR, wider independent DR and a
+physical-signature-targeted structured DR curriculum. Keep a frozen parent and
+held-out domains. Rank actual displacement together with six-leg gait validity,
+falls, slip, roll/pitch, current and direction; commanded speed, cadence and
+reward cannot substitute. A robust candidate must retain at least 90% of the
+parent's nominal speed while materially reducing the held-out failure signature
+before Robot Lab runs the same bounded physical tape. Cloud work remains
+simulation-only and cannot claim transfer. `speed` is assisted `any_means`;
+clean RL-only speed work stays within `walkcurr` and cannot inherit its weights
+or gait targets. Full gates: `rl_docs/tracks/speed/DESIGN.md`.
 
 ## Goal 2 work: clean RL discovery through physical transfer
 

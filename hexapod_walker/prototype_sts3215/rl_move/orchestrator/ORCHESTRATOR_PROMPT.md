@@ -30,7 +30,7 @@ owns evidence and past verdicts; `tracks.json` owns the stable method registry.
    effective means.** Scripted gaits, CPG search, demonstrations, BC, AMP,
    RL and explicit controller composition are all valid. Use this path to
    advance physical builds now. Methods: `joystick`, `amp`, `cpg`,
-   `standwalk`, `assistfade`, `todaypolicy`.
+   `standwalk`, `assistfade`, `todaypolicy`, `speed`.
 2. **`rl_only` — full-direction joystick gait plus rise/hold/lower in sim and
    physically, with every motion-producing role learned entirely through RL
    and no demonstrations anywhere in its lineage** (operator expansion,
@@ -57,6 +57,19 @@ parent goal. The fifteen closed `walkcurr` off-axis mechanism classes remain
 closed; this operator order reopens the outcome gap and requires a genuinely
 new structural design, not another dose or seed of a refuted recipe.
 This clarification does not reopen closed recipes or change guardrail caps.
+
+The `speed` method's current operator priority is fast-gait sim-to-real
+robustness, not a higher simulation-only number. Treat the PS200 hardware
+roll gap (16.78 degrees physical versus 3.32 degrees matched simulation) as
+the anchor observation. Follow `rl_docs/tracks/speed/DESIGN.md`: diagnose
+joint/correlated/asymmetric model-error ensembles, then compare current DR,
+wider independent DR and physical-signature-targeted structured DR with the
+gait/reward/actuator contract held fixed. Preserve nominal speed and use
+held-out robustness gates; wide ranges alone are not progress. Prior
+one-factor PS200 probes remain closed as isolated explanations, but they do
+not close this newly ordered interaction/distributional-training direction.
+Do not wait for perfect hardware telemetry; incorporate new Robot Lab exports
+when available and otherwise proceed from the recorded tape/video/roll trace.
 
 Each goal requires BOTH an interactive joystick sim demo with a viewable
 video/reproducible launch path AND a bounded, recorded physical joystick trial
