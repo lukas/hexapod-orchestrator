@@ -127,9 +127,12 @@ through forward/crab-right/diag-left/reverse/restart
 (`logs/manual_drive/rlonly_champion_websession_capture_09-10_heartbeatfix/`,
 `CURRENT_TRUTHS.md` 09-10 root-cause entry). Known
 limits: a SUSTAINED (~15s) off-forward heading chronically sacrifices one
-front leg's swing (12 repair mechanisms CLOSED FAIL incl. the entire named
-RND family — full-obs/heading-gated/per-leg-obs-masked — `walkcurr/
-STATUS.md` 09-10; no named lever remains, needs a fresh design note);
+front leg's swing (15 repair mechanisms CLOSED FAIL as of 09-13 incl. the
+entire named RND family — full-obs/heading-gated/per-leg-obs-masked — and
+the joystick track's own cert-gated heading-widening curriculum, whose
+recalibrated V10 variant fixed its own stuck-bucket-0 defect but then
+regressed on-axis gait (new falls) instead — `walkcurr/STATUS.md` 09-13;
+no named lever remains, needs a fresh design note);
 joystick DONE-gate FAILS on slip (>3x band) — neither blocks the
 non-interactive deliverable above. **UPDATE 09-10/09-11 (op_20260910_50hz):**
 the deployable candidate is now `bundle_rlonly_v2` (v1's 100 Hz export trips
