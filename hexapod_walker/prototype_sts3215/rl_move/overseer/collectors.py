@@ -31,7 +31,6 @@ SERVICE_LABELS = (
     "com.lbiewald.hexapod-lab2",
     "com.lbiewald.hexapod-camera-tunnel",
     "com.lukas.hexapod-web-8898",
-    "com.lukas.hexapod-vision-8766",
 )
 _SECRET = re.compile(
     r"(?i)(?:bearer\s+\S+|\b(?:sk-[\w-]+)|"
