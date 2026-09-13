@@ -11,9 +11,10 @@ the state ledger, and `rl_docs/tracks/<track>/STATUS.md`. History belongs in
    Scripted gaits, CPG search, demonstrations, BC, AMP, RL and composed
    controllers are valid. Deliver usable walking to improve physical builds
    while harder research continues.
-2. **`rl_only`: the same sim and physical outcome, learned entirely through RL with
-   no demonstrations anywhere in the walking policy's training lineage.**
-   A teacher used only during training still disqualifies that lineage.
+2. **`rl_only`: full-direction joystick gait plus rise/hold/lower in sim and
+   physically, learned entirely through RL with no demonstrations anywhere in
+   any motion-producing role's training lineage.** A teacher used only during
+   training still disqualifies that lineage.
 
 | Method IDs | Parent outcome |
 |------------|----------------|
@@ -21,10 +22,12 @@ the state ledger, and `rl_docs/tracks/<track>/STATUS.md`. History belongs in
 | `walkcurr` | `rl_only` |
 
 Method gates remain useful evidence with their existing thresholds. They are
-not seven independent product requirements. One policy for sit/rise/walk/lower,
-AMP's full pipeline, and fault tolerance are optional approaches/extensions;
-physical delivery does not wait for all of them. Simulation or packaging
-PASS is not physical acceptance of either outcome. Each goal also requires
+not seven independent product requirements. A monolithic sit/rise/walk/lower
+policy is optional, but Goal 2's full clean lifecycle is not: independently
+clean RL motion roles may be composed. AMP's full pipeline and fault tolerance
+remain optional approaches/extensions; physical delivery does not wait for
+all methods. Simulation or packaging PASS is not physical acceptance of either
+outcome. Each goal also requires
 its own visible, runnable joystick sim demo and video, per `RL_GOALS.md`.
 Publish sim progress when ready; neither demo waits for physical completion
 or for the other goal. Track the two deliverables separately for each goal.
@@ -74,16 +77,24 @@ work stays within `walkcurr` and cannot inherit its weights or gait targets.
    Continue only a clean RL lineage: no BC initialization/anchor, AMP/demo
    prior, teacher targets, assisted-policy distillation or scripted gait
    residual. `walkcurr` also retains its no-gait-clock/no-motion-prior contract.
-2. Use the current ledger and mechanism evidence to select the next justified
-   prior-free experiment. Easy physics and curricula are acquisition tools;
-   success there does not prove realistic walking or physical transfer.
-3. Progress from walking discovery to command range, smooth transitions and
-   realistic model/actuator conditions, with held-out behavioral evidence.
-4. Export and validate the clean policy/runtime, deliver an interactive
-   full-mesh MuJoCo joystick demo plus video, then hand off a bounded
-   physical joystick trial under the same acceptance standard as Goal 1.
-   Calibration and physical measurements can be shared; demonstration-trained
-   weights and gait supervision cannot cross into this lineage.
+2. Treat `bundle_rlonly_v2` as a retained forward-walk milestone, not a
+   completed Goal 2 result. Its restricted heading envelope and missing
+   rise/lower role are the active gaps.
+3. Recover a full 360-degree joystick gait on the corrected mesh model at
+   50 Hz: 0/+-45/+-90/+-135/180-degree headings, both yaw signs, speed changes,
+   stops and restarts, with all six legs and no known-command exclusions. The
+   fifteen closed off-axis mechanism classes stay closed; begin with a written,
+   genuinely new structural mechanism rather than another dose/seed variant.
+4. Train clean RL rise/hold/lower capability from grounded and perturbed starts.
+   It may be a separate role composed with the walker, but it cannot use a
+   demonstrated/scripted pose path, gait clock, teacher, assisted init or
+   distillation. Task rewards, curricula and ordinary role-selection plumbing
+   remain allowed.
+5. Export and validate the complete clean stack, then demonstrate grounded ->
+   rise/hold -> full joystick session -> lower in interactive full-mesh MuJoCo
+   plus video before a bounded physical trial. Calibration and physical
+   measurements can be shared; demonstration-trained weights and gait
+   supervision cannot cross into this lineage.
 
 ## Allocation and interpretation
 
@@ -98,8 +109,9 @@ work stays within `walkcurr` and cannot inherit its weights or gait targets.
 - Reward/eval agreement first. Bad eval plus rising reward means an objective,
   evaluator or simulator audit; it never automatically justifies a seed sweep.
   Continue learning only when the interpretation rules and evidence support it.
-- New PPO/MJX policies use mesh-family 100 Hz unless a registered exception
-  says otherwise. Preserve model-family and control-rate provenance at transfer.
+- Hardware-targeted PPO/MJX policies use the corrected mesh family at 50 Hz.
+  A 100 Hz run must be registered explicitly as simulation-only and cannot be
+  promoted as a robot candidate. Preserve model/control-rate provenance.
 - Missing tools are engineering work. Tests follow `RESEARCH_RULES.md`:
   fast mechanics checks; behavioral hypotheses use measured runs and evals.
 

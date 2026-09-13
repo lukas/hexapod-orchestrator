@@ -31,21 +31,31 @@ owns evidence and past verdicts; `tracks.json` owns the stable method registry.
    RL and explicit controller composition are all valid. Use this path to
    advance physical builds now. Methods: `joystick`, `amp`, `cpg`,
    `standwalk`, `assistfade`, `todaypolicy`.
-2. **`rl_only` — the same physical outcome, with walking learned entirely
-   through RL and no demonstrations anywhere in its training lineage.**
-   Method: `walkcurr`, retaining its no-gait-clock/no-BC/no-motion-prior
-   contract. BC initialization/anchors, AMP/demo rewards, teacher action
-   targets, assisted-policy distillation and scripted-gait residuals do not
-   qualify, even if assistance later reaches zero. Record clean ancestry;
-   random actor weights alone are not enough. Calibration, system ID,
-   task rewards and curricula are allowed under `RL_GOALS.md`.
+2. **`rl_only` — full-direction joystick gait plus rise/hold/lower in sim and
+   physically, with every motion-producing role learned entirely through RL
+   and no demonstrations anywhere in its lineage** (operator expansion,
+   2026-09-13). Method: `walkcurr`, retaining its no-gait-clock/no-BC/
+   no-motion-prior contract. BC initialization/anchors, AMP/demo rewards,
+   teacher action targets, assisted-policy distillation and scripted motion
+   roles do not qualify, even if assistance later reaches zero. Record clean
+   ancestry; random actor weights alone are not enough. Calibration, system ID,
+   task rewards, curricula and non-motion role-selection plumbing are allowed.
+   Train hardware-targeted roles on the corrected mesh family at 50 Hz; 100 Hz
+   experiments are simulation-only and cannot be promoted for transfer.
 
-These outcomes proceed in parallel. A unified sit/rise/walk/lower actor or
-completion of every method is not required before useful physical delivery.
+These outcomes proceed in parallel. A monolithic sit/rise/walk/lower actor is
+not required: separately trained clean RL roles may be composed. But Goal 2
+does require the full clean lifecycle and full joystick envelope; the existing
+forward/near-forward `bundle_rlonly_v2` walk role is partial evidence, not a
+completed outcome. Completion of every method is not required before useful
+Goal 1 physical delivery.
 The earlier easy-sim acquisition priority cannot block `any_means` work.
 Method gates retain their existing thresholds and historical verdicts: a
-60 s MuJoCo pass, AMP M5, easy-physics discovery, or a packaged controller
-are method milestones, not physical completion of either parent goal.
+60 s MuJoCo pass, AMP M5, easy-physics discovery, a restricted-direction demo,
+or a packaged controller are method milestones, not completion of either
+parent goal. The fifteen closed `walkcurr` off-axis mechanism classes remain
+closed; this operator order reopens the outcome gap and requires a genuinely
+new structural design, not another dose or seed of a refuted recipe.
 This clarification does not reopen closed recipes or change guardrail caps.
 
 Each goal requires BOTH an interactive joystick sim demo with a viewable

@@ -1,7 +1,9 @@
 # Two goals: smooth joystick walking in sim and on the physical robot
 
-Lukas clarified these goals on 2026-09-08. For each goal, he wants to see
-smooth joystick walking **both in simulation and on the physical robot**.
+Lukas clarified these goals on 2026-09-08 and expanded Goal 2 on 2026-09-13.
+For each goal, he wants to see smooth joystick walking **both in simulation
+and on the physical robot**. Goal 2 additionally requires clean RL
+rise/hold/lower capability rather than a walk-only handoff.
 Each needs a visible, runnable sim demo as well as physical evidence.
 They run in parallel so hard RL research does not hold up useful walking
 or progress on physical
@@ -22,13 +24,14 @@ measure limitations, improve the mechanics, calibration, controls or sim,
 and repeat. Do not wait for demonstration-free RL, a monolithic policy,
 or every research method to succeed before delivering useful walking.
 
-## Goal 2 — walking learned entirely through RL, no demonstrations (`rl_only`)
+## Goal 2 — full gait learned entirely through RL, no demonstrations (`rl_only`)
 
-Reach the same sim and physical joystick-walking outcome with a walking policy
-learned entirely through RL. **No demonstrations at any point in its
-training lineage**, including programmed-gait demonstrations. Random actor
-weights alone do not establish this: a random actor trained against a BC
-teacher or AMP motion library is demonstration-assisted.
+Reach the same sim and physical joystick-walking outcome, including reliable
+rise, hold and lower, with every motion-producing role learned entirely through
+RL. **No demonstrations at any point in any qualifying role's training
+lineage**, including programmed-gait demonstrations. Random actor weights alone
+do not establish this: a random actor trained against a BC teacher or AMP
+motion library is demonstration-assisted.
 
 - No BC initialization or anchor, imitation/AMP reward, demonstration
   replay, teacher action targets, or distillation from an assisted policy.
@@ -45,9 +48,12 @@ teacher or AMP motion library is demonstration-assisted.
 
 Goal 1's robot measurements and tools can improve Goal 2's simulator and
 validation. Its demonstration-trained weights and gait supervision cannot
-be imported into Goal 2. A single sit/rise/walk/lower actor and fault recovery
-are possible extensions, not additional parent goals or prerequisites for
-joystick walking.
+be imported into Goal 2. One monolithic sit/rise/walk/lower actor is not
+required: separately trained clean RL roles may be composed with an ordinary
+state machine. The composition may choose and blend roles, but it may not
+generate motion from a scripted pose path, gait clock, teacher, assisted
+policy, or demonstrated controller. Full-direction walking and clean RL
+rise/hold/lower are required capabilities, not optional extensions.
 
 ## What counts as success for either goal
 
@@ -56,7 +62,7 @@ Each goal has **two required deliverables**, reported separately:
 | Goal | Simulation deliverable | Physical deliverable |
 |------|------------------------|----------------------|
 | `any_means` | Smooth joystick demo using any effective controller/training method | Smooth joystick walking on the real build |
-| `rl_only` | Smooth joystick demo with a verified demonstration-free RL walking policy | Smooth joystick walking on the real build with a policy of that same clean lineage |
+| `rl_only` | Grounded start -> clean RL rise/hold -> full-direction joystick gait -> clean RL lower, with verified demonstration-free lineage for every motion role | The same full clean-RL sequence on the real build |
 
 **Simulation:** provide a named controller/checkpoint, a reproducible launch
 command or viewer link, and a viewable video. Lukas must be able to steer it
@@ -74,6 +80,15 @@ and `ops.sh drivevideo` for supported learned walk-checkpoint videos. Where
 a policy is not yet supported faithfully in the interactive viewer, report
 that integration gap
 and show its correctly configured video as partial progress.
+
+For `rl_only`, the acceptance sequence starts grounded, rises and holds under
+a clean RL role, walks the full joystick envelope, then lowers under a clean RL
+role. The gait panel must include forward, both diagonals, both laterals, both
+rear diagonals, reverse, both yaw signs, speed changes, stops and restarts at
+the deployable 50 Hz control rate. Every sustained command must retain
+six-leg lift/place participation with no parked, dragged or sacrificed leg.
+A restricted forward/near-forward envelope, a walk-only policy, or a demo that
+omits known failing headings is partial evidence, not Goal 2 completion.
 
 **Physical:** record the actual robot with the controller and build version
 identified. A sim demo can complete the simulation deliverable while physical
@@ -116,12 +131,16 @@ only its own milestone, not parent-goal completion.
 | `standwalk` | `any_means` | Explore one learned sit/rise/walk/lower policy |
 | `assistfade` | `any_means` | Learn with assistance, then reduce it |
 | `todaypolicy` | `any_means` | Deliver usable controllers/bundles and physical handoffs |
-| `walkcurr` | `rl_only` | Discover walking through prior-free RL |
+| `walkcurr` | `rl_only` | Discover the full joystick gait and rise/hold/lower through prior-free RL |
 
 Work on both goals within existing compute, spending and safety limits.
 Select experiments and engineering work by the gap they close in an outcome;
 there is no requirement to turn every method green. Goal 1's physical work
 need not wait for Goal 2's easy-sim or real-physics acquisition. This
 clarification does not change caps, rewrite past verdicts, reopen closed
-recipes, or authorize filler runs. Preserve run evidence and use the current
-ledger and track journals to choose the next justified work.
+recipes, or authorize filler runs. It does reopen the `walkcurr` outcome gap:
+the existing forward walk bundle remains useful partial evidence but is not a
+completed Goal 2 result. Preserve the fifteen closed off-axis mechanism classes
+as evidence; further work needs a genuinely new structural mechanism rather
+than another dose or seed of a refuted recipe. Preserve run evidence and use
+the current ledger and track journals to choose the next justified work.
