@@ -10,15 +10,23 @@ and `RL_PLAN.md`** (prototype root) — the two goals and the operating
 plan — then `ORCHESTRATOR_PROMPT.md` for how a cycle behaves. This
 file covers mechanics only.
 
-## Where the state is (2026-09-08)
+## Where the state is (2026-09-14)
 
-Everything this loop WRITES lives outside the code tree, in the private
-repo `lukas/hexapod-state`, cloned at `<checkout>/.state` (controller:
+Everything this loop WRITES lives outside the code tree and outside git, in
+the plain directory `<checkout>/.state` (controller:
 `/workspace/hexapod/.state`, `HEXAPOD_STATE_DIR` in `/root/orchestrator.env`).
-`state_dir.py` is the single source of those paths; `snapshot.sh` commits
-and pushes the state repo after every run, so `exp/<run>` code tags pair
-with `state before <run>` state commits. Read it locally with
-`make -C .. state`; read it on the web at `/now` and `/llms.txt`.
+`state_dir.py` is the single source of those paths. The ledger is a
+directory, `.state/ledger/<seq>-<run>.json`, one JSON object per entry with
+a persistent `ledger_seq`; `state_dir.load_ledger()`/`save_ledger()` are its
+only accessors (a save rewrites only the entries that changed). Durability
+is a mirror, not a repo: `snapshot.sh` runs `state_sync.sh push` after every
+run, copying the directory onto the `hexapod-state` PVC (`/state/hexapod` on
+Deployment `hexapod-state`, plus 30 daily `.tgz` in `/state/backups`). Read
+it locally with `make -C .. state` (`state_sync.sh pull`: live copy from the
+controller, PVC mirror as fallback); a fresh controller runs
+`state_sync.sh restore`; read it on the web at `/now` and `/llms.txt`. The
+old single-file `experiments.json` is refused by the accessor; convert a
+legacy copy with `python state_dir.py migrate-ledger`.
 `rl_docs/runs`, `RL_LOG.md`, `rl_docs/SKILLS.md`,
 `rl_move/orchestrator/OPERATOR_QUESTIONS.md` and every
 `rl_docs/tracks/<track>/STATUS.md` in the prototype tree are symlinks into
