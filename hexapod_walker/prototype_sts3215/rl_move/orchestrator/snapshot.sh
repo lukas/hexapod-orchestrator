@@ -1,14 +1,22 @@
 #!/usr/bin/env bash
-# snapshot.sh <run-name>       commit CODE, tag exp/<run-name>, push, then commit+push STATE, print hash
+# snapshot.sh <run-name>       commit CODE on the orchestrator branch, tag exp/<run-name>, push, then mirror STATE to the PVC, print hash
 # snapshot.sh --sync <pod>     sync the prototype tree to a pod's /workspace
 set -euo pipefail
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$(git rev-parse --show-toplevel)"
-# Runtime state (ledger, queue, run stories, RL_LOG.md) lives in its own
-# repo, lukas/hexapod-state, cloned at <checkout>/.state or $HEXAPOD_STATE_DIR
-# (state_dir.py). This script is its ONLY writer: every snapshot commits and
-# pushes it right after the code push, so exp/<run> pairs with a state
-# commit of the same name. Code commits below only happen when CODE changed.
+# Runtime state (ledger directory, queue, run stories, RL_LOG.md) lives in a
+# plain directory, <checkout>/.state or $HEXAPOD_STATE_DIR (state_dir.py) --
+# not a git repo. Every snapshot mirrors it onto the hexapod-state PVC right
+# after the code push (state_sync.sh push), which also keeps a daily .tgz.
+# Code commits below only happen when CODE changed.
 STATE_DIR="${HEXAPOD_STATE_DIR:-$(pwd)/.state}"
+# Orchestrator CODE commits land on their own branch, never on main. main is
+# deployed automatically (controller, robots, Mac hub) and 70% of its history
+# was these snapshots, which made blame and bisect useless. The controller
+# checkout lives on $ORCH_BRANCH; origin/main is merged INTO it before every
+# push, and orchestrator code reaches main only when a human merges the
+# branch. state_dir.ORCH_BRANCH is the same default for the Python side.
+ORCH_BRANCH="${HEXAPOD_ORCH_BRANCH:-orchestrator}"
 
 # Guard (09-10 meta): called with no arg / a flag-looking arg, this used
 # to tag the literal string (a real snapshot landed as "before --help",
@@ -141,19 +149,35 @@ for T in "$P"/rl_docs/tracks/*/; do
   relink_journal "$T/STATUS.md" "rl_docs/tracks/$(basename "$T")/STATUS.md"
 done
 
+# Leave main if the checkout is still on it (one-time migration).
+CUR_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+if [ "$CUR_BRANCH" != "$ORCH_BRANCH" ]; then
+  echo "NOTE: checkout is on '$CUR_BRANCH'; switching to '$ORCH_BRANCH' (orchestrator code never commits to main)" >&2
+  git fetch -q origin "$ORCH_BRANCH" 2>/dev/null || true
+  if git rev-parse -q --verify "refs/remotes/origin/$ORCH_BRANCH" >/dev/null; then
+    git checkout -q -B "$ORCH_BRANCH" "origin/$ORCH_BRANCH"
+    git merge -q --no-edit "$CUR_BRANCH"
+  else
+    git checkout -q -B "$ORCH_BRANCH"
+  fi
+fi
+
 git add -A hexapod_walker/prototype_sts3215
 if ! git diff --cached --quiet; then
   git commit -m "orchestrator snapshot before ${RUN_NAME}"
 fi
-# Integrate anything the operator pushed from elsewhere before we push.
-git pull --rebase --autostash origin main
-# Retry-safe tagging (08-23, s1r1-c1 retry dig-in): a `respec --now`
-# launch that snapshots and THEN gets REFUSED (e.g. the pod code-marker
-# TOCTOU race) leaves exp/<run> behind, and the old hard-exit here made
-# every retry of the same run name mechanically impossible. Tags are
-# append-only provenance — never delete/move one; a retry gets a
-# suffixed tag exp/<run>-snapN instead. The ledger's code_sha_local is
-# the authoritative launch SHA either way.
+# Integrate what the operator merged to main. Merge, not rebase: exp/* tags
+# must keep pointing at the commits they were made on. A conflict is a
+# human's job; never leave the shared checkout half-merged.
+git fetch -q origin main
+git merge --no-edit origin/main || {
+  git merge --abort
+  echo "ERROR: origin/main does not merge cleanly into $ORCH_BRANCH; resolve by hand" >&2
+  exit 1
+}
+# Retry-safe tagging: a launch that snapshots and THEN gets refused leaves
+# exp/<run> behind. Tags are append-only provenance; a retry gets
+# exp/<run>-snapN. The ledger's code_sha_local is the authoritative SHA.
 if git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null; then
   N=2
   while git rev-parse -q --verify "refs/tags/${TAG}-snap${N}" >/dev/null; do
@@ -163,38 +187,36 @@ if git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null; then
   TAG="${TAG}-snap${N}"
 fi
 git tag "${TAG}"
-# One retry: an operator push can still land between the rebase and the
-# push (concurrent cycles can't — they wait on the lock above).
-git push origin HEAD --tags || {
-  git pull --rebase --autostash origin main
-  git push origin HEAD --tags
+# Only the controller pushes this branch (serialized by the lock above), so
+# a rejected push means someone edited it by hand: merge theirs and retry once.
+git push origin "HEAD:refs/heads/$ORCH_BRANCH" --tags || {
+  git fetch -q origin "$ORCH_BRANCH"
+  git merge --no-edit "origin/$ORCH_BRANCH"
+  git push origin "HEAD:refs/heads/$ORCH_BRANCH" --tags
 }
 CODE_SHA="$(git rev-parse HEAD)"
 
-# ---- STATE: commit + push the state repo (best effort, loud on failure) ----
-# JSON-validity guard (2026-09-06 ledger-corruption incident): never commit
-# a runtime-state JSON that fails to parse -- restore the last committed
-# copy instead (loses at most a seconds-old delta from a mid-write writer;
-# save_ledger() writes atomically so this should not trigger).
-if [ -d "$STATE_DIR/.git" ]; then
-  for RS in experiments.json backlog.json backlog_failed.json pending_evals.json; do
-    RSP="$STATE_DIR/$RS"
-    if [ -f "$RSP" ] && ! python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$RSP" 2>/dev/null; then
-      echo "WARNING: $RSP fails to parse as JSON -- restoring last committed copy" >&2
-      git -C "$STATE_DIR" checkout -q -- "$RS" 2>/dev/null || echo "  (no committed copy either -- left as-is, needs manual repair)" >&2
-    fi
-  done
-  git -C "$STATE_DIR" add -A
-  if ! git -C "$STATE_DIR" diff --cached --quiet; then
-    git -C "$STATE_DIR" commit -q -m "state before ${RUN_NAME} (code ${CODE_SHA:0:9})"
-  fi
-  git -C "$STATE_DIR" push -q origin HEAD 2>/dev/null || {
-    git -C "$STATE_DIR" pull -q --rebase --autostash origin main 2>/dev/null || true
-    git -C "$STATE_DIR" push -q origin HEAD 2>/dev/null || \
-      echo "WARNING: state push failed (network?); state is committed locally in $STATE_DIR and the next snapshot will push it" >&2
-  }
-else
-  echo "WARNING: $STATE_DIR is not a git clone -- state NOT durable. Clone lukas/hexapod-state there (setup_controller.sh does this)." >&2
+# ---- STATE: mirror the state dir onto the PVC (best effort, loud on failure) ----
+# JSON-validity guard (2026-09-06 ledger-corruption incident): name every
+# runtime-state JSON -- ledger/*.json and the top-level files -- that fails
+# to parse. The push still happens for the rest; nothing is ever "restored"
+# from git (the state dir is not a repo; the PVC keeps a daily .tgz).
+# save_ledger() writes each entry atomically, so this should stay silent.
+BAD_JSON="$(python3 - "$STATE_DIR" <<'PY' || true
+import json, pathlib, sys
+d = pathlib.Path(sys.argv[1])
+for p in sorted([*d.glob("*.json"), *d.glob("ledger/*.json")]):
+    try:
+        json.loads(p.read_bytes())
+    except Exception as exc:  # report, never repair
+        print(f"{p.relative_to(d)}: {exc}")
+PY
+)"
+if [ -n "$BAD_JSON" ]; then
+  echo "WARNING: runtime-state JSON fails to parse (pushed as-is; needs manual repair):" >&2
+  while IFS= read -r line; do echo "  $line" >&2; done <<< "$BAD_JSON"
 fi
+bash "$SCRIPT_DIR/state_sync.sh" push || \
+  echo "WARNING: state push to the PVC failed; state is only on this controller until the next snapshot pushes it" >&2
 
 echo "$CODE_SHA"

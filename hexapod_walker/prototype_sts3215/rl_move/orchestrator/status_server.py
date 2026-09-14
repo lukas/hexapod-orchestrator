@@ -58,7 +58,6 @@ from concurrent.futures import ThreadPoolExecutor
 HERE = pathlib.Path(__file__).resolve().parent
 PROTO = HERE.parent.parent
 import state_dir  # noqa: E402
-LEDGER = state_dir.LEDGER      # runtime state lives in <checkout>/.state
 BACKLOG = state_dir.BACKLOG
 BACKLOG_FAILED = state_dir.BACKLOG_FAILED
 RL_LOG = state_dir.RL_LOG
@@ -314,9 +313,14 @@ def pending_kicks() -> dict:
 
 def ledger_rows(n: int = 40) -> tuple[list[dict], dict, dict]:
     try:
-        entries = json.loads(LEDGER.read_text())
-    except Exception:
+        entries = state_dir.load_ledger()
+    except Exception as e:
+        # Loud, not silent: an unreadable ledger shows on the page and in
+        # the log rather than rendering as an empty campaign.
+        SNAP["ledger_err"] = repr(e)[:300]
+        print(f"[status] ledger unreadable: {e!r}", file=sys.stderr)
         return [], {}, {}
+    SNAP.pop("ledger_err", None)
     latest = current_entries(entries)
     counts: dict[str, int] = {}
     for e in latest.values():
@@ -2272,7 +2276,7 @@ def render_run_page(run: str) -> str | None:
     if not _SAFE_PART.match(run):
         return None
     try:
-        entries = json.loads(LEDGER.read_text())
+        entries = state_dir.load_ledger()
     except Exception:
         entries = []
     rows = [e for e in entries
@@ -2388,41 +2392,26 @@ def render_run_page(run: str) -> str | None:
 
 
 # -------------------------------------------------------- git doc sync
-# Keep the controller checkout tracking origin/main so every doc the
-# LLM mirror serves goes live within a minute of the operator pushing
-# from the laptop — no manual `git pull` (operator 08-12). Serialized
-# against snapshot.sh's commit/rebase/push with the same host-wide
-# lock; `flock -n` SKIPS the round instead of blocking when a decision
-# cycle holds it. NOTE: this updates docs only — a status_server.py
-# change still needs the runbook's tmux kill+restart to take effect.
+# Keep the controller checkout (on the orchestrator branch) merged up to
+# origin/main so every doc the LLM mirror serves goes live within a minute
+# of the operator pushing. Skips the round while a decision cycle holds the
+# lock. This updates docs only; a status_server.py change still needs the
+# runbook's tmux kill+restart to take effect.
 REPO = PROTO.parent.parent
 GIT_SYNC_S = 60
 GIT_LOCK = "/workspace/git_snapshot.lock"
 
 
 def git_sync_worker() -> None:
-    def git(*args, timeout=60):
-        return subprocess.run(["git", "-C", str(REPO), *args],
-                              capture_output=True, text=True,
-                              timeout=timeout)
     while True:
         time.sleep(GIT_SYNC_S)
         try:
-            git("fetch", "-q", "origin", "main")
-            if git("rev-parse", "HEAD").stdout == \
-                    git("rev-parse", "origin/main").stdout:
+            err = state_dir.sync_from_main(REPO, GIT_LOCK, blocking=False,
+                                           timeout=180)
+            if err:
+                SNAP["git_sync_err"] = err
+            else:
                 SNAP.pop("git_sync_err", None)
-                continue
-            r = subprocess.run(
-                ["flock", "-n", GIT_LOCK, "git", "-C", str(REPO), "pull",
-                 "--rebase", "--autostash", "-q", "origin", "main"],
-                capture_output=True, text=True, timeout=180)
-            if r.returncode == 0:
-                SNAP.pop("git_sync_err", None)
-            # flock -n exits 1 while a cycle holds the lock: not an
-            # error, just try again next round
-            elif r.returncode != 1:
-                SNAP["git_sync_err"] = (r.stderr or r.stdout)[:300]
         except Exception as e:
             SNAP["git_sync_err"] = repr(e)[:300]
 

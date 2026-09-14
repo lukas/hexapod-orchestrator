@@ -39,8 +39,9 @@ export KUBECONFIG=/root/.kube/coreweave.yaml
 # this keeps every \`uv run\` in the clone (watcher, cycles, evals) from
 # discovering that project and building a full sim venv here.
 export UV_NO_PROJECT=1
-# Runtime state (ledger, queue, run stories, RL_LOG.md) -- a clone of
-# lukas/hexapod-state that THIS pod writes and pushes (state_dir.py).
+# Runtime state (ledger directory, queue, run stories, RL_LOG.md) -- a plain
+# directory THIS pod writes and mirrors to the hexapod-state PVC after every
+# run (state_dir.py, state_sync.sh push). Not a git repo.
 export HEXAPOD_STATE_DIR=/workspace/hexapod/.state
 $( [ -n "$WANDB_KEY" ] && echo "export WANDB_API_KEY='$WANDB_KEY'" )
 ENV
@@ -53,10 +54,11 @@ git config --global user.name "hexapod-orchestrator"
 git config --global user.email "orchestrator@users.noreply.github.com"
 [ -d /workspace/hexapod ] || git clone --filter=blob:none \
     "https://$REPO_URL_BASE" /workspace/hexapod
-# Runtime state repo (the controller is its only writer; full clone, not
-# shallow, because snapshot.sh pushes to it after every run).
-[ -d /workspace/hexapod/.state ] || git clone \
-    "https://github.com/lukas/hexapod-state.git" /workspace/hexapod/.state
+# Runtime state: populate the plain state directory from the PVC mirror
+# (state_sync.sh restore refuses an empty mirror and a non-empty target).
+[ -d /workspace/hexapod/.state/ledger ] || \
+    KUBECONFIG=/root/.kube/coreweave.yaml HEXAPOD_STATE_DIR=/workspace/hexapod/.state \
+    bash /workspace/hexapod/hexapod_walker/prototype_sts3215/rl_move/orchestrator/state_sync.sh restore
 
 pip install -q --no-cache-dir uv
 uv pip install -q --system wandb pyyaml

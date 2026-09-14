@@ -77,7 +77,6 @@ import time
 HERE = pathlib.Path(__file__).resolve().parent
 REPO = HERE.parent.parent          # prototype_sts3215/
 import state_dir  # noqa: E402
-LEDGER = state_dir.LEDGER  # <state>/experiments.json; see state_dir.py
 PRUNE_OFF = HERE / "PRUNE_OFF"
 WANDB_PROJECT = "l2k2/hexapod-balance"
 POD_PROTO = "/workspace/prototype_sts3215"  # pods' tree (NOT the controller's)
@@ -468,7 +467,7 @@ def fetch_windows(entry: dict, budget_steps: int
 # ---------------------------------------------------------------------------
 
 def _running_entries(track: str) -> list[dict]:
-    led = json.loads(LEDGER.read_text())
+    led = state_dir.load_ledger()
     by_run: dict[str, dict] = {}
     for e in led:
         if e.get("run"):
@@ -651,7 +650,7 @@ def _reload_entry(run: str, created: str) -> dict | None:
     Even a later REFUSED row makes identity uncertain, so fail closed.
     """
     try:
-        led = json.loads(LEDGER.read_text())
+        led = state_dir.load_ledger()
     except Exception:
         return None
     ms = [e for e in led if e.get("run") == run]
@@ -793,7 +792,7 @@ def _kill(entry: dict, dec: Decision, budget: int) -> bool:
 def audit(run_names: list[str] | None, track: str, execute: bool,
           as_json: bool = False) -> int:
     if run_names:
-        led = json.loads(LEDGER.read_text())
+        led = state_dir.load_ledger()
         entries = [e for e in led if e.get("run") in run_names
                    and e.get("status") == "RUNNING"]
         # newest entry per run

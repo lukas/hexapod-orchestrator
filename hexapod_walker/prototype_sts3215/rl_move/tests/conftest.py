@@ -34,3 +34,56 @@ is still OPEN; see OPERATOR_QUESTIONS.md 2026-08-25.
 import os
 
 os.environ.setdefault("HEXAPOD_MODEL_SOURCE", "primitive")
+
+
+# ---------------------------------------------------------------------------
+# Ledger fixture (2026-09-14): the ledger is a directory of per-entry files
+# behind state_dir.load_ledger/save_ledger. Tests that used to write a JSON
+# list to a temp `experiments.json` and monkeypatch `<module>.LEDGER` now
+# point state_dir at a temp state dir and write through the real accessor.
+# ---------------------------------------------------------------------------
+import pytest  # noqa: E402
+
+
+def _state_dir_modules():
+    """Both import spellings of state_dir that the suite can produce (the
+    bare orchestrator module and rl_move.orchestrator.state_dir) are
+    distinct module objects; patch whichever exist."""
+    import state_dir as bare
+    mods = [bare]
+    try:
+        from rl_move.orchestrator import state_dir as pkg
+    except ImportError:  # pragma: no cover - depends on the import path
+        pkg = None
+    if pkg is not None and pkg is not bare:
+        mods.append(pkg)
+    return mods
+
+
+@pytest.fixture
+def state_ledger(tmp_path, monkeypatch):
+    """Temp state dir wired into state_dir; returns ``write(entries) -> Path``.
+
+    ``write`` REPLACES the ledger with ``entries`` (numbered 1..N, the way
+    the migration numbers a list) and returns the state dir -- the same
+    semantics the old ``path.write_text(json.dumps(rows))`` fixtures had.
+    The caller's dicts are not mutated. Call it with ``[]`` for an empty
+    ledger. Changed-file mechanics are tested in test_state_dir_ledger.
+    """
+    import shutil
+
+    import state_dir
+    root = tmp_path / "state"
+    root.mkdir(exist_ok=True)
+    for mod in _state_dir_modules():
+        monkeypatch.setattr(mod, "STATE_DIR", root)
+        monkeypatch.setattr(mod, "LEDGER_DIR", root / "ledger")
+        monkeypatch.setattr(mod, "LEDGER", root / "ledger")
+
+    def write(entries):
+        shutil.rmtree(root / "ledger", ignore_errors=True)
+        state_dir.save_ledger([
+            {k: v for k, v in e.items() if k != state_dir.SEQ_KEY}
+            for e in entries])
+        return root
+    return write

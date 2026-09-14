@@ -94,17 +94,16 @@ def test_video_preview_calls_out_missing_track_capabilities() -> None:
 
 
 def test_run_page_puts_behavior_preview_before_ledger(
-        monkeypatch, tmp_path: Path) -> None:
+        monkeypatch, tmp_path: Path, state_ledger) -> None:
     run = "cw-video-demo"
     orch = tmp_path / "rl_move" / "orchestrator"
     orch.mkdir(parents=True)
-    (orch / "experiments.json").write_text(json.dumps([
+    state_ledger([
         {"run": run, "status": "PASS", "track": "demo",
          "created": "2026-09-03T12:00:00+00:00"},
-    ]))
+    ])
     monkeypatch.setattr(status_server, "HERE", orch)
     monkeypatch.setattr(status_server, "PROTO", tmp_path)
-    monkeypatch.setattr(status_server, "LEDGER", orch / "experiments.json")
     monkeypatch.setattr(status_server, "RL_LOG", tmp_path / "RL_LOG.md")
     monkeypatch.setattr(status_server._mcp, "feedback_for_run", lambda _: [])
     monkeypatch.setitem(status_server.SNAP, "fast", {
@@ -123,17 +122,16 @@ def test_run_page_puts_behavior_preview_before_ledger(
 
 
 def test_run_page_shows_persisted_feedback(
-        monkeypatch, tmp_path: Path) -> None:
+        monkeypatch, tmp_path: Path, state_ledger) -> None:
     run = "cw-feedback-video-demo"
     orch = tmp_path / "rl_move" / "orchestrator"
     orch.mkdir(parents=True)
-    (orch / "experiments.json").write_text(json.dumps([
+    state_ledger([
         {"run": run, "status": "FINISHED", "track": "demo",
          "created": "2026-09-04T12:00:00+00:00"},
-    ]))
+    ])
     monkeypatch.setattr(status_server, "HERE", orch)
     monkeypatch.setattr(status_server, "PROTO", tmp_path)
-    monkeypatch.setattr(status_server, "LEDGER", orch / "experiments.json")
     monkeypatch.setattr(status_server, "RL_LOG", tmp_path / "RL_LOG.md")
     monkeypatch.setattr(
         status_server._mcp,

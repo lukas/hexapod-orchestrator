@@ -8,6 +8,8 @@ import pathlib
 import re
 import urllib.parse
 
+import state_dir
+
 _cost_cache = {}
 
 
@@ -151,11 +153,8 @@ def render(server, tid, page=1):
     meta = registry.get(tid, {})
     ledger_error = ""
     try:
-        ledger_path = getattr(server, "LEDGER", server.HERE / "experiments.json")
-        entries = json.loads(ledger_path.read_text())
-        if not isinstance(entries, list):
-            raise ValueError("ledger is not a list")
-    except (OSError, ValueError):
+        entries = state_dir.load_ledger()
+    except (OSError, ValueError, RuntimeError):
         entries = []
         ledger_error = "Experiment ledger unavailable; totals are unavailable until it recovers."
     if hasattr(server, "current_entries"):

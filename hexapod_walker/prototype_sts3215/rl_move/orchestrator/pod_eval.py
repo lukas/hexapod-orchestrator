@@ -52,7 +52,6 @@ os.environ.setdefault(
 HERE = pathlib.Path(__file__).resolve().parent
 PROTO = HERE.parent.parent
 import state_dir  # noqa: E402
-LEDGER = state_dir.LEDGER  # <state>/experiments.json; see state_dir.py
 POD_PROTO = "/workspace/prototype_sts3215"
 PASS_TIMEOUT_S = 2700
 
@@ -413,7 +412,7 @@ def main() -> int:
     # back to last-match only if none did.
     entry = None
     fallback = None
-    for e in json.loads(LEDGER.read_text()):
+    for e in state_dir.load_ledger():
         if isinstance(e, dict) and e.get("run") == run and e.get("extra_args"):
             fallback = e
             if e.get("wandb_id") or e.get("checks", {}).get("pid"):

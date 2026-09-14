@@ -74,13 +74,9 @@ means the metric, reward, or simulator is the bug.
 
 ## Reward<->eval alignment — evidence from runs, not a rollout test bank
 
-The MDP_PREFLIGHT bank (`rl_move/tests/test_task_semantics.py`, retired
-2026-09-08 by the operator) is GONE and must not come back in any form.
-It proved reward preferences by rolling out the simulator on the
-PRIMITIVE robot model while every run since 08-24 trains on the MESH
-model, it took 25 of the suite's 33 minutes, and 60+ of its 385 tests
-were red. A test bank that rebuilds "X out-earns cheat Y by N" from
-rollouts is an experiment result, not a unit test.
+A test bank that rebuilds "X out-earns cheat Y by N" from simulator
+rollouts is an experiment result, not a unit test. The retired
+`test_task_semantics.py` bank must not come back in any form.
 
 Alignment evidence now lives where the physics is real:
 
@@ -167,22 +163,12 @@ These are binding. A cycle that violates them reverts its own test.
   change the hypothesis or the task spec, not the coefficient.
 - Matched-parent controls are mandatory for injected physics/sensor
   axes.
-- **Any manual `eval_yaw`/`eval_checkpoint` invocation you hand-write
-  (not `ops.sh`, not a harness that already bakes it in) MUST include
-  the checkpoint's own training `bus.write_speed`/`write_acc`/
-  `bus.servo_vel_max_counts_s=write_speed`/`safety.max_delta_q_deg`
-  cfg-sets.** Omitting them silently falls back to the gentle default
-  profile (write_speed=400/write_acc=20, ~4x slower slew), which reads
-  as a DIFFERENT, incomparable dynamics regime — not a small noise
-  band. Caught twice now (joystick stotight45 second-seed re-eval,
-  08-22; amp turnpush1-style05-acq1-r2 eval_yaw, 08-23 — the second
-  case produced a false PASS that had to be retracted after the
-  correctly-configured re-read showed the run was actually badly
-  turn-eroded, worse than the park fingerprint). `eval_amp_m5.py` and
-  the standard prestage gate always set this correctly; only ad hoc
-  hand-run commands are at risk — when in doubt, copy the checkpoint's
-  own `command` field's `--cfg-set bus.*`/`safety.max_delta_q_deg`
-  args verbatim rather than reconstructing them from memory.
+- A hand-written `eval_yaw`/`eval_checkpoint` command must carry the
+  checkpoint's own `--cfg-set bus.write_speed/write_acc/
+  servo_vel_max_counts_s` and `safety.max_delta_q_deg` (copy them from the
+  ledger entry's `command` field). Without them the eval runs a different,
+  incomparable dynamics regime and has produced false PASSes. `ops.sh` and
+  the prestage gate set them for you.
 
 ## Reward routing
 

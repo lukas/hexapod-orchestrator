@@ -140,15 +140,17 @@ def test_failed_sync_leaves_old_watcher_running_and_clears_flags(tmp_path, failu
     assert len(git) == (1 if failure == "pull" else 0)
 
 
-def test_successful_sync_is_locked_fast_forward_without_autostash(tmp_path):
+def test_successful_sync_is_locked_merge_of_main_without_autostash(tmp_path):
     result, events, old, new = _run_restart(tmp_path, active_polls=3)
     assert result.returncode == 0, result.stderr
     assert not old.exists() and new.exists()
     assert "RESTARTED ok" in result.stdout
-    git = "git|-c|rebase.autoStash=false|-c|merge.autoStash=false|pull|--no-rebase|--ff-only|origin|main"
-    assert git in events
-    assert events.index("flock|-w|120|9") < events.index(git)
+    fetch = "git|fetch|-q|origin|main"
+    git = "git|-c|merge.autoStash=false|merge|--no-edit|origin/main"
+    assert fetch in events and git in events
+    assert events.index("flock|-w|120|9") < events.index(fetch) < events.index(git)
     assert events.index(git) < events.index("tmux|kill-session|-t|orchestrator")
+    assert not any(e.startswith("git|") and "rebase" in e for e in events)
     # Existing wrapup cadence/drain survives: three cycles polls, drain at #2.
     assert events.count("sleep|60") == 3
     drains = [i for i, event in enumerate(events)

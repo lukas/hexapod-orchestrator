@@ -82,7 +82,6 @@ def pending_mcp_kicks() -> list[pathlib.Path]:
 # deserves the full 15-min cadence again. Pure re-verify no-ops must
 # NOT touch it; that is exactly the case backoff exists for.
 WORKED = HERE / "CYCLE_WORKED"
-LEDGER = state_dir.LEDGER
 BACKLOG = state_dir.BACKLOG
 LOG = pathlib.Path("/workspace/orchestrator.log")
 STATE = pathlib.Path("/workspace/orchestrator_state.json")
@@ -549,22 +548,22 @@ def acknowledge_pending_evals(ready: list[dict]) -> None:
 
 def board_fingerprint() -> str:
     """Cheap hash of everything that can make new work runnable for a
-    partial-refill cycle: ledger bytes, backlog bytes, code + state repo
-    HEADs. Measured at the 09-10 meta-analysis: 18/48 refill cycles in
+    partial-refill cycle: ledger file stamps, backlog bytes, code HEAD.
+    Measured at the 09-10 meta-analysis: 18/48 refill cycles in
     24h ended "IDLE: nothing runnable" against a byte-identical board
     (~$46 + 4 agent-hours of re-surveys) because zero-GPU doc work kept
     resetting the grace backoff. After a refill declares IDLE, the
     watcher skips further refills until this fingerprint changes; run
-    completions, verdicts, backlog adds, code snapshots and state-repo
-    pushes all change it. Idle kicks (4h-capped), operator/MCP kicks and
-    finish-triggered triage are NOT gated."""
+    completions, verdicts, backlog adds and code snapshots all change
+    it. Idle kicks (4h-capped), operator/MCP kicks and finish-triggered
+    triage are NOT gated."""
     h = hashlib.sha256()
-    for p in (LEDGER, BACKLOG):
-        try:
-            h.update(p.read_bytes())
-        except OSError:
-            h.update(b"?")
-    for repo in (HERE, state_dir.STATE_DIR):
+    h.update(state_dir.ledger_fingerprint().encode())
+    try:
+        h.update(BACKLOG.read_bytes())
+    except OSError:
+        h.update(b"?")
+    for repo in (HERE,):
         try:
             head = subprocess.run(
                 ["git", "-C", str(repo), "rev-parse", "HEAD"],
@@ -701,7 +700,7 @@ def ledger_verdicted() -> set[str]:
     a missing/corrupt ledger never blocks the loop.
     """
     try:
-        entries = json.loads(LEDGER.read_text())
+        entries = state_dir.load_ledger()
         # Key on the LATEST entry per run: a stale FAILED launch attempt
         # that precedes a successful relaunch must not mark the run
         # verdicted forever (orphaned cw-stance-endpost-c1, cycle 22).
@@ -758,8 +757,9 @@ def checkup_worker() -> None:
         done = set()
     while True:
         try:
-            entries = json.loads(LEDGER.read_text())
-        except Exception:
+            entries = state_dir.load_ledger()
+        except Exception as e:
+            log(f"ledger unreadable, skipping this pass: {e!r}")
             entries = []
         now = time.time()
         for e in entries:
@@ -867,8 +867,9 @@ def handoff_watch_worker() -> None:
         try:
             if not PAUSE.exists():
                 try:
-                    entries = json.loads(LEDGER.read_text())
-                except Exception:
+                    entries = state_dir.load_ledger()
+                except Exception as e:
+                    log(f"ledger unreadable, skipping this pass: {e!r}")
                     entries = []
                 latest: dict[str, dict] = {}
                 for e in entries:
@@ -969,7 +970,7 @@ def try_auto_continue(run: str) -> str | None:
         if not reward_still_climbing(run):
             log(f"auto-continue: {run} not improving — leaving to the cycle")
             return None
-        entries = [e for e in json.loads(LEDGER.read_text())
+        entries = [e for e in state_dir.load_ledger()
                    if e.get("run") == run and e.get("extra_args")]
         if not entries:
             log(f"auto-continue: no launch entry for {run} in ledger")
@@ -1023,7 +1024,7 @@ def mark_triage(run: str, value: str, only_if_unset: bool = False) -> None:
     """
     try:
         if only_if_unset:
-            for e in json.loads(LEDGER.read_text()):
+            for e in state_dir.load_ledger():
                 if e.get("run") == run and e.get("triage"):
                     return
         subprocess.run(
@@ -1054,7 +1055,7 @@ def _prestage_wrapper_timeout(run: str) -> int:
     """
     try:
         import pod_eval  # local module, HERE is already on sys.path
-        entries = [e for e in json.loads(LEDGER.read_text())
+        entries = [e for e in state_dir.load_ledger()
                    if e.get("run") == run and e.get("extra_args")]
         if not entries:
             return PRESTAGE_WRAPPER_TIMEOUT_S
@@ -1454,29 +1455,13 @@ def spawn_cycle(newly_finished: set[str], still_running: set[str],
     # cycles (infra judgment) and dig-in escalations stay deep.
     if model is None:
         model = AGENT_MODEL_DEEP if findings else AGENT_MODEL_TRIAGE
-    # Sync with main first so the agent sees the operator's latest plan/log
-    # edits and its later push can't be rejected as non-fast-forward.
-    # Serialized against snapshot.sh's commit/rebase/push (and
-    # status_server.py's own doc-sync puller) with the same host-wide
-    # flock (08-22: this specific pull ran WITHOUT the lock while
-    # snapshot.sh held it elsewhere, and separately a cycle that same
-    # day corrupted the shared experiments.json/RL_LOG.md/STATUS.md by
-    # manually `git stash pop`-ing an unrelated hours-stale autostash
-    # against 10+ commits of newer history — both are real ways an
-    # unprotected git operation can leave the shared working tree in a
-    # conflicted state mid-cycle. This lock doesn't stop a deliberate
-    # manual stash pop, but it does close the unlocked-pull half of the
-    # exposure for free). Blocking (not -n) is correct here, unlike
-    # status_server's polling loop: this runs once right before
-    # spawning a cycle, so a brief wait for a concurrent snapshot to
-    # finish is normal and cheap.
-    pull = subprocess.run(
-        ["flock", GIT_LOCK, "git", "pull", "--rebase", "--autostash",
-         "origin", "main"],
-        cwd=REPO, capture_output=True, text=True, timeout=300,
-    )
-    if pull.returncode != 0:
-        log(f"git pull failed before cycle: {(pull.stderr or '')[-500:]}")
+    # Merge origin/main into the orchestrator branch first so the agent sees
+    # the operator's latest edits. Serialized with snapshot.sh and the
+    # status server's doc sync by the host-wide lock; blocking is right
+    # here because this runs once, right before spawning a cycle.
+    err = state_dir.sync_from_main(REPO, GIT_LOCK, blocking=True)
+    if err:
+        log(f"git sync failed before cycle: {err}")
     CYCLE_OUT_DIR.mkdir(parents=True, exist_ok=True)
     stamp = datetime.datetime.now().strftime("%Y%m%dT%H%M%S")
     label = (label_override
@@ -1614,7 +1599,7 @@ def reap_cycles(active: list[dict], processed: set[str]) -> tuple[list[dict], in
             # actually exists in the ledger instead — cheap forgery guard,
             # no longer tied to the spawning cycle's own run set.
             try:
-                known_runs = {e.get("run") for e in json.loads(LEDGER.read_text())
+                known_runs = {e.get("run") for e in state_dir.load_ledger()
                               if e.get("run")}
             except (OSError, ValueError):
                 known_runs = set(c["runs"])  # ledger unreadable: fall back
