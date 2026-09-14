@@ -62,7 +62,7 @@ the drain requires before treating a pod as a slot.
 
 ## State — machines own facts, the LLM owns interpretation
 
-- `experiments.json` — the ledger, single source of truth per run
+- `ledger/<seq>-<run>.json` — the ledger, single source of truth per run
   (status, hypothesis, gate, verdict, W&B id). Edit ONLY via
   `launch_run.py update`. Every update regenerates the browsable
   per-run summary in `rl_docs/runs/`.

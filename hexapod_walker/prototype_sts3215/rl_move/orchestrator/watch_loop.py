@@ -758,7 +758,8 @@ def checkup_worker() -> None:
     while True:
         try:
             entries = state_dir.load_ledger()
-        except Exception:
+        except Exception as e:
+            log(f"ledger unreadable, skipping this pass: {e!r}")
             entries = []
         now = time.time()
         for e in entries:
@@ -867,7 +868,8 @@ def handoff_watch_worker() -> None:
             if not PAUSE.exists():
                 try:
                     entries = state_dir.load_ledger()
-                except Exception:
+                except Exception as e:
+                    log(f"ledger unreadable, skipping this pass: {e!r}")
                     entries = []
                 latest: dict[str, dict] = {}
                 for e in entries:

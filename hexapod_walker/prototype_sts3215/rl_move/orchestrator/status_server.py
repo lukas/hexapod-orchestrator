@@ -314,8 +314,13 @@ def pending_kicks() -> dict:
 def ledger_rows(n: int = 40) -> tuple[list[dict], dict, dict]:
     try:
         entries = state_dir.load_ledger()
-    except Exception:
+    except Exception as e:
+        # Loud, not silent: an unreadable ledger shows on the page and in
+        # the log rather than rendering as an empty campaign.
+        SNAP["ledger_err"] = repr(e)[:300]
+        print(f"[status] ledger unreadable: {e!r}", file=sys.stderr)
         return [], {}, {}
+    SNAP.pop("ledger_err", None)
     latest = current_entries(entries)
     counts: dict[str, int] = {}
     for e in latest.values():
