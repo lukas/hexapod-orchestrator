@@ -122,30 +122,55 @@ CANARY_GATE_PREFIX = (
 )
 
 
+_CANARY_CATS = (
+    # normalized key -> canonical form; tagged keys first, bare "PASS" last
+    ("CANARY FAIL INFRASTRUCTURE", "CANARY FAIL - INFRASTRUCTURE"),
+    ("CANARY FAIL MECHANISM", "CANARY FAIL - MECHANISM"),
+    ("CANARY PASS", "CANARY PASS"),
+    ("FAIL INFRASTRUCTURE", "CANARY FAIL - INFRASTRUCTURE"),
+    ("FAIL INFRA", "CANARY FAIL - INFRASTRUCTURE"),
+    ("FAIL MECHANISM", "CANARY FAIL - MECHANISM"),
+    ("PASS", "CANARY PASS"),
+)
+
+
+def _canary_norm(s: str) -> str:
+    return re.sub(r"[\s_:/–—-]+", " ", s.strip().upper())
+
+
 def canary_update_error(entry: dict) -> str:
-    """Reject category-error verdicts for mechanism-only canaries."""
+    """Canonicalize (or reject) category verdicts for mechanism canaries.
+
+    Meta 09-09: 92 REFUSED bounces in 48h were spelling, not semantics.
+    Meta 09-14: 28 more in 24h were a valid category in --set status=
+    ("FAIL-MECHANISM") with no literal CANARY tag in the verdict text;
+    each bounce cost a retry plus a re-grep of this file. The category
+    the agent explicitly chose IS the semantics — canonicalize the
+    entry in place and only refuse when no category was named anywhere.
+    Bare "FAIL" stays refused (mechanism vs infrastructure ambiguous).
+    """
     if entry.get("phase") != "canary":
         return ""
     if entry.get("hardware_ready") is True:
         return "canary runs cannot be marked hardware_ready"
-    verdict = str(entry.get("verdict", "")).strip().upper()
+    verdict = str(entry.get("verdict", "")).strip()
     if not verdict:
         return ""
-    # Meta 09-09: 92 REFUSED bounces in 48h were spelling, not semantics
-    # ("CANARY FAIL-MECHANISM", "Result: ... CANARY PASS ..."). Normalize
-    # separator noise and accept the category tag anywhere in the opening;
-    # the requirement stays "the verdict names its canary category".
-    head = re.sub(r"[\s_:/–—-]+", " ", verdict)[:160]
-    allowed = (
-        "CANARY PASS" in head,
-        "CANARY FAIL INFRASTRUCTURE" in head,
-        "CANARY FAIL MECHANISM" in head,
-    )
-    if not any(allowed):
-        return ("canary verdict must begin CANARY PASS, CANARY FAIL - "
-                "INFRASTRUCTURE, or CANARY FAIL - MECHANISM; behavioral "
-                "FAIL/exploit/reward-closure verdicts are invalid at "
+    head = _canary_norm(verdict)[:160]
+    tagged = next((c for k, c in _CANARY_CATS[:3] if k in head), "")
+    st = _canary_norm(str(entry.get("status", "")))
+    st_cat = next((c for k, c in _CANARY_CATS if st.startswith(k)), "")
+    cat = tagged or st_cat
+    if not cat:
+        return ("canary verdict must name its category: CANARY PASS, "
+                "CANARY FAIL - INFRASTRUCTURE, or CANARY FAIL - MECHANISM "
+                "(in the verdict text or --set status=); behavioral FAIL/"
+                "exploit/reward-closure verdicts are invalid at "
                 "mechanism-health scope")
+    if st_cat:
+        entry["status"] = st_cat
+    if not tagged:
+        entry["verdict"] = f"{cat}: {verdict}"
     return ""
 
 

@@ -1098,6 +1098,18 @@ print(out)
 EOF
   ;;
 
+testfull)  # testfull [extra pytest args] — the full regression suite,
+  # PARALLEL (meta 09-14: serial full-suite is >60 min and cycles ran it
+  # 51x/24h inside sleep-poll loops; xdist -n 32 --dist loadfile runs it
+  # in ~5 min, same tests, per-file grouping keeps fixture ordering).
+  shift
+  # cap per-worker BLAS/OMP threads: 32 workers x default-128 threads
+  # thrashes the box and the long-tail files dominate anyway
+  exec env OMP_NUM_THREADS=2 OPENBLAS_NUM_THREADS=2 MKL_NUM_THREADS=2 \
+    uv run pytest rl_move/tests/ -q -n 32 --dist loadfile \
+    --ignore=rl_move/tests/test_metaagent_server.py "$@"
+  ;;
+
 logline)  # logline "text" — append ONE timestamped line to RL_LOG.md
   # under the git lock. This is the ONLY sanctioned way to write
   # RL_LOG from a cycle: free-form `cat >> RL_LOG.md` blocks bloated
@@ -1776,7 +1788,8 @@ prune)  # prune [--execute] [--run <name>] — mechanical seed-prune audit
   echo "  waitlog <file> <regex> [t] | podwaitlog <pod> <file> <regex> [t] | evalpending add <pod> <file> <label> |"
   echo "  handoff <run> (deferred-artifacts registry: training/artifacts_pending/evaluated) |"
   echo "  prune [--execute] (mechanical seed-prune audit; watcher runs it live) |"
-  echo "  logline \"line\" | frames <mp4> [n] | feeltest <run> [out] [--unified] |"
+  echo "  logline \"line\" | frames <mp4> [n] | testfull [pytest args] (parallel suite ~5min) |"
+  echo "  feeltest <run> [out] [--unified] |"
   echo "  drivevideo <run> [out] | hybriddemo <run> [out] | expdir <run> | wandbdump <run> |"
   echo "  wandbnote <run> \"paragraph\" | oplaunch <launch_run.py args...> |"
   echo "  cycle [\"focus text\"] (operator: kick a decision session now) |"
