@@ -7,6 +7,7 @@ import pytest
 
 
 import mcp_server
+import state_dir
 import status_server
 from ledger_view import current_entries
 
@@ -83,18 +84,14 @@ def test_only_refusals_keep_latest_and_invalid_rows_are_ignored():
 
 
 def test_mcp_and_dashboard_select_same_attempt_and_expose_history(
-        monkeypatch, tmp_path):
+        monkeypatch, tmp_path, state_ledger):
     rows = _live_and_duplicate()
-    ledger = tmp_path / "experiments.json"
-    encoded = json.dumps(rows)
-    ledger.write_text(encoded)
+    state_ledger(rows)
     monkeypatch.setattr(mcp_server, "HERE", tmp_path)
-    monkeypatch.setattr(mcp_server, "LEDGER", tmp_path / "experiments.json")
     monkeypatch.setattr(mcp_server, "RL_LOG", tmp_path / "RL_LOG.md")
     monkeypatch.setattr(mcp_server, "PROTO", tmp_path)
     monkeypatch.setattr(mcp_server, "feedback_for_run", lambda _: [])
     monkeypatch.setattr(status_server, "HERE", tmp_path)
-    monkeypatch.setattr(status_server, "LEDGER", tmp_path / "experiments.json")
     monkeypatch.setattr(status_server, "RL_LOG", tmp_path / "RL_LOG.md")
     monkeypatch.setattr(status_server, "PROTO", tmp_path)
     monkeypatch.setattr(status_server, "_cycle_registry_entries", lambda: [])
@@ -122,11 +119,13 @@ def test_mcp_and_dashboard_select_same_attempt_and_expose_history(
     assert "[RUNNING]" in page.split("</h1>", 1)[0]
     assert "Ledger history" in page
     assert "REFUSED" in page
-    assert ledger.read_text() == encoded
+    # readers never write: the stored rows are unchanged (modulo their seq)
+    assert [{k: v for k, v in e.items() if k != state_dir.SEQ_KEY}
+            for e in state_dir.load_ledger()] == rows
 
     # Both outward views must follow an actual failure of that attempt;
     # a later rejected duplicate must never keep it looking RUNNING.
     rows[0]["status"] = "FAILED"
-    ledger.write_text(json.dumps(rows))
+    state_ledger(rows)
     assert mcp_server._ledger()[0]["status"] == "FAILED"
     assert status_server.ledger_rows()[1] == {"FAILED": 1}

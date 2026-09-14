@@ -13,7 +13,11 @@ PROTO="$(cd "$HERE/../.." && pwd)"          # …/hexapod_walker/prototype_sts32
 # Runtime state (ledger, RL_LOG.md, run stories) lives outside the code
 # tree: <checkout>/.state or $HEXAPOD_STATE_DIR -- see state_dir.py.
 STATE_DIR="${HEXAPOD_STATE_DIR:-$PROTO/../../.state}"
-LEDGER="$STATE_DIR/experiments.json"
+export HEXAPOD_STATE_DIR="$STATE_DIR"        # the python below resolves it from here
+LEDGER="$STATE_DIR/ledger"                   # a DIRECTORY of per-entry files (state_dir.py)
+# Every embedded python reads the ledger via state_dir.load_ledger(); HERE on
+# PYTHONPATH makes `__import__("state_dir")` work from any cwd / uv env.
+export PYTHONPATH="$HERE${PYTHONPATH:+:$PYTHONPATH}"
 WANDB_PROJECT="l2k2/hexapod-balance"
 POD_PROTO=/workspace/prototype_sts3215      # pods' tree (NOT the controller's)
 
@@ -44,7 +48,7 @@ entry_field() {  # entry_field <run> <field> — last LIVE entry wins
 import json, sys
 run, field = sys.argv[1], sys.argv[2]
 val = dead_val = ""
-for e in json.load(open(__import__("os").environ["LEDGER"])):
+for e in __import__("state_dir").load_ledger():
     if isinstance(e, dict) and e.get("run") == run and e.get(field) is not None:
         if e.get("status") in ("REFUSED", "KILLED"):
             dead_val = e[field]
@@ -123,7 +127,7 @@ status)  # fleet in one shot: active ledger entries, live procs, watcher tail
 import json, os, sys
 sys.path.insert(0, os.environ["HERE"])
 from ledger_view import current_entries
-last = current_entries(json.load(open(os.environ["LEDGER"])))
+last = current_entries(__import__("state_dir").load_ledger())
 for r, e in last.items():
     if e.get("status") in ("RUNNING", "INTENT"):
         print(f"{e.get('status'):8s} {r}  pod={e.get('pod')}")
@@ -132,7 +136,7 @@ EOF
 import json, os, sys
 sys.path.insert(0, os.environ['HERE'])
 from ledger_view import current_entries
-last = current_entries(json.load(open(os.environ['LEDGER'])))
+last = current_entries(__import__("state_dir").load_ledger())
 pods={e.get('pod') for e in last.values() if e.get('status')=='RUNNING'}
 print(' '.join(sorted(p for p in pods if p)))"); do
     echo "--- $pod live procs:"
@@ -166,7 +170,7 @@ except Exception:
 # run's genuine last-known state -- it hid a real FINISHED-unverdicted
 # canary (and a real RUNNING sibling) from this exact board this
 # cycle. Uses the shared, tested `ledger_view.current_entries`.
-last = current_entries(json.load(open(os.environ["LEDGER"])))
+last = current_entries(__import__("state_dir").load_ledger())
 live = [(e.get("status"), r) for r, e in last.items()
         if e.get("status") in ("RUNNING", "INTENT")]
 unverd = [r for r, e in last.items()
@@ -246,7 +250,7 @@ entry)  # entry <run> [field] — all ledger entries for the run, pretty-
   if [ -n "${3:-}" ]; then entry_field "$2" "$3"; else
   uv run python - "$2" <<'EOF'
 import json, os, sys
-for e in json.load(open(os.environ["LEDGER"])):
+for e in __import__("state_dir").load_ledger():
     if isinstance(e, dict) and e.get("run") == sys.argv[1]:
         print(json.dumps(e, indent=1))
 EOF
@@ -456,7 +460,7 @@ run = sys.argv[1]
 # extra_args (no --cfg-set), voiding the eval (obs-width mismatch).
 entry = None
 fallback = None
-for e in json.load(open(os.environ["LEDGER"])):
+for e in __import__("state_dir").load_ledger():
     if isinstance(e, dict) and e.get("run") == run and e.get("extra_args"):
         fallback = e
         if e.get("wandb_id") or e.get("checks", {}).get("pid"):
@@ -554,7 +558,7 @@ import json, os, sys
 run, pod_override = sys.argv[1], sys.argv[2]
 entry = None
 fallback = None
-for e in json.load(open(os.environ["LEDGER"])):
+for e in __import__("state_dir").load_ledger():
     if isinstance(e, dict) and e.get("run") == run and e.get("extra_args"):
         fallback = e
         if e.get("wandb_id") or e.get("checks", {}).get("pid"):
@@ -626,7 +630,7 @@ import json, os, sys
 run, pod_override = sys.argv[1], sys.argv[2]
 entry = None
 fallback = None
-for e in json.load(open(os.environ["LEDGER"])):
+for e in __import__("state_dir").load_ledger():
     if isinstance(e, dict) and e.get("run") == run and e.get("extra_args"):
         fallback = e
         if e.get("wandb_id") or e.get("checks", {}).get("pid"):
@@ -720,7 +724,7 @@ import json, os, shlex, subprocess, sys
 run, own_dr, n, ep = sys.argv[1:5]
 entry = None
 fallback = None
-for e in json.load(open(os.environ["LEDGER"])):
+for e in __import__("state_dir").load_ledger():
     if isinstance(e, dict) and e.get("run") == run and e.get("extra_args"):
         fallback = e
         if e.get("wandb_id") or e.get("checks", {}).get("pid"):
@@ -766,7 +770,7 @@ import json, os, sys
 run = sys.argv[1]
 entry = None
 fallback = None
-for e in json.load(open(os.environ["LEDGER"])):
+for e in __import__("state_dir").load_ledger():
     if isinstance(e, dict) and e.get("run") == run and e.get("extra_args"):
         fallback = e
         if e.get("wandb_id") or e.get("checks", {}).get("pid"):
@@ -817,7 +821,7 @@ run, rise, walk, lower, flat = sys.argv[1:6]
 flat = flat in ("1", "true", "True")
 entry = None
 fallback = None
-for e in json.load(open(os.environ["LEDGER"])):
+for e in __import__("state_dir").load_ledger():
     if isinstance(e, dict) and e.get("run") == run and e.get("extra_args"):
         fallback = e
         if e.get("wandb_id") or e.get("checks", {}).get("pid"):
@@ -1140,7 +1144,7 @@ manualdrive)  # manualdrive <run> <out-dir> [extra manual_drive_session args...]
   done < <(uv run python - "$run" <<'EOF'
 import json, os, sys
 run = sys.argv[1]
-for e in json.load(open(os.environ["LEDGER"])):
+for e in __import__("state_dir").load_ledger():
     if isinstance(e, dict) and e.get("run") == run:
         args = e.get("extra_args", [])
         ck = None
@@ -1227,7 +1231,7 @@ import json, os, sys
 run = sys.argv[1]
 entry = None
 fallback = None
-for e in json.load(open(os.environ["LEDGER"])):
+for e in __import__("state_dir").load_ledger():
     if isinstance(e, dict) and e.get("run") == run and e.get("extra_args"):
         fallback = e
         if e.get("wandb_id") or e.get("checks", {}).get("pid"):
@@ -1294,7 +1298,7 @@ import json, os, sys
 run = sys.argv[1]
 entry = None
 fallback = None
-for e in json.load(open(os.environ["LEDGER"])):
+for e in __import__("state_dir").load_ledger():
     if isinstance(e, dict) and e.get("run") == run and e.get("extra_args"):
         fallback = e
         if e.get("wandb_id") or e.get("checks", {}).get("pid"):
@@ -1444,7 +1448,7 @@ hrs = float(sys.argv[1])
 cut = (dt.datetime.now(dt.timezone.utc)
        - dt.timedelta(hours=hrs)).isoformat()
 led = {}
-for e in json.load(open(os.environ["LEDGER"])):
+for e in __import__("state_dir").load_ledger():
     if isinstance(e, dict) and e.get("run"):
         if e.get("status") not in ("REFUSED",):
             led[e["run"]] = e

@@ -522,28 +522,24 @@ def test_shell_changed_starttime_never_signals_reused_pid(tmp_path, monkeypatch)
     assert shell.signaled() == []
 
 
-def test_appended_same_name_attempt_aborts_before_signal(tmp_path, monkeypatch):
+def test_appended_same_name_attempt_aborts_before_signal(tmp_path, monkeypatch, state_ledger):
     real_reload = sp._reload_entry
     env = _KillEnv(monkeypatch)
-    ledger = tmp_path / "experiments.json"
     newer = dict(PIN, created="2026-09-07T11:00:00+00:00", wandb_id="new999",
                  checks={"pid": "9999", "trainer_pid": "9999"})
-    ledger.write_text(json.dumps([PIN, newer]))
-    monkeypatch.setattr(sp, "LEDGER", ledger)
+    state_ledger([PIN, newer])
     monkeypatch.setattr(sp, "_reload_entry", real_reload)
     assert sp._kill(dict(PIN), DEC, BUDGET) is False
     assert env.killed_pairs == []
     assert env.marked == []
 
 
-def test_retry_appended_during_actual_pid_probe_aborts(tmp_path, monkeypatch):
+def test_retry_appended_during_actual_pid_probe_aborts(tmp_path, monkeypatch, state_ledger):
     real_reload, real_pin = sp._reload_entry, sp._pin_procs
     env = _KillEnv(monkeypatch)
-    ledger = tmp_path / "experiments.json"
-    ledger.write_text(json.dumps([PIN]))
+    state_ledger([PIN])
     newer = dict(PIN, created="2026-09-07T11:00:00+00:00", wandb_id="new999",
                  checks={"pid": "9999", "trainer_pid": "9999"})
-    monkeypatch.setattr(sp, "LEDGER", ledger)
     monkeypatch.setattr(sp, "_reload_entry", real_reload)
     shell = _ProcShell(tmp_path, monkeypatch)
     shell.add(4242)
@@ -551,7 +547,7 @@ def test_retry_appended_during_actual_pid_probe_aborts(tmp_path, monkeypatch):
 
     def probe_then_retry(pod, run, pid):
         pairs = real_pin(pod, run, pid)
-        ledger.write_text(json.dumps([PIN, newer]))
+        state_ledger([PIN, newer])
         return pairs
 
     monkeypatch.setattr(sp, "_pin_procs", probe_then_retry)

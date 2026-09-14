@@ -66,14 +66,13 @@ def alternate_state(tmp_path, monkeypatch):
         p.write_text(body)
     (proto / "STATUS.md").write_text("code campaign digest\n")
     (state / "README.md").write_text("not a public logical doc\n")
-    (state / "experiments.json").write_text(json.dumps([
-        {"run": "fixture", "status": "FINISHED", "track": "amp"}]))
     # Keep the old code-tree link pointing to the original state. Readers
     # must use the configured clone even when that stale file still exists.
     monkeypatch.setenv("HEXAPOD_STATE_DIR", str(state))
     monkeypatch.setattr(state_dir, "STATE_DIR", state_dir.resolve_state_dir())
-    monkeypatch.setattr(mcp_server, "LEDGER", state / "experiments.json")
-    monkeypatch.setattr(status_server, "LEDGER", state / "experiments.json")
+    monkeypatch.setattr(state_dir, "LEDGER_DIR", state_dir.STATE_DIR / "ledger")
+    monkeypatch.setattr(state_dir, "LEDGER", state_dir.LEDGER_DIR)
+    state_dir.save_ledger([{"run": "fixture", "status": "FINISHED", "track": "amp"}])
     monkeypatch.setattr(status_server._tracks, "load", lambda: {
         "amp": {"name": "AMP", "doc": "rl_docs/tracks/amp/STATUS.md"}})
     return proto, state, docs

@@ -43,7 +43,6 @@ from ledger_view import current_entries
 HERE = pathlib.Path(__file__).resolve().parent
 PROTO = HERE.parent.parent
 import state_dir  # noqa: E402
-LEDGER = state_dir.LEDGER      # runtime state lives in <checkout>/.state
 RL_LOG = state_dir.RL_LOG
 
 PROTOCOL_VERSIONS = ("2025-06-18", "2025-03-26", "2024-11-05")
@@ -235,7 +234,7 @@ def _track_status_paths() -> list[pathlib.Path]:
 
 
 def _ledger_entries() -> list[dict]:
-    return json.loads(LEDGER.read_text())
+    return state_dir.load_ledger()
 
 
 def _ledger() -> list[dict]:

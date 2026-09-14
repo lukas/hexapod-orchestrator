@@ -58,7 +58,6 @@ from concurrent.futures import ThreadPoolExecutor
 HERE = pathlib.Path(__file__).resolve().parent
 PROTO = HERE.parent.parent
 import state_dir  # noqa: E402
-LEDGER = state_dir.LEDGER      # runtime state lives in <checkout>/.state
 BACKLOG = state_dir.BACKLOG
 BACKLOG_FAILED = state_dir.BACKLOG_FAILED
 RL_LOG = state_dir.RL_LOG
@@ -314,7 +313,7 @@ def pending_kicks() -> dict:
 
 def ledger_rows(n: int = 40) -> tuple[list[dict], dict, dict]:
     try:
-        entries = json.loads(LEDGER.read_text())
+        entries = state_dir.load_ledger()
     except Exception:
         return [], {}, {}
     latest = current_entries(entries)
@@ -2272,7 +2271,7 @@ def render_run_page(run: str) -> str | None:
     if not _SAFE_PART.match(run):
         return None
     try:
-        entries = json.loads(LEDGER.read_text())
+        entries = state_dir.load_ledger()
     except Exception:
         entries = []
     rows = [e for e in entries

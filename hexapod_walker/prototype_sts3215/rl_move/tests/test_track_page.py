@@ -14,9 +14,8 @@ import track_page
 
 
 @pytest.fixture
-def track_data(tmp_path, monkeypatch):
+def track_data(tmp_path, monkeypatch, state_ledger):
     monkeypatch.setattr(server, "HERE", tmp_path)
-    monkeypatch.setattr(server, "LEDGER", tmp_path / "experiments.json", raising=False)
     monkeypatch.setattr(server, "CYCLE_DIR", tmp_path)
     monkeypatch.setattr(server, "EVAL_VIDEO_DIR", tmp_path)
     monkeypatch.setattr(server._tracks, "load", lambda: {
@@ -27,7 +26,7 @@ def track_data(tmp_path, monkeypatch):
                for i in range(35)]
     entries += [{"run": "run-00", "status": "FAILED", "track": "joystick"},
                 {"run": "other", "track": "amp", "status": "FINISHED"}]
-    (tmp_path / "experiments.json").write_text(json.dumps(entries))
+    state_ledger(entries)
     monkeypatch.setattr(server, "SNAP", {"fast": {"ledger": entries[-1:], "status_docs": {},
                                                  "backlog": {"queued": []}}})
     monkeypatch.setattr(server, "_cycle_registry_entries", lambda: [])
@@ -54,14 +53,13 @@ def test_unknown_empty_and_missing_ledger(track_data):
     assert server.render_track_page("../joystick") is None
     assert server.render_track_page("notreal") is None
     assert "No experiments recorded" in server.render_track_page("empty")
-    (track_data / "experiments.json").write_text("broken")
+    (track_data / "state" / "ledger" / "broken.json").write_text("broken")  # stray file
     assert "Experiment ledger unavailable" in server.render_track_page("joystick")
 
 
-def test_runtime_ledger_and_canonical_entries_take_precedence(track_data, monkeypatch):
-    runtime = track_data / "runtime.json"
-    runtime.write_text('[{"run":"runtime-only","track":"joystick","status":"FINISHED"}]')
-    monkeypatch.setattr(server, "LEDGER", runtime)
+def test_runtime_ledger_and_canonical_entries_take_precedence(track_data, monkeypatch,
+                                                              state_ledger):
+    state_ledger([{"run": "runtime-only", "track": "joystick", "status": "FINISHED"}])
     monkeypatch.setattr(server, "current_entries", lambda rows: {e["run"]: e for e in rows}, raising=False)
     page = server.render_track_page("joystick")
     assert "runtime-only" in page

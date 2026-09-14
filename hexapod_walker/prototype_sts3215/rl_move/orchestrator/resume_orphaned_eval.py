@@ -49,7 +49,8 @@ import subprocess
 import sys
 import time
 
-import pod_eval  # reuse LEDGER/PROTO/POD_PROTO/core_synced — no duplication
+import pod_eval  # reuse PROTO/POD_PROTO/core_synced — no duplication
+import state_dir
 
 HERE = pathlib.Path(__file__).resolve().parent
 
@@ -57,7 +58,7 @@ HERE = pathlib.Path(__file__).resolve().parent
 def find_entry(run: str) -> dict | None:
     entry = None
     fallback = None
-    for e in json.loads(pod_eval.LEDGER.read_text()):
+    for e in state_dir.load_ledger():
         if isinstance(e, dict) and e.get("run") == run and e.get("extra_args"):
             fallback = e
             if e.get("wandb_id") or e.get("checks", {}).get("pid"):
