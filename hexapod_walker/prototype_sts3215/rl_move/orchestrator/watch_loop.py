@@ -82,7 +82,6 @@ def pending_mcp_kicks() -> list[pathlib.Path]:
 # deserves the full 15-min cadence again. Pure re-verify no-ops must
 # NOT touch it; that is exactly the case backoff exists for.
 WORKED = HERE / "CYCLE_WORKED"
-LEDGER = state_dir.LEDGER
 BACKLOG = state_dir.BACKLOG
 LOG = pathlib.Path("/workspace/orchestrator.log")
 STATE = pathlib.Path("/workspace/orchestrator_state.json")
@@ -549,22 +548,22 @@ def acknowledge_pending_evals(ready: list[dict]) -> None:
 
 def board_fingerprint() -> str:
     """Cheap hash of everything that can make new work runnable for a
-    partial-refill cycle: ledger bytes, backlog bytes, code + state repo
-    HEADs. Measured at the 09-10 meta-analysis: 18/48 refill cycles in
+    partial-refill cycle: ledger file stamps, backlog bytes, code HEAD.
+    Measured at the 09-10 meta-analysis: 18/48 refill cycles in
     24h ended "IDLE: nothing runnable" against a byte-identical board
     (~$46 + 4 agent-hours of re-surveys) because zero-GPU doc work kept
     resetting the grace backoff. After a refill declares IDLE, the
     watcher skips further refills until this fingerprint changes; run
-    completions, verdicts, backlog adds, code snapshots and state-repo
-    pushes all change it. Idle kicks (4h-capped), operator/MCP kicks and
-    finish-triggered triage are NOT gated."""
+    completions, verdicts, backlog adds and code snapshots all change
+    it. Idle kicks (4h-capped), operator/MCP kicks and finish-triggered
+    triage are NOT gated."""
     h = hashlib.sha256()
-    for p in (LEDGER, BACKLOG):
-        try:
-            h.update(p.read_bytes())
-        except OSError:
-            h.update(b"?")
-    for repo in (HERE, state_dir.STATE_DIR):
+    h.update(state_dir.ledger_fingerprint().encode())
+    try:
+        h.update(BACKLOG.read_bytes())
+    except OSError:
+        h.update(b"?")
+    for repo in (HERE,):
         try:
             head = subprocess.run(
                 ["git", "-C", str(repo), "rev-parse", "HEAD"],
@@ -701,7 +700,7 @@ def ledger_verdicted() -> set[str]:
     a missing/corrupt ledger never blocks the loop.
     """
     try:
-        entries = json.loads(LEDGER.read_text())
+        entries = state_dir.load_ledger()
         # Key on the LATEST entry per run: a stale FAILED launch attempt
         # that precedes a successful relaunch must not mark the run
         # verdicted forever (orphaned cw-stance-endpost-c1, cycle 22).
@@ -758,7 +757,7 @@ def checkup_worker() -> None:
         done = set()
     while True:
         try:
-            entries = json.loads(LEDGER.read_text())
+            entries = state_dir.load_ledger()
         except Exception:
             entries = []
         now = time.time()
@@ -867,7 +866,7 @@ def handoff_watch_worker() -> None:
         try:
             if not PAUSE.exists():
                 try:
-                    entries = json.loads(LEDGER.read_text())
+                    entries = state_dir.load_ledger()
                 except Exception:
                     entries = []
                 latest: dict[str, dict] = {}
@@ -969,7 +968,7 @@ def try_auto_continue(run: str) -> str | None:
         if not reward_still_climbing(run):
             log(f"auto-continue: {run} not improving — leaving to the cycle")
             return None
-        entries = [e for e in json.loads(LEDGER.read_text())
+        entries = [e for e in state_dir.load_ledger()
                    if e.get("run") == run and e.get("extra_args")]
         if not entries:
             log(f"auto-continue: no launch entry for {run} in ledger")
@@ -1023,7 +1022,7 @@ def mark_triage(run: str, value: str, only_if_unset: bool = False) -> None:
     """
     try:
         if only_if_unset:
-            for e in json.loads(LEDGER.read_text()):
+            for e in state_dir.load_ledger():
                 if e.get("run") == run and e.get("triage"):
                     return
         subprocess.run(
@@ -1054,7 +1053,7 @@ def _prestage_wrapper_timeout(run: str) -> int:
     """
     try:
         import pod_eval  # local module, HERE is already on sys.path
-        entries = [e for e in json.loads(LEDGER.read_text())
+        entries = [e for e in state_dir.load_ledger()
                    if e.get("run") == run and e.get("extra_args")]
         if not entries:
             return PRESTAGE_WRAPPER_TIMEOUT_S
@@ -1598,7 +1597,7 @@ def reap_cycles(active: list[dict], processed: set[str]) -> tuple[list[dict], in
             # actually exists in the ledger instead — cheap forgery guard,
             # no longer tied to the spawning cycle's own run set.
             try:
-                known_runs = {e.get("run") for e in json.loads(LEDGER.read_text())
+                known_runs = {e.get("run") for e in state_dir.load_ledger()
                               if e.get("run")}
             except (OSError, ValueError):
                 known_runs = set(c["runs"])  # ledger unreadable: fall back

@@ -40,10 +40,11 @@ import state_dir
 
 HERE = Path(__file__).resolve().parent
 GUARDRAILS = HERE / "guardrails.yaml"
-# Runtime state lives OUTSIDE the code tree -- <checkout>/.state (a clone of
-# lukas/hexapod-state) or $HEXAPOD_STATE_DIR; see state_dir.py. The names
-# are re-exported here so tests can keep monkeypatching launch_run.LEDGER.
-LEDGER = state_dir.LEDGER
+# Runtime state lives OUTSIDE the code tree -- <checkout>/.state or
+# $HEXAPOD_STATE_DIR; see state_dir.py. The ledger is a directory of
+# per-entry files read/written ONLY through state_dir.load_ledger /
+# save_ledger (re-exported below; tests point state_dir.LEDGER_DIR at a
+# temp dir). The writers' flock file stays here for ledger_lock().
 LEDGER_LOCK = state_dir.LEDGER_LOCK
 # Concurrent decision cycles both run this launcher; the live capacity
 # check -> process start window must not interleave or two cycles can
@@ -282,32 +283,11 @@ def load_guardrails() -> dict:
     return yaml.safe_load(GUARDRAILS.read_text())
 
 
-def load_ledger() -> list[dict]:
-    if LEDGER.exists():
-        return json.loads(LEDGER.read_text())
-    return []
-
-
-def save_ledger(entries: list[dict]) -> None:
-    # Atomic write (2026-09-06, ledger-corruption incident): a plain
-    # write_text() is NOT atomic -- a killed/slow writer (this file has
-    # grown to 20MB+) leaves a truncated, unparseable JSON file visible
-    # to every concurrent reader for the whole duration of the write.
-    # snapshot.sh's `git add -A` (no ledger_lock, by design -- see its
-    # comments) can and did stage exactly that torn mid-write state,
-    # permanently committing a truncated ledger and silently dropping
-    # ~360 historical entries + an in-flight run's own launch record
-    # (recovered by hand from the last-good git commit, 09-06 ~06:5x).
-    # write-to-temp-then-os.replace is atomic on the same filesystem:
-    # any concurrent reader/git-add sees either the complete old file or
-    # the complete new one, never a partial write, regardless of caller
-    # lock discipline elsewhere.
-    # Never materialise a fresh empty ledger in a missing/unsynced state
-    # dir -- that is worse than crashing (state_dir.py).
-    state_dir.require_state_dir(LEDGER.parent)
-    tmp = LEDGER.with_suffix(LEDGER.suffix + f".tmp{os.getpid()}")
-    tmp.write_text(json.dumps(entries, indent=2) + "\n")
-    os.replace(tmp, LEDGER)
+# The one ledger accessor pair lives in state_dir.py (directory of
+# per-entry files, changed-files-only atomic writes; the 2026-09-06
+# torn-write incident is documented there and in test_state_dir_ledger).
+load_ledger = state_dir.load_ledger
+save_ledger = state_dir.save_ledger
 
 
 @contextmanager
@@ -339,6 +319,8 @@ def upsert_entry(entry: dict) -> None:
         key = (entry.get("run"), entry.get("created"))
         for i, e in enumerate(led):
             if (e.get("run"), e.get("created")) == key:
+                if state_dir.entry_seq(e) is not None:
+                    entry[state_dir.SEQ_KEY] = e[state_dir.SEQ_KEY]  # keep the file identity
                 led[i] = entry
                 break
         else:
@@ -2800,6 +2782,9 @@ def cmd_update(a: argparse.Namespace) -> int:
             key, _, val = kv.partition("=")
             if not _:
                 print(f"bad --set (need key=value): {kv}")
+                return 1
+            if key == state_dir.SEQ_KEY:
+                print(f"REFUSED: {key} is the entry's file identity, not a field")
                 return 1
             try:
                 entry[key] = json.loads(val)

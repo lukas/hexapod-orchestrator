@@ -20,59 +20,49 @@ watch_loop = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(watch_loop)
 
 
-def test_unknown_run_falls_back_to_flat_floor(tmp_path, monkeypatch):
+def test_unknown_run_falls_back_to_flat_floor(state_ledger):
     # Explicit empty ledger: the real one lives in <checkout>/.state
     # (state_dir.py) and need not exist on a dev machine.
-    ledger = tmp_path / "experiments.json"
-    ledger.write_text("[]")
-    monkeypatch.setattr(watch_loop, "LEDGER", ledger)
+    state_ledger([])
     assert (watch_loop._prestage_wrapper_timeout("no-such-run-ever-xyz")
             == watch_loop.PRESTAGE_WRAPPER_TIMEOUT_S)
 
 
-def test_legacy_run_stays_at_or_above_old_flat_floor(tmp_path, monkeypatch):
-    ledger = tmp_path / "experiments.json"
-    ledger.write_text(json.dumps([
+def test_legacy_run_stays_at_or_above_old_flat_floor(state_ledger):
+    state_ledger([
         {"run": "legacy-run", "extra_args": ["--task", "walk"]},
-    ]))
-    monkeypatch.setattr(watch_loop, "LEDGER", ledger)
+    ])
     t = watch_loop._prestage_wrapper_timeout("legacy-run")
     assert t >= watch_loop.PRESTAGE_WRAPPER_TIMEOUT_S
 
 
-def test_control_hz100_episode30_scales_up(tmp_path, monkeypatch):
-    ledger = tmp_path / "experiments.json"
-    ledger.write_text(json.dumps([
+def test_control_hz100_episode30_scales_up(state_ledger):
+    state_ledger([
         {"run": "hz100-run", "extra_args": [
             "--task", "joint_walk",
             "--episode-seconds", "30",
             "--cfg-set", "control.hz=100",
         ]},
-    ]))
-    monkeypatch.setattr(watch_loop, "LEDGER", ledger)
+    ])
     t = watch_loop._prestage_wrapper_timeout("hz100-run")
     # scale = (100/25)*(30/15) = 8x; must exceed the old flat 7500s floor
     # by a wide margin (the exact regression this fix closes).
     assert t > watch_loop.PRESTAGE_WRAPPER_TIMEOUT_S * 4
 
 
-def test_never_shrinks_below_flat_floor_even_at_1x_scale(tmp_path,
-                                                          monkeypatch):
-    ledger = tmp_path / "experiments.json"
-    ledger.write_text(json.dumps([
+def test_never_shrinks_below_flat_floor_even_at_1x_scale(state_ledger):
+    state_ledger([
         {"run": "baseline-run", "extra_args": [
             "--task", "joint_walk",
             "--episode-seconds", "15",
             "--cfg-set", "control.hz=25",
         ]},
-    ]))
-    monkeypatch.setattr(watch_loop, "LEDGER", ledger)
+    ])
     t = watch_loop._prestage_wrapper_timeout("baseline-run")
     assert t >= watch_loop.PRESTAGE_WRAPPER_TIMEOUT_S
 
 
-def test_budget_covers_pod_evals_own_mixedsession_wait(tmp_path,
-                                                        monkeypatch):
+def test_budget_covers_pod_evals_own_mixedsession_wait(state_ledger):
     # BUG (2026-08-28, long-s1-cont1 triage): the `worst` sum never
     # included the mixedsession rider's own (now-scaled) internal wait
     # budget, so at this recipe's real 100 Hz/60 s scale (16x) the
@@ -83,15 +73,13 @@ def test_budget_covers_pod_evals_own_mixedsession_wait(tmp_path,
     # The wrapper's budget must be strictly >= pod_eval's own scaled
     # mixedsession timeout for every recipe it covers.
     import pod_eval
-    ledger = tmp_path / "experiments.json"
-    ledger.write_text(json.dumps([
+    state_ledger([
         {"run": "hz100-mixedsession-run", "extra_args": [
             "--task", "joint_walk",
             "--episode-seconds", "60",
             "--cfg-set", "control.hz=100",
         ]},
-    ]))
-    monkeypatch.setattr(watch_loop, "LEDGER", ledger)
+    ])
     t = watch_loop._prestage_wrapper_timeout("hz100-mixedsession-run")
     scale = pod_eval.eval_timeout_scale(100.0, 60.0)
     assert t >= pod_eval.MIXEDSESSION_TIMEOUT_S * scale
