@@ -146,6 +146,48 @@ def document_paths(proto: Path | None = None,
             if (p := document_path(rel, proto)) is not None and p.is_file()]
 
 
+# Orchestrator CODE lives on its own branch (2026-09-14). main is deployed
+# automatically to the controller, the robots and the Mac hub, and 70% of its
+# history had become "orchestrator snapshot before <run>" commits, which made
+# blame and bisect useless. snapshot.sh commits and pushes ORCH_BRANCH and
+# merges origin/main into it; a human merges ORCH_BRANCH into main when the
+# orchestrator's code changes are wanted there.
+ORCH_BRANCH = os.environ.get("HEXAPOD_ORCH_BRANCH", "orchestrator")
+
+
+def sync_from_main(repo: Path, lock: str | None = None, *,
+                   blocking: bool = True, timeout: int = 300) -> str | None:
+    """Merge origin/main into the checkout. Returns None on success, else why.
+
+    The one implementation behind the watcher's pre-cycle sync, the status
+    server's doc sync and the restart script. Merge, never rebase: exp/*
+    tags must keep pointing at the commits they were made on. A conflict
+    is aborted so the shared checkout is never left half-merged. With
+    ``blocking=False`` a held lock skips the round (returns None).
+    """
+    import subprocess
+
+    def git(*args: str, check: bool = False) -> subprocess.CompletedProcess:
+        return subprocess.run(["git", "-C", str(repo), *args],
+                              capture_output=True, text=True,
+                              timeout=timeout, check=check)
+
+    r = git("fetch", "-q", "origin", "main")
+    if r.returncode != 0:
+        return f"fetch failed: {(r.stderr or r.stdout)[-300:]}"
+    if git("merge-base", "--is-ancestor", "origin/main", "HEAD").returncode == 0:
+        return None
+    merge = ["git", "-C", str(repo), "-c", "merge.autoStash=true",
+             "merge", "--no-edit", "origin/main"]
+    if lock:
+        merge = ["flock", *([] if blocking else ["-n"]), lock, *merge]
+    r = subprocess.run(merge, capture_output=True, text=True, timeout=timeout)
+    if r.returncode == 0 or (lock and not blocking and r.returncode == 1):
+        return None
+    git("merge", "--abort")
+    return f"merge of origin/main failed: {(r.stderr or r.stdout)[-300:]}"
+
+
 def require_state_dir(path: Path = None) -> Path:
     """Fail loudly (never with a fresh empty ledger) when state is missing."""
     d = STATE_DIR if path is None else path

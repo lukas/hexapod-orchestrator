@@ -1454,29 +1454,13 @@ def spawn_cycle(newly_finished: set[str], still_running: set[str],
     # cycles (infra judgment) and dig-in escalations stay deep.
     if model is None:
         model = AGENT_MODEL_DEEP if findings else AGENT_MODEL_TRIAGE
-    # Sync with main first so the agent sees the operator's latest plan/log
-    # edits and its later push can't be rejected as non-fast-forward.
-    # Serialized against snapshot.sh's commit/rebase/push (and
-    # status_server.py's own doc-sync puller) with the same host-wide
-    # flock (08-22: this specific pull ran WITHOUT the lock while
-    # snapshot.sh held it elsewhere, and separately a cycle that same
-    # day corrupted the shared experiments.json/RL_LOG.md/STATUS.md by
-    # manually `git stash pop`-ing an unrelated hours-stale autostash
-    # against 10+ commits of newer history — both are real ways an
-    # unprotected git operation can leave the shared working tree in a
-    # conflicted state mid-cycle. This lock doesn't stop a deliberate
-    # manual stash pop, but it does close the unlocked-pull half of the
-    # exposure for free). Blocking (not -n) is correct here, unlike
-    # status_server's polling loop: this runs once right before
-    # spawning a cycle, so a brief wait for a concurrent snapshot to
-    # finish is normal and cheap.
-    pull = subprocess.run(
-        ["flock", GIT_LOCK, "git", "pull", "--rebase", "--autostash",
-         "origin", "main"],
-        cwd=REPO, capture_output=True, text=True, timeout=300,
-    )
-    if pull.returncode != 0:
-        log(f"git pull failed before cycle: {(pull.stderr or '')[-500:]}")
+    # Merge origin/main into the orchestrator branch first so the agent sees
+    # the operator's latest edits. Serialized with snapshot.sh and the
+    # status server's doc sync by the host-wide lock; blocking is right
+    # here because this runs once, right before spawning a cycle.
+    err = state_dir.sync_from_main(REPO, GIT_LOCK, blocking=True)
+    if err:
+        log(f"git sync failed before cycle: {err}")
     CYCLE_OUT_DIR.mkdir(parents=True, exist_ok=True)
     stamp = datetime.datetime.now().strftime("%Y%m%dT%H%M%S")
     label = (label_override

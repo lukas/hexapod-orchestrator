@@ -62,7 +62,9 @@ the drain requires before treating a pod as a slot.
   (`launch_run.py backlog add`), drained automatically.
 - `RL_LOG.md` — 1 line per cycle; `RL_PLAN.md` — the plan (~120
   lines). Everything else: `rl_docs/` (start at its README).
-- Code provenance: `snapshot.sh` commits/tags/pushes, `--sync` stamps
+- Code provenance: `snapshot.sh` commits, tags and pushes the
+  `orchestrator` branch (never `main`; it merges `origin/main` into itself
+  first, and a human merges `orchestrator` into `main`), `--sync` stamps
   pods with `.code_sha`; the launcher refuses mismatched pods.
 
 ## Operating it

@@ -76,15 +76,15 @@ while ps aux | grep "claude -p --bare" | grep -v grep >/dev/null; do
 done
 log "cycles ended"
 
-# Share the snapshot lock with concurrent Git writers. Never autostash
-# live runtime ledgers: a conflicting/dirty checkout must leave the old
-# watcher running, with its pause flags cleared. The subshell releases
-# the lock before tmux restart so the new watcher cannot inherit it.
+# Merge origin/main into the orchestrator branch under the snapshot lock.
+# Never autostash: a conflicting/dirty checkout must leave the old watcher
+# running, with its pause flags cleared. The subshell releases the lock
+# before the tmux restart so the new watcher cannot inherit it.
 if ! (
   flock -w 120 9 &&
     cd /workspace/hexapod &&
-    git -c rebase.autoStash=false -c merge.autoStash=false \
-      pull --no-rebase --ff-only origin main
+    git fetch -q origin main &&
+    ( git -c merge.autoStash=false merge --no-edit origin/main || { git merge --abort; false; } )
 ) 9>/workspace/git_snapshot.lock; then
   log "repository sync failed; leaving old watcher running"
   rm -f "$ORCH/PAUSE" "$ORCH/WRAPUP"

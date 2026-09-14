@@ -1609,7 +1609,7 @@ oplaunch)  # oplaunch <launch_run.py args...> — run a launcher command ON
     echo 'source /root/orchestrator.env 2>/dev/null'
     echo 'set -a; source rl_move/sim/wandb.env 2>/dev/null; set +a'
     # Run the freshest tooling: pull under the same lock snapshot.sh uses.
-    echo 'flock /workspace/git_snapshot.lock -c "git -C /workspace/hexapod pull --rebase --autostash origin main" >/dev/null 2>&1'
+    echo 'flock /workspace/git_snapshot.lock -c "git -C /workspace/hexapod fetch -q origin main && git -C /workspace/hexapod -c merge.autoStash=true merge --no-edit origin/main || git -C /workspace/hexapod merge --abort" >/dev/null 2>&1'
     printf 'exec uv run python rl_move/orchestrator/launch_run.py'
     printf ' %q' "$@"
     echo
