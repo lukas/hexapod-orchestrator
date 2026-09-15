@@ -188,7 +188,14 @@ assume it.
   line per cycle via `ops.sh logline`. Clones via
   `launch_run.py respec`.
 - Code changes: cfg-gated, default off, bit-exact when off, tests
-  green, `snapshot.sh` before anything trains on them.
+  green, `snapshot.sh` before anything trains on them. **And every gate
+  has a lifecycle.** When the run that motivated a cfg key is verdicted,
+  the key is either adopted (its value becomes the default in
+  `config.yaml` and the gate and its off-branch are deleted) or removed
+  together with its tests. A key that no ledger entry sets is dead code:
+  delete it, do not keep it "in case". The ledger is the experiment log;
+  the code is not. (2026-09-15: 161 of 523 cfg keys had never been set by
+  any of 3,353 runs and were removed.)
 - Every analysis ends in a decision that changes the next experiment,
   the reward/eval alignment, the simulator, or the plan. Otherwise
   stop analyzing.

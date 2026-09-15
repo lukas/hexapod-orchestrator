@@ -116,7 +116,12 @@ eval) is cycle work: write it, test it, `snapshot.sh`, then train on
 it. Never park a line on "CODE, unbuilt". Never change shared default
 behavior to carry an experimental mechanism (new cfg keys default OFF,
 bit-exact when off, tests green — and tests per RESEARCH_RULES "Tests":
-fast, mechanics-only, no rollout-ranking banks).
+fast, mechanics-only, no rollout-ranking banks). **Gates are temporary.**
+When you verdict the run a cfg key was built for, close the key in the
+same cycle: adopt it (make its value the `config.yaml` default and delete
+the gate and the off-branch) or delete it with its tests. A key no ledger
+entry sets is dead code; remove it. The ledger records what was tried,
+the code does not (RESEARCH_RULES "Code changes").
 
 **Out-of-scope runs are operator-only.** The operator may launch runs
 outside the registered methods; triage them honestly and verdict them,
