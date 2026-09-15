@@ -984,8 +984,6 @@ def llm_url_groups(base: str) -> list[tuple[str, list[tuple[str, str]]]]:
             ("W&B usage", "rl_docs/WANDB.md"),
         ])),
         ("Hardware / build / infra", docs([
-            ("Prototype build story", "PROTOTYPE.md"),
-            ("BOM", "docs/BOM.md"),
             ("Wiring", "firmware/WIRING.md"),
             ("Robot HTTP API", "rl_move/API.md"),
             ("Orchestrator architecture", "rl_move/orchestrator/README.md"),

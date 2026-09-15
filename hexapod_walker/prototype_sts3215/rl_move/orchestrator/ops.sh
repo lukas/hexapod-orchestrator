@@ -59,19 +59,13 @@ EOF
 }
 
 ensure_full_mesh() {
-  # The full robot mesh intentionally keeps generated electronics STLs out of
-  # git.  A clean Mac therefore needs these two factories before the main mesh
-  # builder; keep that prerequisite inside the operator workflow.
-  if [ ! -f "$PROTO/extra_stl/hex_raised_platform_110_h28_screen.stl" ]; then
-    (cd "$PROTO" && uv run --with numpy --with scipy --with shapely \
-      --with trimesh --with manifold3d --with matplotlib \
-      python tools/make_xtool_hex_raised_platform.py) || return 1
-  fi
+  # The full robot mesh (assets/*.stl + hexapod_mesh.xml) is a TRACKED build
+  # product of the lukas/hexapod-cad repo since 2026-09-15; a checkout has it.
+  # Missing files mean a broken checkout, not something to rebuild here.
   if [ ! -f "$PROTO/mesh_mujoco/hexapod_mesh.xml" ] ||
      ! find "$PROTO/mesh_mujoco/assets" -maxdepth 1 -name '*.stl' 2>/dev/null | grep -q .; then
-    (cd "$PROTO/mesh_mujoco" &&
-      uv run --with numpy --with scipy --with shapely --with trimesh \
-        python build_mesh_model.py --no-render) || return 1
+    echo "ERROR: $PROTO/mesh_mujoco is missing its tracked assets; regenerate in hexapod-cad (make mesh-sync) and commit" >&2
+    return 1
   fi
 }
 export LEDGER PROTO HERE STATE_DIR
