@@ -142,6 +142,7 @@ relink_journal() {  # relink_journal <path-in-code-tree> <path-in-state>
   ln -s "$(python3 -c 'import os,sys; print(os.path.relpath(sys.argv[1], os.path.dirname(sys.argv[2])))' "$state" "$code")" "$code"
 }
 relink_journal "$P/RL_LOG.md" "RL_LOG.md"
+relink_journal "$P/CURRENT_TRUTHS.md" "CURRENT_TRUTHS.md"
 relink_journal "$P/rl_docs/SKILLS.md" "rl_docs/SKILLS.md"
 relink_journal "$P/rl_move/orchestrator/OPERATOR_QUESTIONS.md" "OPERATOR_QUESTIONS.md"
 for T in "$P"/rl_docs/tracks/*/; do

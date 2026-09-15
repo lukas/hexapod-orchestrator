@@ -110,13 +110,15 @@ def state_doc_relative(rel: str) -> str | None:
     """Map a prototype-relative journal/story name into the state repo."""
     fixed = {
         "RL_LOG.md": "RL_LOG.md",
+        "CURRENT_TRUTHS.md": "CURRENT_TRUTHS.md",
         "rl_docs/SKILLS.md": "rl_docs/SKILLS.md",
         "rl_move/orchestrator/OPERATOR_QUESTIONS.md": "OPERATOR_QUESTIONS.md",
     }
     if rel in fixed:
         return fixed[rel]
     parts = Path(rel).parts
-    if (len(parts) == 3 and parts[:2] == ("rl_docs", "runs")) or (
+    if (len(parts) == 3 and parts[:2] in (("rl_docs", "runs"),
+                                          ("rl_docs", "meta"))) or (
         len(parts) == 4 and parts[:2] == ("rl_docs", "tracks")
         and parts[-1] == "STATUS.md"
     ):
@@ -172,10 +174,12 @@ def document_paths(proto: Path | None = None,
         for name in files:
             if name.endswith(".md"):
                 names.add((Path(root) / name).relative_to(proto).as_posix())
-    names.update(("RL_LOG.md", "rl_docs/SKILLS.md",
+    names.update(("RL_LOG.md", "CURRENT_TRUTHS.md", "rl_docs/SKILLS.md",
                   "rl_move/orchestrator/OPERATOR_QUESTIONS.md"))
     names.update(f"rl_docs/runs/{p.name}"
                  for p in (STATE_DIR / "rl_docs" / "runs").glob("*.md"))
+    names.update(f"rl_docs/meta/{p.name}"
+                 for p in (STATE_DIR / "rl_docs" / "meta").glob("*.md"))
     names.update(f"rl_docs/tracks/{p.parent.name}/STATUS.md"
                  for p in (STATE_DIR / "rl_docs" / "tracks").glob("*/STATUS.md"))
     return [rel for rel in sorted(names)

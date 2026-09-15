@@ -54,9 +54,11 @@ def alternate_state(tmp_path, monkeypatch):
     state = tmp_path / "alternate"
     docs = {
         "RL_LOG.md": "current cycle log\n",
+        "CURRENT_TRUTHS.md": "current truths journal\n",
         "rl_docs/SKILLS.md": "current skills\n",
         "OPERATOR_QUESTIONS.md": "current operator questions\n",
         "rl_docs/runs/fixture.md": "unique run story marker\n",
+        "rl_docs/meta/META_2026-01-01.md": "meta analysis note\n",
         "rl_docs/tracks/amp/STATUS.md": "current amp\n",
         "rl_docs/tracks/newtrack/STATUS.md": "current newtrack\n",
     }

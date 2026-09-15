@@ -300,9 +300,11 @@ def t_campaign_status() -> str:
 def t_get_plan() -> str:
     out = []
     for name in ("RL_PLAN.md", "CURRENT_TRUTHS.md"):
+        path = state_dir.document_path(name, PROTO)
         try:
-            out.append(f"# {name}\n\n"
-                       + (PROTO / name).read_text(errors="replace"))
+            if path is None:
+                raise OSError("not a readable doc in the code or state tree")
+            out.append(f"# {name}\n\n" + path.read_text(errors="replace"))
         except OSError as e:
             out.append(f"({name} unreadable: {e})")
     return _clip("\n\n---\n\n".join(out))
