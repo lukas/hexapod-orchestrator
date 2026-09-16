@@ -338,12 +338,16 @@ def agent_cmd(model: str) -> list[str]:
     # prefix: restart_watcher.sh greps for exactly that.
     # cwd is HEXAPOD_REPO (spawn_cycle); --add-dir lets the cycle read and
     # edit this checkout too (prompts, ops.sh, guardrails, research docs).
+    # --add-dir is VARIADIC in the claude CLI: it keeps consuming
+    # arguments until the next --flag, so it must never sit last, or it
+    # swallows the prompt spawn_cycle appends ("Input must be provided",
+    # first cycle after the 2026-09-16 split). Keep a --flag after it.
     return [
         "claude", "-p", "--bare",
+        "--add-dir", str(ORCH_ROOT),
         "--model", model,
         "--dangerously-skip-permissions",
         "--output-format", "stream-json", "--verbose",
-        "--add-dir", str(ORCH_ROOT),
     ]
 
 
