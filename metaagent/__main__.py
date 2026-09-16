@@ -160,6 +160,16 @@ def supplement(path: str, kind: str, root: Path) -> dict:
     return {'agents': normalize_codex_threads(envelope['data'], root, now=envelope['collected_at'])}
 
 
+
+def _lab_readme() -> Path:
+    """Robot Lab v2's README, read from the installed hexapod-lab package (its
+    own repo since 2026-09-16); a missing package just drops the document."""
+    try:
+        from importlib.resources import files
+        return Path(str(files('hexapod_lab2') / 'README.md'))
+    except Exception:
+        return Path('/nonexistent/hexapod_lab2/README.md')
+
 def collect(args, database: Path) -> dict:
     root = Path(args.project_root).resolve()
     snapshot = read_json(args.snapshot) if args.snapshot else collect_local(root)
@@ -190,7 +200,7 @@ def collect(args, database: Path) -> dict:
     documents = []
     document_sources = [(ORCH_ROOT/'RL_GOALS.md', 16000), (ORCH_ROOT/'STATUS.md', 16000),
                         (STATE_DIR/'CURRENT_TRUTHS.md', 16000),
-                        (root/'experiment_lab/hexapod_lab2/README.md', 8000)]
+                        (_lab_readme(), 8000)]
     for source, limit in document_sources:
         if source.is_file():
             with source.open('r', encoding='utf-8') as stream:

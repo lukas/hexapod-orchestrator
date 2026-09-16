@@ -18,7 +18,7 @@ MCP client ── TLS / Bearer ──────┘       │ 127.0.0.1:8768 in
 The existing camera relay's `PermitListen` allows only ports 8766 and 8767.
 This deployment uses its own Deployment, Service, keys, Caddy configuration,
 certificate volume and Mac tunnel. Do not edit `camera-relay`, restart Robot
-Lab or its tunnel, or run the hexapod repo's `experiment_lab/deploy/apply-sso.sh` for this rollout.
+Lab or its tunnel, or run lukas/hexapod-lab's `deploy/apply-sso.sh` for this rollout.
 Installing the HTTP service/tunnel does not schedule reviews or authorize
 agent/robot actions. Existing execution owners and shared spending caps remain
 authoritative; a dashboard request does not bypass the durable budget store.

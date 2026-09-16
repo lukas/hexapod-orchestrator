@@ -256,7 +256,7 @@ wheels = [
 [[package]]
 name = "hexapod-lab"
 version = "0.1.0"
-source = { git = "https://github.com/lukas/hexapod?subdirectory=experiment_lab#3cc2cbffb61747f6b1d94702a2244881bae319ee" }
+source = { git = "https://github.com/lukas/hexapod-lab#4fe5b6481fba4dc7f3ec5777d26ff581a4ab70b4" }
 dependencies = [
     { name = "fastapi" },
     { name = "uvicorn", extra = ["standard"] },
@@ -284,7 +284,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "fastapi", specifier = ">=0.115,<1" },
-    { name = "hexapod-lab", git = "https://github.com/lukas/hexapod?subdirectory=experiment_lab" },
+    { name = "hexapod-lab", git = "https://github.com/lukas/hexapod-lab" },
     { name = "pyyaml", specifier = ">=6" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.30,<1" },
     { name = "wandb" },

@@ -8,7 +8,7 @@ dependencies = [
     "fastapi>=0.115,<1",
     "uvicorn[standard]>=0.30,<1",
     "wandb",
-    # Robot Lab v2 (SSO for the metaagent server; the lab is part of the hexapod repo).
+    # Robot Lab v2 (SSO for the metaagent server); its own repo since 2026-09-16.
     "hexapod-lab",
 ]
 
@@ -26,4 +26,4 @@ dev = [
 package = false
 
 [tool.uv.sources]
-hexapod-lab = { git = "https://github.com/lukas/hexapod", subdirectory = "experiment_lab" }
+hexapod-lab = { git = "https://github.com/lukas/hexapod-lab" }
