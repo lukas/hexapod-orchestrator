@@ -1,0 +1,28 @@
+[project]
+name = "hexapod-orchestrator"
+version = "0.1.0"
+description = "Autonomous RL research loop for lukas/hexapod: fleet launcher, watcher, status board, MCP server and the metaagent reviewer"
+requires-python = ">=3.12"
+dependencies = [
+    "pyyaml>=6",
+    "fastapi>=0.115,<1",
+    "uvicorn[standard]>=0.30,<1",
+    "wandb",
+    # Robot Lab v2 (SSO for the metaagent server; the lab is part of the hexapod repo).
+    "hexapod-lab",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "pytest-xdist>=3.6",
+]
+
+[tool.uv]
+# Plain scripts + two importable packages run from the checkout root; nothing
+# is installed as a wheel (the controller runs on system Python with
+# UV_NO_PROJECT=1 and the Mac metaagent service uses `uv run --frozen`).
+package = false
+
+[tool.uv.sources]
+hexapod-lab = { git = "https://github.com/lukas/hexapod", subdirectory = "experiment_lab" }

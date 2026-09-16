@@ -1,0 +1,7 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+# Runtime state lives in $HEXAPOD_STATE_DIR (default <checkout>/.state); never commit it.
+.state/
+wandb/
