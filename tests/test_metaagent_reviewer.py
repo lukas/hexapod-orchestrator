@@ -5,9 +5,9 @@ import json
 
 import pytest
 
-from rl_move.overseer import reviewer
-from rl_move.overseer.reviewer import ReviewConfig, review_once
-from rl_move.overseer.store import BudgetExceeded, Store
+from metaagent import reviewer
+from metaagent.reviewer import ReviewConfig, review_once
+from metaagent.store import BudgetExceeded, Store
 
 
 @pytest.fixture

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Run a finished run's standard post-training evals ON ITS OWN POD.
 
-    uv run python rl_move/orchestrator/pod_eval.py <run> [tag-suffix]
+    uv run python orchestrator/pod_eval.py <run> [tag-suffix]
 
 Operator directive 2026-08-10: eval compute must not pile up on the
 controller (measured: 5 concurrent triage evals at ~4.5 cores each on a
@@ -50,7 +50,7 @@ os.environ.setdefault(
     "KUBECONFIG", str(pathlib.Path.home() / ".kube" / "coreweave.yaml"))
 
 HERE = pathlib.Path(__file__).resolve().parent
-PROTO = HERE.parent.parent
+from roots import PROTO  # noqa: E402  (hexapod sim tree: logs/, policies/)
 import state_dir  # noqa: E402
 POD_PROTO = "/workspace/prototype_sts3215"
 PASS_TIMEOUT_S = 2700

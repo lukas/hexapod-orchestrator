@@ -5,18 +5,28 @@ an evidence-based review with proposed actions. Recurring reviews are explicitly
 opt-in through the deterministic scheduler below. Importing the package does nothing. A preview never invokes a model,
 creates/updates a registry, sends a message, or changes a worker/service/queue.
 
-Run from `hexapod_walker/prototype_sts3215`:
+Run from the `hexapod-orchestrator` checkout root (the package is `metaagent`;
+it was `rl_move.overseer` / `rl_move.metaagent` inside the hexapod repo):
 
 ```sh
-uv run python -m rl_move.metaagent preview
-uv run python -m rl_move.metaagent status
+uv run python -m metaagent preview
+uv run python -m metaagent status
 ```
 
-Reports are Markdown plus JSON under repository-root `artifacts/metaagent/`.
+Reports are Markdown plus JSON under this checkout's `artifacts/metaagent/`.
 `--output DIR` selects another destination. JSON retains bounded historical job
 records; the Markdown groups inactive history so it cannot look like hundreds of
 running agents. These local reports are private operational data; do not commit
 them by default.
+
+Paths come from `orchestrator/roots.py`: `--project-root` defaults to
+`HEXAPOD_REPO` (the hexapod checkout that agents work in: `$HEXAPOD_REPO`, else
+the sibling `../hexapod`, else `/workspace/hexapod`), and this checkout's own
+`RL_GOALS.md`/`STATUS.md` are read as goal documents regardless of
+`--project-root`; `CURRENT_TRUTHS.md` comes from the state directory
+(`$HEXAPOD_STATE_DIR`, else this checkout's `.state/`) and the Robot Lab README
+from the hexapod checkout. Set `HEXAPOD_REPO` explicitly when the sibling layout
+does not apply (on the Mac: `HEXAPOD_REPO=$HOME/hexapod`).
 
 ## Current source coverage
 
@@ -47,7 +57,7 @@ JSON-RPC fallback, and save each result in this envelope:
 ```
 
 ```sh
-uv run python -m rl_move.metaagent preview \
+uv run python -m metaagent preview \
   --codex-threads /private/path/codex.json \
   --cloud-activity /private/path/cloud.json \
   --strategy-evidence /private/path/strategy.json \
@@ -57,7 +67,7 @@ uv run python -m rl_move.metaagent preview \
 Use the actual collection timestamp, not the time a saved file is replayed.
 Missing/stale sources are disclosed. `--snapshot FILE` uses an already normalized
 snapshot instead of local discovery, useful for reproducible tests. Preview reads
-existing overseer state in SQLite read-only mode. Its only writes are reports.
+existing metaagent state in SQLite read-only mode. Its only writes are reports.
 
 ## Registration and progress checkpoints
 
@@ -82,8 +92,8 @@ token sample or treat a registered resource name as authority to control hardwar
 ```
 
 ```sh
-uv run python -m rl_move.metaagent register /private/path/agent.json
-uv run python -m rl_move.metaagent heartbeat claude:SESSION_ID /private/path/checkpoint.json
+uv run python -m metaagent register /private/path/agent.json
+uv run python -m metaagent heartbeat claude:SESSION_ID /private/path/checkpoint.json
 ```
 
 At a meaningful checkpoint, supply `status`, `last_progress_at`,
@@ -100,7 +110,7 @@ video and reproducible launch, and independent physical walking evidence.
 Report nonoverlapping cost increments with immutable event IDs:
 
 ```sh
-uv run python -m rl_move.metaagent spend claude:SESSION_ID PROVIDER_REQUEST_ID 1.25 \
+uv run python -m metaagent spend claude:SESSION_ID PROVIDER_REQUEST_ID 1.25 \
   --occurred-at 2026-09-09T04:00:00Z --source provider-usage-receipt
 ```
 
@@ -144,10 +154,10 @@ deterministic review with no model charge. `--force` requests a manual review
 even if no trigger qualifies. Preview does not alter review/notification history.
 
 ```sh
-uv run python -m rl_move.metaagent review --force
-uv run python -m rl_move.metaagent actions
-uv run python -m rl_move.metaagent acknowledge INCIDENT_ID /private/path/owner-receipt.json
-uv run python -m rl_move.metaagent notify INCIDENT_ID --recipient EXPLICIT_IMESSAGE_ADDRESS
+uv run python -m metaagent review --force
+uv run python -m metaagent actions
+uv run python -m metaagent acknowledge INCIDENT_ID /private/path/owner-receipt.json
+uv run python -m metaagent notify INCIDENT_ID --recipient EXPLICIT_IMESSAGE_ADDRESS
 ```
 
 The owner receipt requires `owner`, `evidence` and `outcome` (`resolved`,
@@ -176,7 +186,7 @@ The optional reviewer makes one bounded, tool-free call using either Claude
 (Anthropic Messages API) or Codex (OpenAI Responses API):
 
 ```sh
-uv run python -m rl_move.metaagent review --force \
+uv run python -m metaagent review --force \
   --reviewer-config /private/path/verified-reviewer.json
 ```
 
@@ -184,7 +194,7 @@ After a blocked attempt, an explicit manual continuation can use the remaining
 budget of that **same wake**:
 
 ```sh
-uv run python -m rl_move.metaagent review --resume-wake WAKE_ID \
+uv run python -m metaagent review --resume-wake WAKE_ID \
   --reviewer-config /private/path/verified-reviewer.json
 ```
 
@@ -243,7 +253,7 @@ that builds this package is outside these future runtime reservations.
 ## Validation
 
 ```sh
-uv run pytest rl_move/tests/test_overseer_*.py
+HEXAPOD_REPO=$HOME/hexapod uv run --group dev pytest tests/test_metaagent_*.py tests/test_overseer_*.py
 ```
 
 Tests use fixtures and mocked providers/senders. They cover atomic concurrent
@@ -270,7 +280,7 @@ receipts. They do not execute recommendations or expose arbitrary commands.
 Start the local data service with:
 
 ```sh
-uv run python -m rl_move.metaagent serve --host 127.0.0.1 --port 8768
+uv run python -m metaagent serve --host 127.0.0.1 --port 8768
 ```
 
 Choose a backend for one manual run. Versioned provider defaults live in
@@ -285,8 +295,8 @@ wrap-up threshold. `reviewers/claude-sonnet.json` retains the lower-cost Sonnet
 `--reviewer-config` when needed. Neither profile can bypass the shared budget.
 
 ```sh
-uv run python -m rl_move.metaagent review --force --provider claude
-uv run python -m rl_move.metaagent review --force --provider codex
+uv run python -m metaagent review --force --provider claude
+uv run python -m metaagent review --force --provider codex
 ```
 
 Alternatively pass an explicit `--reviewer-config` file, optionally with
@@ -294,8 +304,10 @@ Alternatively pass an explicit `--reviewer-config` file, optionally with
 shapes are in `reviewers/`; reverify rates, context limits, and reasoning
 controls before using them.
 Both providers and every child share the same original `overseer.sqlite3`.
-The legacy CLI and internal `is_overseer`/`overseer_wake_id` fields remain
-compatible; renaming does not reset budget, registry or action history.
+The state directory (`HEXAPOD_METAAGENT_DIR`, or the compatible
+`HEXAPOD_OVERSEER_DIR`), its database and table names, and the internal
+`is_overseer`/`overseer_wake_id` fields are unchanged from the `rl_move.overseer`
+days; renaming the package does not reset budget, registry or action history.
 
 See [deployment instructions](deploy/README.md) for the dedicated CoreWeave
 relay and Mac services. These services keep the webpage reachable; they do
@@ -313,10 +325,10 @@ $15 wrap-up and $80/rolling-day ledger, including unknown reservations. There is
 no automatic continuation, worker control or model-generated command execution.
 
 ```sh
-uv run python -m rl_move.overseer.scheduler configure --enable --provider claude
-uv run python -m rl_move.overseer.scheduler tick
-uv run python -m rl_move.overseer.scheduler status
-uv run python -m rl_move.overseer.scheduler configure --disable
+uv run python -m metaagent.scheduler configure --enable --provider claude
+uv run python -m metaagent.scheduler tick
+uv run python -m metaagent.scheduler status
+uv run python -m metaagent.scheduler configure --disable
 ```
 
 `configure` changes the saved setting; installing the operating system timer is

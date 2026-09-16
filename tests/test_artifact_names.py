@@ -7,8 +7,9 @@ from types import SimpleNamespace
 
 import pytest
 
-ROOT = Path(__file__).resolve().parents[2]
-from rl_move.orchestrator.artifact_names import (
+ROOT = Path(__file__).resolve().parents[1]
+ORCH = ROOT / "orchestrator"
+from artifact_names import (
     bounded_artifact_name, checkpoint_artifact_name, publish_checkpoint)
 
 
@@ -59,7 +60,7 @@ def test_long_checkpoint_publication_preserves_bytes_and_lineage(tmp_path, monke
 
 
 def test_long_analysis_publishes_to_existing_run(tmp_path, monkeypatch):
-    monkeypatch.syspath_prepend(str(ROOT / "rl_move" / "orchestrator"))
+    monkeypatch.syspath_prepend(str(ORCH))
     import launch_run as lr
     recorded = []
     initialized = []

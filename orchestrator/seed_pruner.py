@@ -54,15 +54,15 @@ env/v_along_cmd_m_s, sparse eval/walk/* panels), bucketed into
 report windows of max(1M steps, budget/16).
 
 Safeguards:
-  * rl_move/orchestrator/PRUNE_OFF disables all killing (audit still
+  * orchestrator/PRUNE_OFF disables all killing (audit still
     runs when invoked by hand; the watcher skips the pass entirely).
   * Only runs in --track (default: walkcurr) are ever considered.
   * A run whose W&B state is not 'running' is never touched.
   * --execute is required to kill; the default is a dry-run audit.
 
 Usage:
-  uv run python rl_move/orchestrator/seed_pruner.py --all [--execute]
-  uv run python rl_move/orchestrator/seed_pruner.py --run <name> [--execute]
+  uv run python orchestrator/seed_pruner.py --all [--execute]
+  uv run python orchestrator/seed_pruner.py --run <name> [--execute]
 """
 from __future__ import annotations
 
@@ -75,8 +75,9 @@ import sys
 import time
 
 HERE = pathlib.Path(__file__).resolve().parent
-REPO = HERE.parent.parent          # prototype_sts3215/
 import state_dir  # noqa: E402
+from roots import PROTO  # noqa: E402
+REPO = PROTO                       # hexapod prototype_sts3215/ (cwd for launch_run)
 PRUNE_OFF = HERE / "PRUNE_OFF"
 WANDB_PROJECT = "l2k2/hexapod-balance"
 POD_PROTO = "/workspace/prototype_sts3215"  # pods' tree (NOT the controller's)

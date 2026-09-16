@@ -11,12 +11,12 @@ import time
 from fastapi.testclient import TestClient
 import pytest
 
-from rl_move.overseer import reviewer
-from rl_move.overseer import scheduler
-from rl_move.overseer.journal import Journal
-from rl_move.overseer.memory import remember_lesson
-from rl_move.overseer.server import create_app, SESSION_COOKIE, MAX_BODY
-from rl_move.overseer.store import Store
+from metaagent import reviewer
+from metaagent import scheduler
+from metaagent.journal import Journal
+from metaagent.memory import remember_lesson
+from metaagent.server import create_app, SESSION_COOKIE, MAX_BODY
+from metaagent.store import Store
 
 OPERATOR = "operator-secret-value-123456789012345"
 VIEWER = "viewer-secret-value-12345678901234567"

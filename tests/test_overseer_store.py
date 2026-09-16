@@ -6,7 +6,7 @@ import threading
 
 import pytest
 
-from rl_move.overseer.store import BudgetExceeded, Store, WakeConflict
+from metaagent.store import BudgetExceeded, Store, WakeConflict
 
 
 NOW = datetime(2026, 9, 8, 12, tzinfo=timezone.utc)

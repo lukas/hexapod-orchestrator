@@ -2,10 +2,10 @@
 import json
 from pathlib import Path
 
-from rl_move.overseer.__main__ import main, merge_registry, read_registry, compact_for_review
-from rl_move.overseer.policy import evaluate
-from rl_move.overseer.report import write_report
-from rl_move.overseer.store import Store
+from metaagent.__main__ import main, merge_registry, read_registry, compact_for_review
+from metaagent.policy import evaluate
+from metaagent.report import write_report
+from metaagent.store import Store
 
 NOW = '2026-09-09T04:00:00+00:00'
 
@@ -17,7 +17,7 @@ def fixture_snapshot(tmp_path, **changes):
 
 
 def test_preview_does_not_create_registry_or_invoke_reviewer(tmp_path, monkeypatch):
-    from rl_move.overseer import reviewer
+    from metaagent import reviewer
     monkeypatch.setattr(reviewer, 'review_once', lambda *a,**kw: (_ for _ in ()).throw(AssertionError('paid call')))
     snapshot = fixture_snapshot(tmp_path)
     state, output = tmp_path/'state', tmp_path/'report'

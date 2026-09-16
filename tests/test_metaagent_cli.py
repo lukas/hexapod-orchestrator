@@ -2,8 +2,9 @@
 import json
 from pathlib import Path
 import pytest
-from rl_move.overseer import __main__ as engine
-from rl_move.metaagent import __main__ as metaagent
+from metaagent import __main__ as engine
+
+metaagent = engine  # the CLI and the review engine are one module now
 
 
 def test_metaagent_and_legacy_state_are_the_same(monkeypatch, tmp_path):

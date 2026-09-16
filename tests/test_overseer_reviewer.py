@@ -6,8 +6,8 @@ import json
 
 import pytest
 
-from rl_move.overseer.reviewer import ReviewConfig, review_once
-from rl_move.overseer import reviewer
+from metaagent.reviewer import ReviewConfig, review_once
+from metaagent import reviewer
 
 
 class FakeStore:

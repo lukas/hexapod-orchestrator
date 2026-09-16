@@ -4,8 +4,8 @@ import json
 
 import pytest
 
-from rl_move.overseer.reviewer import ReviewConfig, _validate_review, bundled_reviewer_config, review_once
-from rl_move.overseer.store import Store
+from metaagent.reviewer import ReviewConfig, _validate_review, bundled_reviewer_config, review_once
+from metaagent.store import Store
 
 
 @pytest.fixture

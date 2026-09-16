@@ -7,11 +7,11 @@ import threading
 
 import pytest
 
-from rl_move.overseer import reviewer
-from rl_move.overseer.__main__ import main
-from rl_move.overseer.journal import Journal
-from rl_move.overseer.policy import evaluate
-from rl_move.overseer.store import BudgetExceeded, Store, WakeConflict
+from metaagent import reviewer
+from metaagent.__main__ import main
+from metaagent.journal import Journal
+from metaagent.policy import evaluate
+from metaagent.store import BudgetExceeded, Store, WakeConflict
 
 
 NOW = datetime(2026, 9, 9, 12, tzinfo=timezone.utc)
@@ -254,7 +254,7 @@ def test_cli_resume_requires_configuration_without_reopening(cli_case, monkeypat
 
 
 def test_cli_reads_prior_attempts_after_claiming_exclusive_wake(cli_case, monkeypatch):
-    from rl_move.overseer import __main__ as cli
+    from metaagent import __main__ as cli
     store, _, _, args = cli_case
     real_reader = cli.prior_attempts
     reads = []

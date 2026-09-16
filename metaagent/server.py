@@ -1,6 +1,6 @@
 """Authenticated metaagent dashboard and MCP; reads never invoke a model.
 
-The legacy overseer database remains the only registry/budget journal. This
+The original `overseer.sqlite3` database remains the only registry/budget journal. This
 service reports persisted scheduler/memory state, but never runs a scheduler,
 review executor, operational control or notification itself.
 """

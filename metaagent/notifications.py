@@ -1,4 +1,4 @@
-"""Explicit manual iMessage delivery from the durable overseer outbox.
+"""Explicit manual iMessage delivery from the durable metaagent outbox (the `overseer_outbox` table).
 
 No scheduler, polling, automatic retry, or import-time delivery. The native
 Messages transport follows experiment_lab.hexapod_lab2.alerts's private

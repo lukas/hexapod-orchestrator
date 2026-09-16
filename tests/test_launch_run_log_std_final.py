@@ -11,8 +11,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[2]
-ORCH = ROOT / "rl_move" / "orchestrator"
+ROOT = Path(__file__).resolve().parents[1]
+ORCH = ROOT / "orchestrator"
 
 import launch_run as lr
 

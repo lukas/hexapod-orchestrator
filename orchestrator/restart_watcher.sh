@@ -14,15 +14,22 @@
 # transcript survives a kill — but the wasted tokens and re-triage do
 # not, hence the wrap-up protocol below stands. Copy lives in the repo;
 # the deployed copy is /workspace/restart_watcher.sh on the controller.
+#
+# Two checkouts on the controller (2026-09-16 split): this repo at
+# /workspace/hexapod-orchestrator (watcher, prompts, flags) and the subject
+# repo lukas/hexapod at /workspace/hexapod (sim code, on the `orchestrator`
+# branch). Both are brought up to date before the restart.
 set -u
 # Detached watchers must not reuse a dead parent W&B service socket.
 unset WANDB_SERVICE
 export UV_PYTHON=/usr/local/bin/python
-ORCH=/workspace/hexapod/hexapod_walker/prototype_sts3215/rl_move/orchestrator
-# The repo root carries a pyproject.toml/uv.lock for LAPTOP development.
+ORCH_REPO=/workspace/hexapod-orchestrator
+ORCH=$ORCH_REPO/orchestrator
+HEXAPOD=/workspace/hexapod
+# Both repo roots carry a pyproject.toml/uv.lock for LAPTOP development.
 # The controller runs on its system Python with `uv pip install --system`
-# packages; never let `uv run` discover that project here (it would build a
-# full sim venv on the controller). /root/orchestrator.env also exports this.
+# packages; never let `uv run` discover a project here (it would build a
+# full venv on the controller). /root/orchestrator.env also exports this.
 export UV_NO_PROJECT=1
 
 log() { echo "[$(date -u +%FT%TZ)] $*"; }
@@ -68,21 +75,26 @@ while ps aux | grep "claude -p --bare" | grep -v grep >/dev/null; do
     break
   fi
   if [ $((i % 2)) -eq 0 ]; then
-    (set -a; source "$ORCH/../sim/wandb.env" 2>/dev/null;
+    (set -a; source "$HEXAPOD/hexapod_walker/prototype_sts3215/rl_move/sim/wandb.env" 2>/dev/null;
      source /root/orchestrator.env 2>/dev/null; set +a
-     cd "$ORCH/../.." && uv run --no-project python rl_move/orchestrator/launch_run.py drain \
+     cd "$ORCH_REPO" && uv run --no-project python orchestrator/launch_run.py drain \
        >> /tmp/pause_drain.log 2>&1) || true
   fi
 done
 log "cycles ended"
 
-# Merge origin/main into the orchestrator branch under the snapshot lock.
-# Never autostash: a conflicting/dirty checkout must leave the old watcher
-# running, with its pause flags cleared. The subshell releases the lock
-# before the tmux restart so the new watcher cannot inherit it.
+# Bring BOTH checkouts up to date under the snapshot lock: this repo with a
+# plain merge-pull of its tracking branch (no auto-deploy from main here, so
+# snapshot.sh commits straight to it), the hexapod checkout by merging
+# origin/main into its orchestrator branch. Never autostash: a
+# conflicting/dirty checkout must leave the old watcher running, with its
+# pause flags cleared. The subshell releases the lock before the tmux
+# restart so the new watcher cannot inherit it.
 if ! (
   flock -w 120 9 &&
-    cd /workspace/hexapod &&
+    cd "$ORCH_REPO" &&
+    git pull -q --ff-only &&
+    cd "$HEXAPOD" &&
     git fetch -q origin main &&
     ( git -c merge.autoStash=false merge --no-edit origin/main || { git merge --abort; false; } )
 ) 9>/workspace/git_snapshot.lock; then
@@ -101,8 +113,8 @@ sleep 2
 rm -f "$ORCH/PAUSE" "$ORCH/WRAPUP"
 # Keep the lifetime lock in this supervisor, never in the tmux server/watcher.
 tmux new-session -d -s orchestrator \
-  "source /root/orchestrator.env && cd /workspace/hexapod && \
-   env -u WANDB_SERVICE UV_PYTHON=/usr/local/bin/python uv run --no-project python hexapod_walker/prototype_sts3215/rl_move/orchestrator/watch_loop.py" 8>&-
+  "source /root/orchestrator.env && cd $ORCH_REPO && \
+   env -u WANDB_SERVICE UV_PYTHON=/usr/local/bin/python uv run --no-project python orchestrator/watch_loop.py" 8>&-
 sleep 5
 if tmux has-session -t orchestrator 8>&- 2>/dev/null; then
   log "RESTARTED ok (tmux session up)"

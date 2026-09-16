@@ -8,7 +8,7 @@ read). Not part of the automatic prestage (m5 is a track-DONE-gate
 tool, not a per-run standard eval); run it by hand when a verdict names
 it as the next step.
 
-    uv run python rl_move/orchestrator/m5_pod_eval.py <run> [pod] [--skip=a,b]
+    uv run python orchestrator/m5_pod_eval.py <run> [pod] [--skip=a,b]
         [--per-mode=N] [--suffix=name] [--cfg=k=v ...]
 
 --cfg=k=v (repeatable) appends EXTRA --cfg-set overrides AFTER the
@@ -39,7 +39,7 @@ import sys
 import pod_eval  # same directory: reuse kexec/push_local/find_checkpoint
 
 HERE = pathlib.Path(__file__).resolve().parent
-PROTO = HERE.parent.parent
+from roots import PROTO  # noqa: E402  (hexapod sim tree: logs/)
 import state_dir  # noqa: E402
 POD_PROTO = "/workspace/prototype_sts3215"
 TIMEOUT_S = 3600

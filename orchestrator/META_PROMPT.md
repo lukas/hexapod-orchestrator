@@ -65,5 +65,5 @@ Meta-analyses tend to ADD process. You may not:
   (+ raw `.jsonl`); that transcript is the operator's record of what
   you did and why.
 - Commit via `snapshot.sh meta-<date>`; touch
-  `rl_move/orchestrator/CYCLE_WORKED` only if you landed real
+  `{ORCH_ROOT}/orchestrator/CYCLE_WORKED` only if you landed real
   changes. Then exit — the fleet resumes automatically.

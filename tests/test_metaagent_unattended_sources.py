@@ -10,8 +10,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from rl_move.overseer import unattended_sources as sources
-from rl_move.overseer.collectors import normalize_codex_threads, normalize_cloud_activity
+from metaagent import unattended_sources as sources
+from metaagent.collectors import normalize_codex_threads, normalize_cloud_activity
 
 
 @pytest.fixture(autouse=True)

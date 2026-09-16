@@ -18,7 +18,7 @@ MCP client ── TLS / Bearer ──────┘       │ 127.0.0.1:8768 in
 The existing camera relay's `PermitListen` allows only ports 8766 and 8767.
 This deployment uses its own Deployment, Service, keys, Caddy configuration,
 certificate volume and Mac tunnel. Do not edit `camera-relay`, restart Robot
-Lab or its tunnel, or run `experiment_lab/deploy/apply-sso.sh` for this rollout.
+Lab or its tunnel, or run the hexapod repo's `experiment_lab/deploy/apply-sso.sh` for this rollout.
 Installing the HTTP service/tunnel does not schedule reviews or authorize
 agent/robot actions. Existing execution owners and shared spending caps remain
 authoritative; a dashboard request does not bypass the durable budget store.
@@ -26,12 +26,14 @@ authoritative; a dashboard request does not bypass the durable budget store.
 ## Application prerequisites
 
 Stage the reviewed application in a stable checkout outside Documents and
-`/tmp`, for example
-`~/Library/Application Support/Hexapod Metaagent/runtime/`. Use that checkout's
-own `uv` environment. The service entry point is:
+`/tmp`: `~/Library/Application Support/Hexapod Metaagent/runtime/` is a clone of
+`lukas/hexapod-orchestrator` (the metaagent lives in its `metaagent/` package;
+it used to be `rl_move.overseer` inside a hexapod checkout at the same path).
+Use that checkout's own `uv` environment (`uv sync --frozen`, so `uv.lock` must
+be committed). The service entry point is:
 
 ```sh
-uv run python -m rl_move.metaagent serve --host 127.0.0.1 --port 8768
+uv run python -m metaagent serve --host 127.0.0.1 --port 8768
 ```
 
 Configure its environment through the private Mac launcher:
@@ -40,6 +42,7 @@ Configure its environment through the private Mac launcher:
 | --- | --- |
 | `METAAGENT_API_TOKEN` | Dedicated random token, read from a private file or Keychain; never put it in a plist, command argument, URL or Git. |
 | `HEXAPOD_METAAGENT_DIR` | `$HOME/Library/Application Support/Hexapod Lab/overseer` — the existing directory, retaining `overseer.sqlite3` and its $20/wake and $80/rolling-day caps. |
+| `HEXAPOD_REPO` | The hexapod checkout the reviews look at (agent cwd matching, `CURRENT_TRUTHS.md`, the Robot Lab README). Only the scheduler's `configure --enable` needs it, as the default `--project-root`; the HTTP service never reads it. Without it `orchestrator/roots.py` falls back to a sibling `../hexapod` of the runtime, else `/workspace/hexapod`, which do not exist on the Mac. |
 | `METAAGENT_SSO_SECRET_FILE` | `$HOME/.hexapod/sso_secret` — existing private controller cookie-verification key, mode 0600. |
 
 Do not copy the database or create a second registry for the web service.
@@ -58,11 +61,12 @@ verify it is nonempty, and atomically install it as mode 0600. Never display it.
 
 ## Prepare new resources
 
-Run from the reviewed repository root. These assignments contain paths and
-resource names only. `D` contains tracked deployment files; `K` is private.
+Run from the `hexapod-orchestrator` checkout root. These assignments contain
+paths and resource names only. `D` contains tracked deployment files; `K` is
+private.
 
 ```sh
-D="$PWD/hexapod_walker/prototype_sts3215/rl_move/overseer/deploy"
+D="$PWD/metaagent/deploy"
 K="$HOME/.hexapod/metaagent-tunnel"
 export KUBECONFIG="$HOME/.kube/coreweave.yaml"
 umask 077
@@ -195,12 +199,17 @@ provider's existing API credential under `ANTHROPIC_API_KEY` or `OPENAI_API_KEY`
 Never include credentials in plists, Git, shell arguments or logs. This file is
 separate from the read-only HTTP service. Credential rotation must update it.
 
-Run in the stable runtime checkout, preserving the original state directory:
+Run in the stable runtime checkout, preserving the original state directory.
+`configure --enable` stores `--project-root` (default `HEXAPOD_REPO`) in the
+database; the value saved before the repository split points at the runtime
+checkout itself, which is now this repository rather than a hexapod checkout,
+so re-run `configure --enable` with `HEXAPOD_REPO` set (or an explicit
+`--project-root`) after the cutover:
 
 ```sh
-uv run --frozen python -m rl_move.overseer.scheduler configure --enable --provider claude
+HEXAPOD_REPO="$HOME/hexapod" uv run --frozen python -m metaagent.scheduler configure --enable --provider claude
 launchctl bootstrap "gui/$(id -u)" "$HOME/Library/LaunchAgents/com.lbiewald.hexapod-metaagent-scheduler.plist"
-uv run --frozen python -m rl_move.overseer.scheduler status
+uv run --frozen python -m metaagent.scheduler status
 launchctl print "gui/$(id -u)/com.lbiewald.hexapod-metaagent-scheduler"
 ```
 
@@ -221,7 +230,7 @@ outbox notifications remain proposals for existing owners.
 Disable scheduling without removing the website or history:
 
 ```sh
-uv run --frozen python -m rl_move.overseer.scheduler configure --disable
+uv run --frozen python -m metaagent.scheduler configure --disable
 launchctl bootout "gui/$(id -u)/com.lbiewald.hexapod-metaagent-scheduler"
 ```
 

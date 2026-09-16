@@ -22,13 +22,13 @@ only accessors (a save rewrites only the entries that changed). Durability
 is a mirror, not a repo: `snapshot.sh` runs `state_sync.sh push` after every
 run, copying the directory onto the `hexapod-state` PVC (`/state/hexapod` on
 Deployment `hexapod-state`, plus 30 daily `.tgz` in `/state/backups`). Read
-it locally with `make -C .. state` (`state_sync.sh pull`: live copy from the
+it locally with `bash orchestrator/state_sync.sh pull` (live copy from the
 controller, PVC mirror as fallback); a fresh controller runs
 `state_sync.sh restore`; read it on the web at `/now` and `/llms.txt`. The
 old single-file `experiments.json` is refused by the accessor; convert a
 legacy copy with `python state_dir.py migrate-ledger`.
 `rl_docs/runs`, `RL_LOG.md`, `rl_docs/SKILLS.md`,
-`rl_move/orchestrator/OPERATOR_QUESTIONS.md` and every
+`orchestrator/OPERATOR_QUESTIONS.md` (this repo) and every
 `rl_docs/tracks/<track>/STATUS.md` in the prototype tree are symlinks into
 `.state` (cycles edit the `.state/...` path; `snapshot.sh` re-links any
 regular file that appears at those paths, e.g. a new track's STATUS.md).
@@ -86,10 +86,10 @@ they are available. If a session has no native RL tools, prepare credentials
 locally from the existing Codex configuration (this makes no network request):
 
 ```sh
-uv run --no-project --offline python hexapod_walker/prototype_sts3215/rl_move/orchestrator/prepare_mcp_curl.py
+uv run --no-project --offline python orchestrator/prepare_mcp_curl.py
 ```
 
-Run that from the repository root. The generated `/tmp/hexapod-mcp-read.conf`
+Run that from the hexapod-orchestrator repository root. The generated `/tmp/hexapod-mcp-read.conf`
 has mode 600. Never print or commit its contents. Recreate it if missing or
 after credentials change. Then call the authenticated MCP endpoint directly:
 

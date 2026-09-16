@@ -23,7 +23,7 @@ STATUS_TOKEN also still grants the lane. Spend/token numbers and pod
 names stay off the tools (same policy as /llm, operator 08-13).
 
 Standalone for development/testing only:
-    uv run python rl_move/orchestrator/mcp_server.py   # port 8091
+    uv run python orchestrator/mcp_server.py   # port 8091
 """
 from __future__ import annotations
 
@@ -41,7 +41,7 @@ from eval_reports import select_reports
 from ledger_view import current_entries
 
 HERE = pathlib.Path(__file__).resolve().parent
-PROTO = HERE.parent.parent
+from roots import PROTO  # noqa: E402
 import state_dir  # noqa: E402
 RL_LOG = state_dir.RL_LOG
 
@@ -288,7 +288,7 @@ def t_campaign_status() -> str:
                      + _clip(body, TRACK_STATUS_CAP,
                              f"{p.parent.name} STATUS"))
     try:
-        body = (PROTO / "STATUS.md").read_text(errors="replace")
+        body = state_dir.orch_doc("STATUS.md").read_text(errors="replace")
         parts.append("# Campaign digest (STATUS.md; may lag tracks)\n\n"
                      + _clip(body, CAMPAIGN_DIGEST_CAP,
                              "campaign digest"))

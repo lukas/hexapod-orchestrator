@@ -43,3 +43,11 @@ def resolve_state_dir() -> Path:
 HEXAPOD_REPO = resolve_hexapod_repo()
 PROTO = HEXAPOD_REPO / "hexapod_walker" / "prototype_sts3215"
 STATE_DIR = resolve_state_dir()
+
+# The controller pod's layout; a few scripts behave differently there
+# (auto-pull of the subject checkout, /workspace/... runtime files).
+CONTROLLER_HEXAPOD_REPO = Path("/workspace/hexapod")
+
+
+def on_controller() -> bool:
+    return HEXAPOD_REPO == CONTROLLER_HEXAPOD_REPO and HEXAPOD_REPO.is_dir()

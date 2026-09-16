@@ -7,6 +7,7 @@
 # jax[cuda12] 0.10.2, sb3 2.9.0, wandb 0.28.1, torch 2.13.0+cpu.
 set -uo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
+. "$HERE/roots.sh"                    # PROTO = the hexapod sim tree
 KC="${KUBECONFIG:-$HOME/.kube/coreweave.yaml}"
 
 PKGS="numpy==2.4.6 mujoco==3.11.0 mujoco-mjx==3.11.0 mujoco-warp==3.11.0 \
@@ -57,7 +58,7 @@ for POD in "$@"; do
   # logging skipped") and the run never appears in W&B (bit us 2026-08-09:
   # cw-chain-standwalksit trained 1.5M+ steps invisibly on train-6).
   kubectl --kubeconfig "$KC" cp \
-    "$(dirname "$HERE")/sim/wandb.env" \
+    "$PROTO/rl_move/sim/wandb.env" \
     "$POD:/workspace/prototype_sts3215/rl_move/sim/wandb.env" \
     || echo "$POD: wandb.env push FAILED — runs will not log to W&B"
   # Smoke: import chain + GPU visible.

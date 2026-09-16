@@ -4,8 +4,8 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from rl_move.overseer.policy import evaluate
-from rl_move.overseer.report import markdown
+from metaagent.policy import evaluate
+from metaagent.report import markdown
 
 
 NOW = datetime(2026, 9, 8, 12, tzinfo=timezone.utc)

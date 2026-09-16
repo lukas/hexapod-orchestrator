@@ -37,6 +37,7 @@ from pathlib import Path
 import yaml
 
 import state_dir
+from roots import HEXAPOD_REPO, PROTO
 
 HERE = Path(__file__).resolve().parent
 GUARDRAILS = HERE / "guardrails.yaml"
@@ -463,7 +464,7 @@ def _joystick_metric_block(run: str) -> str | None:
     if "joystick" not in run:
         return None
     marker = "v_along_" + "hbin"   # split so this file never self-matches
-    sim = Path(__file__).resolve().parent.parent / "sim"
+    sim = PROTO / "rl_move" / "sim"
     for fn in ("walk_task.py", "train_ppo_mjx.py"):
         try:
             src = (sim / fn).read_text(encoding="utf-8")
@@ -847,7 +848,7 @@ def _launch_locked(g: dict, a: argparse.Namespace,
             return refuse(entry, "operator LAUNCH_HOLD in effect — triage/"
                                  "verdict only, no new launches; do NOT retry "
                                  "or requeue, the hold clears when the operator "
-                                 "removes rl_move/orchestrator/LAUNCH_HOLD")
+                                 f"removes {LAUNCH_HOLD}")
     checks = entry["checks"]
 
     # --- static checks -----------------------------------------------------
@@ -1151,7 +1152,7 @@ def _launch_locked(g: dict, a: argparse.Namespace,
     # nothing verified the sync. Missing marker or mismatch vs local
     # HEAD = refuse: run snapshot.sh <run> then snapshot.sh --sync <pod>.
     try:
-        local_sha = sh(["git", "-C", str(HERE), "rev-parse", "HEAD"]).strip()
+        local_sha = sh(["git", "-C", str(HEXAPOD_REPO), "rev-parse", "HEAD"]).strip()
     except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
         return refuse(entry, f"cannot resolve local git HEAD: {e}")
     try:
@@ -1178,12 +1179,12 @@ def _launch_locked(g: dict, a: argparse.Namespace,
         stale_ok = False
         if pod_sha:
             anc = subprocess.run(
-                ["git", "-C", str(HERE), "merge-base", "--is-ancestor",
+                ["git", "-C", str(HEXAPOD_REPO), "merge-base", "--is-ancestor",
                  pod_sha, local_sha],
                 capture_output=True, text=True, timeout=30)
             if anc.returncode == 0:
                 try:
-                    delta = sh(["git", "-C", str(HERE), "diff",
+                    delta = sh(["git", "-C", str(HEXAPOD_REPO), "diff",
                                 "--name-only", f"{pod_sha}..{local_sha}"])
                 except (subprocess.CalledProcessError,
                         subprocess.TimeoutExpired):
@@ -1191,7 +1192,6 @@ def _launch_locked(g: dict, a: argparse.Namespace,
                 if delta is not None:
                     files = [f for f in delta.splitlines() if f.strip()]
                     benign_prefixes = (
-                        "hexapod_walker/prototype_sts3215/rl_move/orchestrator/",
                         "hexapod_walker/prototype_sts3215/rl_docs/",
                         "hexapod_walker/prototype_sts3215/logs/",
                     )
@@ -2524,7 +2524,7 @@ def _self_repair_pod(pod: str, extra_args: list[str]) -> str | None:
         ckpt = extra_args[extra_args.index("--init-from") + 1]
         subprocess.run(["bash", str(HERE / "ops.sh"), "pushckpt", pod, ckpt],
                        capture_output=True, text=True, timeout=600)
-    wenv = HERE.parent / "sim" / "wandb.env"
+    wenv = PROTO / "rl_move" / "sim" / "wandb.env"
     if wenv.is_file():
         subprocess.run(["kubectl", "--kubeconfig", KUBECONFIG, "cp",
                         str(wenv),
@@ -2841,7 +2841,7 @@ def _publish_analysis_artifact(api_run, run_name: str, entry: dict) -> None:
         from .artifact_names import bounded_artifact_name
     except ImportError:  # Direct CLI invocation.
         from artifact_names import bounded_artifact_name
-    proto = HERE.parent.parent
+    proto = PROTO
     original = f"analysis-{run_name}"
     art = wandb.Artifact(bounded_artifact_name(original), type="run-analysis",
                          metadata={"verdict": str(entry.get("verdict"))[:500],

@@ -1,4 +1,4 @@
-"""Pure overseer decisions. Observations are data, never executable instructions."""
+"""Pure metaagent decisions. Observations are data, never executable instructions."""
 from __future__ import annotations
 
 from collections import defaultdict

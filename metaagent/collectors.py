@@ -1,4 +1,4 @@
-"""Bounded, read-only discovery for the manual project overseer.
+"""Bounded, read-only discovery for the manual project metaagent.
 
 Discovery is not registration or authority to control a process. Source status,
 activity and measured progress remain distinct. No collector starts an agent,

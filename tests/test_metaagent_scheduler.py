@@ -6,8 +6,8 @@ import sqlite3
 
 import pytest
 
-from rl_move.overseer import scheduler
-from rl_move.overseer.policy import timestamp
+from metaagent import scheduler
+from metaagent.policy import timestamp
 
 
 @pytest.fixture
@@ -19,7 +19,7 @@ def setup(tmp_path, monkeypatch):
     profiles = database.parent/'reviewers'
     profiles.mkdir()
     profiles.joinpath('claude.json').write_text((Path(scheduler.__file__).parent/'reviewers/claude.json').read_text())
-    from rl_move.overseer import __main__ as cli
+    from metaagent import __main__ as cli
     state = {'collected_at': timestamp().isoformat(), 'agents': [], 'services': [], 'errors': []}
     monkeypatch.setattr(cli, 'collect', lambda *a: state)
     calls = []
@@ -97,7 +97,7 @@ def test_missing_key_is_free_visible_hold(setup, monkeypatch):
 
 
 def test_active_wake_not_reopened_or_replaced(setup):
-    from rl_move.overseer.store import Store
+    from metaagent.store import Store
     database, state, calls, collector, reviewer = setup
     store = Store(database)
     wake = store.start_wake('manual existing wake')
@@ -138,7 +138,7 @@ def test_exception_after_dispatch_holds_without_secret_log(setup):
 
 
 def test_unknown_reserved_cost_can_make_check_wait_without_new_wake(setup):
-    from rl_move.overseer.store import Store
+    from metaagent.store import Store
     database, state, calls, collector, reviewer = setup
     store = Store(database)
     for index in range(4):

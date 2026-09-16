@@ -1,21 +1,27 @@
 #!/usr/bin/env bash
-# snapshot.sh <run-name>       commit CODE on the orchestrator branch, tag exp/<run-name>, push, then mirror STATE to the PVC, print hash
-# snapshot.sh --sync <pod>     sync the prototype tree to a pod's /workspace
+# snapshot.sh <run-name>       commit the hexapod checkout's CODE on the orchestrator branch, tag exp/<run-name>,
+#                              push; commit+push this repo's own changes; mirror STATE to the PVC; print the hexapod hash
+# snapshot.sh --sync <pod>     sync the hexapod prototype tree to a pod's /workspace
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$(git rev-parse --show-toplevel)"
+# Two checkouts (roots.sh = roots.py): HEXAPOD_REPO is the SUBJECT repo the
+# trainers run from and the cycles edit; ORCH_ROOT is this repo. The code
+# section below operates on HEXAPOD_REPO -- never on "the repo this script
+# happens to live in".
+. "$SCRIPT_DIR/roots.sh"
 # Runtime state (ledger directory, queue, run stories, RL_LOG.md) lives in a
-# plain directory, <checkout>/.state or $HEXAPOD_STATE_DIR (state_dir.py) --
-# not a git repo. Every snapshot mirrors it onto the hexapod-state PVC right
-# after the code push (state_sync.sh push), which also keeps a daily .tgz.
-# Code commits below only happen when CODE changed.
-STATE_DIR="${HEXAPOD_STATE_DIR:-$(pwd)/.state}"
-# Orchestrator CODE commits land on their own branch, never on main. main is
+# plain directory, <orchestrator checkout>/.state or $HEXAPOD_STATE_DIR
+# (roots.py) -- not a git repo. Every snapshot mirrors it onto the
+# hexapod-state PVC right after the code push (state_sync.sh push), which
+# also keeps a daily .tgz. Code commits below only happen when CODE changed.
+# Hexapod CODE commits land on their own branch, never on main. main is
 # deployed automatically (controller, robots, Mac hub) and 70% of its history
 # was these snapshots, which made blame and bisect useless. The controller
 # checkout lives on $ORCH_BRANCH; origin/main is merged INTO it before every
-# push, and orchestrator code reaches main only when a human merges the
+# push, and orchestrator-made code reaches main only when a human merges the
 # branch. state_dir.ORCH_BRANCH is the same default for the Python side.
+# This repo (ORCH_ROOT) has no auto-deploy from main, so its own changes are
+# committed and pushed on whatever branch it is on.
 ORCH_BRANCH="${HEXAPOD_ORCH_BRANCH:-orchestrator}"
 
 # Guard (09-10 meta): called with no arg / a flag-looking arg, this used
@@ -25,6 +31,9 @@ if [ -z "${1:-}" ] || { [ "${1:0:1}" = "-" ] && [ "$1" != "--sync" ]; }; then
   echo "usage: snapshot.sh <run-name> | snapshot.sh --sync <pod>" >&2
   exit 2
 fi
+# -e, not -d: a git worktree's .git is a file.
+[ -e "$HEXAPOD_REPO/.git" ] || { echo "snapshot.sh: hexapod checkout not found at $HEXAPOD_REPO (set HEXAPOD_REPO)" >&2; exit 1; }
+cd "$HEXAPOD_REPO"
 
 if [ "${1:-}" = "--sync" ]; then
   POD="$2"
@@ -40,7 +49,7 @@ if [ "${1:-}" = "--sync" ]; then
   # ends collision-free; cleaned up after extraction.
   TGZ="/tmp/proto_sync_$$_${POD}.tgz"
   trap 'rm -f "$TGZ"' EXIT
-  tar -C hexapod_walker -czf "$TGZ" \
+  tar -C "$HEXAPOD_REPO/hexapod_walker" -czf "$TGZ" \
       --exclude='prototype_sts3215/logs' \
       --exclude='prototype_sts3215/rl_move/sim/policies' \
       --exclude='prototype_sts3215/wandb' \
@@ -128,7 +137,8 @@ fi
 # that creates a NEW track's STATUS.md, or an editor that saves via rename,
 # leaves a regular file at one of these paths -- and `git add -A` would then
 # commit the journal back into main. Move such content into the state repo
-# and re-link before staging.
+# and re-link before staging. (The hexapod-tree links exist only while that
+# checkout still carries the journal symlinks; a missing path is a no-op.)
 P=hexapod_walker/prototype_sts3215
 relink_journal() {  # relink_journal <path-in-code-tree> <path-in-state>
   local code="$1" state="$STATE_DIR/$2"
@@ -144,7 +154,7 @@ relink_journal() {  # relink_journal <path-in-code-tree> <path-in-state>
 relink_journal "$P/RL_LOG.md" "RL_LOG.md"
 relink_journal "$P/CURRENT_TRUTHS.md" "CURRENT_TRUTHS.md"
 relink_journal "$P/rl_docs/SKILLS.md" "rl_docs/SKILLS.md"
-relink_journal "$P/rl_move/orchestrator/OPERATOR_QUESTIONS.md" "OPERATOR_QUESTIONS.md"
+relink_journal "$ORCH_ROOT/orchestrator/OPERATOR_QUESTIONS.md" "OPERATOR_QUESTIONS.md"
 for T in "$P"/rl_docs/tracks/*/; do
   T="${T%/}"; [ -e "$T/STATUS.md" ] || continue
   relink_journal "$T/STATUS.md" "rl_docs/tracks/$(basename "$T")/STATUS.md"
@@ -196,6 +206,26 @@ git push origin "HEAD:refs/heads/$ORCH_BRANCH" --tags || {
   git push origin "HEAD:refs/heads/$ORCH_BRANCH" --tags
 }
 CODE_SHA="$(git rev-parse HEAD)"
+
+# ---- THIS repo: commit + push its own changes (prompts, ops.sh, research
+# docs, tracks.json ... edited by cycles) on the current branch. No branch
+# dance: nothing auto-deploys from this repo's main. Best effort past the
+# commit: a failed push is reported, the hexapod snapshot above stands.
+if [ -e "$ORCH_ROOT/.git" ]; then
+  (
+    cd "$ORCH_ROOT"
+    git add -A
+    if ! git diff --cached --quiet; then
+      git commit -q -m "orchestrator snapshot before ${RUN_NAME}"
+    fi
+    if git remote get-url origin >/dev/null 2>&1; then
+      BR="$(git rev-parse --abbrev-ref HEAD)"
+      git push -q origin "HEAD:refs/heads/$BR" || {
+        git pull -q --no-rebase --no-edit origin "$BR" && git push -q origin "HEAD:refs/heads/$BR"
+      }
+    fi
+  ) || echo "WARNING: could not commit/push the orchestrator repo ($ORCH_ROOT); its changes are only on this host" >&2
+fi
 
 # ---- STATE: mirror the state dir onto the PVC (best effort, loud on failure) ----
 # JSON-validity guard (2026-09-06 ledger-corruption incident): name every

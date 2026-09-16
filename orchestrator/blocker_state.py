@@ -13,12 +13,14 @@ import tempfile
 import uuid
 
 
+from roots import on_controller
+
 HERE = Path(__file__).resolve().parent
 DEFAULT_PATH = Path(
     os.environ.get(
         "ORCHESTRATOR_BLOCKERS_FILE",
         "/workspace/orchestrator_blockers.json"
-        if Path("/workspace/hexapod").is_dir()
+        if on_controller()
         else str(HERE / "blockers.runtime.json"),
     )
 )

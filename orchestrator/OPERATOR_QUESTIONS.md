@@ -1,1 +1,1 @@
-../../../../.state/OPERATOR_QUESTIONS.md
+../.state/OPERATOR_QUESTIONS.md

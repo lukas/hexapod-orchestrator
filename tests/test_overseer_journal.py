@@ -7,8 +7,8 @@ import threading
 
 import pytest
 
-from rl_move.overseer.journal import Journal, read_history
-from rl_move.overseer.policy import evaluate
+from metaagent.journal import Journal, read_history
+from metaagent.policy import evaluate
 
 
 NOW = "2026-09-08T12:00:00+00:00"

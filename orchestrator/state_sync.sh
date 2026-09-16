@@ -3,7 +3,7 @@
 #
 # The ONE transport for the orchestrator's runtime state (ledger directory,
 # backlog, pending evals, run stories, RL_LOG.md). The state dir --
-# <checkout>/.state or $HEXAPOD_STATE_DIR, see state_dir.py -- is a plain
+# <orchestrator checkout>/.state or $HEXAPOD_STATE_DIR (roots.py) -- is a plain
 # directory, NOT a git repo: the lukas/hexapod-state repo it replaced
 # (2026-09-08..14) grew 2.5 GB of history in a week from committing a 34 MB
 # ledger after every run. Git is not a log. Durability is a mirror on the
@@ -17,7 +17,7 @@
 #            newest 30. Prints one line: bytes and seconds.
 #   pull     controller (LIVE state) -> $STATE_DIR on a laptop or worktree;
 #            when the controller is unreachable it pulls the PVC mirror instead
-#            and says so.  `make -C hexapod_walker/prototype_sts3215 state`.
+#            and says so.  `bash orchestrator/state_sync.sh pull`.
 #   restore  PVC mirror -> an EMPTY $STATE_DIR on a fresh controller
 #            (setup_controller.sh). Refuses a non-empty target without --force
 #            and refuses a mirror that holds no ledger (nothing to restore).
@@ -27,8 +27,8 @@
 # leaves a half-written state dir. Loud and non-zero on any failure.
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO="$(cd "$HERE/../../../.." && pwd)"
-STATE="${HEXAPOD_STATE_DIR:-$REPO/.state}"
+. "$HERE/roots.sh"                    # ORCH_ROOT, HEXAPOD_REPO, STATE_DIR
+STATE="$STATE_DIR"                    # $HEXAPOD_STATE_DIR, else ORCH_ROOT/.state
 KC="${KUBECONFIG:-$HOME/.kube/coreweave.yaml}"
 CONTROLLER_POD="${HEXAPOD_CONTROLLER_POD:-hexapod-sweep-friction}"
 CONTROLLER_STATE="${HEXAPOD_CONTROLLER_STATE_DIR:-/workspace/hexapod/.state}"

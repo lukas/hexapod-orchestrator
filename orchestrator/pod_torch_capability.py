@@ -219,7 +219,7 @@ def _run_smoke(pod: str, full: bool) -> dict:
 def cmd_status(_a) -> int:
     data = load()
     if not data:
-        print("no pods recorded (rl_move/orchestrator/pod_torch_capability.json "
+        print(f"no pods recorded ({CAPFILE} "
               "empty/missing) — every mjx-train pod is CPU-torch-only by "
               "default; run `install --pod POD` to opt one in.")
         return 0

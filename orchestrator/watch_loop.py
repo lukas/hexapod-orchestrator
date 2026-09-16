@@ -12,8 +12,12 @@ pods. State that matters (results, decisions, lineage) lives in the repo;
 this file only remembers which finished runs were already handled.
 
 Run on the controller pod inside tmux:
-    uv run python rl_move/orchestrator/watch_loop.py
-Kill switch: `touch rl_move/orchestrator/PAUSE` (loop idles until removed).
+    cd /workspace/hexapod-orchestrator && uv run --no-project python orchestrator/watch_loop.py
+Kill switch: `touch orchestrator/PAUSE` (loop idles until removed).
+
+Roots (roots.py): ORCH_ROOT is this checkout (code, prompts, flags);
+HEXAPOD_REPO / PROTO is the hexapod checkout the cycles edit and the
+trainers run from; STATE_DIR holds the ledger and journals.
 """
 import datetime
 import hashlib
@@ -29,9 +33,11 @@ import time
 HERE = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE)) if str(HERE) not in sys.path else None
 import state_dir  # noqa: E402  (runtime state location; see state_dir.py)
-REPO = subprocess.check_output(
-    ["git", "rev-parse", "--show-toplevel"], cwd=HERE, text=True
-).strip()
+from roots import ORCH_ROOT, HEXAPOD_REPO, PROTO  # noqa: E402
+# The SUBJECT checkout (lukas/hexapod): decision cycles run with this as
+# cwd, snapshot.sh commits it on the orchestrator branch, sync_from_main
+# merges origin/main into it. Our own code lives in ORCH_ROOT.
+REPO = str(HEXAPOD_REPO)
 # Same host-wide lock snapshot.sh and status_server.py's doc-sync
 # puller use to serialize the commit/rebase/push section — see the
 # pre-cycle pull below for why this one needs it too (08-22).
@@ -140,7 +146,7 @@ def prestage_sentinel(run: str) -> pathlib.Path:
     """Written by pod_eval.py once the core gate/own-DR passes are
     settled (synced, skipped, or impossible). Session/joygate riders
     are informational and never gate the cycle spawn."""
-    return (HERE.parent.parent / "logs" / "ckpt_eval"
+    return (PROTO / "logs" / "ckpt_eval"
             / (run.replace("-", "_") + "_prestage.synced"))
 
 
@@ -153,7 +159,7 @@ def prestage_review(run: str) -> pathlib.Path:
     'import json'` calls per cycle despite the prompt already forbidding
     it — moving the read out of the billed LLM session and INTO the
     prompt removes the need, not just the permission."""
-    return (HERE.parent.parent / "logs" / "ckpt_eval"
+    return (PROTO / "logs" / "ckpt_eval"
             / (run.replace("-", "_") + "_prestage_review.txt"))
 
 
@@ -165,7 +171,7 @@ def _cache_ops_review(run: str) -> None:
         rv = subprocess.run(
             ["bash", str(HERE / "ops.sh"), "review", run],
             capture_output=True, text=True, timeout=180,
-            cwd=str(HERE.parent.parent))
+            cwd=str(PROTO))
         txt = ((rv.stdout or "") + (rv.stderr or "")).strip()
         if txt:
             p = prestage_review(run)
@@ -330,12 +336,23 @@ def agent_cmd(model: str) -> list[str]:
     # the raw events to a sibling .jsonl). --verbose is REQUIRED by
     # the CLI for stream-json with -p. Keep "claude -p --bare" as a
     # prefix: restart_watcher.sh greps for exactly that.
+    # cwd is HEXAPOD_REPO (spawn_cycle); --add-dir lets the cycle read and
+    # edit this checkout too (prompts, ops.sh, guardrails, research docs).
     return [
         "claude", "-p", "--bare",
         "--model", model,
         "--dangerously-skip-permissions",
         "--output-format", "stream-json", "--verbose",
+        "--add-dir", str(ORCH_ROOT),
     ]
+
+
+def fill_roots(text: str) -> str:
+    """Substitute the path placeholders the prompt markdown uses. Plain
+    str.replace, never str.format: the prose is full of literal braces."""
+    return (text.replace("{ORCH_ROOT}", str(ORCH_ROOT))
+                .replace("{HEXAPOD_REPO}", str(HEXAPOD_REPO))
+                .replace("{PROTO}", str(PROTO)))
 
 WANDB_PROJECT = "l2k2/hexapod-balance"
 # Experiment naming convention. Runs without this prefix (e.g. auto-named
@@ -563,7 +580,7 @@ def board_fingerprint() -> str:
         h.update(BACKLOG.read_bytes())
     except OSError:
         h.update(b"?")
-    for repo in (HERE,):
+    for repo in (ORCH_ROOT, HEXAPOD_REPO):
         try:
             head = subprocess.run(
                 ["git", "-C", str(repo), "rev-parse", "HEAD"],
@@ -593,7 +610,7 @@ def partial_idle_capacity() -> dict | None:
     try:
         result = subprocess.run(
             [sys.executable, str(HERE / "capacity.py"), "--json"],
-            cwd=HERE.parent.parent, capture_output=True, text=True,
+            cwd=PROTO, capture_output=True, text=True,
             timeout=120, check=True)
         capacity = json.loads(result.stdout)
         backlog = json.loads(BACKLOG.read_text())
@@ -615,7 +632,7 @@ def partial_refill_trigger(capacity: dict | None, active: list[dict]) -> str | N
         "No run completion is required for this refill cycle. Canonical "
         f"capacity found {capacity['slots_free']} ready slots without trainers "
         f"({pods}), while the launch backlog is empty. Other runs may still "
-        "be training. Start from `rl_move/orchestrator/ops.sh board` (one-"
+        f"be training. Start from `{HERE}/ops.sh board` (one-"
         "shot local digest: backlog, unverdicted runs, newest journal entry "
         "per track) instead of re-reading every STATUS doc, verify capacity "
         "and existing cycle ownership, "
@@ -804,7 +821,7 @@ def pruner_worker() -> None:
     runs' controller-visible report windows and kills only seeds meeting
     the operator's rule (>=25% burn-in + 3 consecutive stagnant windows
     with no reward/behavior improvement, or obvious collapse/exploit).
-    rl_move/orchestrator/PRUNE_OFF disables killing; the audit is
+    orchestrator/PRUNE_OFF disables killing; the audit is
     subprocess-isolated so a pruner bug can never take the watcher down.
     """
     pruner = HERE / "seed_pruner.py"
@@ -1157,7 +1174,7 @@ def prestage_finished(run: str) -> None:
                     subprocess.run(
                         ["bash", str(HERE / "ops.sh"), "wandbdump", run],
                         capture_output=True, text=True, timeout=900,
-                        cwd=str(HERE.parent.parent))
+                        cwd=str(PROTO))
                 except Exception as exc:
                     log(f"prestage {run}: wandbdump refresh failed: {exc!r}")
                 # Re-cache review off the refreshed (post-finalizer) dump.
@@ -1167,7 +1184,7 @@ def prestage_finished(run: str) -> None:
             return
         _prestage_fired.add(run)
     ops = str(HERE / "ops.sh")
-    proto = str(HERE.parent.parent)
+    proto = str(PROTO)
 
     def sh(cmd: str, timeout: int = 900) -> subprocess.CompletedProcess:
         return subprocess.run(["bash", "-c", cmd], capture_output=True,
@@ -1326,7 +1343,7 @@ def spawn_cycle(newly_finished: set[str], still_running: set[str],
             "are all met — executing the topmost by track priority, NOT "
             "just re-verifying the board. If you executed any real work "
             "(code landed, run launched, triage written), `touch "
-            "rl_move/orchestrator/CYCLE_WORKED` before exiting so the "
+            f"{WORKED}` before exiting so the "
             "watcher keeps the fast cadence. Only if that queue is truly "
             "empty may you declare a no-op (do NOT touch CYCLE_WORKED "
             "then). Skip eval steps for runs already logged.\n"
@@ -1339,7 +1356,7 @@ def spawn_cycle(newly_finished: set[str], still_running: set[str],
         try:
             board = subprocess.run(
                 ["bash", str(HERE / "ops.sh"), "board"],
-                cwd=str(HERE.parent.parent), capture_output=True,
+                cwd=str(PROTO), capture_output=True,
                 text=True, timeout=90).stdout.strip()
         except (OSError, subprocess.SubprocessError):
             board = ""
@@ -1352,7 +1369,7 @@ def spawn_cycle(newly_finished: set[str], still_running: set[str],
     # Fresh read every spawn: prompt edits (e.g. the shutdown protocol)
     # take effect without a watcher restart.
     cycle_prompt = (
-        PROMPT_PATH.read_text()
+        fill_roots(PROMPT_PATH.read_text())
         + "\n\n## This cycle\n"
         + trigger
         + (
@@ -1823,7 +1840,7 @@ def main() -> None:
                             "the normal cycle steps above (those are "
                             "context for how the system works).\n"),
                         label_override=META_LABEL,
-                        extra_prompt="\n\n" + META_PROMPT_PATH.read_text()))
+                        extra_prompt="\n\n" + fill_roots(META_PROMPT_PATH.read_text())))
                     log("meta-analysis session spawned")
                 sleep_poll()
                 continue

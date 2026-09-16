@@ -14,7 +14,7 @@ stream (auto-refreshes while the cycle runs); /run/<name> = a run's
 complete ledger history, the cycles that worked on it, its story doc.
 
 Run on the controller pod (tmux session `statusweb`):
-    uv run python rl_move/orchestrator/status_server.py          # port 8090
+    uv run python orchestrator/status_server.py          # port 8090
 
 View from the laptop:
     kubectl --kubeconfig=$HOME/.kube/coreweave.yaml \
@@ -56,7 +56,7 @@ import urllib.parse
 from concurrent.futures import ThreadPoolExecutor
 
 HERE = pathlib.Path(__file__).resolve().parent
-PROTO = HERE.parent.parent
+from roots import ORCH_ROOT, HEXAPOD_REPO, PROTO, CONTROLLER_HEXAPOD_REPO  # noqa: E402
 import state_dir  # noqa: E402
 BACKLOG = state_dir.BACKLOG
 BACKLOG_FAILED = state_dir.BACKLOG_FAILED
@@ -341,7 +341,7 @@ def status_docs() -> dict:
     dropdown viewer (operator, 08-11)."""
     docs = {"main": {"name": "Campaign digest (STATUS.md)", "text": ""}}
     try:
-        docs["main"]["text"] = (PROTO / "STATUS.md").read_text(
+        docs["main"]["text"] = state_dir.orch_doc("STATUS.md").read_text(
             errors="replace")
     except OSError as e:
         docs["main"]["text"] = f"(unreadable: {e})"
@@ -728,7 +728,7 @@ def fast_worker() -> None:
                 "feedback_counts": feedback_counts,
                 "orch_tail": read_tail(ORCH_LOG, 14),
                 "rl_log_tail": read_tail(RL_LOG, 8),
-                "rl_plan": (PROTO / "RL_PLAN.md").read_text(errors="replace"),
+                "rl_plan": state_dir.orch_doc("RL_PLAN.md").read_text(errors="replace"),
                 "status_docs": status_docs(),
             }
         except Exception as e:
@@ -944,7 +944,9 @@ def llm_url_groups(base: str) -> list[tuple[str, list[tuple[str, str]]]]:
     curated list the operator hands to GPT/Claude, 08-14)."""
     def docs(entries):
         return [(label, f"{base}/llm/doc/{rel}")
-                for label, rel in entries if (PROTO / rel).is_file()]
+                for label, rel in entries
+                if (p := state_dir.document_path(rel, PROTO)) is not None
+                and p.is_file()]
     groups = [
         ("Start here (live index pages)", [
             ("Human dashboard — latest research first", f"{base}/now"),
@@ -2395,7 +2397,7 @@ def render_run_page(run: str) -> str | None:
 # of the operator pushing. Skips the round while a decision cycle holds the
 # lock. This updates docs only; a status_server.py change still needs the
 # runbook's tmux kill+restart to take effect.
-REPO = PROTO.parent.parent
+REPO = HEXAPOD_REPO
 GIT_SYNC_S = 60
 GIT_LOCK = "/workspace/git_snapshot.lock"
 
@@ -2449,7 +2451,7 @@ def llm_status_md() -> str:
 
 def llm_plan_md() -> str:
     try:
-        return (PROTO / "RL_PLAN.md").read_text(errors="replace")
+        return state_dir.orch_doc("RL_PLAN.md").read_text(errors="replace")
     except OSError as e:
         return f"(RL_PLAN.md unreadable: {e})"
 
@@ -3207,7 +3209,7 @@ def main() -> int:
                          daemon=True).start()
     # Only on the controller: never auto-pull a laptop checkout (a dev
     # running this locally has uncommitted work in the working tree).
-    if str(REPO) == "/workspace/hexapod":
+    if REPO == CONTROLLER_HEXAPOD_REPO:
         threading.Thread(target=git_sync_worker, daemon=True).start()
     srv = http.server.ThreadingHTTPServer(("0.0.0.0", PORT), Handler)
     print(f"status page on :{PORT}")

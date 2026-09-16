@@ -78,8 +78,9 @@ def _setup_restart(tmp_path, *, sync_rc=0, lock_rc=0, parse_rc=0,
                    active_polls=0, sleep_target=""):
     # Only absolute host paths are relocated; all shell control flow is real.
     workspace = tmp_path / "workspace"
-    repo = workspace / "hexapod"
-    orch = repo / "hexapod_walker/prototype_sts3215/rl_move/orchestrator"
+    repo = workspace / "hexapod"                     # subject checkout
+    repo.mkdir(parents=True)
+    orch = workspace / "hexapod-orchestrator/orchestrator"   # this repo
     orch.mkdir(parents=True)
     script = tmp_path / "restart_watcher.sh"
     runtime_env = tmp_path / "orchestrator.env"
@@ -154,7 +155,7 @@ def test_successful_sync_is_locked_merge_of_main_without_autostash(tmp_path):
     # Existing wrapup cadence/drain survives: three cycles polls, drain at #2.
     assert events.count("sleep|60") == 3
     drains = [i for i, event in enumerate(events)
-              if event == "uv|run|--no-project|python|rl_move/orchestrator/launch_run.py|drain"]
+              if event == "uv|run|--no-project|python|orchestrator/launch_run.py|drain"]
     assert len(drains) == 1 and drains[0] < events.index(git)
     assert not any(event.startswith("pkill|") for event in events)
 

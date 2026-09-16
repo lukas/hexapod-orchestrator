@@ -9,4 +9,4 @@ export HEXAPOD_METAAGENT_DIR="${HEXAPOD_METAAGENT_DIR:-$HOME/Library/Application
 # shell traces, logs or launchd plists. Missing keys produce a visible free hold.
 export METAAGENT_CREDENTIAL_FILE="$METAAGENT_HOME/reviewer-credentials.json"
 cd "$METAAGENT_HOME/runtime"
-exec uv run --frozen python -m rl_move.overseer.scheduled_entry
+exec uv run --frozen python -m metaagent.scheduled_entry

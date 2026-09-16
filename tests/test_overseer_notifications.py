@@ -4,9 +4,9 @@ import subprocess
 
 import pytest
 
-from rl_move.overseer.journal import Journal
-from rl_move.overseer import notifications
-from rl_move.overseer.notifications import send_notification
+from metaagent.journal import Journal
+from metaagent import notifications
+from metaagent.notifications import send_notification
 
 
 @pytest.fixture

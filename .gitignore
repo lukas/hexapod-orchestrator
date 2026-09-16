@@ -5,3 +5,5 @@ __pycache__/
 # Runtime state lives in $HEXAPOD_STATE_DIR (default <checkout>/.state); never commit it.
 .state/
 wandb/
+# metaagent review output (python -m metaagent review); never commit.
+artifacts/

@@ -5,11 +5,11 @@ import types
 
 import pytest
 
-from rl_move.overseer import __main__ as cli
-from rl_move.overseer import reviewer
-from rl_move.overseer.journal import Journal
-from rl_move.overseer.memory import read_memory, remember_lesson
-from rl_move.overseer.policy import evaluate
+from metaagent import __main__ as cli
+from metaagent import reviewer
+from metaagent.journal import Journal
+from metaagent.memory import read_memory, remember_lesson
+from metaagent.policy import evaluate
 
 
 NOW = "2026-09-09T15:20:55+00:00"
@@ -301,9 +301,9 @@ def saved_review_value():
 
 
 def test_cli_status_and_preview_use_read_only_scheduler_status(tmp_path, monkeypatch, capsys):
-    module = types.ModuleType("rl_move.overseer.scheduler")
+    module = types.ModuleType("metaagent.scheduler")
     module.scheduler_status = lambda database: {"enabled": True, "next_due_at": "later"}
-    monkeypatch.setitem(sys.modules, "rl_move.overseer.scheduler", module)
+    monkeypatch.setitem(sys.modules, "metaagent.scheduler", module)
     state = tmp_path / "state"
     assert cli.main(["--state-dir", str(state), "status"]) == 0
     status = json.loads(capsys.readouterr().out)

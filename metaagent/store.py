@@ -1,9 +1,9 @@
-"""Local registry and durable budget accounting for a manually invoked overseer.
+"""Local registry and durable budget accounting for a manually invoked metaagent.
 
 No method launches work. Reserve the worst-case cost *before* each model or
 child-agent call, and reuse the operation ID after a retry/restart. An unresolved
 reservation is never automatically refunded, even when its wake has finished.
-Monitored agents' reported spending is separate from the overseer's budget.
+Monitored agents' reported spending is separate from the metaagent's budget.
 """
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-"""Manual metaagent reviews. Serving its history never schedules a review."""
+"""Metaagent CLI: manual reviews, registry receipts and `serve`. Serving history never schedules a review."""
 from __future__ import annotations
 
 import argparse
@@ -18,8 +18,13 @@ from .memory import fit_memory, read_memory, remember_lesson
 from .policy import age_seconds, evaluate, status, timestamp
 from .report import redact, write_report
 from .store import Store
+from orchestrator.roots import HEXAPOD_REPO, ORCH_ROOT, STATE_DIR
 
-ROOT = Path(__file__).resolve().parents[4]
+# The reviewed project is the hexapod checkout (agent cwd matching, Codex
+# thread association, the Robot Lab README). The orchestrator's own research
+# documents and report artifacts live in this checkout; CURRENT_TRUTHS.md is
+# runtime state in STATE_DIR (hexapod's copy is a symlink into its .state).
+ROOT = HEXAPOD_REPO
 
 
 def now() -> str:
@@ -183,10 +188,9 @@ def collect(args, database: Path) -> dict:
                 agent['is_overseer'] = True
     # Include dated documentation as evidence, never automatically declare a goal done.
     documents = []
-    document_sources = [
-        (root/'hexapod_walker/prototype_sts3215'/name, 16000)
-        for name in ('RL_GOALS.md', 'STATUS.md', 'CURRENT_TRUTHS.md')]
-    document_sources.append((root/'experiment_lab/hexapod_lab2/README.md', 8000))
+    document_sources = [(ORCH_ROOT/'RL_GOALS.md', 16000), (ORCH_ROOT/'STATUS.md', 16000),
+                        (STATE_DIR/'CURRENT_TRUTHS.md', 16000),
+                        (root/'experiment_lab/hexapod_lab2/README.md', 8000)]
     for source, limit in document_sources:
         if source.is_file():
             with source.open('r', encoding='utf-8') as stream:
@@ -330,7 +334,7 @@ def run_review(args, database: Path) -> dict:
     report['scheduler_enabled'] = report['scheduler']['enabled']
     report['budget']['ledger'] = read_budget(database)
     report['goal_document_sources'] = [d['path'] for d in snapshot.get('goal_documents', [])]
-    output = Path(args.output) if args.output else Path(args.project_root)/'artifacts/metaagent'/datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')
+    output = Path(args.output) if args.output else ORCH_ROOT/'artifacts/metaagent'/datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')
     if args.command == 'preview':
         return {'mode': 'preview', 'paths': write_report(report, output),
                 'wake': report['wake'], 'additional_model_cost_usd': '0.00'}
@@ -432,6 +436,9 @@ def parser() -> argparse.ArgumentParser:
             item.add_argument('--reviewer-config', help='explicit verified model/pricing JSON; enables one paid call')
             item.add_argument('--provider', choices=('claude', 'codex'), help='select state-dir/reviewers/PROVIDER.json, or validate an explicit config')
             item.add_argument('--resume-wake', metavar='ID', help='explicitly continue one finished blocked wake using its remaining budget; makes at most one new call')
+    item = sub.add_parser('serve', help='serve saved history, the dashboard and MCP; never schedules a review')
+    item.add_argument('--host', default='127.0.0.1')
+    item.add_argument('--port', type=int, default=8768)
     sub.add_parser('status')
     sub.add_parser('memory', help='read bounded historical reviews and explicit corrections without changing state')
     item = sub.add_parser('remember-lesson')
@@ -467,7 +474,14 @@ def parser() -> argparse.ArgumentParser:
 
 def main(argv=None) -> int:
     args = parser().parse_args(argv)
-    database = Path(args.state_dir).expanduser()/'overseer.sqlite3'
+    state_dir = Path(args.state_dir).expanduser()
+    database = state_dir/'overseer.sqlite3'
+    if args.command == 'serve':
+        # Imported here: server.py imports this module, and the CLI must not need uvicorn.
+        import uvicorn
+        from .server import create_app
+        uvicorn.run(create_app(state_dir=state_dir), host=args.host, port=args.port, access_log=False)
+        return 0
     try:
         if args.command in {'preview','review'}:
             result = run_review(args, database)

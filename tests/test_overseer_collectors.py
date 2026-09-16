@@ -7,7 +7,7 @@ import subprocess
 
 import pytest
 
-from rl_move.overseer import collectors
+from metaagent import collectors
 
 NOW = "2026-09-09T04:00:00Z"
 

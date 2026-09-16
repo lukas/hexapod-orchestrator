@@ -9,10 +9,11 @@
 set -uo pipefail
 export KUBECONFIG="${KUBECONFIG:-$HOME/.kube/coreweave.yaml}"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROTO="$(cd "$HERE/../.." && pwd)"          # …/hexapod_walker/prototype_sts3215
+# Roots (roots.sh = roots.py): ORCH_ROOT is this checkout, HEXAPOD_REPO the
+# hexapod checkout, PROTO its hexapod_walker/prototype_sts3215 sim tree.
+. "$HERE/roots.sh"
 # Runtime state (ledger, RL_LOG.md, run stories) lives outside the code
-# tree: <checkout>/.state or $HEXAPOD_STATE_DIR -- see state_dir.py.
-STATE_DIR="${HEXAPOD_STATE_DIR:-$PROTO/../../.state}"
+# tree: <orchestrator checkout>/.state or $HEXAPOD_STATE_DIR -- see roots.py.
 export HEXAPOD_STATE_DIR="$STATE_DIR"        # the python below resolves it from here
 LEDGER="$STATE_DIR/ledger"                   # a DIRECTORY of per-entry files (state_dir.py)
 # Every embedded python reads the ledger via state_dir.load_ledger(); HERE on
@@ -37,7 +38,7 @@ remote_ops() {  # re-run this ops.sh subcommand ON the controller pod.
   # the operator Mac by re-execing themselves remotely. kubectl exec
   # streams stdout, so even the live-follow waitcycle works.
   exec kubectl exec hexapod-sweep-friction -- bash \
-    /workspace/hexapod/hexapod_walker/prototype_sts3215/rl_move/orchestrator/ops.sh "$@"
+    /workspace/hexapod-orchestrator/orchestrator/ops.sh "$@"
 }
 
 entry_field() {  # entry_field <run> <field> — last LIVE entry wins
@@ -68,7 +69,7 @@ ensure_full_mesh() {
     return 1
   fi
 }
-export LEDGER PROTO HERE STATE_DIR
+export LEDGER PROTO HERE STATE_DIR ORCH_ROOT
 
 case "${1:-help}" in
 
@@ -195,12 +196,13 @@ def head(p, n=1):
     for l in lines[1:]:
         out += f"\n{'':11s} | {l[:220]}"
     return out
-tracks = json.load(open(proto / "rl_move/orchestrator/tracks.json"))
+orch_root = pathlib.Path(os.environ["ORCH_ROOT"])
+tracks = json.load(open(pathlib.Path(os.environ["HERE"]) / "tracks.json"))
 for t in tracks:
     print(f"{t:11s} {head(state / 'rl_docs' / 'tracks' / t / 'STATUS.md', n=4)}")
-print(f"{'STATUS.md':11s} {head(proto / 'STATUS.md')}")
-print(f"{'TRUTHS':11s} {head(proto / 'CURRENT_TRUTHS.md')}")
-print("(capacity: `uv run python rl_move/orchestrator/capacity.py`)")
+print(f"{'STATUS.md':11s} {head(orch_root / 'STATUS.md')}")
+print(f"{'TRUTHS':11s} {head(state / 'CURRENT_TRUTHS.md')}")
+print("(capacity: `uv run python orchestrator/capacity.py`)")
 EOF
   ;;
 
@@ -1480,7 +1482,7 @@ drain)  # drain — push backlog onto free pods, DETACHED + creds sourced.
     source "'"$PROTO"'/rl_move/sim/wandb.env" 2>/dev/null
     source /root/orchestrator.env 2>/dev/null
     set +a
-    cd "'"$PROTO"'" && uv run python rl_move/orchestrator/launch_run.py drain
+    cd "'"$PROTO"'" && uv run python "'"$HERE"'/launch_run.py" drain
   ' > "$log" 2>&1 &
   echo "drain running detached (pid $!) -> $log; check: tail $log"
   ;;
@@ -1606,9 +1608,11 @@ oplaunch)  # oplaunch <launch_run.py args...> — run a launcher command ON
     echo 'cd /workspace/hexapod/hexapod_walker/prototype_sts3215 || exit 1'
     echo 'source /root/orchestrator.env 2>/dev/null'
     echo 'set -a; source rl_move/sim/wandb.env 2>/dev/null; set +a'
-    # Run the freshest tooling: pull under the same lock snapshot.sh uses.
-    echo 'flock /workspace/git_snapshot.lock -c "git -C /workspace/hexapod fetch -q origin main && git -C /workspace/hexapod -c merge.autoStash=true merge --no-edit origin/main || git -C /workspace/hexapod merge --abort" >/dev/null 2>&1'
-    printf 'exec uv run python rl_move/orchestrator/launch_run.py'
+    # Run the freshest tooling: pull BOTH checkouts under the same lock
+    # snapshot.sh uses (this repo: plain merge-pull; hexapod: origin/main
+    # into the orchestrator branch).
+    echo 'flock /workspace/git_snapshot.lock -c "git -C /workspace/hexapod-orchestrator pull -q --ff-only; git -C /workspace/hexapod fetch -q origin main && git -C /workspace/hexapod -c merge.autoStash=true merge --no-edit origin/main || git -C /workspace/hexapod merge --abort" >/dev/null 2>&1'
+    printf 'exec uv run python /workspace/hexapod-orchestrator/orchestrator/launch_run.py'
     printf ' %q' "$@"
     echo
   } > "$runner"
@@ -1629,7 +1633,7 @@ oplaunch)  # oplaunch <launch_run.py args...> — run a launcher command ON
       [ "$el" -ge 1800 ] && { echo "TIMEOUT after ${el}s; tail:"; kubectl exec "$CTL" -- tail -8 "$log"; exit 1; }
     done
     kubectl exec "$CTL" -- tail -15 "$log"
-    echo "record it: kubectl exec $CTL -- bash -c 'cd /workspace/hexapod/hexapod_walker/prototype_sts3215 && ./rl_move/orchestrator/ops.sh logline \"...\"'"
+    echo "record it: kubectl exec $CTL -- bash /workspace/hexapod-orchestrator/orchestrator/ops.sh logline \"...\""
   fi
   ;;
 
@@ -1641,7 +1645,7 @@ cycle)  # cycle ["focus text"] — OPERATOR: kick one decision session now.
   # the controller. The file survives polls until a slot/budget frees.
   shift
   note="${*:-}"
-  KICKPATH=/workspace/hexapod/hexapod_walker/prototype_sts3215/rl_move/orchestrator/KICK
+  KICKPATH=/workspace/hexapod-orchestrator/orchestrator/KICK
   if [ -d /workspace/hexapod ]; then      # already on the controller
     printf '%s\n' "$note" > "$KICKPATH"
   else

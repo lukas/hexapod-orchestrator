@@ -6,6 +6,7 @@ LAUNCH_HOLD
 CYCLE_WORKED
 KICK
 WRAPUP
+PRUNE_OFF
 blockers.runtime.json
 blockers.runtime.json.lock
 # Runtime state moved to <checkout>/.state (lukas/hexapod-state) on

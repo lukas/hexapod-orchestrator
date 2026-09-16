@@ -2,7 +2,7 @@
 name = "hexapod-orchestrator"
 version = "0.1.0"
 description = "Autonomous RL research loop for lukas/hexapod: fleet launcher, watcher, status board, MCP server and the metaagent reviewer"
-requires-python = ">=3.12"
+requires-python = ">=3.11"
 dependencies = [
     "pyyaml>=6",
     "fastapi>=0.115,<1",
@@ -16,6 +16,7 @@ dependencies = [
 dev = [
     "pytest>=8",
     "pytest-xdist>=3.6",
+    "httpx>=0.27,<1",         # starlette TestClient for the metaagent server tests
 ]
 
 [tool.uv]

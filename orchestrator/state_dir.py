@@ -10,16 +10,15 @@ until 2026-09-14 they were committed to a separate ``lukas/hexapod-state``
 repo after every run, whose history reached 2.5 GB in a week. Git is not a
 log. State is now a plain directory that is NOT a git repo:
 
-    <checkout>/.state            (or wherever HEXAPOD_STATE_DIR points;
-                                  controller: /workspace/hexapod/.state)
+    <orchestrator checkout>/.state   (or wherever HEXAPOD_STATE_DIR points;
+                                      controller: /workspace/hexapod/.state)
 
 ONE process writes it: the orchestrator on the CoreWeave controller.
 Durability is a mirror, not a repo: ``snapshot.sh`` runs
 ``state_sync.sh push`` after every run, which copies the directory onto
 the ``hexapod-state`` PVC (``/state/hexapod`` on Deployment
 ``hexapod-state``) and keeps 30 daily ``.tgz`` backups there. Everyone
-else reads: ``make -C hexapod_walker/prototype_sts3215 state``
-(``state_sync.sh pull``) copies the live state from the controller (or
+else reads: ``bash orchestrator/state_sync.sh pull`` copies the live state from the controller (or
 the PVC mirror) into ``<checkout>/.state``; ``status_server.py`` serves it
 on the web; a fresh controller is populated with ``state_sync.sh restore``.
 
@@ -73,26 +72,19 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-HERE = Path(__file__).resolve().parent            # rl_move/orchestrator
-PROTO = HERE.parents[1]                            # prototype_sts3215
-REPO = PROTO.parents[1]                            # checkout root
+# The two roots (roots.py): this checkout and the hexapod checkout it
+# operates on. REPO stays as the legacy name for the hexapod checkout.
+from roots import (ORCH_ROOT, HEXAPOD_REPO, PROTO, STATE_DIR,  # noqa: E402
+                   resolve_state_dir)
 
-SYNC_HINT = ("run `make -C hexapod_walker/prototype_sts3215 state` "
-             "(state_sync.sh pull: copies the live state from the controller, "
-             "or the PVC mirror, into <checkout>/.state), "
+HERE = Path(__file__).resolve().parent            # <orch>/orchestrator
+REPO = HEXAPOD_REPO                                # hexapod checkout root
+
+SYNC_HINT = ("run `bash orchestrator/state_sync.sh pull` from the "
+             "hexapod-orchestrator checkout (copies the live state from the "
+             "controller, or the PVC mirror, into <checkout>/.state), "
              "or point HEXAPOD_STATE_DIR at an existing state copy")
-MIGRATE_CMD = ("uv run python hexapod_walker/prototype_sts3215/rl_move/"
-               "orchestrator/state_dir.py migrate-ledger")
-
-
-def resolve_state_dir() -> Path:
-    env = os.environ.get("HEXAPOD_STATE_DIR")
-    if env:
-        return Path(env).expanduser()
-    return REPO / ".state"
-
-
-STATE_DIR = resolve_state_dir()
+MIGRATE_CMD = "uv run python orchestrator/state_dir.py migrate-ledger"
 
 LEDGER_DIR = STATE_DIR / "ledger"          # one JSON object per entry
 LEDGER = LEDGER_DIR                         # legacy name; the directory
@@ -104,6 +96,32 @@ BACKLOG_FAILED = STATE_DIR / "backlog_failed.json"
 PENDING_EVALS = STATE_DIR / "pending_evals.json"
 RUNS_DIR = STATE_DIR / "rl_docs" / "runs"
 RL_LOG = STATE_DIR / "RL_LOG.md"
+
+
+# Docs that moved with the orchestrator into THIS repo (2026-09-16 split).
+# Keyed by the logical name every URL/prompt/tool already uses; the value is
+# the path relative to ORCH_ROOT. Fixed map on purpose: document_paths() does
+# not walk ORCH_ROOT, so README/pyproject and friends never leak into the doc
+# index.
+ORCH_DOCS = {
+    "STATUS.md": "STATUS.md",
+    "RL_PLAN.md": "RL_PLAN.md",
+    "RL_GOALS.md": "RL_GOALS.md",
+    "RESEARCH_RULES.md": "RESEARCH_RULES.md",
+    "RUN_INTERPRETATION_RULES.md": "RUN_INTERPRETATION_RULES.md",
+    "RECOVERY_LESSONS.md": "RECOVERY_LESSONS.md",
+    "EMERGENCY_HANDLING.md": "EMERGENCY_HANDLING.md",
+    "rl_move/orchestrator/README.md": "orchestrator/README.md",
+    "rl_move/orchestrator/ORCHESTRATOR_PROMPT.md": "orchestrator/ORCHESTRATOR_PROMPT.md",
+    "rl_move/orchestrator/META_PROMPT.md": "orchestrator/META_PROMPT.md",
+    "rl_move/orchestrator/CAPACITY.md": "orchestrator/CAPACITY.md",
+    "rl_move/orchestrator/WATCHDOG.md": "orchestrator/WATCHDOG.md",
+}
+
+
+def orch_doc(rel: str) -> Path:
+    """Path of an ORCH_ROOT doc by logical name (no existence check)."""
+    return ORCH_ROOT / ORCH_DOCS.get(rel, rel)
 
 
 def state_doc_relative(rel: str) -> str | None:
@@ -137,11 +155,17 @@ def document_path(rel: str, proto: Path | None = None) -> Path | None:
     if not rel.endswith(".md") or ".." in rel or Path(rel).is_absolute():
         return None
     state_rel = state_doc_relative(rel)
-    candidate = STATE_DIR / state_rel if state_rel else proto / rel
+    if state_rel:
+        candidate = STATE_DIR / state_rel
+    elif rel in ORCH_DOCS:
+        candidate = ORCH_ROOT / ORCH_DOCS[rel]
+    else:
+        candidate = proto / rel
     try:
         resolved = candidate.resolve()
         if (resolved.is_relative_to(proto.resolve())
-                or resolved.is_relative_to(STATE_DIR.resolve())):
+                or resolved.is_relative_to(STATE_DIR.resolve())
+                or resolved.is_relative_to(ORCH_ROOT.resolve())):
             return resolved
     except (OSError, RuntimeError):  # inaccessible paths or symlink loops
         pass
@@ -176,6 +200,7 @@ def document_paths(proto: Path | None = None,
                 names.add((Path(root) / name).relative_to(proto).as_posix())
     names.update(("RL_LOG.md", "CURRENT_TRUTHS.md", "rl_docs/SKILLS.md",
                   "rl_move/orchestrator/OPERATOR_QUESTIONS.md"))
+    names.update(ORCH_DOCS)
     names.update(f"rl_docs/runs/{p.name}"
                  for p in (STATE_DIR / "rl_docs" / "runs").glob("*.md"))
     names.update(f"rl_docs/meta/{p.name}"

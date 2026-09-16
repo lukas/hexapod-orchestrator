@@ -17,6 +17,8 @@ import status_server
 def _layout(tmp_path, monkeypatch):
     proto = tmp_path / "proto"
     state = tmp_path / "state"
+    orch = tmp_path / "orch"          # ORCH_ROOT: the research-process docs
+    orch.mkdir()
     (proto / "rl_docs" / "tracks" / "amp").mkdir(parents=True)
     (state / "rl_docs" / "tracks" / "amp").mkdir(parents=True)
     (state / "rl_docs" / "tracks" / "amp" / "STATUS.md").write_text("# amp\nhello\n")
@@ -26,6 +28,7 @@ def _layout(tmp_path, monkeypatch):
     (tmp_path / "outside.md").write_text("nope\n")
     os.symlink(tmp_path / "outside.md", proto / "escape.md")
     monkeypatch.setattr(state_dir, "STATE_DIR", state)
+    monkeypatch.setattr(state_dir, "ORCH_ROOT", orch)
     monkeypatch.setattr(status_server, "PROTO", proto)
     monkeypatch.setattr(mcp_server, "PROTO", proto)
     return proto
@@ -66,7 +69,7 @@ def alternate_state(tmp_path, monkeypatch):
         p = state / rel
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text(body)
-    (proto / "STATUS.md").write_text("code campaign digest\n")
+    (state_dir.ORCH_ROOT / "STATUS.md").write_text("code campaign digest\n")
     (state / "README.md").write_text("not a public logical doc\n")
     # Keep the old code-tree link pointing to the original state. Readers
     # must use the configured clone even when that stale file still exists.
@@ -134,6 +137,6 @@ def test_missing_state_explains_sync_and_does_not_create_clone(tmp_path, monkeyp
     missing = tmp_path / "missing"
     monkeypatch.setattr(state_dir, "STATE_DIR", missing)
     monkeypatch.setattr(mcp_server, "PROTO", tmp_path)
-    assert "make -C hexapod_walker/prototype_sts3215 state" in (
+    assert "bash orchestrator/state_sync.sh pull" in (
         mcp_server.t_read_doc("rl_docs/SKILLS.md"))
     assert not missing.exists()

@@ -132,10 +132,15 @@ def test_ops_explicit_json_path_is_unchanged(monkeypatch, tmp_path, capsys):
 @pytest.mark.parametrize("selection", ["exact", "explicit_variant", "fallback"])
 def test_review_pairs_report_with_media_from_same_experiment(tmp_path, selection):
     """Run the whole review shell; only the unrelated W&B API is stubbed."""
-    local_orch = tmp_path / "rl_move" / "orchestrator"
+    # A throwaway orchestrator checkout at tmp_path; roots.sh must find the
+    # hexapod sim tree at $HEXAPOD_REPO/hexapod_walker/prototype_sts3215, so
+    # point that at tmp_path itself (where _report writes logs/ckpt_eval).
+    local_orch = tmp_path / "orchestrator"
     local_orch.mkdir(parents=True)
-    for filename in ("ops.sh", "eval_reports.py"):
+    for filename in ("ops.sh", "eval_reports.py", "roots.sh"):
         (local_orch / filename).write_bytes((ORCH / filename).read_bytes())
+    (tmp_path / "hexapod_walker").mkdir()
+    (tmp_path / "hexapod_walker" / "prototype_sts3215").symlink_to("..", target_is_directory=True)
     (local_orch / "experiments.json").write_text("[]")
     (tmp_path / "wandb.py").write_text(
         "class Api:\n    def runs(self, *args, **kwargs):\n        return []\n")
@@ -157,7 +162,8 @@ def test_review_pairs_report_with_media_from_same_experiment(tmp_path, selection
 
     result = subprocess.run(
         ["bash", str(local_orch / "ops.sh"), "review", query],
-        cwd=tmp_path, env={**os.environ, "PYTHONPATH": str(tmp_path)},
+        cwd=tmp_path, env={**os.environ, "PYTHONPATH": str(tmp_path),
+                           "HEXAPOD_REPO": str(tmp_path)},
         capture_output=True, text=True, check=True, timeout=30)
 
     report_output, media_output = result.stdout.split("##### eval report", 1)[1].split(

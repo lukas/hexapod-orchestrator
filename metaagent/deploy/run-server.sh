@@ -10,4 +10,4 @@ export METAAGENT_SSO_SECRET_FILE="${METAAGENT_SSO_SECRET_FILE:-$HOME/.hexapod/ss
 export METAAGENT_SSO_USERS="${METAAGENT_SSO_USERS:-operator:lukas}"
 export METAAGENT_PUBLIC_ORIGIN="https://metaagent.cwd1f0-new-cluster.coreweave.app"
 cd "$METAAGENT_HOME/runtime"
-exec uv run --frozen python -m rl_move.metaagent serve --host 127.0.0.1 --port 8768
+exec uv run --frozen python -m metaagent serve --host 127.0.0.1 --port 8768
