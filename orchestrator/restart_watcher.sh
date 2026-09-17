@@ -65,12 +65,23 @@ log "PAUSE+WRAPUP set; waiting for in-flight cycles to save and exit"
 # re-fanned-out by the new watcher (ledger dedupe = no double work).
 WRAPUP_DEADLINE_MIN=30
 i=0
-while ps aux | grep "claude -p --bare" | grep -v grep >/dev/null; do
+# Live-cycle check. The claude binary rewrites its argv once running (ps shows
+# a bare title), so `ps aux | grep "claude -p --bare"` misses live cycles: on
+# 2026-09-17 00:04 this loop declared "cycles ended" 1 s after a cycle's last
+# tool call and the tmux kill took it down mid-wrap-up (no CYCLE END in its
+# log). cycle_render.py is a plain python process spawned next to every cycle
+# and exits when claude's pipe closes, so it is the reliable witness; the old
+# pattern stays as a second net (one pgrep call per poll: the test double counts).
+cycles_alive() {
+  pgrep -f "cycle_render.py|claude -p --bare" >/dev/null 2>&1
+}
+while cycles_alive; do
   sleep 60
   i=$((i + 1))
   if [ "$i" -ge "$WRAPUP_DEADLINE_MIN" ]; then
     log "wrap-up deadline (${WRAPUP_DEADLINE_MIN}m) exceeded; killing stragglers"
     pkill -TERM -f "claude -p --bare" 2>/dev/null
+    pkill -TERM -x claude 2>/dev/null   # argv is rewritten; match the process name
     sleep 10
     break
   fi

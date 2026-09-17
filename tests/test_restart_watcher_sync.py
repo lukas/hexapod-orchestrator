@@ -28,6 +28,16 @@ case "$name" in
       echo 'worker claude -p --bare'
     fi
     ;;
+  pgrep)
+    count=$(cat "$PS_COUNT")
+    count=$((count + 1))
+    echo "$count" > "$PS_COUNT"
+    if [ "$count" -le "$ACTIVE_POLLS" ]; then
+      echo 4242
+      exit 0
+    fi
+    exit 1
+    ;;
   flock)
     if [ "$1" = "-n" ]; then
       "$REAL_UV" run --no-project --offline --python "$TEST_PYTHON" python - "$4" <<'PY'
@@ -91,7 +101,7 @@ def _setup_restart(tmp_path, *, sync_rc=0, lock_rc=0, parse_rc=0,
         .replace("/tmp/pause_drain.log", str(tmp_path / "pause_drain.log")))
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
-    for name in ("ps", "flock", "git", "uv", "tmux", "sleep", "pkill"):
+    for name in ("ps", "pgrep", "flock", "git", "uv", "tmux", "sleep", "pkill"):
         path = bin_dir / name
         path.write_text(_MOCK)
         path.chmod(0o755)
@@ -173,6 +183,8 @@ def test_wrapup_deadline_still_terminates_only_stragglers_before_sync(tmp_path):
     assert result.returncode == 0, result.stderr
     assert events.count("sleep|60") == 30
     assert events.count("pkill|-TERM|-f|claude -p --bare") == 1
+    assert events.count("pkill|-TERM|-x|claude") == 1   # argv-rewritten claude processes
+    assert events.index("pkill|-TERM|-x|claude") < events.index("flock|-w|120|9")
     assert events.index("pkill|-TERM|-f|claude -p --bare") < events.index("flock|-w|120|9")
     assert not old.exists() and new.exists()
 
