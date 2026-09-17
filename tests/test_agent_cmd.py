@@ -22,3 +22,11 @@ def test_agent_cmd_appended_prompt_is_a_separate_positional():
         if tok == "--add-dir":
             assert cmd[j + 2].startswith("--")
     assert cmd[-1] == "the prompt"
+
+
+def test_prompt_placeholders_all_filled():
+    import re
+    txt = watch_loop.fill_roots(watch_loop.PROMPT_PATH.read_text())
+    assert not re.findall(r"\{(ORCH_ROOT|HEXAPOD_REPO|PROTO|STATE_DIR)\}", txt)
+    assert str(watch_loop.state_dir.STATE_DIR) + "/rl_docs/tracks/<track>/STATUS.md" in txt
+    assert str(watch_loop.ORCH_ROOT) + "/orchestrator/launch_run.py status" in txt

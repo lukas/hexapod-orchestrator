@@ -16,13 +16,14 @@ Bare relative paths below (`rl_move/...`, `rl_docs/...`, `config.yaml`,
 `logs/...`) are relative to `{PROTO}`; the research-process docs named
 above live at `{ORCH_ROOT}/<name>`.
 
-**Where you WRITE (state repo, 09-08).** Everything a cycle appends to
-lives in the state repo clone at `$HEXAPOD_STATE_DIR`
-(`/workspace/hexapod/.state`), not in the code tree: `RL_LOG.md` (via
-`ops.sh logline` only), `OPERATOR_QUESTIONS.md`, `rl_docs/SKILLS.md`, `CURRENT_TRUTHS.md`,
-`rl_docs/tracks/<track>/STATUS.md`, `rl_docs/runs/`. Any code-tree paths
-with those names are READ-ONLY symlinks into `.state`; your editor
-refuses to write through a symlink, so open the `.state/...` path to
+**Where you WRITE (state dir, 09-08; symlinks gone 09-16).** Everything a
+cycle appends to lives in the state dir `{STATE_DIR}`, never in either
+code tree: `{STATE_DIR}/RL_LOG.md` (via `ops.sh logline` only),
+`{STATE_DIR}/OPERATOR_QUESTIONS.md`, `{STATE_DIR}/rl_docs/SKILLS.md`,
+`{STATE_DIR}/CURRENT_TRUTHS.md`, `{STATE_DIR}/rl_docs/tracks/<track>/STATUS.md`,
+`{STATE_DIR}/rl_docs/runs/`. The hexapod code tree no longer carries symlinks
+to these (a `cat rl_docs/tracks/<track>/STATUS.md` there finds nothing), so
+always open the `{STATE_DIR}/...` path to
 edit. `snapshot.sh` mirrors the state dir to the PVC after every code
 snapshot. Sim code and track design docs stay in `{PROTO}`; the
 operator-owned research docs (`STATUS.md`, `RL_PLAN.md`,
@@ -92,7 +93,8 @@ this cloud cycle never controls the physical robot directly. Robot Lab uses
 standing authority, live camera, fresh telemetry and an abort path.
 
 **Keep justified work moving toward both outcomes.** Before exiting, check
-`launch_run.py status`. If capacity is available, execute runnable work within
+`{ORCH_ROOT}/orchestrator/launch_run.py status` (the launcher lives in the
+orthestrator checkout, not under rl_move). If capacity is available, execute runnable work within
 existing limits: pre-registered arms with met preconditions, a current track
 Next item, or an evidence-supported continuation. State the parent outcome
 and gap each step closes. There is no requirement to finish all seven methods
@@ -235,9 +237,9 @@ You already know the standing rules — do NOT re-read the operator docs in
 full every cycle. `CURRENT_TRUTHS.md` (accepted facts — outranks anything
 inferred from history) and `RL_PLAN.md` (the registered-track operating
 plan) are the ones to consult when a decision turns on a past verdict or
-the plan; the relevant `rl_docs/tracks/<track>/STATUS.md` when you need
-that track's recent story; `RESEARCH_RULES.md`/`RUN_INTERPRETATION_RULES.md`
-only for the clause in play; `rl_docs/COMMANDS.md` for ops.sh helpers.
+the plan; the relevant `{STATE_DIR}/rl_docs/tracks/<track>/STATUS.md` when you need
+that track's recent story; `{ORCH_ROOT}/RESEARCH_RULES.md`/`{ORCH_ROOT}/RUN_INTERPRETATION_RULES.md`
+only for the clause in play; `{ORCH_ROOT}/COMMANDS.md` for ops.sh helpers.
 Read the SMALLEST slice that answers the question — `grep`/`tail`/`sed` a
 range for your run's lineage — never `cat` a doc end-to-end: these files
 grow to thousands of lines and re-reading them in full is the single

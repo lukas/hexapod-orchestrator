@@ -356,7 +356,8 @@ def fill_roots(text: str) -> str:
     str.replace, never str.format: the prose is full of literal braces."""
     return (text.replace("{ORCH_ROOT}", str(ORCH_ROOT))
                 .replace("{HEXAPOD_REPO}", str(HEXAPOD_REPO))
-                .replace("{PROTO}", str(PROTO)))
+                .replace("{PROTO}", str(PROTO))
+                .replace("{STATE_DIR}", str(state_dir.STATE_DIR)))
 
 WANDB_PROJECT = "l2k2/hexapod-balance"
 # Experiment naming convention. Runs without this prefix (e.g. auto-named
