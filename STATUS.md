@@ -174,6 +174,17 @@ track closed per its own STATUS):
 - `[Robot Lab]` bounded physical joystick trials of the two GO bundles:
   `todaypolicy-50hz-v1` (any_means) and `walkcurr/bundle_rlonly_v2`
   (rl_only) — transfer manifests and trial plans already packaged.
+- `[Robot Lab]` achievability review for `walkcurr`'s `lower` role
+  (controlled RL descent to <20mm terminal height error): 16/16
+  agent-doable mechanism classes now closed FAIL (reward pricing,
+  curriculum, observation space x2, multi-task inheritance,
+  architecture/GRU — full list `walkcurr/STATUS.md`/`CURRENT_TRUTHS.md`
+  09-17), all converging on the same ~20-45mm partial-descend-then-
+  freeze absorbing state. Question: is a controlled vertical lower
+  physically achievable at all given this robot's actuator/gearing/
+  mass budget, independent of RL recipe? No further cloud-originated
+  `lower` RL arm is justified until this lands or a genuinely new
+  structural idea appears.
 
 ## Doc rules
 
