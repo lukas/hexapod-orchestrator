@@ -253,6 +253,36 @@ EOF
   fi
   ;;
 
+argdiff)  # argdiff <runA> [runB] — normalized launch-arg diff (one
+  # flag per line) between two runs; runB defaults to runA's ledger
+  # parent. Stop hand-rolling grep chains over ledger extra_args
+  # (meta 09-17: 4 fumbled extractions in one session).
+  uv run python - "$2" "${3:-}" <<'EOF'
+import difflib, sys
+led = __import__("state_dir").load_ledger()
+def entry(run):
+    es = [e for e in led if isinstance(e, dict) and e.get("run") == run]
+    if not es: sys.exit(f"no ledger entry for {run}")
+    return es[-1]
+def norm(e):
+    a, out = e.get("extra_args") or [], []
+    i = 0
+    while i < len(a):
+        if i + 1 < len(a) and not str(a[i+1]).startswith("--"):
+            out.append(f"{a[i]} {a[i+1]}"); i += 2
+        else:
+            out.append(str(a[i])); i += 1
+    return sorted(out)
+ea = entry(sys.argv[1])
+b = sys.argv[2] or ea.get("parent") or sys.exit("no runB and no parent")
+for line in difflib.unified_diff(norm(entry(b)), norm(ea),
+                                 fromfile=b, tofile=sys.argv[1], lineterm=""):
+    print(line)
+print(f"(steps: {entry(b).get('steps')} -> {ea.get('steps')}; "
+      f"init-from in args shown above; empty diff = identical args)")
+EOF
+  ;;
+
 wandb)  # wandb <run> — state, steps, reward trend (quarters), std, url
   uv run python - "$2" <<'EOF'
 import sys

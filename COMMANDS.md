@@ -90,6 +90,7 @@ report.json, and the W&B API for exactly these questions.
 - `ops.sh trainlog <run> [n]` — tail the run's train log on its pod
   (pod + log path come from the ledger; don't guess).
 - `ops.sh entry <run>` — the run's ledger entries.
+- `ops.sh argdiff <run> [runB]` — launch-arg diff vs parent (or runB).
 - `ops.sh wandb <run>` — state, steps, reward-quarters trend, std, URL.
 - `ops.sh review <run>` — the standard triage read in ONE command
   (ledger, W&B, eval table, videos). If its output + one video answer
