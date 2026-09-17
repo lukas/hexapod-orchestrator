@@ -133,7 +133,19 @@ continuation and are exported (`walkscratch_rlonly_widen8_crutchoff_{s0,s1,
 s2}_warmadapt_50hz_acq1.json`), completing the seed triplet. Same known
 limits carried forward unchanged (off-axis-heading front-pair sacrifice,
 broken rise/hold/lower — walk-role only). Transfer manifest + registered
-bounded-trial plan at `walkcurr/bundle_rlonly_v2/`.
+bounded-trial plan at `walkcurr/bundle_rlonly_v2/`. **UPDATE 09-17
+(lifecycle composition):** a separately-trained clean-RL rise+hold role
+(`bundle_rlonly_stance_v1`, PASS 12/12 hold + 12/12 rise-flat, flat-start
+only) now hands off DIRECTLY (no scripted blend) to this walk role with
+0/12 falls (6 det + 6 stochastic sim episodes) and drive quality matching
+the walk role's own clean-reset control band — first time any `rl_only`
+composition beyond the single walk role has been built and evidenced.
+`lower` is still CLOSED (16/16 agent-doable mechanism classes refuted,
+parked on Robot Lab achievability review) so this is rise+hold+walk, not a
+full sit-to-walk-to-sit cycle, and it is sim-only (no physical motion): a
+physical trial additionally needs Robot Lab to build a runtime that
+switches each role's own motor/safety contract at the handoff tick.
+Transfer manifest: `walkcurr/bundle_rlonly_lifecycle_v1/`.
 
 ## Recorded method milestones — not parent-goal completion
 
