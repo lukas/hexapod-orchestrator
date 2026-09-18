@@ -202,6 +202,40 @@ for t in tracks:
     print(f"{t:11s} {head(state / 'rl_docs' / 'tracks' / t / 'STATUS.md', n=4)}")
 print(f"{'STATUS.md':11s} {head(orch_root / 'STATUS.md')}")
 print(f"{'TRUTHS':11s} {head(state / 'CURRENT_TRUTHS.md')}")
+# IDLE-VALID (2026-09-18 meta): if the LAST RL_LOG line already concluded
+# "IDLE: nothing runnable" and nothing an idle decision reads has changed
+# since it was written (track STATUS docs, questions/truths, backlog,
+# ledger dir, operator STATUS/GOALS/PLAN) with zero live/unverdicted
+# work, say so here mechanically — an idle kick can cite this line and
+# exit instead of re-tailing 7 closed STATUS docs (measured 09-18: 8
+# consecutive idle cycles, 17-23 tool calls each, re-derived exactly
+# this conclusion from unchanged files).
+try:
+    rl_log = state / "RL_LOG.md"
+    log_lines = [l for l in rl_log.read_text(errors="ignore").splitlines()
+                 if l.strip()]
+    if (log_lines and "IDLE: nothing runnable" in log_lines[-1]
+            and not live and not unverd and backlog == 0):
+        t0 = rl_log.stat().st_mtime
+        watched = ([state / "OPERATOR_QUESTIONS.md",
+                    state / "CURRENT_TRUTHS.md", state / "backlog.json",
+                    state / "ledger", orch_root / "STATUS.md",
+                    orch_root / "RL_GOALS.md", orch_root / "RL_PLAN.md"]
+                   + [state / "rl_docs" / "tracks" / t / "STATUS.md"
+                      for t in tracks])
+        changed = [str(p) for p in watched
+                   if p.exists() and p.stat().st_mtime > t0]
+        if changed:
+            print("IDLE-STALE: changed since the last IDLE verdict "
+                  "(re-survey ONLY these): " + ", ".join(changed))
+        else:
+            stamp = time.strftime("%m-%d %H:%M", time.localtime(t0))
+            print(f"IDLE-VALID: last RL_LOG line ({stamp}) is an IDLE "
+                  f"verdict and none of its inputs changed since — an idle "
+                  f"cycle may cite this line and exit IDLE without "
+                  f"re-surveying (unless its trigger names new work).")
+except OSError:
+    pass
 print("(capacity: `uv run python orchestrator/capacity.py`)")
 EOF
   ;;
@@ -251,6 +285,38 @@ for e in __import__("state_dir").load_ledger():
         print(json.dumps(e, indent=1))
 EOF
   fi
+  ;;
+
+cfgset)  # cfgset <run> — the run's FULL training --cfg-set list, verbatim
+  # from its ledger extra_args, probe-ready. NEVER hand-pick a subset:
+  # two cycles in one day (09-17 ~16:5x, 09-18 ~04:1x) burned hours on
+  # hand-typed cfg subsets that silently fell back to control.hz=100/
+  # legacy-bus defaults and probed the wrong physics. Warns if the run
+  # itself never pinned control.hz/env.model_source (then the run used
+  # ITS OWN tree's defaults — pin them explicitly in the probe).
+  run="$2"
+  uv run python - "$run" <<'EOF'
+import sys
+run = sys.argv[1]
+entry = fallback = None
+for e in __import__("state_dir").load_ledger():
+    if isinstance(e, dict) and e.get("run") == run and e.get("extra_args"):
+        fallback = e
+        if e.get("wandb_id") or e.get("checks", {}).get("pid"):
+            entry = e   # prefer an entry that actually ran (see evalcmd)
+entry = entry or fallback
+if not entry:
+    sys.exit(f"no ledger entry with extra_args for {run}")
+args = entry["extra_args"]
+pairs = [args[i + 1] for i, a in enumerate(args) if a == "--cfg-set"]
+print(" ".join(f"--cfg-set {p}" for p in pairs))
+missing = [k for k in ("control.hz", "env.model_source")
+           if not any(p.startswith(k + "=") for p in pairs)]
+if missing:
+    print(f"# WARNING: run never set {missing} — it trained on its own "
+          f"tree's defaults; pin them explicitly in any probe/eval.",
+          file=sys.stderr)
+EOF
   ;;
 
 argdiff)  # argdiff <runA> [runB] — normalized launch-arg diff (one

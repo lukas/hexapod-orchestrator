@@ -91,6 +91,8 @@ report.json, and the W&B API for exactly these questions.
   (pod + log path come from the ledger; don't guess).
 - `ops.sh entry <run>` — the run's ledger entries.
 - `ops.sh argdiff <run> [runB]` — launch-arg diff vs parent (or runB).
+- `ops.sh cfgset <run>` — the run's FULL training `--cfg-set` list,
+  probe-ready; never hand-pick a cfg subset for a probe/eval.
 - `ops.sh wandb <run>` — state, steps, reward-quarters trend, std, URL.
 - `ops.sh review <run>` — the standard triage read in ONE command
   (ledger, W&B, eval table, videos). If its output + one video answer
