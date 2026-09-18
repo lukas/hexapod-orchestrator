@@ -197,22 +197,25 @@ track closed per its own STATUS):
   mass budget, independent of RL recipe? No further cloud-originated
   `lower` RL arm is justified until this lands or a genuinely new
   structural idea appears.
-- `[operator]` design review for `walkcurr`'s `walkyaw` turn-in-place
-  freeze (updated 2026-09-18 ~02:2x): 27/27 agent-doable mechanism
-  classes now closed FAIL-MECHANISM (reward pricing, action gating, DC
+- `[operator]` scope ruling for `walkcurr`'s `walkyaw` turn-in-place
+  freeze (updated 2026-09-18 ~03:1x): 27/27 agent-doable mechanism
+  classes closed FAIL-MECHANISM (reward pricing, action gating, DC
   action bias, exposure/init/warm-start, observation space, gSDE at two
   cadences, recurrent GRU, RSI-init, turn-magnitude curriculum,
   per-leg Cartesian foot-target IK — full chain in `walkcurr/
-  STATUS.md`/`CURRENT_TRUTHS.md` 09-18 ~02:2x). Scripted tripod on the
-  exact training cfg turns at ±0.098 rad/s, so the motion is
-  mechanically achievable; RL never finds it across any tried lever.
-  ZERO agent-doable candidates remain. Only (b) global body-twist IK
-  (never built, risks baking in a `rl_only`-forbidden gait-clock/motion
-  prior) and (d) accept-the-envelope-gap (reverses the 09-13 order) are
-  left, both filed in `OPERATOR_QUESTIONS.md` (09-18 ~00:0x entry) —
-  with `lower`, both remaining Goal-2 full-envelope gaps are now fully
-  parked on an explicit ruling; no further cloud-originated
-  single-lever walkyaw arm is justified without one.
+  STATUS.md`/`CURRENT_TRUTHS.md` 09-18). Scripted tripod on the exact
+  training cfg turns at ±0.098 rad/s, so the motion is mechanically
+  achievable; RL never finds it across any tried lever. Candidate (b)
+  (global body-twist IK) is now RESOLVED without operator input: it is
+  `rl_only`-ILLEGAL by the campaign's own existing gait-clock contract
+  (the IK map needs a live stance/swing assignment to be well-formed,
+  which is itself gait structure) — closed by applying written policy,
+  not a new ruling. Only (d), accepting the walkyaw envelope gap
+  (reverses the operator's own 09-13 full-envelope order), remains
+  genuinely open — a scope reversal, not a design choice, so it is not
+  assume-and-go-able. With `lower`, this is the one remaining Goal-2
+  full-envelope gap parked on an explicit ruling; no further
+  cloud-originated single-lever walkyaw arm is justified without one.
 
 ## Doc rules
 
