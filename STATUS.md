@@ -198,18 +198,21 @@ track closed per its own STATUS):
   `lower` RL arm is justified until this lands or a genuinely new
   structural idea appears.
 - `[operator]` design review for `walkcurr`'s `walkyaw` turn-in-place
-  freeze (2026-09-17 ~20:1x): 24/24 agent-doable mechanism classes now
-  closed FAIL-MECHANISM (reward pricing, action gating, DC action bias,
-  exposure/init/warm-start, observation space, gSDE at two cadences,
-  recurrent GRU — dig-in resolved the final pair's rising-reward gate
-  clause as a survival-signature false positive; full chain in
-  `walkcurr/STATUS.md`/`CURRENT_TRUTHS.md` 09-17 ~20:1x). Scripted
-  tripod on the exact training cfg turns at ±0.098 rad/s, so the motion
-  is mechanically achievable; RL never finds it (18M-step budget
-  confirmed flat). Candidate structural directions (a)-(d) filed in
-  `OPERATOR_QUESTIONS.md` 09-17 ~20:1x — with `lower`, both remaining
-  Goal-2 full-envelope gaps are now parked on this class of decision;
-  no further cloud-originated single-lever walkyaw arm is justified.
+  freeze (updated 2026-09-18 ~02:2x): 27/27 agent-doable mechanism
+  classes now closed FAIL-MECHANISM (reward pricing, action gating, DC
+  action bias, exposure/init/warm-start, observation space, gSDE at two
+  cadences, recurrent GRU, RSI-init, turn-magnitude curriculum,
+  per-leg Cartesian foot-target IK — full chain in `walkcurr/
+  STATUS.md`/`CURRENT_TRUTHS.md` 09-18 ~02:2x). Scripted tripod on the
+  exact training cfg turns at ±0.098 rad/s, so the motion is
+  mechanically achievable; RL never finds it across any tried lever.
+  ZERO agent-doable candidates remain. Only (b) global body-twist IK
+  (never built, risks baking in a `rl_only`-forbidden gait-clock/motion
+  prior) and (d) accept-the-envelope-gap (reverses the 09-13 order) are
+  left, both filed in `OPERATOR_QUESTIONS.md` (09-18 ~00:0x entry) —
+  with `lower`, both remaining Goal-2 full-envelope gaps are now fully
+  parked on an explicit ruling; no further cloud-originated
+  single-lever walkyaw arm is justified without one.
 
 ## Doc rules
 
