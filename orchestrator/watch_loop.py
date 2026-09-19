@@ -659,6 +659,37 @@ def idle_kick_threshold(streak: int) -> int:
         return IDLE_KICK_MAX_POLLS
 
 
+IDLE_SUPPRESS_HEARTBEAT_S = 24 * 3600  # deadlock net: >=1 real kick/day
+
+
+def idle_kick_suppressed() -> bool:
+    """Skip spawning an idle kick when the fleet is PROVABLY parked:
+    an unresolved watcher blocker is open AND `ops.sh board`'s
+    mechanical IDLE-VALID check holds (last RL_LOG line is an IDLE
+    verdict and none of its input files changed since). Meta 09-19:
+    15 idle kicks in the prior 24h (~$2.1/day) each spawned an LLM
+    cycle whose entire work was this file-mtime check plus a logline.
+    Any watched-file change flips board to IDLE-STALE (kick fires next
+    poll, <=5 min latency); operator KICK / MCP kicks bypass the idle
+    path entirely; the 24h heartbeat below still fires a real kick for
+    inputs board does not watch (repo pulls, Robot Lab exports)."""
+    try:
+        import blocker_state
+        if not [b for b in blocker_state.list_blockers()
+                if not b.get("resolved_at")]:
+            return False
+        last = json.loads(CYCLE_REGISTRY.read_text())[-1]["started"]
+        age = time.time() - datetime.datetime.fromisoformat(last).timestamp()
+        if age >= IDLE_SUPPRESS_HEARTBEAT_S:
+            return False  # heartbeat: let a real kick re-verify daily
+        out = subprocess.run(["bash", str(HERE / "ops.sh"), "board"],
+                             capture_output=True, text=True, timeout=300)
+        return "IDLE-VALID:" in out.stdout
+    except Exception as e:
+        log(f"idle-suppress check failed ({e}); kicking normally")
+        return False
+
+
 def log(msg: str) -> None:
     line = f"[{datetime.datetime.now().isoformat(timespec='seconds')}] {msg}"
     print(line, flush=True)
@@ -1992,7 +2023,13 @@ def main() -> None:
                     grace = min(PARTIAL_IDLE_GRACE_S * (2 ** min(partial_refill_streak, 5)),
                                 IDLE_KICK_MAX_POLLS * POLL_S)
                     if now - partial_idle_since >= grace:
-                        refill_trigger = candidate
+                        if idle_kick_suppressed():
+                            log("partial-refill suppressed — IDLE-VALID + "
+                                "open blocker (mechanical cite; 24h "
+                                "heartbeat still fires)")
+                            partial_idle_since = now  # re-arm grace clock
+                        else:
+                            refill_trigger = candidate
                 else:
                     partial_idle_since = None
 
@@ -2032,6 +2069,13 @@ def main() -> None:
                         log("unregistered eval/probe proc(s) still live — "
                             "holding idle kick (kicks the moment they "
                             "finish): " + "; ".join(live_evals))
+                        idle_polls = threshold - 1  # recheck next poll
+                        sleep_poll()
+                        continue
+                    if idle_kick_suppressed():
+                        log("idle kick suppressed — IDLE-VALID + open "
+                            "blocker (mechanical cite; rechecks each poll, "
+                            "24h heartbeat kick still fires)")
                         idle_polls = threshold - 1  # recheck next poll
                         sleep_poll()
                         continue

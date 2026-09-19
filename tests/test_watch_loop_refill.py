@@ -99,7 +99,8 @@ class _StopLoop(BaseException):
 
 def _one_iteration(monkeypatch, tmp_path, *, active=(), cap=99, fail_spawn=False,
                    sleep_hook=None, reaper=None, capacity=None, after_spawn=None,
-                   run_states=None, processed=(), verdict_reader=None):
+                   run_states=None, processed=(), verdict_reader=None,
+                   suppressed=False):
     """Exercise the dispatch wiring, with all external I/O replaced."""
     calls = []
     monkeypatch.setattr(watch, "log", lambda message: None)
@@ -115,6 +116,9 @@ def _one_iteration(monkeypatch, tmp_path, *, active=(), cap=99, fail_spawn=False
                         else ({"cw-scratch-running"}, set()))
     monkeypatch.setattr(watch, "maybe_autorestart_on_new_code", lambda: False)
     monkeypatch.setattr(watch, "pending_mcp_kicks", lambda: [])
+    # Hermetic default: the mechanical parked-fleet check reads the REAL
+    # controller blocker file / cycles.json / ops.sh board — never in tests.
+    monkeypatch.setattr(watch, "idle_kick_suppressed", lambda: suppressed)
     monkeypatch.setattr(watch, "META_HOUR_UTC", 99)
     monkeypatch.setattr(watch, "partial_idle_capacity", lambda: capacity)
     for name in ("WORKED", "PAUSE", "KICK", "FINDINGS"):
@@ -206,6 +210,30 @@ def test_partial_idle_main_loop_obeys_grace_owner_and_no_work_backoff(
     for args, _ in calls:
         assert args[1] == {"cw-scratch-running"}
         assert "cw-unrelated-finished-run" in args[3]
+
+
+def test_parked_fleet_suppresses_refill_and_idle_kick(tmp_path, monkeypatch):
+    """Meta 09-19: open blocker + board IDLE-VALID => no LLM cycle spawns
+    for partial-refill or idle kicks; grace/poll clocks re-arm so the
+    mechanical check reruns and a watched-file change un-suppresses."""
+    start = 100_000.0
+    clock = [start]
+    poll = watch.POLL_S
+    grace = watch.PARTIAL_IDLE_GRACE_S
+    stop_at = start + 4 * grace + watch.idle_kick_threshold(0) * 4 * poll
+    monkeypatch.setattr(watch.time, "time", lambda: clock[0])
+    monkeypatch.setattr(watch, "check_pending_evals", lambda: ([], 0))
+    monkeypatch.setattr(watch, "live_unregistered_evals", lambda: [])
+
+    def sleep():
+        if clock[0] >= stop_at:
+            raise _StopLoop
+        clock[0] += poll
+
+    calls = _one_iteration(
+        monkeypatch, tmp_path, sleep_hook=sleep, capacity=_capacity(),
+        run_states=(set(), set()), suppressed=True)
+    assert calls == []
 
 
 def test_ledger_verdicted_counts_full_verdict_vocabulary(tmp_path, monkeypatch, state_ledger):
