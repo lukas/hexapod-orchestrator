@@ -177,12 +177,12 @@ telemetry/abort rules. Routine calibration/bounded motion/deployment are
 not blanket operator blockers; only hands-on needs or spend/capacity
 increases beyond guardrails are operator waits.
 
-WAITING-ON (2026-09-13, cloud queue fully drained — every registered
-track closed per its own STATUS):
-- `[operator]` PS200 hardware-run telemetry export (per-joint pos/current
-  + foot-contact timing) or a dashboard credential reachable from the
-  controller — sole open research lever (`speed/STATUS.md` 09-13; six sim
-  mechanisms screened and ruled out; dashboard returns SSO 401).
+WAITING-ON (refreshed 2026-09-20 meta; speed track UNPARKED — new
+hardware evidence via main 94f33b076/98136faa1, see `speed/STATUS.md`
+Next item 4; blocker blk_7072945137ee resolved):
+- `[operator]` raw PS200 per-joint telemetry export still wanted (the
+  09-20 commits landed the fitted current model + divergence summary,
+  not the raw traces); no longer the sole research lever.
 - `[Robot Lab]` bounded physical joystick trials of the two GO bundles:
   `todaypolicy-50hz-v1` (any_means) and `walkcurr/bundle_rlonly_v2`
   (rl_only) — transfer manifests and trial plans already packaged.

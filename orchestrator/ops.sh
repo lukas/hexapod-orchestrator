@@ -225,6 +225,34 @@ try:
                       for t in tracks])
         changed = [str(p) for p in watched
                    if p.exists() and p.stat().st_mtime > t0]
+        # 2026-09-20 meta: also watch the hexapod repo itself — operator/
+        # Robot Lab commits land on origin/main while the fleet is parked
+        # (09-20: new sim default sat unmerged behind a sync conflict for
+        # hours, invisible to mtime checks). Unmerged upstream commits or
+        # a HEAD newer than the IDLE line break IDLE-VALID.
+        try:
+            import subprocess
+            repo = str(state.parent)
+            subprocess.run(["git", "-C", repo, "fetch", "-q", "origin",
+                            "main"], capture_output=True, timeout=30)
+            unmerged = subprocess.run(
+                ["git", "-C", repo, "rev-list", "--count",
+                 "HEAD..origin/main"], capture_output=True, text=True,
+                timeout=30).stdout.strip()
+            head_t = int(subprocess.run(
+                ["git", "-C", repo, "log", "-1", "--format=%ct"],
+                capture_output=True, text=True, timeout=30).stdout.strip()
+                or 0)
+            if unmerged not in ("", "0"):
+                changed.append(
+                    f"{repo}: {unmerged} unmerged origin/main commit(s) — "
+                    "auto-sync likely hit a merge conflict; merge+resolve "
+                    "under flock /workspace/git_snapshot.lock")
+            elif head_t > t0:
+                changed.append(f"{repo}: HEAD advanced since the IDLE "
+                               "verdict (new operator/Robot Lab commits)")
+        except Exception:
+            pass
         if changed:
             print("IDLE-STALE: changed since the last IDLE verdict "
                   "(re-survey ONLY these): " + ", ".join(changed))
@@ -309,6 +337,15 @@ if not entry:
     sys.exit(f"no ledger entry with extra_args for {run}")
 args = entry["extra_args"]
 pairs = [args[i + 1] for i, a in enumerate(args) if a == "--cfg-set"]
+# Continuity auto-pin (2026-09-20 meta): bus.current_model defaulted to
+# "power" on 09-20 (98136faa1); every earlier lineage trained under the
+# legacy proxy, so faithful replay must pin it (same trap class cfgset
+# was built for). Override explicitly to probe the new model on purpose.
+if (entry.get("created", "") < "2026-09-20"
+        and not any(p.startswith("bus.current_model=") for p in pairs)):
+    pairs.append("bus.current_model=torque_proxy")
+    print("# auto-pinned bus.current_model=torque_proxy (pre-09-20 lineage; "
+          "default changed 09-20)", file=sys.stderr)
 print(" ".join(f"--cfg-set {p}" for p in pairs))
 missing = [k for k in ("control.hz", "env.model_source")
            if not any(p.startswith(k + "=") for p in pairs)]
