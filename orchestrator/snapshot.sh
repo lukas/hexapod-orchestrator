@@ -247,6 +247,11 @@ if [ -n "$BAD_JSON" ]; then
   echo "WARNING: runtime-state JSON fails to parse (pushed as-is; needs manual repair):" >&2
   while IFS= read -r line; do echo "  $line" >&2; done <<< "$BAD_JSON"
 fi
+# Derived campaign index (rl_index.py): INDEX.md + jsonl under <state>/index
+# (or $HEXAPOD_RL_INDEX_DIR), served at /llm/index.md. Ledger-only here --
+# the controller cannot see the Robot Lab folders; the Mac build joins them.
+PYTHONPATH="$SCRIPT_DIR${PYTHONPATH:+:$PYTHONPATH}" python3 "$SCRIPT_DIR/rl_index.py" build --no-real >/dev/null 2>&1 || \
+  echo "WARNING: rl_index build failed; /llm/index.md keeps the previous build" >&2
 bash "$SCRIPT_DIR/state_sync.sh" push || \
   echo "WARNING: state push to the PVC failed; state is only on this controller until the next snapshot pushes it" >&2
 

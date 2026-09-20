@@ -36,6 +36,7 @@ from pathlib import Path
 
 import yaml
 
+import rl_index
 import state_dir
 from roots import HEXAPOD_REPO, PROTO
 
@@ -2797,6 +2798,15 @@ def cmd_update(a: argparse.Namespace) -> int:
         if entry.get("verdict"):
             # a verdict closes the analysis pipeline for this run
             entry["triage"] = "done"
+        # Canonical fields (rl_index.py): the raw `status` is kept verbatim,
+        # `outcome` is the closed vocabulary readers filter on, and
+        # hardware_ready is a bool or absent -- it has been written as
+        # True/False/"yes"/"no"/"True"/"False" by different cycles.
+        if "hardware_ready" in entry:
+            hw = rl_index.coerce_hardware_ready(entry["hardware_ready"])
+            if hw is not None:               # an uncoercible note is kept verbatim, never dropped
+                entry["hardware_ready"] = hw
+        entry["outcome"] = rl_index.outcome(entry)
         save_ledger(led)
     render_run_md(entry)
     keys = [kv.partition("=")[0] for kv in a.set or []]

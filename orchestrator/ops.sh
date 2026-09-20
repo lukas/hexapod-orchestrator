@@ -1914,9 +1914,38 @@ prune)  # prune [--execute] [--run <name>] — mechanical seed-prune audit
   esac
   ;;
 
+index)  # index build|story <run>|lineage <run>|promising [--track t]|real [policy|run]|outcomes|open-questions
+  # The joined, canonical-outcome view of the campaign (rl_index.py):
+  # every run's `outcome` (one vocabulary over the ~200 raw status
+  # spellings), lineage, exported robot policy files and the real-robot
+  # drive results joined back to their training runs. `story <run>` is
+  # the one-shot answer to "how was this trained / did it walk for real".
+  # `build` writes INDEX.md + jsonl files to $HEXAPOD_RL_INDEX_DIR
+  # (~/.hexapod/rl_index on the Mac, <state>/index on the controller);
+  # snapshot.sh rebuilds after every run.
+  shift
+  uv run python "$HERE/rl_index.py" "$@"
+  ;;
+
+compact)  # compact [--dry-run] — journal compaction (doc_compact.py) on the LIVE
+  # state: CURRENT_TRUTHS / OPERATOR_QUESTIONS / RL_LOG / track STATUS keep
+  # recent findings + rulings, older entries move to archive/doc_compaction_<date>/
+  # (nothing deleted). Runs ON the controller (pauses spawns, waits for cycles,
+  # compacts, clears PAUSE, pushes state); from the Mac it re-execs itself there.
+  shift
+  if [ -d /workspace/hexapod-orchestrator ]; then
+    bash "$HERE/compact_journals.sh" "$@"
+  else
+    exec kubectl exec hexapod-sweep-friction -- bash \
+      /workspace/hexapod-orchestrator/orchestrator/compact_journals.sh "$@"
+  fi
+  ;;
+
 *)
   sed -n '2,6p' "$0"
   echo "subcommands: review <run> (START HERE for triage) | report <run|json> |"
+  echo "  index story <run> | index promising | index real [policy] | index build (joined campaign index) |"
+  echo "  compact [--dry-run] (archive stale journal entries on the controller; pauses+waits for cycles) |"
   echo "  status | census | triage [hours] | procs <pod> | trainlog <run> [n] |"
   echo "  entry <run> | wandb <run> | quarters <run> [key...] | pullckpt <run> | pushckpt <pod> <ckpt> |"
   echo "  podeval <run> [sfx] | m5eval <run> [pod] | evalcmd <run> | evalcmdstress <run> | speedpanel <run> [pod] [pins] | speedretention <run> [pod] | drain | killrun <run> |"

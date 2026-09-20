@@ -58,6 +58,12 @@ The prompt markdown uses the placeholders `{ORCH_ROOT}`, `{HEXAPOD_REPO}`,
   pass-through `extra_args` the ledger entry records.
 - Ledger: `STATE_DIR/ledger/<seq>-<run>.json`, one JSON object per entry
   (status, hypothesis, gate, verdict, `extra_args`, pod, W&B id, code SHAs).
+  The raw `status` has ~200 spellings; `orchestrator/rl_index.py` collapses
+  them to one `outcome` vocabulary and joins runs to lineage, exported robot
+  policy files and the Robot Lab's real-world drive results
+  (`ops.sh index story|lineage|promising|real|build`, MCP `run_story` /
+  `promising_runs` / `real_walks`, web `/llm/index.md`). `launch_run.py
+  update` stamps `outcome` and a bool `hardware_ready` on every verdict.
   Read/write only through `state_dir.load_ledger/save_ledger`
   (`launch_run.py update` for edits).
 - Checkpoints: `PROTO/rl_move/sim/policies/ppo_goal_<run_with_underscores>.zip`;

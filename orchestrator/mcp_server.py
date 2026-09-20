@@ -374,6 +374,32 @@ def t_list_runs(status: str = "", track: str = "", contains: str = "",
     return _clip(head + json.dumps(rows, indent=1))
 
 
+def _index_loaded():
+    """Live joins over the ledger + policy files + lab folders (rl_index)."""
+    import rl_index
+    entries, runs, pols, rows, sweeps = rl_index._load_all(with_real=True)
+    return rl_index, entries, runs, pols, rows, sweeps
+
+
+def t_run_story(run: str) -> str:
+    rl_index, entries, runs, pols, rows, sweeps = _index_loaded()
+    if run not in runs:
+        near = [r for r in runs if run.lower() in r.lower()][:10]
+        return f"no ledger run named {run!r}" + (f"; similar: {near}" if near else "")
+    return rl_index.story_md(rl_index.story(run, runs, entries, pols, rows, sweeps))
+
+
+def t_promising_runs(track: str = "", limit: int = 20) -> str:
+    rl_index, entries, runs, pols, rows, sweeps = _index_loaded()
+    prom = rl_index.promising(runs, pols, rl_index.summarise_real(rows, sweeps), track)
+    return rl_index.promising_md(prom, max(1, min(int(limit), 200)))
+
+
+def t_real_walks(key: str = "", limit: int = 50) -> str:
+    rl_index, entries, runs, pols, rows, sweeps = _index_loaded()
+    return rl_index.real_md(rows, key, max(1, min(int(limit), 500)), pols, sweeps)
+
+
 def t_get_run(run: str) -> str:
     entry = next((e for e in _ledger() if e.get("run") == run), None)
     if entry is None:
@@ -1281,6 +1307,43 @@ TOOLS = [
                     "next cycle updates the rulebook to match and "
                     "closes the question.",
      "fn": t_list_operator_questions, "args": {}},
+    {"name": "run_story",
+     "description": "Everything the records hold about ONE run, joined: "
+                    "canonical outcome, lineage (ancestors with their "
+                    "outcomes), what changed vs the parent (cfg keys and "
+                    "flags), hypothesis, gate, verdict, children, exported "
+                    "robot policy files and every real-robot drive leg / "
+                    "sweep exposure recorded under them. Use this for "
+                    "'how was this policy trained' and 'did it walk for "
+                    "real'.",
+     "fn": t_run_story,
+     "args": {"run": {"type": "string", "description": "ledger run name"}},
+     "required": ["run"]},
+    {"name": "promising_runs",
+     "description": "The most promising experiments in three evidence "
+                    "tiers: (1) policies that have walked on the real "
+                    "robot, ranked by achieved/commanded speed and IMU "
+                    "roll; (2) exported for the robot but not yet walked; "
+                    "(3) sim PASS/PARTIAL at acquisition or hardening, "
+                    "never exported (newest per track).",
+     "fn": t_promising_runs,
+     "args": {"track": {"type": "string",
+                        "description": "optional track id filter"},
+              "limit": {"type": "integer",
+                        "description": "max rows per tier (default 20)"}}},
+    {"name": "real_walks",
+     "description": "Real-robot RL drive legs (Robot Lab sessions: "
+                    "speed_ratio, straight speed, tilt, stop reason) and "
+                    "older sweep exposures (IMU roll/pitch RMS, harness "
+                    "verdict), aggregated per policy file and listed. "
+                    "Filter by policy file name or ledger run.",
+     "fn": t_real_walks,
+     "args": {"key": {"type": "string",
+                      "description": "policy file (e.g. "
+                                     "walkteach_allhead_acq12m_100hz.json) "
+                                     "or ledger run name; empty = all"},
+              "limit": {"type": "integer",
+                        "description": "max legs listed (default 50)"}}},
     {"name": "kick_orchestrator",
      "description": "Request an on-demand orchestrator decision cycle "
                     "(the LLM that triages runs and refills the "
@@ -1310,6 +1373,7 @@ READ_ONLY_TOOLS = frozenset({
     "run_metrics", "eval_report", "get_run_videos", "list_docs", "read_doc",
     "search_docs", "list_feedback", "list_run_feedback",
     "orchestrator_activity", "cycle_log", "list_operator_questions",
+    "run_story", "promising_runs", "real_walks",
 })
 
 

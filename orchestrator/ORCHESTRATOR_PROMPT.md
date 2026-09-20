@@ -234,9 +234,18 @@ is almost always a next tool to build or arm to queue.
 ## Read before deciding
 
 You already know the standing rules — do NOT re-read the operator docs in
-full every cycle. `CURRENT_TRUTHS.md` (accepted facts — outranks anything
+full every cycle. For FACTS ABOUT RUNS use the index, not the journals:
+`{ORCH_ROOT}/orchestrator/ops.sh index story <run>` gives one run's
+canonical outcome, lineage with each ancestor's outcome, the exact cfg/flag
+diff vs its parent, hypothesis/gate/verdict, children, exported robot
+policy files and every real-robot drive result recorded under them;
+`ops.sh index lineage <run>` the family tree; `ops.sh index promising
+[--track t]` the evidence-ranked candidates (walked on the robot >
+exported > sim PASS); `ops.sh index real [policy|run]` the real-world
+numbers. Filter on `outcome` (PASS/PARTIAL/FAIL/CANARY_PASS/...), never on
+the raw `status` spelling. `CURRENT_TRUTHS.md` (accepted facts — outranks anything
 inferred from history) and `RL_PLAN.md` (the registered-track operating
-plan) are the ones to consult when a decision turns on a past verdict or
+plan) are the ones to consult when a decision turns on a RULING or
 the plan; the relevant `{STATE_DIR}/rl_docs/tracks/<track>/STATUS.md` when you need
 that track's recent story; `{ORCH_ROOT}/RESEARCH_RULES.md`/`{ORCH_ROOT}/RUN_INTERPRETATION_RULES.md`
 only for the clause in play; `{ORCH_ROOT}/COMMANDS.md` for ops.sh helpers.

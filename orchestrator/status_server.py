@@ -2619,6 +2619,12 @@ Live state: {live}.
 URLs are given as plain text (some LLM fetchers fail to follow
 markdown-style links). No authentication is required on any /llm URL.
 
+Campaign index — START HERE for "what is most promising", "how was
+run X trained", "did it walk on the real robot": every run with one
+canonical outcome, lineage, exported robot policies and the real-world
+drive results joined to their training runs:
+{base}/llm/index.md{key}
+
 Research brief — a short human-readable answer to "what is the latest
 research on each topic, and where are we?":
 {base}/llm/brief.md{key}
@@ -2657,7 +2663,25 @@ carry the same public campaign data but not the private feedback text.
 """
 
 
+def llm_index_md(base: str = "", key: str = "") -> str:
+    """INDEX.md from rl_index.py: the joined, canonical-outcome view. Served
+    from the last `rl_index.py build` (snapshot.sh rebuilds after every
+    run); built on the fly, ledger-only, if no build exists yet."""
+    import rl_index
+    p = rl_index.default_index_dir() / "INDEX.md"
+    try:
+        return p.read_text()
+    except OSError:
+        pass
+    try:
+        rl_index.build(with_real=False)
+        return p.read_text()
+    except Exception as e:  # never take the status page down over the index
+        return f"# RL campaign index\n\nnot built yet ({e!r}); run `ops.sh index build`.\n"
+
+
 LLM_PAGES = {
+    "/llm/index.md": llm_index_md,
     "/llm/brief.md": lambda base, key: research_brief_md(base, key),
     "/llm/status.md": lambda base, key: llm_status_md(),
     "/llm/plan.md": lambda base, key: llm_plan_md(),
