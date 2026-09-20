@@ -183,6 +183,21 @@ Next item 4; blocker blk_7072945137ee resolved):
 - `[operator]` raw PS200 per-joint telemetry export still wanted (the
   09-20 commits landed the fitted current model + divergence summary,
   not the raw traces); no longer the sole research lever.
+- `[Robot Lab]` speed track's own agent-doable roll-signature mechanism
+  inventory is now fully exhausted (09-20, same day): DESIGN.md's
+  named families (mass/CoM/inertia, friction, contact compliance,
+  actuator strength/gain/damping/slew/current, latency/dropout,
+  encoder backlash/deadband, IMU bias/mount, link length, per-leg
+  asymmetry) plus chassis/mount flex, foot contact softness, foot
+  torsional friction and now a transient gait-phase-coupled foot-catch
+  event are ALL closed FAIL/NULL — either no dose-response at all, or
+  (foot-catch) a real dose-response that is not PS200-selective and
+  only reaches hardware scale by breaking DESIGN.md's own speed/
+  wrong-way gate. See `speed/STATUS.md` 09-20 ~11:0x. No further
+  cloud-originated speed-track roll-mechanism arm is justified until
+  Robot Lab's own physical instrumentation (second IMU/AprilTag,
+  photographed deflection, foot force sensing) or a genuinely new
+  structural idea appears.
 - `[Robot Lab]` bounded physical joystick trials of the two GO bundles:
   `todaypolicy-50hz-v1` (any_means) and `walkcurr/bundle_rlonly_v2`
   (rl_only) — transfer manifests and trial plans already packaged.
