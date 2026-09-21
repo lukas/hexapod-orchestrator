@@ -10,6 +10,37 @@ or progress on physical
 builds. This file is canonical for purpose and priorities;
 `CURRENT_TRUTHS.md` records evidence and `RL_PLAN.md` describes the work.
 
+## OPERATOR PRIORITY (2026-09-21, Lukas): reality-mimicking domain randomization is the path to real-world walking
+
+The single most important thing toward the PHYSICAL walking outcome right now is
+a bigger, better domain-randomization range that actually mimics reality, trained
+with an ADAPTIVE recurrent (GRU) policy that can infer and adapt to the robot and
+environment online. Sim-only method tracks are largely closed/parked; the blocker
+to real-world walking is the sim-to-real gap. Cross it by (a) making the twin's
+center realistic and (b) randomizing widely enough that the real robot lands
+INSIDE the training distribution, then letting a memory-based policy adapt within
+it. Weight cluster/agent effort here over re-auditing closed sim-only tracks.
+
+Prioritize, in order:
+1. DR ranges that BRACKET the MEASURED reality gap (not arbitrary spreads):
+   actuator command latency (real effective ~250 ms; twin base now ~125 ms after
+   the sim reality-gap refit merged to main), joint speed ceiling, contact
+   friction incl. asymmetric/yaw-slip (real veers ~10 deg/leg), contact stiffness
+   (real body-rock ~2x sim), mass (~3 kg battery-out), backlash/link-length.
+   Measured values: `hexapod_walker/prototype_sts3215/rl_move/sim/REALITY_GAP_REFIT.md`.
+2. An ADAPTIVE recurrent (GRU) policy over that range. A stateless MLP cannot
+   infer the current dynamics online; a memory policy does implicit sysid.
+3. A STAGED curriculum: learn to walk in an EASY (little/no DR) env first, then
+   ramp difficulty across warm-started runs. Do NOT start at full width (that
+   stalled cw-walk50hz-drgap/drgap2). In flight: cw-walk50hz-gru-easy-s0.
+4. A DR-APPROPRIATE success metric: ROBUSTNESS across the DR range (gait_valid/
+   speed HOLDING as randomization widens, eval-swept), NOT clean-sim reward —
+   flat by design under wide DR. Do NOT seed-prune wide-DR runs for clean-reward
+   stagnation (that false-killed drgap/drgap2).
+
+This serves both goals' PHYSICAL half; it does not change the demonstration
+boundary for `rl_only`.
+
 ## Goal 1 — working walking by any effective means (`any_means`)
 
 Make the simulated and real robot pleasant and reliable to drive. Use whatever
