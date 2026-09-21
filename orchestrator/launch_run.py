@@ -2382,13 +2382,36 @@ def cmd_respec(g: dict, a: argparse.Namespace) -> int:
             set_bare_flag(flag)
     for spec in a.cfg or []:
         key = spec.split("=", 1)[0]
-        # replace an existing --cfg-set for the same key, else append
-        for i, v in enumerate(args):
-            if v == "--cfg-set" and args[i + 1].split("=", 1)[0] == key:
-                args[i + 1] = spec
-                break
-        else:
-            args.extend(["--cfg-set", spec])
+        # Drop EVERY existing --cfg-set for this key, then append the
+        # new one at the end. cfg-set application is last-wins per key
+        # (rl_move/sim/cfg_set.py builds a dict by iterating the list
+        # in order), so a respec chain can inherit an unrelated EARLIER
+        # respec's duplicate of the same key sitting AFTER the one this
+        # edit used to overwrite in-place (replace-first-match, the old
+        # behavior). That silently left a stale later occurrence
+        # (e.g. an ancestor's disable-this-axis "0,0" ask) as the
+        # effective value while this respec's own override sat earlier
+        # and lost under last-wins -- root cause of the
+        # safewiden6-backdose-s0 / safewiden7-acq1 pair training with
+        # dr.joint_backlash_deg / dr.joint_backlash_load_gain /
+        # dr.foot_stickslip_gain all still at 0,0 despite both runs'
+        # ledger hypothesis/gate text asking for half-dose backlash+
+        # stickslip on top of the 5-group bundle (found 2026-09-21
+        # triaging safewiden7-acq1's eval report randomization fields).
+        # Stripping every prior occurrence and re-appending guarantees
+        # THIS respec's ask is the one that wins, independent of how
+        # many stale duplicates its lineage already carries.
+        filtered = []
+        i = 0
+        while i < len(args):
+            if (args[i] == "--cfg-set" and i + 1 < len(args)
+                    and args[i + 1].split("=", 1)[0] == key):
+                i += 2  # drop this "--cfg-set KEY=..." pair entirely
+                continue
+            filtered.append(args[i])
+            i += 1
+        args = filtered
+        args.extend(["--cfg-set", spec])
     # dynrep/dynrep-fresh trainers (rl_move.dynamics.train /
     # fresh_pipeline) have no --out-name / --init-from flags at all --
     # they derive their own checkpoint name from --name and don't warm
