@@ -10,6 +10,21 @@ or progress on physical
 builds. This file is canonical for purpose and priorities;
 `CURRENT_TRUTHS.md` records evidence and `RL_PLAN.md` describes the work.
 
+## DEPLOY CONTRACT reality (2026-09-22): the single-GRU ladder winners are NOT robot-runnable as-is
+Before prioritizing a GRU PHYSICAL trial, know the contract. The robot runtime
+(rl_move/np_policy.py + linux_control/rl_policy.py) accepts only
+meta.architecture in {mlp, dual_gru}, and dual_gru REQUIRES obs-81 (the frozen
+6-mode one-hot hold/rise/lower/walk/turn/quad that gates the two GRU cores).
+The wide-DR ladder used `--gru` = a SINGLE GRU -> exports as architecture="gru",
+obs-74 -> the runtime REJECTS it ("unsupported meta.architecture gru"). It exports
++ passes recurrent parity for MuJoCo replay only. So a GRU-first physical trial is
+BLOCKED until a deployable candidate exists. Two paths: (a) PREFERRED — train the
+final wide-DR/friction candidate as the deployable DUAL-GRU + obs-81 contract
+(DualGruActorCriticPolicy + the 6-mode one-hot; this same arch also serves the
+unified stand/walk/rise/lower line), so it exports straight to the Uno Q; or
+(b) extend np_policy+exporter with a single-GRU (gru/obs-74) arch. The MLP
+full-envelope candidate (mlp quad5-torque-envwide) IS deployable today (stateless).
+
 ## STANDWALK IS NOT CLOSED (2026-09-22, Lukas) — reopen the sim campaign, reality-bracketing axes are UNTESTED
 
 The wide-DR ladder validated dr-1.0 on GRU+MLP, but ONLY under GLOBAL friction.
