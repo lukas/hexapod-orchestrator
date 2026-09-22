@@ -41,6 +41,33 @@ remote_ops() {  # re-run this ops.sh subcommand ON the controller pod.
     /workspace/hexapod-orchestrator/orchestrator/ops.sh "$@"
 }
 
+entry_out_name() {  # entry_out_name <run> — the run's OWN explicit --out-name
+  # extra_arg (checkpoint filename stem, no .zip), if one was passed at
+  # launch time. A run's real saved checkpoint filename is whatever
+  # --out-name said, NOT necessarily ppo_goal_<run-with-dashes-to-
+  # underscores>: `respec`/hand-launches sometimes reuse a PARENT-shaped
+  # out-name (e.g. to keep a retry-suffixed run name like "-r2" off the
+  # checkpoint stem) — pullckpt used to derive the name purely from the
+  # run string and silently miss those (09-22, cw-stand50hz-gru-dr02-
+  # scratch-s0-r2: real file was ppo_goal_..._s0.zip, no _r2). Same
+  # last-LIVE-entry preference as entry_field.
+  uv run python - "$1" <<'EOF'
+import sys
+run = sys.argv[1]
+val = dead_val = ""
+for e in __import__("state_dir").load_ledger():
+    if isinstance(e, dict) and e.get("run") == run:
+        args = e.get("extra_args") or []
+        if "--out-name" in args:
+            v = args[args.index("--out-name") + 1]
+            if e.get("status") in ("REFUSED", "KILLED"):
+                dead_val = v
+            else:
+                val = v
+print(val if val != "" else dead_val)
+EOF
+}
+
 entry_field() {  # entry_field <run> <field> — last LIVE entry wins
   # Prefer RUNNING/FINISHED/etc over REFUSED/KILLED husks: a late REFUSED
   # duplicate (pod race) otherwise poisons pod/log lookups (hit 08-09,
@@ -456,7 +483,12 @@ EOF
 pullckpt)  # pullckpt <run> — prefer durable controller, then training pod; md5
   run="$2"; pod=$(entry_field "$run" pod)
   [ -z "$pod" ] && { echo "no ledger entry for $run"; exit 1; }
-  name="ppo_goal_$(echo "$run" | tr - _).zip"
+  explicit_out=$(entry_out_name "$run")
+  if [ -n "$explicit_out" ]; then
+    name="${explicit_out}.zip"
+  else
+    name="ppo_goal_$(echo "$run" | tr - _).zip"
+  fi
   dest="$PROTO/rl_move/sim/policies/$name"
   controller="hexapod-sweep-friction"
   controller_src="/workspace/hexapod/hexapod_walker/prototype_sts3215/rl_move/sim/policies/$name"
