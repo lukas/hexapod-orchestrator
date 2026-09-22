@@ -104,6 +104,18 @@ compute:
     # Exercised 09-05 ~08:5x: 11 launches / 440M (train-6 Pending =
     # honest 11/12 ceiling). Ordinary per-cycle caps apply again after
     # that fill; subsequent cycles sustain the queue under normal caps.
+    # SCOPED EXCEPTION (operator directive, RL_GOALS.md commit 4be1b16 +
+    # operator kick 2026-09-22 "FILL ALL FREE GPU PODS NOW ... Do not end
+    # the cycle with free slots"): the 09-22 wide-DR/GRU-ladder
+    # parallelization fill may place up to 15 launches / 150M GPU steps
+    # in that one cycle (supersedes max_new_launches_per_cycle=4 and
+    # max_new_gpu_steps_per_cycle=80M for that fill only; exercised
+    # 09-22 ~01:xx: 14 launches / 140M — train-6 unreachable, train-0
+    # busy). max_steps_per_run stays 40M and one-run-per-GPU stays
+    # binding. Ordinary per-cycle caps apply again after that fill;
+    # while the RL_GOALS wide-DR priority stays open, subsequent
+    # kick-ordered fills citing the same directive may repeat this
+    # pattern but must each record their own line here.
     max_steps_per_run: 40000000
     # At ~20k fps the CPU-pod eval cadence would fire every 10 s; the MJX
     # trainer's eval is skip-if-busy in a background thread, but keep it
