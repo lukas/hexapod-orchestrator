@@ -113,9 +113,10 @@ compute:
     # 09-22 ~01:0x-01:4x as a ROLLING fill: 10M rungs complete in
     # ~15-25 min inside the kick cycle, so the fill re-drained freed
     # slots per the kick's own "do not end the cycle with free slots"
-    # — ~24 queued launches / ~240M steps total, every ready pod busy
-    # + 3 queued behind the 16-run cap at cycle end; train-6
-    # unreachable). max_steps_per_run stays 40M and one-run-per-GPU
+    # — ~30 queued launches / ~300M steps total, every ready pod busy
+    # or refilling + a 6-item backlog buffer behind the 16-run cap at
+    # cycle end for the watcher's drain; train-6 unreachable).
+    # max_steps_per_run stays 40M and one-run-per-GPU
     # stays binding. Ordinary per-cycle caps apply again after that fill;
     # while the RL_GOALS wide-DR priority stays open, subsequent
     # kick-ordered fills citing the same directive may repeat this
