@@ -41,6 +41,30 @@ Prioritize, in order:
 This serves both goals' PHYSICAL half; it does not change the demonstration
 boundary for `rl_only`.
 
+### OPERATOR DIRECTIVE (2026-09-22, Lukas): keep ALL GPU pods busy every cycle
+Idle GPUs are NOT acceptable while the wide-DR priority above is open. This
+OVERRIDES any "GPU idle is intentional" default. The staged ladder is sequential
+(each rung warm-starts the next), so you MUST PARALLELIZE AROUND it — never let
+the fleet sit on a single rung. Every cycle:
+- Run `capacity.py` at the START and END. A cycle that ENDS with free slots while
+  this priority is open has UNDER-DELIVERED: queue more and `drain` before finishing.
+- Fill every FREE slot (`launch_run.py backlog` + `ops.sh drain`) with high-priority
+  parallel work toward the wide-DR / GRU-ladder goal, in this order:
+  1. SEED REPLICAS (s1,s2,s3) of the current and just-passed ladder rungs —
+     robustness across seeds IS the success metric; seed spread is signal.
+  2. PER-DR-AXIS ABLATIONS at the live rung (latency / friction / contact-stiff /
+     mass / backlash / stick-slip, each alone and each left-out) to find which
+     axis breaks first and needs a structural fix, not just a wider spread.
+  3. PARALLEL rungs from already-PASSED checkpoints (a finer half-step, or the
+     next rung at extra seeds) rather than waiting on one rung serially.
+  4. The MLP wide-DR line in parallel with the GRU ladder.
+- TARGET: 0 free ready slots whenever this priority is open. ~16 H200 slots are
+  available; use them. Canonical GRU DR ladder in flight (2026-09-22): the
+  `cw-walk50hz-gru-dr0N-ladder-loadslipcap-s0` chain off the `fromcont` converged
+  parent (dr-0.5 191, dr-0.6 179 strong; climbing to dr-1.0). Fan seeds + axis
+  ablations of THIS ladder across the free pods.
+
+
 ## Goal 1 — working walking by any effective means (`any_means`)
 
 Make the simulated and real robot pleasant and reliable to drive. Use whatever
