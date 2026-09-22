@@ -64,6 +64,33 @@ the fleet sit on a single rung. Every cycle:
   parent (dr-0.5 191, dr-0.6 179 strong; climbing to dr-1.0). Fan seeds + axis
   ablations of THIS ladder across the free pods.
 
+### NEXT CAMPAIGN (queued 2026-09-22, Lukas): apply the SAME wide-DR + GRU treatment to RISE / HOLD / LOWER
+Once the walk DR ladder lands at dr-1.0 and validates, run the SAME proven recipe
+on the rise/hold/lower skills (Goal 2 `rl_only` half): converged EASY parent ->
+staged wide-DR ladder (0.3->1.0, the loadslipcap + pin5b cap discipline) ->
+adaptive GRU. Do NOT detour the walk ladder for this; it is the queued follow-on.
+The reward that makes rise/lower CONTROLLED (not a drop) ALREADY EXISTS — do not
+reinvent it:
+- Rise AND lower TRACK A SLOW HEIGHT-REFERENCE RAMP (rise ~4 s, lower ~5 s — the
+  code: "the 5 s descent IS the gentleness constraint"). The Gaussian height
+  kernel penalizes deviating from that ramp, so a controlled trajectory beats a
+  collapse BY CONSTRUCTION (dropping faster than the ref => height_err => less pay).
+- Plus k_rise_progress (potential, per-mm), k_rise_milestone, the curl channel
+  (feet-under-body, for the belly-start that has no height change to score), and
+  hold_max_height_drop_mm during hold.
+To make it LOOK graceful (low jerk, no lurch), turn UP the opt-in smoothness
+profile on the rise/lower task (k_gyro 0.15 / k_action_delta 0.03 /
+k_action_accel 0.02, attitude_alpha 0.99) — same levers as walking, low by default.
+FOLD IN the new failure axes once merged (branch claude/dr-imu-dropout-servo-burst):
+a rise/lower that holds when the IMU FREEZES mid-motion or servo writes drop in
+BURSTS is a strong GRU robustness target — the memory policy can dead-reckon the
+height through a sensor dropout where an MLP cannot.
+Current state: rise-from-belly and lower are the HARD, not-yet-solved skills
+(config notes belly-start 0/6, lowerheavy FAIL); the reward is sound, the skill
+is not nailed. The current DR ladder is WALK-ONLY (goal-mix walk=1.0) — rise/lower
+is not being trained yet. This is the follow-on after walking validates at dr-1.0.
+
+
 
 ## Goal 1 — working walking by any effective means (`any_means`)
 
