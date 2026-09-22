@@ -10,6 +10,23 @@ or progress on physical
 builds. This file is canonical for purpose and priorities;
 `CURRENT_TRUTHS.md` records evidence and `RL_PLAN.md` describes the work.
 
+## STANDWALK IS NOT CLOSED (2026-09-22, Lukas) — reopen the sim campaign, reality-bracketing axes are UNTESTED
+
+The wide-DR ladder validated dr-1.0 on GRU+MLP, but ONLY under GLOBAL friction.
+Do NOT report standwalk/sim closed: three reality-CRITICAL, GPU-LAUNCHABLE levers
+are still untested. Warm-start the VALIDATED dr-1.0 GRU `cw-walk50hz-gru-dr10-envwide-s2`
+and launch them (fill the idle fleet with these + seed replicas + a gentle dose ramp):
+1. PER-FOOT friction ASYMMETRY + STICK-SLIP (in flight: cw-walk50hz-gru-dr10-frictionasym-stickslip-s0):
+   `--cfg dr.foot_friction_scale=0.7,1.3 --cfg dr.foot_stickslip_gain=0.0,0.4`.
+   This targets the MEASURED gap (real fwd over-progression ~1.6x + veer ~10deg/leg
+   the constant-coeff contact cannot model). HIGHEST leverage.
+2. IMU DROPOUT/FREEZE + servo DROP-BURSTS (merged to main 305ba04f): `--cfg dr.imu_dropout_prob_max=0.02
+   --cfg dr.imu_dropout_ticks=15 --cfg dr.imu_dropout_dead_frac=0.3 --cfg dr.cmd_drop_burst_len=6`.
+   A GRU can dead-reckon through these; an MLP cannot.
+3. Then the RISE/HOLD/LOWER campaign (see the queued note below).
+These are NEW launchable work, NOT a refuted re-dose. A "no launchable lever" refill
+verdict is WRONG while any of these is untested — launch them.
+
 ## OPERATOR PRIORITY (2026-09-21, Lukas): reality-mimicking domain randomization is the path to real-world walking
 
 The single most important thing toward the PHYSICAL walking outcome right now is
