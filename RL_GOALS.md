@@ -10,7 +10,35 @@ or progress on physical
 builds. This file is canonical for purpose and priorities;
 `CURRENT_TRUTHS.md` records evidence and `RL_PLAN.md` describes the work.
 
-## DEPLOY CONTRACT reality (2026-09-22): the single-GRU ladder winners are NOT robot-runnable as-is
+## DEPLOY CONTRACT note (2026-09-22 21:49) WAS STALE — CORRECTED same day (2026-09-22, refill cycle)
+The note below this one claimed the robot runtime accepts only
+`meta.architecture in {mlp, dual_gru}` and REJECTS single-GRU/obs-74
+("unsupported meta.architecture gru"), and that a GRU-first physical
+trial was therefore BLOCKED. That was already false when written: path
+(b) it names as a fallback — "extend np_policy+exporter with a
+single-GRU (gru/obs-74) arch" — was built and tested the PREVIOUS day
+(2026-09-21 ~22:2x, standwalk track; see `CURRENT_TRUTHS.md`'s own
+2026-09-21 CORRECTION entry, which this later note failed to check).
+`rl_move/np_policy.py` has had `ARCH_SINGLE_GRU = "gru"` since then —
+`meta.architecture="gru"` is explicitly accepted, not rejected — and
+`rl_move/deployed_policy.py::WALK_OBS_DIMS = (72, 74, 75, 81, 93)`
+lists obs-74 as a supported walk contract `linux_control/rl_policy.py`
+already documents in its own module docstring. Live-verified this
+cycle: `load_np_policy("linux_control/policies/
+walk50hz_gru_dr10_frictionasym_stickslip_dose08.json")` (the exact
+single-GRU/obs-74 export `todaypolicy`'s `GO_NOGO.md` already names as
+today's TOP physical-trial pick) loads cleanly as a recurrent
+`NumpyGruModel`; `test_export_single_gru_is_compact_valid_and_loadable`
+and the rest of `rl_move/tests/test_export_policy_np.py` +
+`test_np_policy.py` pass (only the two pre-existing order-independent
+flakes on record reproduce). **There is no deploy blocker and no
+dual-GRU/obs-81 retrain requirement for this candidate.** The MLP
+full-envelope candidate remains independently deployable (stateless);
+now BOTH architectures the bundle offers are hardware-runnable today.
+Do not action the two "paths" below — they solve an already-solved
+problem. This correction does not touch the file's other guidance.
+
+## SUPERSEDED — DEPLOY CONTRACT reality (2026-09-22): the single-GRU ladder winners are NOT robot-runnable as-is [FACTUALLY WRONG, see correction above]
 Before prioritizing a GRU PHYSICAL trial, know the contract. The robot runtime
 (rl_move/np_policy.py + linux_control/rl_policy.py) accepts only
 meta.architecture in {mlp, dual_gru}, and dual_gru REQUIRES obs-81 (the frozen
