@@ -90,6 +90,29 @@ Current state: rise-from-belly and lower are the HARD, not-yet-solved skills
 is not nailed. The current DR ladder is WALK-ONLY (goal-mix walk=1.0) — rise/lower
 is not being trained yet. This is the follow-on after walking validates at dr-1.0.
 
+### DR EXTENSION (2026-09-22, Lukas): turn on per-foot friction ASYMMETRY + STICK-SLIP
+Global ground friction IS already randomized (friction_scale 0.6-1.4x at dr=1.0) +
+contact stiffness (0.7-2.0x). But the two reality-CRITICAL friction effects are
+default-OFF and should be turned on in the wide-DR ladder:
+1. PER-FOOT friction ASYMMETRY -- `foot_friction_scale` defaults (1.0,1.0) = every
+   foot identical each episode. Real floors/feet differ foot-to-foot, and
+   asymmetric grip is what makes the robot VEER. Enable:
+   `--cfg dr.foot_friction_scale=0.7,1.3` (drawn PER-FOOT => asymmetry; optionally
+   concentrate per-side via the foot group mask).
+2. STICK-SLIP -- `foot_stickslip_gain` defaults (0.0,0.0)=OFF. MuJoCo uses a
+   CONSTANT friction coefficient; real rubber feet have static > kinetic (grip,
+   then break loose and slide). Enable:
+   `--cfg dr.foot_stickslip_gain=0.0,0.4` (with dr.foot_stickslip_vel_ref_mps=0.02).
+WHY: the measured reality gap is exactly here -- the refit found real forward
+OVER-progression ~1.6x and veer ~10 deg/leg, attributed to slip/veer the rigid
+constant-friction contact does NOT model (see REALITY_GAP_REFIT.md). Randomizing
+the GLOBAL coefficient +-40% does not capture "one side grips, one side skids
+mid-stance." This is also a GRU win: a memory policy can feel a slippery foot from
+proprioceptive history and adapt online; an MLP cannot. Fold into the wide-DR
+ladder with the usual convention (probability follows the curriculum, ramp gently
+on the mature dr-1.0 policy). Consider widening global friction too (e.g. 0.5,1.5).
+
+
 
 
 ## Goal 1 — working walking by any effective means (`any_means`)
