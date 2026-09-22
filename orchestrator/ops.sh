@@ -1249,7 +1249,9 @@ logline)  # logline "text" — append ONE timestamped line to RL_LOG.md
   # it from 200 to 580 lines in half a day (operator cleanup, 08-09).
   # Detail belongs in the ledger verdict (auto-renders
   # rl_docs/runs/<run>.md) and the W&B OUTCOME note, not here.
-  text="$2"
+  # Join ALL remaining args: `logline <track> "msg"` used to silently
+  # drop the message ($2 was the track word — 09-22 09:01 line lost).
+  shift; text="$*"
   [ -n "$text" ] || { echo "usage: ops.sh logline \"one line\""; exit 1; }
   (
     command -v flock >/dev/null && { exec 9>>/workspace/git_snapshot.lock; flock 9; }

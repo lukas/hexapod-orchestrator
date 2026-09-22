@@ -237,6 +237,14 @@ TRAINER_MODULES = [
     "rl_move.dynamics.train ",  # exact module, trailing space
     "rl_move.dynamics.fresh_pipeline ",
     "rl_move.dynamics.train_ppo_transfer ",
+    # 2026-09-22 meta: the detached CPU finalizer (--defer-final-artifacts)
+    # occupies the pod for minutes of gate/owncfg eval+video after the GPU
+    # trainer exits; capacity.py read those pods FREE (the "known blind
+    # spot" re-derived by hand in >=3 refill cycles) and a launch racing it
+    # killed pin5-s0 at 0 steps (09-22 03:09). Reported as
+    # "<run>+finalizer" (see pod_trainers) so run-name liveness checks
+    # (checkup `t == a.run`) keep their exact prior semantics.
+    "rl_move.sim.artifact_finalizer ",
 ]
 
 # {proc} defaults to /proc; tests substitute a fabricated directory tree
@@ -276,6 +284,11 @@ def pod_trainers(pod: str) -> list[str]:
                 name = toks[i + 1]
             if t == "--name" and i + 1 < len(toks):
                 name = toks[i + 1]
+            # artifact_finalizer carries no --run-name; its handoff dir
+            # basename IS the run name (artifact_handoff.handoff_dir_for).
+            if t == "--handoff-dir" and i + 1 < len(toks):
+                name = (toks[i + 1].rstrip("/").rsplit("/", 1)[-1]
+                        + "+finalizer")
         if name not in names:
             names.append(name)
     return names

@@ -46,11 +46,16 @@ def test_matches_every_trainer_module(tmp_path):
     _fake_proc(tmp_path, 4, ["python3", "-m", "rl_move.dynamics.train_ppo_transfer",
                              "--condition", "B", "--task", "rise", "--seed", "5",
                              "--name", "rw_rise_B_s5"])
+    # 2026-09-22 meta: the detached CPU finalizer occupies the pod after
+    # the GPU trainer exits; it must read BUSY (pin5-s0 0-step launch race).
+    _fake_proc(tmp_path, 5, ["/usr/local/bin/python", "-m",
+                             "rl_move.sim.artifact_finalizer", "--handoff-dir",
+                             "/w/policies/artifact_handoff/cw-foo-s0"])
     lines = _scan(tmp_path)
-    assert len(lines) == 4, lines
+    assert len(lines) == 5, lines
     joined = "\n".join(lines)
     for needle in ("train_ppo_mjx", "dynamics.train --name", "fresh_pipeline",
-                   "train_ppo_transfer"):
+                   "train_ppo_transfer", "artifact_finalizer"):
         assert needle in joined, (needle, joined)
 
 
@@ -78,3 +83,16 @@ def test_pod_trainers_extracts_name_from_transfer_cmdline(monkeypatch):
         ),
     )
     assert lr.pod_trainers("hexapod-mjx-train-4") == ["rw_rise_B_s5"]
+
+
+def test_pod_trainers_names_finalizer_from_handoff_dir(monkeypatch):
+    # Name must NOT equal the bare run name: checkup liveness
+    # (`t == a.run`) and dedup must keep their pre-finalizer semantics.
+    monkeypatch.setattr(
+        lr, "kexec",
+        lambda pod, script, timeout=60: (
+            "/usr/local/bin/python -m rl_move.sim.artifact_finalizer "
+            "--handoff-dir /w/policies/artifact_handoff/cw-foo-s0 "
+        ),
+    )
+    assert lr.pod_trainers("hexapod-mjx-train-0") == ["cw-foo-s0+finalizer"]
