@@ -70,6 +70,28 @@ and launch them (fill the idle fleet with these + seed replicas + a gentle dose 
 These are NEW launchable work, NOT a refuted re-dose. A "no launchable lever" refill
 verdict is WRONG while any of these is untested — launch them.
 
+## HARDWARE-CONFIRMED #1 LEVER (2026-09-22): the PLANT (stance), NOT friction/DR. Retrain on an EXTENDED plant.
+A hexapod2 hardware A/B (lukas-ef, 10 runs) settled it: real body-rock and forward
+speed track the STANCE, not the DR recipe. Working walkteach stands EXTENDED
+(robot_abs hip 16 / knee ~84, foot ~211 mm) -> 21-28 mm/s, 14-17 dps. EVERY pure-RL
+policy stands TUCKED (hip ~16 / knee ~100, foot ~175 mm, feet under the knees) ->
+1-9 mm/s, 19-29 dps, at 3-4x the current: it POGOS in place, no traction. The
+friction-realism candidates (dose08, combo) rocked the SAME (21-22 dps) and translated
+no better -- so FRICTION REALISM AND MAX-WIDE DR ARE NOT THE TRANSFER LEVER (hardware-
+refuted). The tucked plant is the sim canonical `robot_abs (20,100)` made canonical
+2026-09-02; every post-09-02 pure-RL policy inherited it.
+
+ACTION (do this before more friction/DR work): retrain the walk policy on an EXTENDED
+plant -- robot_abs ~hip 20 / knee ~82, foot ~215 mm (the STEP stance walkteach`s
+teacher used) -- or a PLANT BAND spanning tucked->extended so the policy is not locked
+to the tuck. Levers: `plant.hip_deg`/`plant.knee_deg` in config.yaml (currently null =>
+standing_pose/plant_pose.json; require_captured_plant=true), and the standing_pose /
+capture_plant asset that became (20,100) on 09-02. Verify the retrained policy holds
+foot radius ~210+ mm in sim (RealLegFK) before hardware. Do NOT burn more GPUs on
+friction/DR-widening for the TRANSFER goal until the plant is fixed -- it was the
+confound the whole wide-DR campaign missed. (Full data: ~/.hexapod/analysis/
+rl_gait_trials.jsonl, lab_runs/20260922-18*.)
+
 ## OPERATOR PRIORITY (2026-09-21, Lukas): reality-mimicking domain randomization is the path to real-world walking
 
 The single most important thing toward the PHYSICAL walking outcome right now is
