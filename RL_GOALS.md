@@ -81,6 +81,20 @@ no better -- so FRICTION REALISM AND MAX-WIDE DR ARE NOT THE TRANSFER LEVER (har
 refuted). The tucked plant is the sim canonical `robot_abs (20,100)` made canonical
 2026-09-02; every post-09-02 pure-RL policy inherited it.
 
+PLUMBING NOW EXISTS (2026-09-22): `mjx_train_setup._env_kwargs` reads cfg
+`plant.hip_deg`/`plant.knee_deg` -> `plant_deg=[0,hip,knee]x6` (robot_abs; null default =
+tucked 20/100, bit-exact). Launch an extended-plant run with `--cfg plant.hip_deg=20
+--cfg plant.knee_deg=82` (foot ~216 mm). On the orchestrator branch (via snapshot); merge
+to main so it is explicit everywhere. IN FLIGHT: cw-walk50hz-gru-extplant82-s0 (warm-start
+easy-cont, dr 0.3); GATE on the policy OWN settled foot radius >=205 mm, NOT reward.
+META-LESSON (why the campaign missed the plant): DR randomized friction/contact-stiff/mass/
+latency and STILL passed tucked policies -- because the PLANT IS NEVER RANDOMIZED (every
+episode stands at 20/100 and the sim gives it traction). So the sim`s error is NOT a DR-set
+parameter; it is the actuator/compliance model or the reward plant anchor (high real current
+1.0-1.15 A + rock + no slip = feet GRIP while the body bounces = compliance, not friction).
+Sim-realism fix = make the twin FAIL a tucked stance (validate: existing tucked policies show
+~20 dps/~5 mm/s, extended ~15 dps/20+ mm/s). Diagnosis in progress.
+
 ACTION (do this before more friction/DR work): retrain the walk policy on an EXTENDED
 plant -- robot_abs ~hip 20 / knee ~82, foot ~215 mm (the STEP stance walkteach`s
 teacher used) -- or a PLANT BAND spanning tucked->extended so the policy is not locked
