@@ -530,6 +530,33 @@ report.json, and the W&B API for exactly these questions.
     warm start; pass `--arg='--obs-pad-transplant=N'` explicitly if a NEW
     widening is actually wanted in that respec.
 
+21. **A stuck periodic-eval subprocess silently swallows the run's OWN
+    reward-curve logging until it crashes** (`cw-stand50hz-gru-dr05-
+    froms2r3cont4m-s0-cont4m`, 09-23): once the background `[periodic-
+    eval] previous eval still running; skipping this round` message
+    starts repeating every interval (canary numbers frozen bit-
+    identical run-to-run in the training log), that background worker
+    is hung, not just slow — and on this run it took the process's
+    `rollout/ep_rew_mean`/`env/reward_*`/`optimization/*` W&B logging
+    down with it (only 24 rows / 57 `SCORE`+`canary`+`eval` keys ever
+    reached the server the whole run — confirmed via `run.scan_history()`,
+    the local `wandb_history.csv` dump was not the bug, the server-side
+    history really is that thin) until the trainer eventually died with
+    `state=crashed` and NO final checkpoint (the `--defer-final-
+    artifacts` finalizer never got to run). **Recovery:** the periodic
+    `--snapshot-every` dump still lands real SB3 checkpoint zips on the
+    pod's local disk even through this — `kubectl exec <pod> -- ls
+    rl_move/sim/policies/artifact_handoff/<run>/snapshots/` and `kubectl
+    cp` the highest-`eval_<step>_periodic_*.zip` back as
+    `rl_move/sim/policies/ppo_goal_<run>.zip` before writing the run off;
+    check its `data` JSON's `num_timesteps` to confirm it is in fact the
+    most-trained one before trusting it. **Verdict impact:** with the
+    reward curve gone, the 08-21 rising-reward-continue ruling cannot be
+    invoked from this run's own evidence (no data = no "still rising"
+    claim) — fall back to the harness's own termination-count/severe-
+    outlier reading and any comparable sibling's already-established
+    plateau/regression precedent from the same cycle.
+
 ## Operator status page (web) — setup & restart runbook
 
 One auto-refreshing HTML page for the human operator: a first-screen
