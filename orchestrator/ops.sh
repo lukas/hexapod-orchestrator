@@ -1287,8 +1287,16 @@ logline)  # logline "text" — append ONE timestamped line to RL_LOG.md
   [ -n "$text" ] || { echo "usage: ops.sh logline \"one line\""; exit 1; }
   (
     command -v flock >/dev/null && { exec 9>>/workspace/git_snapshot.lock; flock 9; }
-    printf '%s %s\n' "- $(date -u +%m-%d\ %H:%M)" "$(echo "$text" | tr '\n' ' ')" \
-      >> "$STATE_DIR/RL_LOG.md"
+    # Skip an exact duplicate of the newest line (09-23 meta: a re-run
+    # verdict double-recorded the same correction at 05:57 and 05:58).
+    new="$(echo "$text" | tr '\n' ' ')"
+    last="$(tail -1 "$STATE_DIR/RL_LOG.md" 2>/dev/null | cut -d' ' -f4-)"
+    if [ "$last" = "$new" ]; then
+      echo "(identical to newest RL_LOG line -- not appended again)"
+    else
+      printf '%s %s\n' "- $(date -u +%m-%d\ %H:%M)" "$new" \
+        >> "$STATE_DIR/RL_LOG.md"
+    fi
   )
   tail -1 "$STATE_DIR/RL_LOG.md"
   ;;

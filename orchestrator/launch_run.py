@@ -525,6 +525,91 @@ def _cfg_set_value(extra: list[str], dotted: str) -> str | None:
     return None
 
 
+def _config_yaml_has_path(dotted: str) -> bool:
+    try:
+        cfg = yaml.safe_load((PROTO / "rl_move" / "config.yaml").read_text())
+    except Exception:
+        return True  # unreadable config: never block a launch on this check
+    node = cfg
+    for part in dotted.split("."):
+        if isinstance(node, dict) and part in node:
+            node = node[part]
+        else:
+            return False
+    return True
+
+
+def _cfg_key_literal_in_code(key: str) -> bool:
+    """True if the exact quoted literal appears in rl_move source.
+    Most cfg keys never live in config.yaml: consumers read them via
+    section dicts (cfg["dr"].get("torque_scale")) or
+    _parse_cfg_set(...).get("ppo.bc_anchor_coef"), so we accept either
+    the full dotted literal or (callers pass it) the leaf name."""
+    root = str(PROTO / "rl_move")
+    for quoted in (f'"{key}"', f"'{key}'"):
+        try:
+            if subprocess.run(["grep", "-rqF", "--include=*.py",
+                               quoted, root]).returncode == 0:
+                return True
+        except Exception:
+            return True
+    return False
+
+
+def _cfg_key_word_in_code(leaf: str) -> bool:
+    """True if the leaf name appears as a bare identifier in rl_move
+    (attribute-style consumption, e.g. dr_cfg.imu_mount_deg)."""
+    try:
+        return subprocess.run(
+            ["grep", "-rqwF", "--include=*.py", leaf,
+             str(PROTO / "rl_move")]).returncode == 0
+    except Exception:
+        return True
+
+
+def _check_cfg_set_keys(extra: list[str], entry: dict, *,
+                        allow_unknown: bool = False) -> int | None:
+    """Refuse typo'd --cfg-set keys (2026-09-23 meta: a stray
+    `--cfg-set dr_scale=0.6` — the CLI flag is --dr-scale — was a silent
+    no-op, so a run trained at the WRONG DR and drew a wrong verdict;
+    an earlier sibling crashed pre-init on the same typo). A key is
+    valid iff it resolves as a dotted path in config.yaml, or (dotted
+    keys only) its full dotted literal OR leaf name appears quoted in
+    rl_move source (section-dict consumption). Dot-less keys must be
+    top-level config.yaml keys — every historical dot-less cfg-set
+    (dr_scale x6, walk_kernel_vel_* x3) was a silent-no-op typo."""
+    bad = []
+    for i, tok in enumerate(extra):
+        if tok != "--cfg-set" or i + 1 >= len(extra):
+            continue
+        key = extra[i + 1].partition("=")[0].strip()
+        if not key or _config_yaml_has_path(key):
+            continue
+        if "." in key and key[0].isalpha() and (
+                _cfg_key_literal_in_code(key)
+                or _cfg_key_word_in_code(key.rsplit(".", 1)[1])):
+            continue
+        bad.append(key)
+    if not bad:
+        return None
+    if allow_unknown:
+        entry.setdefault("checks", {})["cfg_set_keys"] = (
+            f"unknown-allowed:{','.join(bad)}")
+        return None
+    hints = "; ".join(
+        (f"{k!r} has no dots — cfg-set keys are dotted config.yaml paths; "
+         f"did you mean the CLI flag --{k.replace('_', '-')}?") if "." not in k
+        else (f"{k!r} is not a config.yaml path and its literal appears "
+              "nowhere in rl_move — likely a typo")
+        for k in bad)
+    return refuse(entry, f"unknown --cfg-set key(s): {hints}. A wrong key "
+                         "is a SILENT NO-OP at train time (the run trains "
+                         "on defaults and the verdict reads the wrong "
+                         "config). Fix the key, or pass "
+                         "--allow-unknown-cfg-key for a deliberate "
+                         "forward-compat launch.")
+
+
 def _with_default_control_hz(extra: list[str], entry: dict,
                              *, is_dynrep: bool,
                              allow_legacy: bool = False) -> list[str] | int:
@@ -984,6 +1069,11 @@ def _launch_locked(g: dict, a: argparse.Namespace,
         allow_mismatch=bool(getattr(a, "allow_model_source_mismatch", False)))
     if model_source_refuse is not None:
         return model_source_refuse
+    cfg_key_refuse = _check_cfg_set_keys(
+        extra, entry,
+        allow_unknown=bool(getattr(a, "allow_unknown_cfg_key", False)))
+    if cfg_key_refuse is not None:
+        return cfg_key_refuse
 
     # --- live capacity checks (never trust remembered facts) ---------------
     # Machines spin up and down; an unreachable pod is a REFUSAL (pick
@@ -2130,6 +2220,8 @@ def cmd_backlog(a: argparse.Namespace, extra: list[str]) -> int:
                           a, "allow_model_source_mismatch", False)),
                       "allow_no_log_std_final": bool(getattr(
                           a, "allow_no_log_std_final", False)),
+                      "allow_unknown_cfg_key": bool(getattr(
+                          a, "allow_unknown_cfg_key", False)),
                       "extra_args": extra, "attempts": 0, "added": now()})
         _write_backlog(items)
     print(f"queued {a.run} ({len(items)} item(s) in backlog)")
@@ -2504,7 +2596,9 @@ def cmd_respec(g: dict, a: argparse.Namespace) -> int:
             allow_model_source_mismatch=getattr(
                 a, "allow_model_source_mismatch", False),
             allow_no_log_std_final=getattr(
-                a, "allow_no_log_std_final", False))
+                a, "allow_no_log_std_final", False),
+            allow_unknown_cfg_key=getattr(
+                a, "allow_unknown_cfg_key", False))
         return cmd_backlog(ns, args)
 
     # --now: direct launch, skipping the backlog. snapshot -> sync ->
@@ -2543,7 +2637,9 @@ def cmd_respec(g: dict, a: argparse.Namespace) -> int:
             a, "allow_model_source_mismatch", False),
         allow_twin=getattr(a, "allow_twin", False),
         allow_no_log_std_final=getattr(
-            a, "allow_no_log_std_final", False))
+            a, "allow_no_log_std_final", False),
+        allow_unknown_cfg_key=getattr(
+            a, "allow_unknown_cfg_key", False))
     return cmd_launch(g, ns, args)
 
 
@@ -2712,6 +2808,8 @@ def cmd_drain(g: dict, a: argparse.Namespace) -> int:
                  if it.get("allow_model_source_mismatch") else []),
                *(["--allow-no-log-std-final"]
                  if it.get("allow_no_log_std_final") else []),
+               *(["--allow-unknown-cfg-key"]
+                 if it.get("allow_unknown_cfg_key") else []),
                "--", *xa]
         r = subprocess.run(cmd, capture_output=True, text=True,
                            timeout=1800)
@@ -2976,6 +3074,9 @@ def main() -> int:
                          "default --log-std-final -3.0 anneal (see "
                          "_with_default_log_std_final); carried through "
                          "drain's own launch subprocess")
+    bp.add_argument("--allow-unknown-cfg-key", action="store_true",
+                    help="see `launch --allow-unknown-cfg-key`; carried "
+                         "through drain's own launch subprocess")
     rp = sub.add_parser("respec", help="queue a follow-up by cloning a "
                                        "ledger entry's args with overrides")
     rp.add_argument("--from", dest="source", required=True,
@@ -3022,6 +3123,8 @@ def main() -> int:
                          "respec (rare -- families do not transfer)")
     rp.add_argument("--allow-no-log-std-final", action="store_true",
                     help="see `launch --allow-no-log-std-final`")
+    rp.add_argument("--allow-unknown-cfg-key", action="store_true",
+                    help="see `launch --allow-unknown-cfg-key`")
     rp.add_argument("--allow-twin", action="store_true",
                     help="see `launch --allow-twin`")
     lp = sub.add_parser("launch")
@@ -3081,6 +3184,13 @@ def main() -> int:
                          "already fixed identically each time -- see "
                          "_with_default_log_std_final); pass this only "
                          "for a deliberate legacy/no-anneal isolation run")
+    lp.add_argument("--allow-unknown-cfg-key", action="store_true",
+                    help="permit a --cfg-set key that neither resolves in "
+                         "config.yaml nor appears as a quoted literal in "
+                         "rl_move (2026-09-23: a typo'd key is a SILENT "
+                         "no-op at train time — one run trained at the "
+                         "wrong DR and drew a wrong verdict); pass only "
+                         "for a deliberate forward-compat launch")
     lp.add_argument("--dry-run", action="store_true")
     lp.add_argument("--operator-override", default="",
                     help="OPERATOR-ONLY: reason string that bypasses "
