@@ -378,3 +378,37 @@ completed Goal 2 result. Preserve the fifteen closed off-axis mechanism classes
 as evidence; further work needs a genuinely new structural mechanism rather
 than another dose or seed of a refuted recipe. Preserve run evidence and use
 the current ledger and track journals to choose the next justified work.
+
+
+## OPERATOR DIRECTIVE 2026-09-23 — HARD-WORLD DR (uneven ground, off-balance)
+
+Lukas: start really hard WORLD domain randomization. Add training terrain/dynamics DR that
+the current envelope lacks:
+- UNEVEN GROUND: per-episode height-field / tile bumps / slopes under the feet (not just a
+  flat plane), randomized amplitude + spatial scale.
+- TILTS: randomized ground plane roll/pitch so stance is off-level.
+- PERTURBATIONS: random external pushes / impulses to the chassis mid-stride; randomized
+  starting pose off-balance; foot-slip events.
+- Keep the existing axes (mass, friction, latency, imu_dropout, cmd_drop) ON TOP of these.
+
+WHY / SCOPE: measured evidence (2026-09-23, ~/.hexapod/analysis/rl_sim2real_gap.md,
+contact_model_program.md) shows deployed RL policies walk in sim but SPIN/STALL on hardware,
+and the failure axis is OUTSIDE the current DR (friction/imudrop DR did not help). Hard-world
+DR is a ROBUSTNESS lever: force policies that do not rely on idealized flat grippy contact, so
+they tolerate the real floor's traction they cannot predict. It is COMPLEMENTARY to, not a
+substitute for, the separate PRECISION fix (making the nominal foot-ground contact model
+match reality — that work is tracked in contact_model_program.md). Do not read this directive
+as "the fix was found." Stay within existing compute/spend/safety caps and the ledger; prefer
+adding terrain/perturbation DR as new arms over refuted friction-dose recipes.
+
+### ADDENDUM 2026-09-23 (contact sweep result) — add PER-LEG ACTUATOR DR
+The contact sweep (~/.hexapod/analysis/contact_sweep_result.md) found the dominant RL sim2real
+gap is ACTUATOR EXECUTION, not contact: clean policy sim 653 mm -> real executed joints 290 mm
+-> real 169 mm+spin. The feed-forward policy corrects contact asymmetry and ignores IMU latency
+in sim; only a degraded actuator changes it. So the highest-value ROBUSTNESS additions are:
+- STOCHASTIC PER-LEG ACTUATOR DR: per-leg (asymmetric) servo stiction / backlash / load-lag /
+  torque-limited slew, randomized per episode and per leg — NOT the current symmetric velocity cap.
+- Keep the uneven-ground / tilt / perturbation terrain DR above; add CONTACT-ASYMMETRY (per-foot
+  friction) DR as a secondary axis.
+The matching PRECISION (non-DR) lever, tracked separately: fit a stochastic per-leg servo model to
+measured cmd-vs-q traces and drive it CLOSED-LOOP so the sim reproduces the stall/spin.
