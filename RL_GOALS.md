@@ -115,6 +115,19 @@ actuator refit against the tucked-fails/extended-works criterion.
 Sim-realism fix = make the twin FAIL a tucked stance (validate: existing tucked policies show
 ~20 dps/~5 mm/s, extended ~15 dps/20+ mm/s). Diagnosis in progress.
 
+PLANT RETRAIN ATTEMPT 1 FAILED but the TEST WAS FLAWED (2026-09-22): both extended-plant
+runs (extplant82-s0 warm-start, extplant82-scratch-s0 from-scratch) collapsed (ep_rew -809/-1069,
+not walking) -- BUT both had `walk_curriculum=False` and NO BC anchor, at only 14M steps. Every
+successful walker used the BC-anchor + walk-curriculum multi-stage pipeline; a naive 14M run at a
+NEW plant without them is not a fair test. Do NOT conclude the extended plant is unlearnable.
+PROPER test: extended plant (--cfg plant.hip_deg=20 plant.knee_deg=82) WITH the BC anchor + walk
+curriculum, ideally WARM-STARTING FROM walkteach (already an extended walker, robot_abs ~20/84),
+NOT from a tucked policy or cold from-scratch. Alternative: a PLANT CURRICULUM (start at the
+trainable tucked plant, ramp plant.knee_deg 80->62 over training). This needs the orchestrator`s
+curriculum/BC stack. Still OPEN whether the tuck is (a) fixable by plant+curriculum or (b) a task
+reward-gate local-optimum (gait/duty/slip favour scrubbing) -- both extended runs failing without
+the stack does not yet distinguish these.
+
 ACTION (do this before more friction/DR work): retrain the walk policy on an EXTENDED
 plant -- robot_abs ~hip 20 / knee ~82, foot ~215 mm (the STEP stance walkteach`s
 teacher used) -- or a PLANT BAND spanning tucked->extended so the policy is not locked
