@@ -92,6 +92,15 @@ latency and STILL passed tucked policies -- because the PLANT IS NEVER RANDOMIZE
 episode stands at 20/100 and the sim gives it traction). So the sim`s error is NOT a DR-set
 parameter; it is the actuator/compliance model or the reward plant anchor (high real current
 1.0-1.15 A + rock + no slip = feet GRIP while the body bounces = compliance, not friction).
+REWARD COUPLING NUANCE (lukas-ef, 2026-09-22): the WALK reward does NOT pin feet/height
+to the plant -- `reward.walk_height_gate` and `reward.walk_anchor_gate` default 0 (config
+leaves them there); anchored_stance anchors feet to their OWN touchdown; PLANT_SPEC footprint
+tol applies only in the STAND phase. The plant couples to gait via the RESET distribution +
+stand-phase spec + the robot`s RL-stand handoff, NOT a reward term. => extplant82 is a
+DISCRIMINATOR: (i) settles foot >=205 mm AND walks like walkteach on the floor = plant IS the
+lever; (ii) walks in sim but DRIFTS back toward a tuck / still pogos = plant was incidental and
+the GAIT/DUTY/SLIP reward gates themselves favour the tucked scrubbing gait (that becomes the
+lever, a reward-design fix). Read the result this way.
 Sim-realism fix = make the twin FAIL a tucked stance (validate: existing tucked policies show
 ~20 dps/~5 mm/s, extended ~15 dps/20+ mm/s). Diagnosis in progress.
 
