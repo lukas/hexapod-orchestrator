@@ -101,6 +101,17 @@ DISCRIMINATOR: (i) settles foot >=205 mm AND walks like walkteach on the floor =
 lever; (ii) walks in sim but DRIFTS back toward a tuck / still pogos = plant was incidental and
 the GAIT/DUTY/SLIP reward gates themselves favour the tucked scrubbing gait (that becomes the
 lever, a reward-design fix). Read the result this way.
+SIM-REALISM VERDICT (2026-09-22, validated): friction is NOT the lever. Lowering nominal
+foot-ground mu 2.0->0.6 degrades ALL policies in PARALLEL (does not separate tucked from
+extended); it raises YAW gyro but the real tucked rock is ROLL-DOMINATED (real roll ~14-18 dps
+vs sim ~7 at EVERY mu) -- mu leaves the dominant ~2x ROLL deficit untouched. Nominal stick-slip
+is a no-op (boost-only). Contact levers (solref/solimp/condim) already recorded NEGATIVE for the
+rock (gaitval2, b616). Keep `env.foot_friction_slide=0`. Full: ~/.hexapod/analysis/mu_validation.md.
+HIGHER-PROBABILITY sim-realism levers (do these instead): (1) actuator LOADED-params -- the b616
+refit (branch claude/sim-refit, UNMERGED) already gave +35% rock; (2) MASS/CoM/INERTIA -- the
+robot has NEVER BEEN WEIGHED (sim guesses 3.49 kg; mass scales rock AND current, aliases the
+actuator fit); (3) yaw-slip asymmetry. ACTION: WEIGH the robot + measure CoM; then merge/test the
+actuator refit against the tucked-fails/extended-works criterion.
 Sim-realism fix = make the twin FAIL a tucked stance (validate: existing tucked policies show
 ~20 dps/~5 mm/s, extended ~15 dps/20+ mm/s). Diagnosis in progress.
 
