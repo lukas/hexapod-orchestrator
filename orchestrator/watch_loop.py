@@ -439,7 +439,8 @@ def maybe_autorestart_on_new_code() -> bool:
 
 
 EVAL_PROC_RE = (r"eval_checkpoint|eval_mixed_session|eval_done_gate"
-                r"|eval_cpg_gate|pinned.heading|probe_[a-z0-9_]+\.py"
+                r"|eval_cpg_gate|eval_modeseq|distill_gru"
+                r"|pinned.heading|probe_[a-z0-9_]+\.py"
                 r"|drive_video|web_session_drivecapture")
 _EVAL_HOLD_FIRST_SEEN: dict[str, float] = {}
 
@@ -1857,6 +1858,19 @@ def main() -> None:
                     META_STATE.write_text(json.dumps({"last_day": today}))
                 except OSError as exc:
                     log(f"meta state write failed: {exc!r}")
+                # Auto-compact the journals while the board is drained
+                # (meta 09-24: manual cadence let CURRENT_TRUTHS/STATUS
+                # regrow to 4.1k/4.8k lines in 4 days). Archives, never
+                # deletes; see doc_compact.py.
+                try:
+                    out = subprocess.run(
+                        [sys.executable, str(HERE / "doc_compact.py"),
+                         "--execute"],
+                        capture_output=True, text=True, timeout=300)
+                    log("doc_compact: "
+                        + (out.stdout.strip().splitlines() or ["no output"])[-1])
+                except (OSError, subprocess.SubprocessError) as exc:
+                    log(f"doc_compact failed (non-fatal): {exc!r}")
                 now = time.time()
                 cycle_times = [t for t in cycle_times if now - t < 86400]
                 if len(cycle_times) >= daily_cycle_cap():

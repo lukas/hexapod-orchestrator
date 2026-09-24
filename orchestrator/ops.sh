@@ -1016,11 +1016,13 @@ print(f"# ops.sh evalpending add <pod> /workspace/prototype_sts3215/{out}/sessio
 EOF
   ;;
 
-evalpending)  # evalpending add <pod> <remote_file> <label> | list — register a
-  # long on-pod eval job. The watcher holds idle kicks while any entry is in
-  # flight and spawns a cycle the moment the file exists on the pod (8h TTL).
-  # Register ANY slow detached on-pod eval this way instead of polling it.
+evalpending)  # evalpending add <pod|local> <file> <label> | list — register a
+  # long on-pod OR controller-local eval/BC job. The watcher holds idle kicks
+  # while any entry is in flight and spawns a cycle the moment the file exists
+  # (8h TTL). Register ANY slow detached eval this way instead of ps-polling it
+  # (meta 09-24: one cycle burned 99 ps calls / $11 waiting on a local eval).
   sub="${2:-list}"; pod="${3:-}"; file="${4:-}"; label="${5:-}"
+  [ "$pod" = "local" ] && pod="hexapod-sweep-friction"
   uv run python - "$sub" "$pod" "$file" "$label" <<'EOF'
 import datetime, json, os, sys
 sub, pod, file, label = sys.argv[1:5]
