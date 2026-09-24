@@ -874,6 +874,13 @@ def index_md(meta: dict, runs: dict, pols: dict, real: dict, prom: dict,
           "mapping with counts in status_map.json.", "",
           f"## 6. Open operator questions: {len(questions)}", "",
           "Listed with their lead lines in open_questions.md (derived from OPERATOR_QUESTIONS.md).", "",
+          "## By topic and by gait", "",
+          "topics/INDEX.md — every RL run and Robot Lab experiment tagged by skill (stand/rise/hold/lower, walk, "
+          "turn, joystick, speed, robustness, sim2real, current, lifecycle), by method (bc-teacher, amp, cpg, rl-only, "
+          "architecture, exploration, curriculum, reward) and by lab activity (sysid, instrumentation, endurance, "
+          "scripted-gait); one page per topic with the lineages tried, the lab experiments and every run. "
+          "topics/gaits.md — every policy file with its training lineage and real-robot trials. "
+          "`ops.sh index topic <id>` / `ops.sh index gait <policy|run>` print them.", "",
           "## Files", "",
           "- runs.jsonl — one row per run (current attempt): track, phase, outcome, parent, children, "
           "ancestors, root, hardware_ready, wandb_id, first sentence of hypothesis and verdict",
@@ -941,6 +948,11 @@ def build(out: Path | None = None, with_real: bool = True, proto: Path | None = 
         "# Open operator questions (derived from OPERATOR_QUESTIONS.md)\n\n" +
         "".join(f"## {q['id']}\n" + "\n".join(q["lead"]) + "\n\n" for q in questions))
     (out / "INDEX.md").write_text(index_md(meta, runs, pols, real, prom, status_map, questions))
+    try:
+        import rl_topics
+        meta["topics"] = rl_topics.build(out, runs, entries, pols, real)
+    except Exception as e:  # the topic pages are a view; never fail the build over them
+        meta["topics"] = {"error": repr(e)}
     meta["out"] = str(out)
     return meta
 
@@ -1046,6 +1058,12 @@ def main(argv=None) -> int:
     r = sub.add_parser("real", help="real-robot RL drive legs, per policy")
     r.add_argument("key", nargs="?", default="", help="policy file name or ledger run")
     r.add_argument("--limit", type=int, default=50)
+    sub.add_parser("topics", help="topic table over RL runs + Robot Lab experiments")
+    tp = sub.add_parser("topic", help="one topic page: lineages tried, lab experiments, every run")
+    tp.add_argument("id", help="topic id, e.g. stand, rise, lower, walk, turn, speed, sim2real")
+    sub.add_parser("gaits", help="every gait/policy file: training lineage + real trials")
+    gp = sub.add_parser("gait", help="one gait/policy file in full")
+    gp.add_argument("key", help="policy file name or training run")
     sub.add_parser("outcomes", help="raw status -> outcome, with counts")
     sub.add_parser("open-questions")
     a = ap.parse_args(argv)
@@ -1064,8 +1082,23 @@ def main(argv=None) -> int:
         for q in open_questions():
             print(f"## {q['id']}\n" + "\n".join(q["lead"]) + "\n")
         return 0
-    with_real = a.cmd in ("story", "promising", "real")
+    with_real = a.cmd in ("story", "promising", "real", "topics", "topic", "gaits", "gait")
     entries, runs, pols, rows, sweeps = _load_all(with_real)
+    if a.cmd in ("topics", "topic", "gaits", "gait"):
+        import rl_topics
+        d = rl_topics.compute(runs, entries, pols, summarise_real(rows, sweeps))
+        if a.cmd == "topics":
+            print(rl_topics.index_page(d["run_topics"], d["lab"], runs, d["gaits"]))
+        elif a.cmd == "topic":
+            if a.id not in rl_topics.TOPIC_BY_ID:
+                print(f"unknown topic {a.id!r}; one of {[t['id'] for t in rl_topics.TOPICS]}")
+                return 1
+            print(rl_topics.topic_page(a.id, runs, d["run_topics"], d["lab"], d["lineage"]))
+        elif a.cmd == "gaits":
+            print(rl_topics.gaits_page(d["gaits"]))
+        else:
+            print(rl_topics.gait_page(a.key, d["gaits"], runs, d["lab"], d["lineage"]))
+        return 0
     if a.cmd == "story":
         try:
             st = story(a.run, runs, entries, pols, rows, sweeps)

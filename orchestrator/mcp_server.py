@@ -400,6 +400,21 @@ def t_real_walks(key: str = "", limit: int = 50) -> str:
     return rl_index.real_md(rows, key, max(1, min(int(limit), 500)), pols, sweeps)
 
 
+def t_topic_index(topic: str = "", gait: str = "") -> str:
+    import rl_topics
+    rl_index, entries, runs, pols, rows, sweeps = _index_loaded()
+    d = rl_topics.compute(runs, entries, pols, rl_index.summarise_real(rows, sweeps))
+    if gait == "*":
+        return rl_topics.gaits_page(d["gaits"])
+    if gait:
+        return rl_topics.gait_page(gait, d["gaits"], runs, d["lab"], d["lineage"])
+    if topic:
+        if topic not in rl_topics.TOPIC_BY_ID:
+            return f"unknown topic {topic!r}; one of {[t['id'] for t in rl_topics.TOPICS]}"
+        return rl_topics.topic_page(topic, runs, d["run_topics"], d["lab"], d["lineage"])
+    return rl_topics.index_page(d["run_topics"], d["lab"], runs, d["gaits"])
+
+
 def t_get_run(run: str) -> str:
     entry = next((e for e in _ledger() if e.get("run") == run), None)
     if entry is None:
@@ -1344,6 +1359,22 @@ TOOLS = [
                                      "or ledger run name; empty = all"},
               "limit": {"type": "integer",
                         "description": "max legs listed (default 50)"}}},
+    {"name": "topic_index",
+     "description": "Every RL run AND Robot Lab experiment grouped by skill "
+                    "(stand/rise/hold/lower, walk, turn, joystick, speed, "
+                    "robustness, sim2real, current, lifecycle), by method "
+                    "(bc-teacher, amp, cpg, rl-only, architecture, "
+                    "exploration, curriculum, reward) and by lab activity "
+                    "(sysid, instrumentation, endurance, scripted-gait). "
+                    "No args = the topic table. topic=<id> = that topic's "
+                    "page: the lineages (approaches) tried, the lab "
+                    "experiments, every run. gait=<policy.json|run> = one "
+                    "gait's training lineage + real trials; gait='*' = the "
+                    "table of every gait/policy file.",
+     "fn": t_topic_index,
+     "args": {"topic": {"type": "string", "description": "topic id, e.g. stand, lower, turn"},
+              "gait": {"type": "string",
+                       "description": "policy file name or training run; '*' for the full gaits table"}}},
     {"name": "kick_orchestrator",
      "description": "Request an on-demand orchestrator decision cycle "
                     "(the LLM that triages runs and refills the "
@@ -1373,7 +1404,7 @@ READ_ONLY_TOOLS = frozenset({
     "run_metrics", "eval_report", "get_run_videos", "list_docs", "read_doc",
     "search_docs", "list_feedback", "list_run_feedback",
     "orchestrator_activity", "cycle_log", "list_operator_questions",
-    "run_story", "promising_runs", "real_walks",
+    "run_story", "promising_runs", "real_walks", "topic_index",
 })
 
 
