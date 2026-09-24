@@ -121,6 +121,18 @@ compute:
     # while the RL_GOALS wide-DR priority stays open, subsequent
     # kick-ordered fills citing the same directive may repeat this
     # pattern but must each record their own line here.
+    # SCOPED EXCEPTION (operator kick 2026-09-24 focus note "PRIORITY-1
+    # adaptive-walker campaign per RL_GOALS (ec1692a) — 13 H200 slots are
+    # IDLE, launch it now, multiple seeds, fill the slots", executing
+    # RL_GOALS.md 74fbe31 Track A/B + ec1692a slew constraint; recorded
+    # per the 09-22 precedent's own "each fill records its own line"
+    # clause): this fill may place up to 12 launches / 380M GPU steps
+    # (supersedes max_new_launches_per_cycle=4 and
+    # max_new_gpu_steps_per_cycle=80M for this one kick-ordered fill).
+    # max_steps_per_run stays 40M and one-run-per-GPU stays binding.
+    # Ordinary per-cycle caps apply again after this fill; further
+    # kick-ordered fills citing the same RL_GOALS priority record their
+    # own line here.
     max_steps_per_run: 40000000
     # At ~20k fps the CPU-pod eval cadence would fire every 10 s; the MJX
     # trainer's eval is skip-if-busy in a background thread, but keep it
