@@ -444,3 +444,13 @@ build that only if it beats the GRU in sim.
 
 Build missing infra as needed: difficulty-curriculum scheduler, uneven-ground/height-field terrain DR axis, larger-hidden
 GRU cfg, (transformer runtime iff it wins). Report each arm through the ledger.
+
+
+## CRITICAL CONSTRAINT for the adaptive-walker campaign (2026-09-24) — TRAIN UNDER THE DEPLOY SLEW CONTRACT
+The campaign arms (Track A/B) MUST train under the DEPLOYABLE command-slew contract:
+safety.max_delta_q_deg = 0.75 per tick (= 37.5 deg/s at 50 Hz), matching what the robot runner enforces.
+Do NOT use the harsh-world bundle's bus.write_speed=4096 / max_delta_q=3.6 deg/tick: the robot runner does
+NOT honor that (hard 37.5 deg/s clamp), so a policy trained at 3.6/tick is UNDEPLOYABLE (hardware-verified
+2026-09-24 write_speed A/B: even perfect servo tracking under the 37.5 clamp still stalls/spins; the fix is
+training a transferable gait WITHIN the clamp + robustness to per-leg miscalibration, not more slew freedom).
+Every campaign arm: max_delta_q_deg=0.75, and the wide per-leg asymmetric geometry/zero DR is what buys transfer.
