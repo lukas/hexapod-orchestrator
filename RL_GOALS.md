@@ -412,3 +412,35 @@ in sim; only a degraded actuator changes it. So the highest-value ROBUSTNESS add
   friction) DR as a secondary axis.
 The matching PRECISION (non-DR) lever, tracked separately: fit a stochastic per-leg servo model to
 measured cmd-vs-q traces and drive it CLOSED-LOOP so the sim reproduces the stall/spin.
+
+
+## OPERATOR DIRECTIVE 2026-09-24 — ADAPTIVE WALKER: bigger model + curriculum + wider ASYMMETRIC DR (two tracks)
+Goal: a smooth ADAPTIVE real walker. Evidence (~/.hexapod/analysis/, esp. servo_transfer_fit.md + hexapod-rl-sim2real-gap):
+deployed RL policies walk in sim but STALL+SPIN on hexapod2. The ONLY physical lever that reproduces it is
+PER-LEG ASYMMETRIC geometry/zero error (foot placement): at ~+-4-6% effective per-leg foot displacement the sim
+policy also stalls/spins STOCHASTICALLY (matches real mixed-sign spin). Realistic per-leg zero (+-2-3 deg) + link
+(+-2%) errors reach that regime; current DR (joint_zero_bias +-1 deg, link_len_leg 1.2%) is TOO SMALL. Also:
+training episodes are only 5 s (config episode.seconds) -- too short for a recurrent policy to infer/adapt to its env.
+The actuator/contact/friction/torque levers are all refuted (sim AND hardware, incl. the write_speed A/B); the lever
+is the LEARNED GAIT + robustness to the robot's own miscalibration. This SUPERSEDES the hip-torque-limit DR framing
+(outcome-matching, not physical).
+
+RUN BOTH TRACKS within compute/spend/safety caps + the ledger:
+
+TRACK A -- new BIGGER recurrent model, curriculum from scratch:
+- Recurrent capacity up: single-GRU hidden 128 -> 256-384 (memory for online env inference). Deployable via the gru runtime.
+- CURRICULUM (REQUIRED -- cold max DR will not learn): ramp easy->hard over training -- DR magnitude, episode length
+  (5 s -> 20-30 s), and terrain roughness all ramp in as competence rises. Build on the dr_scale band.
+- WIDE per-leg ASYMMETRIC DR at the reproducing magnitude: joint_zero_bias_deg ~+-3, link_len_leg_pct ~+-4 (per-leg),
+  + hard-world terrain (uneven ground / height-field, tilts, mid-stride pushes), + per-leg actuator asymmetry. Keep existing axes.
+
+TRACK B -- warm-start the CURRENT BEST walker and RATCHET difficulty:
+- launch_run --init-from the current best policy (per rl_index), continue training while progressively increasing the
+  same wide DR + terrain + episode length. Curriculum FINETUNE, not from scratch. Cheapest path to a transferable gait.
+
+RESEARCH ARM (parallel, lower priority): a TRANSFORMER/attention policy for the same task. NOT deployable yet -- needs a
+torch-free numpy transformer runtime in np_policy.py (like the single-GRU port a813b837) BEFORE it can reach the robot;
+build that only if it beats the GRU in sim.
+
+Build missing infra as needed: difficulty-curriculum scheduler, uneven-ground/height-field terrain DR axis, larger-hidden
+GRU cfg, (transformer runtime iff it wins). Report each arm through the ledger.
