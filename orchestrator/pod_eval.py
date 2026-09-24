@@ -172,6 +172,28 @@ def legacy_eval_cfgs(cfgs: list[str]) -> list[str]:
             out.append(f"safety.max_delta_q_deg={LEGACY_MAX_DELTA_Q_DEG:g}")
     return out
 
+
+def strip_dr_stage_ramp_for_dr0(cfgs: list[str], drv: float) -> list[str]:
+    """Drop an inherited ``env.dr_stage_ramp_steps`` cfg-set entry from
+    a DR=0 eval pass (09-24, lowerrole/walkyaw SAC drramp triage): that
+    key arms a construction-time check in sim_env.py
+    (``env.dr_stage_ramp_steps > 0 needs an active DomainRandomizer``)
+    that is a deliberate fail-closed guard against a MISCONFIGURED
+    TRAINING run (DR accidentally left off while a ramp schedule is
+    armed) — but every gate/probe eval pass forces ``--dr-scale 0.0``
+    (randomize=False) to score the checkpoint's clean-sim behavior,
+    which trips the exact same guard on any checkpoint that happens to
+    have TRAINED with a dr-stage-ramp cfg key still sitting in its
+    ledger extra_args. The ramp fraction is moot with DR off regardless
+    (nothing to interpolate toward), so for a drv==0 pass this is a
+    pure eval-harness compatibility strip, not a training-cfg change —
+    at drv>0 (owncfg) the key stays untouched. Bit-exact no-op for the
+    overwhelming majority of runs that never set this key."""
+    if float(drv) > 0:
+        return cfgs
+    return [c for c in cfgs
+            if c.split("=", 1)[0].strip() != "env.dr_stage_ramp_steps"]
+
 # 08-24 100 Hz CADENCE FIX (found on cw-arch-hist16-dep1-c1-
 # joyfullcurr13-v7-hz100-r2): PASS_TIMEOUT_S/JOYGATE_TIMEOUT_S were
 # calibrated for the 25 Hz / 15s-episode baseline. A run trained at
@@ -581,13 +603,14 @@ def main() -> int:
         # while idle-pod evals still run full speed.
         if video_args is None:
             video_args = eval_video_args(pod, control_hz)
+        pass_cfgs = strip_dr_stage_ramp_for_dr0(cfgs, float(drv))
         cmd = (f"cd {POD_PROTO} && set -a && "
                f". rl_move/sim/wandb.env 2>/dev/null; set +a; "
                f"nice -n 19 uv run python -m rl_move.sim.eval_checkpoint {shlex.quote(ckpt)}"
                f" --task {task} {modes} --per-mode 6 --dr-scale {drv}"
                f" --seed 0 --stochastic"
                + (f" --episode-seconds {ep}" if ep else "")
-               + "".join(f" --cfg-set {shlex.quote(c)}" for c in cfgs)
+               + "".join(f" --cfg-set {shlex.quote(c)}" for c in pass_cfgs)
                + video_args + f" --video-every 1 --out {out_rel}"
                + (f" {probe_args}" if tag == "probe" else ""))
         fh = open(logpath, "w")
