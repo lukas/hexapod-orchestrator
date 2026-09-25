@@ -185,7 +185,24 @@ compute:
     # post-ramp reward collapse to strongly negative + gait_valid<4/6 +
     # sacrificed legs despite the verified genuine 120M ramp -- see
     # rl_docs/tracks/standwalk/STATUS.md 2026-09-25 ~07:4x.)
-    max_steps_per_run: 40000000
+    # SCOPED EXCEPTION (operator kick 2026-09-25 fifth focus note, Lukas:
+    # "8 GPU slots are IDLE — launch the QUEUED FALLBACK now ... run the
+    # LOWER-CEILING sweep to find the MAX LEARNABLE per-leg asymmetric DR
+    # magnitude ... graded ceilings (a) 1.5/0.02 (b) 2.0/0.03 (c)
+    # 2.5/0.035 — each as GRU-256 scratch AND GRU-128 warm-start ...
+    # SAME 120M slow ramp + terrain + slew 0.75, 1-2 seeds each. Fill the
+    # idle slots. KEEP the running transformer arms."): this one
+    # kick-ordered fill may place up to 8 launches / 1.28B GPU steps at
+    # up to 160M steps per run (supersedes max_new_launches_per_cycle=4,
+    # max_new_gpu_steps_per_cycle=80M, and max_steps_per_run=40M for this
+    # fill only). max_steps_per_run raised 40M->160M for the fill;
+    # RESTORE to 40000000 in the cycle that verifies the LAST fill member
+    # RUNNING (drceil{15,20,25} x {gru256-scratch, gru128-warm-ratchet}
+    # x seeds, names cw-adapt50hz-*-drceil*-terr-ramp120m-*). Any
+    # non-fill launch above 40M while raised is a guardrail violation.
+    # One-run-per-GPU stays binding. Do NOT preempt tf256h64/tf256h128/
+    # tf256-s2 and do NOT relaunch the failed 3.0/0.04 GRU arms.
+    max_steps_per_run: 160000000
     # At ~20k fps the CPU-pod eval cadence would fire every 10 s; the MJX
     # trainer's eval is skip-if-busy in a background thread, but keep it
     # sane. Never launch below these on a GPU pod:
