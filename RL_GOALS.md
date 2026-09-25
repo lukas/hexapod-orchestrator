@@ -10,48 +10,8 @@ or progress on physical
 builds. This file is canonical for purpose and priorities;
 `CURRENT_TRUTHS.md` records evidence and `RL_PLAN.md` describes the work.
 
-## DEPLOY CONTRACT note (2026-09-22 21:49) WAS STALE — CORRECTED same day (2026-09-22, refill cycle)
-The note below this one claimed the robot runtime accepts only
-`meta.architecture in {mlp, dual_gru}` and REJECTS single-GRU/obs-74
-("unsupported meta.architecture gru"), and that a GRU-first physical
-trial was therefore BLOCKED. That was already false when written: path
-(b) it names as a fallback — "extend np_policy+exporter with a
-single-GRU (gru/obs-74) arch" — was built and tested the PREVIOUS day
-(2026-09-21 ~22:2x, standwalk track; see `CURRENT_TRUTHS.md`'s own
-2026-09-21 CORRECTION entry, which this later note failed to check).
-`rl_move/np_policy.py` has had `ARCH_SINGLE_GRU = "gru"` since then —
-`meta.architecture="gru"` is explicitly accepted, not rejected — and
-`rl_move/deployed_policy.py::WALK_OBS_DIMS = (72, 74, 75, 81, 93)`
-lists obs-74 as a supported walk contract `linux_control/rl_policy.py`
-already documents in its own module docstring. Live-verified this
-cycle: `load_np_policy("linux_control/policies/
-walk50hz_gru_dr10_frictionasym_stickslip_dose08.json")` (the exact
-single-GRU/obs-74 export `todaypolicy`'s `GO_NOGO.md` already names as
-today's TOP physical-trial pick) loads cleanly as a recurrent
-`NumpyGruModel`; `test_export_single_gru_is_compact_valid_and_loadable`
-and the rest of `rl_move/tests/test_export_policy_np.py` +
-`test_np_policy.py` pass (only the two pre-existing order-independent
-flakes on record reproduce). **There is no deploy blocker and no
-dual-GRU/obs-81 retrain requirement for this candidate.** The MLP
-full-envelope candidate remains independently deployable (stateless);
-now BOTH architectures the bundle offers are hardware-runnable today.
-Do not action the two "paths" below — they solve an already-solved
-problem. This correction does not touch the file's other guidance.
-
-## SUPERSEDED — DEPLOY CONTRACT reality (2026-09-22): the single-GRU ladder winners are NOT robot-runnable as-is [FACTUALLY WRONG, see correction above]
-Before prioritizing a GRU PHYSICAL trial, know the contract. The robot runtime
-(rl_move/np_policy.py + linux_control/rl_policy.py) accepts only
-meta.architecture in {mlp, dual_gru}, and dual_gru REQUIRES obs-81 (the frozen
-6-mode one-hot hold/rise/lower/walk/turn/quad that gates the two GRU cores).
-The wide-DR ladder used `--gru` = a SINGLE GRU -> exports as architecture="gru",
-obs-74 -> the runtime REJECTS it ("unsupported meta.architecture gru"). It exports
-+ passes recurrent parity for MuJoCo replay only. So a GRU-first physical trial is
-BLOCKED until a deployable candidate exists. Two paths: (a) PREFERRED — train the
-final wide-DR/friction candidate as the deployable DUAL-GRU + obs-81 contract
-(DualGruActorCriticPolicy + the 6-mode one-hot; this same arch also serves the
-unified stand/walk/rise/lower line), so it exports straight to the Uno Q; or
-(b) extend np_policy+exporter with a single-GRU (gru/obs-74) arch. The MLP
-full-envelope candidate (mlp quad5-torque-envwide) IS deployable today (stateless).
+## DEPLOY CONTRACT (settled 2026-09-22)
+Single-GRU/obs-74 AND MLP are both robot-deployable (rl_move/np_policy.py ARCH_SINGLE_GRU="gru"; WALK_OBS_DIMS includes 74). No deploy blocker, no dual-GRU/obs-81 retrain requirement. (An earlier 40-line 'GRU is unrunnable' note was factually wrong and was removed 2026-09-24.)
 
 ## STANDWALK IS NOT CLOSED (2026-09-22, Lukas) — reopen the sim campaign, reality-bracketing axes are UNTESTED
 
@@ -61,8 +21,7 @@ are still untested. Warm-start the VALIDATED dr-1.0 GRU `cw-walk50hz-gru-dr10-en
 and launch them (fill the idle fleet with these + seed replicas + a gentle dose ramp):
 1. PER-FOOT friction ASYMMETRY + STICK-SLIP (in flight: cw-walk50hz-gru-dr10-frictionasym-stickslip-s0):
    `--cfg dr.foot_friction_scale=0.7,1.3 --cfg dr.foot_stickslip_gain=0.0,0.4`.
-   This targets the MEASURED gap (real fwd over-progression ~1.6x + veer ~10deg/leg
-   the constant-coeff contact cannot model). HIGHEST leverage.
+   [friction asymmetry: hardware-REFUTED 2026-09-24 as a transfer lever — benign DR axis, NOT 'highest leverage'.]
 2. IMU DROPOUT/FREEZE + servo DROP-BURSTS (merged to main 305ba04f): `--cfg dr.imu_dropout_prob_max=0.02
    --cfg dr.imu_dropout_ticks=15 --cfg dr.imu_dropout_dead_frac=0.3 --cfg dr.cmd_drop_burst_len=6`.
    A GRU can dead-reckon through these; an MLP cannot.
@@ -219,30 +178,10 @@ Current state: rise-from-belly and lower are the HARD, not-yet-solved skills
 is not nailed. The current DR ladder is WALK-ONLY (goal-mix walk=1.0) — rise/lower
 is not being trained yet. This is the follow-on after walking validates at dr-1.0.
 
-### DR EXTENSION (2026-09-22, Lukas): turn on per-foot friction ASYMMETRY + STICK-SLIP
-Global ground friction IS already randomized (friction_scale 0.6-1.4x at dr=1.0) +
-contact stiffness (0.7-2.0x). But the two reality-CRITICAL friction effects are
-default-OFF and should be turned on in the wide-DR ladder:
-1. PER-FOOT friction ASYMMETRY -- `foot_friction_scale` defaults (1.0,1.0) = every
-   foot identical each episode. Real floors/feet differ foot-to-foot, and
-   asymmetric grip is what makes the robot VEER. Enable:
-   `--cfg dr.foot_friction_scale=0.7,1.3` (drawn PER-FOOT => asymmetry; optionally
-   concentrate per-side via the foot group mask).
-2. STICK-SLIP -- `foot_stickslip_gain` defaults (0.0,0.0)=OFF. MuJoCo uses a
-   CONSTANT friction coefficient; real rubber feet have static > kinetic (grip,
-   then break loose and slide). Enable:
-   `--cfg dr.foot_stickslip_gain=0.0,0.4` (with dr.foot_stickslip_vel_ref_mps=0.02).
-WHY: the measured reality gap is exactly here -- the refit found real forward
-OVER-progression ~1.6x and veer ~10 deg/leg, attributed to slip/veer the rigid
-constant-friction contact does NOT model (see REALITY_GAP_REFIT.md). Randomizing
-the GLOBAL coefficient +-40% does not capture "one side grips, one side skids
-mid-stance." This is also a GRU win: a memory policy can feel a slippery foot from
-proprioceptive history and adapt online; an MLP cannot. Fold into the wide-DR
-ladder with the usual convention (probability follows the curriculum, ramp gently
-on the mature dr-1.0 policy). Consider widening global friction too (e.g. 0.5,1.5).
-
-
-
+### [NUKED 2026-09-24] per-foot friction ASYMMETRY + STICK-SLIP was claimed HIGHEST-leverage / 'the measured gap'
+HARDWARE-REFUTED as a transfer lever (2026-09-24 sim+hardware, incl. the write_speed A/B). Friction/contact is a
+benign DR axis but is NOT the transfer fix. The transfer lever is per-leg asymmetric geometry/zero miscalibration
+(see the ADAPTIVE-WALKER CAMPAIGN directive at the end). Do not re-fund friction realism as 'the fix'.
 
 ## Goal 1 — working walking by any effective means (`any_means`)
 
@@ -380,111 +319,29 @@ than another dose or seed of a refuted recipe. Preserve run evidence and use
 the current ledger and track journals to choose the next justified work.
 
 
-## OPERATOR DIRECTIVE 2026-09-23 — HARD-WORLD DR (uneven ground, off-balance)
+## ADAPTIVE-WALKER CAMPAIGN (current, 2026-09-24) — supersedes the intermediate 2026-09-23/24 directives that were here
+The RL sim2real transfer lever is ROBUSTNESS TO THE ROBOT'S OWN PER-LEG MISCALIBRATION. Established by the full
+2026-09-24 hardware+sim investigation (analysis/rl_sim2real_gap.md, servo_transfer_fit.md; memory hexapod-rl-sim2real-gap).
+- REFUTED as transfer levers, sim AND hardware — do NOT re-fund as "the fix": foot-ground friction/contact, mass/inertia,
+  hip torque, actuator slew/latency, IMU latency, and the write_speed 400->2000 A/B (perfect servo tracking under the
+  37.5 deg/s clamp STILL stalls/spins). This COMPLEMENTS (does not replace) the PLANT lever above (extended vs tucked
+  stance also matters); per-leg miscalibration is the DR axis the wide-DR campaign was missing.
+- THE lever: per-leg ASYMMETRIC geometry/zero error. In sim ~+-4-6% per-leg foot displacement makes the policy stall/spin
+  stochastically like the real robot; realistic per-leg zero (+-2-3 deg) + link (+-2%) reach it; default DR
+  (joint_zero_bias +-1 deg, link_len_leg 1.2%) is too small.
 
-Lukas: start really hard WORLD domain randomization. Add training terrain/dynamics DR that
-the current envelope lacks:
-- UNEVEN GROUND: per-episode height-field / tile bumps / slopes under the feet (not just a
-  flat plane), randomized amplitude + spatial scale.
-- TILTS: randomized ground plane roll/pitch so stance is off-level.
-- PERTURBATIONS: random external pushes / impulses to the chassis mid-stride; randomized
-  starting pose off-balance; foot-slip events.
-- Keep the existing axes (mass, friction, latency, imu_dropout, cmd_drop) ON TOP of these.
-
-WHY / SCOPE: measured evidence (2026-09-23, ~/.hexapod/analysis/rl_sim2real_gap.md,
-contact_model_program.md) shows deployed RL policies walk in sim but SPIN/STALL on hardware,
-and the failure axis is OUTSIDE the current DR (friction/imudrop DR did not help). Hard-world
-DR is a ROBUSTNESS lever: force policies that do not rely on idealized flat grippy contact, so
-they tolerate the real floor's traction they cannot predict. It is COMPLEMENTARY to, not a
-substitute for, the separate PRECISION fix (making the nominal foot-ground contact model
-match reality — that work is tracked in contact_model_program.md). Do not read this directive
-as "the fix was found." Stay within existing compute/spend/safety caps and the ledger; prefer
-adding terrain/perturbation DR as new arms over refuted friction-dose recipes.
-
-### ADDENDUM 2026-09-23 (contact sweep result) — add PER-LEG ACTUATOR DR
-The contact sweep (~/.hexapod/analysis/contact_sweep_result.md) found the dominant RL sim2real
-gap is ACTUATOR EXECUTION, not contact: clean policy sim 653 mm -> real executed joints 290 mm
--> real 169 mm+spin. The feed-forward policy corrects contact asymmetry and ignores IMU latency
-in sim; only a degraded actuator changes it. So the highest-value ROBUSTNESS additions are:
-- STOCHASTIC PER-LEG ACTUATOR DR: per-leg (asymmetric) servo stiction / backlash / load-lag /
-  torque-limited slew, randomized per episode and per leg — NOT the current symmetric velocity cap.
-- Keep the uneven-ground / tilt / perturbation terrain DR above; add CONTACT-ASYMMETRY (per-foot
-  friction) DR as a secondary axis.
-The matching PRECISION (non-DR) lever, tracked separately: fit a stochastic per-leg servo model to
-measured cmd-vs-q traces and drive it CLOSED-LOOP so the sim reproduces the stall/spin.
-
-
-## OPERATOR DIRECTIVE 2026-09-24 — ADAPTIVE WALKER: bigger model + curriculum + wider ASYMMETRIC DR (two tracks)
-Goal: a smooth ADAPTIVE real walker. Evidence (~/.hexapod/analysis/, esp. servo_transfer_fit.md + hexapod-rl-sim2real-gap):
-deployed RL policies walk in sim but STALL+SPIN on hexapod2. The ONLY physical lever that reproduces it is
-PER-LEG ASYMMETRIC geometry/zero error (foot placement): at ~+-4-6% effective per-leg foot displacement the sim
-policy also stalls/spins STOCHASTICALLY (matches real mixed-sign spin). Realistic per-leg zero (+-2-3 deg) + link
-(+-2%) errors reach that regime; current DR (joint_zero_bias +-1 deg, link_len_leg 1.2%) is TOO SMALL. Also:
-training episodes are only 5 s (config episode.seconds) -- too short for a recurrent policy to infer/adapt to its env.
-The actuator/contact/friction/torque levers are all refuted (sim AND hardware, incl. the write_speed A/B); the lever
-is the LEARNED GAIT + robustness to the robot's own miscalibration. This SUPERSEDES the hip-torque-limit DR framing
-(outcome-matching, not physical).
-
-RUN BOTH TRACKS within compute/spend/safety caps + the ledger:
-
-TRACK A -- new BIGGER recurrent model, curriculum from scratch:
-- Recurrent capacity up: single-GRU hidden 128 -> 256-384 (memory for online env inference). Deployable via the gru runtime.
-- CURRICULUM (REQUIRED -- cold max DR will not learn): ramp easy->hard over training -- DR magnitude, episode length
-  (5 s -> 20-30 s), and terrain roughness all ramp in as competence rises. Build on the dr_scale band.
-- WIDE per-leg ASYMMETRIC DR at the reproducing magnitude: joint_zero_bias_deg ~+-3, link_len_leg_pct ~+-4 (per-leg),
-  + hard-world terrain (uneven ground / height-field, tilts, mid-stride pushes), + per-leg actuator asymmetry. Keep existing axes.
-
-TRACK B -- warm-start the CURRENT BEST walker and RATCHET difficulty:
-- launch_run --init-from the current best policy (per rl_index), continue training while progressively increasing the
-  same wide DR + terrain + episode length. Curriculum FINETUNE, not from scratch. Cheapest path to a transferable gait.
-
-RESEARCH ARM (parallel, lower priority): a TRANSFORMER/attention policy for the same task. NOT deployable yet -- needs a
-torch-free numpy transformer runtime in np_policy.py (like the single-GRU port a813b837) BEFORE it can reach the robot;
-build that only if it beats the GRU in sim.
-
-Build missing infra as needed: difficulty-curriculum scheduler, uneven-ground/height-field terrain DR axis, larger-hidden
-GRU cfg, (transformer runtime iff it wins). Report each arm through the ledger.
-
-
-## CRITICAL CONSTRAINT for the adaptive-walker campaign (2026-09-24) — TRAIN UNDER THE DEPLOY SLEW CONTRACT
-The campaign arms (Track A/B) MUST train under the DEPLOYABLE command-slew contract:
-safety.max_delta_q_deg = 0.75 per tick (= 37.5 deg/s at 50 Hz), matching what the robot runner enforces.
-Do NOT use the harsh-world bundle's bus.write_speed=4096 / max_delta_q=3.6 deg/tick: the robot runner does
-NOT honor that (hard 37.5 deg/s clamp), so a policy trained at 3.6/tick is UNDEPLOYABLE (hardware-verified
-2026-09-24 write_speed A/B: even perfect servo tracking under the 37.5 clamp still stalls/spins; the fix is
-training a transferable gait WITHIN the clamp + robustness to per-leg miscalibration, not more slew freedom).
-Every campaign arm: max_delta_q_deg=0.75, and the wide per-leg asymmetric geometry/zero DR is what buys transfer.
-
-
-## CORRECTION 2026-09-24 — the adaptive campaign was closed on a MISCONFIG; re-open with a REAL slow ramp
-The wide-DR adaptive campaign (cw-adapt50hz-*) was closed FAIL, but the exploration had a GAP:
-- The arm named `...-widedr-slowramp-s0` used env.dr_stage_ramp_steps=25000000 — IDENTICAL to the fast
-  `curr` arms (also 25M ramp / 40M budget). A GENUINELY slow ramp was NEVER tested. The warm-ratchet arms
-  used an even faster 12M ramp. So "slow ramp failed" is FALSE — it was never run.
-- Evidence it IS learnable: every failed arm's own verdict says "DR-0 nominal retention clean" — the policy
-  WALKS at nominal DR and only collapses as DR ramps to the full wide setting over 25M. Useful gaits are
-  clearly learnable in this sim (walkteach + the scratch envwide policies walk). The wide DR is not
-  unlearnable; the 25M ramp is just too fast for the policy to track.
-
-RE-OPEN (this is a NEW recipe, not a re-run of a closed one):
-- GENUINELY SLOW ramp: env.dr_stage_ramp_steps ~= 120000000 over a --steps ~= 160000000 budget (ramp occupies
-  most of training so DR grows slowly enough for the gait to adapt each step). This is the untested lever.
-- Both TRACKS: (A) scratch bigger GRU-256/384; (B) warm-start --init-from the best converged walker champion
-  (the combo-s0 the ratchet arms used, or the best envwide GRU). Multiple seeds. Keep safety.max_delta_q_deg=0.75.
-- If a REAL slow ramp still collapses, THEN sweep a lower wide-DR ceiling (joint_zero_bias 2.0, link_len 0.03)
-  to find the max learnable magnitude — do NOT jump to that before the slow ramp is actually tested.
-- Do NOT re-close citing the prior slowramp arm — that was a 25M misconfig. Verify the launched
-  env.dr_stage_ramp_steps is actually ~120M before trusting any 'slow ramp' label.
-
-
-## ADD 2026-09-24 — TRANSFORMER arm on the same slow-ramp wide-DR adaptive task (deploy gate WAIVED)
-Lukas: try a transformer too; do NOT gate it on deployability ("easy to deploy if it works"). The training
-code already supports it (rl_move/sim/transformer_policy.py, train_ppo_sim --transformer: causal transformer
-actor-critic over the env-side frame stack). Launch a TRANSFORMER research arm alongside the GRU slow-ramp arms:
-- --transformer --cfg-set obs.history_frames=16 (the K-frame attention window = its temporal memory)
-  --tf-width 256 --tf-layers 3 --tf-heads 4 (mid-size; scale if it trains well). FROM SCRATCH (a transformer
-  cannot warm-start from a GRU/MLP checkpoint).
-- SAME task as the GRU re-launch: REAL slow ramp env.dr_stage_ramp_steps ~= 120000000 over --steps ~= 160000000,
-  full wide per-leg asymmetric DR + terrain, safety.max_delta_q_deg=0.75, multiple seeds.
-- DEPLOYABILITY: WAIVED for now. If it wins in sim, build the torch-free numpy transformer runtime in
-  np_policy.py (like the single-GRU port a813b837) THEN; do not skip the arm for lack of a runtime today.
+CAMPAIGN (RUNNING): a DEPLOYABLE adaptive walker trained under WIDE per-leg asymmetric DR, worked up by a GENUINELY slow
+curriculum, GRU + transformer, scratch and warm-start.
+- WIDE DR: dr.joint_zero_bias_deg ~+-3, dr.link_len_leg_pct ~+-4 (per-leg) + hard-world terrain (uneven ground/tilts/
+  mid-stride pushes) + per-leg actuator asymmetry; keep existing axes.
+- REAL SLOW RAMP (critical): env.dr_stage_ramp_steps ~120M over --steps ~160M. The prior "slowramp" arm was a 25M
+  MISCONFIG (identical to the fast arms) — a real slow ramp was never tested, yet every failed arm walks clean at DR-0,
+  so the wide DR is learnable and the 25M ramp just outran the policy. VERIFY the launched ramp is actually ~120M, do not
+  trust the label. If a real slow ramp still collapses, sweep a LOWER DR ceiling (joint_zero_bias 2.0, link_len 0.03) to
+  find the max learnable magnitude.
+- MODELS: (A) scratch GRU-256/384; (B) warm-start --init-from the best converged walker + ratchet; (C) TRANSFORMER
+  (--transformer --cfg-set obs.history_frames=16 --tf-width 256 --tf-layers 3 --tf-heads 4, from scratch) — deploy gate
+  WAIVED (build the numpy transformer runtime later iff it wins in sim). Longer episodes (5s -> 20-30s). Multiple seeds.
+- DEPLOY CONTRACT (hard): every arm trains under safety.max_delta_q_deg=0.75 (37.5 deg/s, what the robot enforces); NOT
+  the harsh-world 3.6/tick (undeployable).
+- AUTO-EVAL: any arm reaching hardware_ready + deployable is auto-walked on hexapod2 (~/.hexapod/auto_eval_protocol.md).
