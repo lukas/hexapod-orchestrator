@@ -160,6 +160,20 @@ compute:
     # covers cw-adapt50hz-tf256-scratch-widedr-terr-ramp120m-s0/s1/s2
     # (3 x 160M) under the same 15-launch/2.4B ceiling and the same
     # restore condition.
+    # SAME-FILL ADDENDUM 2 (operator kick 2026-09-25 fourth focus note,
+    # Lukas: "ADD longer-context TRANSFORMER variants ... (1)
+    # obs.history_frames=64; (2) obs.history_frames=128 ... free room by
+    # trimming the GRU-256/384 SCRATCH seed count from 5 to 3 per size"):
+    # the fill also covers cw-adapt50hz-tf256h64-scratch-widedr-terr-
+    # ramp120m-s0 and cw-adapt50hz-tf256h128-scratch-widedr-terr-
+    # ramp120m-s0 (2 x 160M). Capacity came from the ordered seed prune,
+    # executed 09-25 ~04:5x: gru256-scratch pruned to 3 seeds (backlog
+    # retry s0-rr1 removed unstarted + weakest runner s1 KILLED at ~36M),
+    # gru384-scratch pruned to 3 seeds (weakest runners s1/s2 KILLED at
+    # ~37M/30M); prune verdicts in the ledger, no science conclusion
+    # attached. Same restore condition as above: the cycle that drains
+    # the LAST fill member (incl. tf256-s2 + tf256h128) restores
+    # max_steps_per_run to 40000000.
     max_steps_per_run: 160000000
     # At ~20k fps the CPU-pod eval cadence would fire every 10 s; the MJX
     # trainer's eval is skip-if-busy in a background thread, but keep it
