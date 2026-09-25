@@ -345,3 +345,16 @@ curriculum, GRU + transformer, scratch and warm-start.
 - DEPLOY CONTRACT (hard): every arm trains under safety.max_delta_q_deg=0.75 (37.5 deg/s, what the robot enforces); NOT
   the harsh-world 3.6/tick (undeployable).
 - AUTO-EVAL: any arm reaching hardware_ready + deployable is auto-walked on hexapod2 (~/.hexapod/auto_eval_protocol.md).
+- PLUMBING FIXED 2026-09-25 (hexapod main 16d1f07d, cherry-picked onto orchestrator): (1) dr.leg_torque_scale was a
+  SILENT NO-OP on every --impl warp run (mjx_host.rows_for never called apply_asym_to_model; uploaded forcerange carried
+  only the global torque_scale) -- every adapt50hz arm and the ps200dr struct arms trained WITHOUT per-leg torque
+  asymmetry. (2) dr.joint_zero_bias_deg was OBSERVATION-ONLY in every campaign arm (dr.zero_drift_cmd_frame defaulted 0,
+  no recipe set it; the code calls that mode a cmd-vs-read residual hardware never shows) -- the per-leg zero
+  miscalibration never displaced a foot physically. Default is now 1 (frame mode, what every probe behind the premise
+  used). CONSEQUENCE: all adapt50hz verdicts so far tested only link_len + tilt/pushes/latency/terrain, not the named
+  lever; do not cite them as closing per-leg miscalibration. Any arm launched from a code sha before this fix lacks
+  both axes. Also: the lower-ceiling sweep held tilt 4 / pushes 0.3 / latency 0.8-1.4 / terrain / 25 s at FULL width
+  while lowering only zero-bias+link -- the mildest rung (1.5deg/0.02) fails identically, so the binding axis is one of
+  those un-ablated additions. Ablate ONE new axis at a time on the dose08 recipe (no ramp) + a warm-start continuation
+  with NO widening as the drift control; judge ramp runs against the parent's terminal reward at matched episode length,
+  not the mid-ramp peak. Full review: ~/.hexapod/analysis/widedr_campaign_review_2026-09-25.md.
