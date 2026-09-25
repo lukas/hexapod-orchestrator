@@ -174,7 +174,18 @@ compute:
     # attached. Same restore condition as above: the cycle that drains
     # the LAST fill member (incl. tf256-s2 + tf256h128) restores
     # max_steps_per_run to 40000000.
-    max_steps_per_run: 160000000
+    # RESTORED 2026-09-25 ~07:4x (triage cycle, verdicting the first 3
+    # ramp120m finishers): all 20 fill members (15 GRU ramp120m arms +
+    # tf256-s0/s1/s2 + tf256h64-s0 + tf256h128-s0) are now placed --
+    # RUNNING-verified or already finished (gru128-warm-ratchet-s0/s4,
+    # gru256-scratch-s2/s3 finished this cycle/prior; backlog.json is
+    # empty, confirming no queued fill member remains). Restore condition
+    # met; non-fill launches after this point obey the ordinary 40M cap
+    # again. (First 3 finishers of the fill all FAILed identically --
+    # post-ramp reward collapse to strongly negative + gait_valid<4/6 +
+    # sacrificed legs despite the verified genuine 120M ramp -- see
+    # rl_docs/tracks/standwalk/STATUS.md 2026-09-25 ~07:4x.)
+    max_steps_per_run: 40000000
     # At ~20k fps the CPU-pod eval cadence would fire every 10 s; the MJX
     # trainer's eval is skip-if-busy in a background thread, but keep it
     # sane. Never launch below these on a GPU pod:
