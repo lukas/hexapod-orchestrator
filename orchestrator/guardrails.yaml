@@ -266,6 +266,36 @@ compute:
     # own exception then. Ordinary per-cycle caps apply again after
     # this fill; any retry of a dead fill member rides this same
     # exception.
+    # SCOPED EXCEPTION (operator focus note 2026-09-25 ninth, "TRANSFORMER
+    # sequential-DR campaign": (1) STANDING RULE — the moment a tf256h64 or
+    # tf256h128 scratch-workdr-base seed PASSES the workdr gait gate, fork
+    # it up ceil15/20/25 (2 seeds each) --init-from that checkpoint,
+    # mirroring cw-adapt50hz-tfh16-popup-dose08-ceil*; (2) add s0/s2 seeds
+    # per ceiling to the tfh16-popup-dose08-ceil15/20/25 population): this
+    # operator-ordered fill may place up to 12 launches / 480M GPU steps
+    # (supersedes max_new_launches_per_cycle=4 and
+    # max_new_gpu_steps_per_cycle=80M for this fill only). max_steps_per_run
+    # stays 40M (every arm is 40M) and one-run-per-GPU stays binding. Fill
+    # members: cw-adapt50hz-tfh16-popup-dose08-ceil{15,20,25}-s{0,2}
+    # (6 arms, respec of the -s1 siblings, training seed the only change)
+    # and cw-adapt50hz-tfh64b0-popup-dose08-ceil{15,20,25}-s{0,1} (up to
+    # 6 arms, --init-from the tf256h64-scratch-workdr-base-s0 checkpoint,
+    # GATED on that base passing its phase-1 workdr gait gate; forks of
+    # OTHER passed h64/h128 base seeds are handled by whichever cycle
+    # verdicts them and record their own line here under this same ninth
+    # focus note). Ordinary per-cycle caps apply again after this fill;
+    # any retry of a dead fill member rides this same exception.
+    # FILL STATE 09-25 ~18:xx (tenth/"FORK h64 NOW" focus note cycle):
+    # both tf256h64-scratch-workdr-base seeds verdicted PASS (phase-1
+    # gate met on final-40M report.json), so the gated h64 fork members
+    # are live. s1-base forks placed earlier this day by the verdicting
+    # cycle: ceil15-s1 + ceil20-s1 RUNNING, ceil25-s1 backlog. This
+    # cycle places the s0-base complements under the SAME ninth-note
+    # envelope (named cw-adapt50hz-tfh64-popup-dose08-ceil{15,20,25}-s0
+    # per the operator's tenth-note naming, superseding the provisional
+    # "tfh64b0" spelling above; --init-from base-s0 zip, seed 0):
+    # 3 arms / 120M steps, bringing the fill to ~12 arms — envelope
+    # closed after this; further h64/h128 forks need a new line.
     max_steps_per_run: 40000000
     # At ~20k fps the CPU-pod eval cadence would fire every 10 s; the MJX
     # trainer's eval is skip-if-busy in a background thread, but keep it
