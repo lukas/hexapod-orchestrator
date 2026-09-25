@@ -147,6 +147,14 @@ compute:
     # were RUNNING-verified; if a fill member dies and must be re-run,
     # the relaunching cycle re-raises this to 160000000 citing this same
     # operator order, then restores again. One-run-per-GPU stays binding.
+    # SAME-FILL ADDENDUM (operator kick 2026-09-25 second focus note,
+    # Lukas: "ALSO launch a TRANSFORMER arm on the slow-ramp wide-DR
+    # adaptive task ... --transformer --cfg-set obs.history_frames=16
+    # --tf-width 256 --tf-layers 3 --tf-heads 4, FROM SCRATCH ...
+    # 2-3 seeds. Deployability is WAIVED"): the 09-25 fill above also
+    # covers cw-adapt50hz-tf256-scratch-widedr-terr-ramp120m-s0/s1/s2
+    # (3 x 160M) under the same 15-launch/2.4B ceiling and the same
+    # restore condition.
     max_steps_per_run: 160000000
     # At ~20k fps the CPU-pod eval cadence would fire every 10 s; the MJX
     # trainer's eval is skip-if-busy in a background thread, but keep it
