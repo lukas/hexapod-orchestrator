@@ -372,3 +372,15 @@ curriculum, GRU + transformer, scratch and warm-start.
   "warm-start and ramp" rule for new arms -- do not kill them as violations, do not launch new ramp arms. Reading rule:
   judge the final quarter against the PARENT's terminal reward at matched episode length; report the first-quarter
   trough (warm-start shock); leg-2/ep4 reseed rule applies; no 2.5 fork without an operator order.
+- STANDING PRIORITY (2026-09-25 ~16:3x PT, Lukas, chat): "getting these things running on higher DR is the key to
+  working in the sim -- keep trying." This is THE #1 sim objective for the adaptive campaign. The transformer walkers
+  (tfh16/tfh64/tfh128, PASS at ceil20) must be carried to higher per-leg-asymmetry DR by the no-ramp stepping-stone
+  method, rung after rung (2.25 -> 2.5 -> 3.0 ...). A rung that PARTIALs or FAILs is NOT a "wall confirmed, close the
+  family" verdict any more -- it is the cue to try the next lever on the SAME checkpoint and keep going. Licensed levers,
+  in order: (1) more seeds / different init seed at the same rung; (2) lower LR (--lr 1e-4) and/or a smaller policy
+  update (--n-epochs 3, --clip-range 0.1) for the warm-start shock; (3) longer budget (40M) at the constant rung;
+  (4) a smaller rung step (2.1/0.032 then 2.25); (5) --warm-log-std-override to hold exploration low; (6) reward-side
+  fixes for the specific failure (park-duty / sacrificed legs); (7) then architecture (context length, width). Report
+  each rung's outcome against the parent checkpoint's terminal reward and own-cfg gait_valid. Do not let the fleet idle
+  while any rung is unresolved; do not spend GPUs re-dosing closed ramp arms. The ONLY reason to stop climbing a family
+  is an explicit operator order.
