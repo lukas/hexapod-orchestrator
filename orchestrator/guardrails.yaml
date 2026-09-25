@@ -142,11 +142,16 @@ compute:
     # place up to 15 launches / 2.4B GPU steps at up to 160M steps per
     # run (supersedes max_new_launches_per_cycle=4,
     # max_new_gpu_steps_per_cycle=80M, and max_steps_per_run=40M for this
-    # fill only). max_steps_per_run was raised 40M->160M for the fill's
-    # launches and RESTORED to 40000000 in the same cycle once all arms
-    # were RUNNING-verified; if a fill member dies and must be re-run,
-    # the relaunching cycle re-raises this to 160000000 citing this same
-    # operator order, then restores again. One-run-per-GPU stays binding.
+    # fill only). max_steps_per_run raised 40M->160M for the fill.
+    # FILL STATE 09-25 ~04:1x: 12/15 GRU ramp120m arms RUNNING-verified
+    # (120M ramp confirmed in live argv); 3 retries still in the backlog
+    # (gru256-ramp120m-s0-rr1, warm-ratchet-ramp120m-s1,
+    # warm-ratchet-ramp120m-s3-rr1) plus the sibling operator-ordered
+    # tf256 ramp120m arms which ride this same exception. The cap stays
+    # 160000000 ONLY until those fill members are RUNNING-verified; the
+    # cycle that drains the LAST of them RESTORES this to 40000000. Any
+    # non-fill launch above 40M while this is raised is a guardrail
+    # violation. One-run-per-GPU stays binding.
     # SAME-FILL ADDENDUM (operator kick 2026-09-25 second focus note,
     # Lukas: "ALSO launch a TRANSFORMER arm on the slow-ramp wide-DR
     # adaptive task ... --transformer --cfg-set obs.history_frames=16
