@@ -345,7 +345,8 @@ curriculum, GRU + transformer, scratch and warm-start.
 - DEPLOY CONTRACT (hard): every arm trains under safety.max_delta_q_deg=0.75 (37.5 deg/s, what the robot enforces); NOT
   the harsh-world 3.6/tick (undeployable).
 - AUTO-EVAL: any arm reaching hardware_ready + deployable is auto-walked on hexapod2 (~/.hexapod/auto_eval_protocol.md).
-- PLUMBING FIXED 2026-09-25 (hexapod main 16d1f07d, cherry-picked onto orchestrator): (1) dr.leg_torque_scale was a
+- PLUMBING FIX 2026-09-25 (hexapod branch claude/fix-dr-plumbing @16d1f07d, tests green; NOT yet on main or the
+  orchestrator branch -- merge is Lukas's call, auto-mode refused the deploy push): (1) dr.leg_torque_scale was a
   SILENT NO-OP on every --impl warp run (mjx_host.rows_for never called apply_asym_to_model; uploaded forcerange carried
   only the global torque_scale) -- every adapt50hz arm and the ps200dr struct arms trained WITHOUT per-leg torque
   asymmetry. (2) dr.joint_zero_bias_deg was OBSERVATION-ONLY in every campaign arm (dr.zero_drift_cmd_frame defaulted 0,
