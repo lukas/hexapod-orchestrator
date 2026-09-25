@@ -454,3 +454,37 @@ NOT honor that (hard 37.5 deg/s clamp), so a policy trained at 3.6/tick is UNDEP
 2026-09-24 write_speed A/B: even perfect servo tracking under the 37.5 clamp still stalls/spins; the fix is
 training a transferable gait WITHIN the clamp + robustness to per-leg miscalibration, not more slew freedom).
 Every campaign arm: max_delta_q_deg=0.75, and the wide per-leg asymmetric geometry/zero DR is what buys transfer.
+
+
+## CORRECTION 2026-09-24 — the adaptive campaign was closed on a MISCONFIG; re-open with a REAL slow ramp
+The wide-DR adaptive campaign (cw-adapt50hz-*) was closed FAIL, but the exploration had a GAP:
+- The arm named `...-widedr-slowramp-s0` used env.dr_stage_ramp_steps=25000000 — IDENTICAL to the fast
+  `curr` arms (also 25M ramp / 40M budget). A GENUINELY slow ramp was NEVER tested. The warm-ratchet arms
+  used an even faster 12M ramp. So "slow ramp failed" is FALSE — it was never run.
+- Evidence it IS learnable: every failed arm's own verdict says "DR-0 nominal retention clean" — the policy
+  WALKS at nominal DR and only collapses as DR ramps to the full wide setting over 25M. Useful gaits are
+  clearly learnable in this sim (walkteach + the scratch envwide policies walk). The wide DR is not
+  unlearnable; the 25M ramp is just too fast for the policy to track.
+
+RE-OPEN (this is a NEW recipe, not a re-run of a closed one):
+- GENUINELY SLOW ramp: env.dr_stage_ramp_steps ~= 120000000 over a --steps ~= 160000000 budget (ramp occupies
+  most of training so DR grows slowly enough for the gait to adapt each step). This is the untested lever.
+- Both TRACKS: (A) scratch bigger GRU-256/384; (B) warm-start --init-from the best converged walker champion
+  (the combo-s0 the ratchet arms used, or the best envwide GRU). Multiple seeds. Keep safety.max_delta_q_deg=0.75.
+- If a REAL slow ramp still collapses, THEN sweep a lower wide-DR ceiling (joint_zero_bias 2.0, link_len 0.03)
+  to find the max learnable magnitude — do NOT jump to that before the slow ramp is actually tested.
+- Do NOT re-close citing the prior slowramp arm — that was a 25M misconfig. Verify the launched
+  env.dr_stage_ramp_steps is actually ~120M before trusting any 'slow ramp' label.
+
+
+## ADD 2026-09-24 — TRANSFORMER arm on the same slow-ramp wide-DR adaptive task (deploy gate WAIVED)
+Lukas: try a transformer too; do NOT gate it on deployability ("easy to deploy if it works"). The training
+code already supports it (rl_move/sim/transformer_policy.py, train_ppo_sim --transformer: causal transformer
+actor-critic over the env-side frame stack). Launch a TRANSFORMER research arm alongside the GRU slow-ramp arms:
+- --transformer --cfg-set obs.history_frames=16 (the K-frame attention window = its temporal memory)
+  --tf-width 256 --tf-layers 3 --tf-heads 4 (mid-size; scale if it trains well). FROM SCRATCH (a transformer
+  cannot warm-start from a GRU/MLP checkpoint).
+- SAME task as the GRU re-launch: REAL slow ramp env.dr_stage_ramp_steps ~= 120000000 over --steps ~= 160000000,
+  full wide per-leg asymmetric DR + terrain, safety.max_delta_q_deg=0.75, multiple seeds.
+- DEPLOYABILITY: WAIVED for now. If it wins in sim, build the torch-free numpy transformer runtime in
+  np_policy.py (like the single-GRU port a813b837) THEN; do not skip the arm for lack of a runtime today.
