@@ -1971,14 +1971,16 @@ waitlog)  # waitlog <file> <regex> [timeout_s] — poll instead of sleep-and-pra
   echo "matched after ~${el}s:"; grep -E "$pat" "$f" | tail -3
   ;;
 
-podwaitlog)  # podwaitlog <pod> <remote_file> <regex> [timeout_s] — waitlog for a
-  # file ON a pod; replaces the hand-rolled `for i in seq; sleep 60;
-  # kubectl exec ... tail` loops (one cycle burned ~50 min on 7 of them,
-  # 09-04). Prefer `evalpending add` + exit when nothing else is left.
+podwaitlog)  # podwaitlog <pod> <remote_file> [regex] [timeout_s] — waitlog for a
+  # file ON a pod; regex optional (default '.': wait for the file to
+  # EXIST, e.g. a gate_verdict.json/report.json — 09-25 meta: one cycle
+  # burned 101 hand-rolled `kubectl exec ls` poll turns on exactly this).
+  # Replaces `for i in seq; sleep; kubectl exec ls/tail` loops entirely.
+  # Prefer `evalpending add` + exit when nothing else is left.
   # CAP 2026-09-12 (meta): one cycle spent $35.65/519 turns babysitting
   # two evals with 30-min waits — sync waits >10 min are exactly what
   # `evalpending add` exists for. WAIT_LONG=1 overrides deliberately.
-  pod="$2"; f="$3"; pat="$4"; t="${5:-600}"; el=0
+  pod="$2"; f="$3"; pat="${4:-.}"; t="${5:-600}"; el=0
   if [ "$t" -gt 600 ] && [ -z "${WAIT_LONG:-}" ]; then
     echo "NOTE: podwaitlog capped at 600s (asked ${t}s). For longer evals:"
     echo "  ops.sh evalpending add $pod $f <label>   # then EXIT the cycle;"
@@ -2039,7 +2041,7 @@ compact)  # compact [--dry-run] — journal compaction (doc_compact.py) on the L
   echo "  status | census | triage [hours] | procs <pod> | trainlog <run> [n] |"
   echo "  entry <run> | wandb <run> | quarters <run> [key...] | pullckpt <run> | pushckpt <pod> <ckpt> |"
   echo "  podeval <run> [sfx] | m5eval <run> [pod] | evalcmd <run> | evalcmdstress <run> | speedpanel <run> [pod] [pins] | speedretention <run> [pod] | drain | killrun <run> |"
-  echo "  waitlog <file> <regex> [t] | podwaitlog <pod> <file> <regex> [t] | evalpending add <pod> <file> <label> |"
+  echo "  waitlog <file> <regex> [t] | podwaitlog <pod> <file> [regex] [t] (no regex = wait for file to exist; NEVER hand-roll kubectl-exec ls polls) | evalpending add <pod> <file> <label> |"
   echo "  handoff <run> (deferred-artifacts registry: training/artifacts_pending/evaluated) |"
   echo "  prune [--execute] (mechanical seed-prune audit; watcher runs it live) |"
   echo "  logline \"line\" | frames <mp4> [n] | testfull [pytest args] (parallel suite ~5min) |"
