@@ -133,7 +133,21 @@ compute:
     # Ordinary per-cycle caps apply again after this fill; further
     # kick-ordered fills citing the same RL_GOALS priority record their
     # own line here.
-    max_steps_per_run: 40000000
+    # SCOPED EXCEPTION (operator kick 2026-09-25 focus note: "RE-OPEN the
+    # wide-DR adaptive-walker campaign per RL_GOALS (74986ba). The prior
+    # close was on a MISCONFIG ... Launch a REAL slow ramp NOW into the
+    # 16 idle slots: env.dr_stage_ramp_steps ~= 120000000 over
+    # --steps ~= 160000000 ... BOTH (A) scratch GRU-256 and GRU-384 and
+    # (B) warm-start ... multiple seeds"): this one kick-ordered fill may
+    # place up to 15 launches / 2.4B GPU steps at up to 160M steps per
+    # run (supersedes max_new_launches_per_cycle=4,
+    # max_new_gpu_steps_per_cycle=80M, and max_steps_per_run=40M for this
+    # fill only). max_steps_per_run was raised 40M->160M for the fill's
+    # launches and RESTORED to 40000000 in the same cycle once all arms
+    # were RUNNING-verified; if a fill member dies and must be re-run,
+    # the relaunching cycle re-raises this to 160000000 citing this same
+    # operator order, then restores again. One-run-per-GPU stays binding.
+    max_steps_per_run: 160000000
     # At ~20k fps the CPU-pod eval cadence would fire every 10 s; the MJX
     # trainer's eval is skip-if-busy in a background thread, but keep it
     # sane. Never launch below these on a GPU pod:
