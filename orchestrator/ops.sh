@@ -1314,7 +1314,7 @@ logline)  # logline "text" — append ONE timestamped line to RL_LOG.md
   # RL_LOG from a cycle: free-form `cat >> RL_LOG.md` blocks bloated
   # it from 200 to 580 lines in half a day (operator cleanup, 08-09).
   # Detail belongs in the ledger verdict (auto-renders
-  # rl_docs/runs/<run>.md) and the W&B OUTCOME note, not here.
+  # `ops.sh index story <run>`) and the W&B OUTCOME note, not here.
   # Join ALL remaining args: `logline <track> "msg"` used to silently
   # drop the message ($2 was the track word — 09-22 09:01 line lost).
   shift; text="$*"

@@ -27,7 +27,7 @@ controller, PVC mirror as fallback); a fresh controller runs
 `state_sync.sh restore`; read it on the web at `/now` and `/llms.txt`. The
 old single-file `experiments.json` is refused by the accessor; convert a
 legacy copy with `python state_dir.py migrate-ledger`.
-`rl_docs/runs`, `RL_LOG.md`, `rl_docs/SKILLS.md`,
+`RL_LOG.md`, `rl_docs/SKILLS.md`,
 `orchestrator/OPERATOR_QUESTIONS.md` (this repo) and every
 `rl_docs/tracks/<track>/STATUS.md` in the prototype tree are symlinks into
 `.state` (cycles edit the `.state/...` path; `snapshot.sh` re-links any
@@ -50,7 +50,7 @@ controller pod (hexapod-sweep-friction, tmux session "orchestrator")
     claude -p --bare --model claude-fable-5 <ORCHESTRATOR_PROMPT.md>
     the cycle TRIAGES each finished run (~10 min: video, curves,
     gate scalars), records verdicts via `launch_run.py update`
-    (auto-renders rl_docs/runs/<run>.md) + `ops.sh wandbnote`,
+    + `ops.sh wandbnote` (`ops.sh index story <run>` renders it),
     digs in only on a real trigger, and refills the pipeline by
     queueing specs into the backlog. Logs: /workspace/cycle_logs/
 ```
@@ -65,7 +65,7 @@ the drain requires before treating a pod as a slot.
 - `ledger/<seq>-<run>.json` — the ledger, single source of truth per run
   (status, hypothesis, gate, verdict, W&B id). Edit ONLY via
   `launch_run.py update`. Every update regenerates the browsable
-  per-run summary in `rl_docs/runs/`.
+  per-run story via `ops.sh index story <run>`.
 - `backlog.json` — mechanical launch queue, fed by cycles/operator
   (`launch_run.py backlog add`), drained automatically.
 - `RL_LOG.md` — 1 line per cycle; `RL_PLAN.md` — the plan (~120

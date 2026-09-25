@@ -435,10 +435,13 @@ def t_get_run(run: str) -> str:
                   "stop_reason")
         out.append(json.dumps([
             {k: e[k] for k in fields if k in e} for e in attempts], indent=1))
-    story = _read_doc(f"rl_docs/runs/{run}.md")
-    if story is not None:
-        out += ["", "# Run story (rl_docs/runs/%s.md)" % run,
-                story]
+    try:  # joined story: lineage, cfg diff vs parent, exports, real walks
+        import rl_index
+        runs = rl_index.load_runs(_ledger_entries())
+        if run in runs:
+            out += ["", "# Run story (rl_index)", rl_index.story_md(rl_index.story(run, runs))]
+    except Exception as e:  # never lose the ledger answer over the story
+        out += ["", f"(story unavailable: {e!r})"]
     notes = feedback_for_run(run)
     out += ["", "# Saved run feedback"]
     if notes:
@@ -552,11 +555,7 @@ def t_get_run_videos(run: str, limit: int = 6) -> dict:
 
 def t_list_docs() -> str:
     by_dir: dict[str, list[str]] = {}
-    n_runs = 0
     for rel in _doc_paths():
-        if rel.startswith("rl_docs/runs/"):
-            n_runs += 1
-            continue
         try:
             p = state_dir.document_path(rel, PROTO)
             size = p.stat().st_size if p else 0
@@ -568,9 +567,6 @@ def t_list_docs() -> str:
            "with read_doc(path).", ""]
     for d in sorted(by_dir):
         out += [f"## {d}"] + [f"- {x}" for x in by_dir[d]] + [""]
-    out.append(f"## rl_docs/runs — {n_runs} per-run stories, one per "
-               f"launched run; read_doc('rl_docs/runs/<run>.md') or just "
-               f"get_run(run).")
     return _clip("\n".join(out))
 
 

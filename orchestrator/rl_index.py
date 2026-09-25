@@ -704,7 +704,6 @@ def story(run: str, runs: dict, entries: list[dict] | None = None,
         "real_walks": {k: v for k, v in agg.items()} or None,
         "real_legs_recent": legs[-5:],
         "real_sweeps_recent": exps[-5:],
-        "story_doc": f"rl_docs/runs/{run}.md",
     }
 
 
@@ -714,7 +713,7 @@ def story_md(s: dict) -> str:
              f"{(s['created'] or '')[:16]} · steps {s['steps']} · seed {s['seed']} · pod {s['pod']}")
     o.append(f"- hardware_ready: {s['hardware_ready']} · attempts: {s['attempts']} · W&B: "
              f"{s['wandb_url'] or '-'}")
-    o.append(f"- story doc: {s['story_doc']} · checkpoint: {s['checkpoint'] or 'ppo_goal_' + _stem(s['run']) + '.zip (by name)'}")
+    o.append(f"- checkpoint: {s['checkpoint'] or 'ppo_goal_' + _stem(s['run']) + '.zip (by name)'}")
     o += ["", "## Lineage (nearest parent first)"]
     if s["lineage"]:
         for a in s["lineage"]:

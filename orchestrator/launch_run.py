@@ -341,10 +341,6 @@ def upsert_entry(entry: dict) -> None:
         else:
             led.append(entry)
         save_ledger(led)
-    try:
-        render_run_md(entry)
-    except OSError:
-        pass  # docs mirror is best-effort; the ledger already has the facts
 
 
 def now() -> str:
@@ -2838,49 +2834,6 @@ def cmd_drain(g: dict, a: argparse.Namespace) -> int:
     return 0
 
 
-RUNS_DIR = state_dir.RUNS_DIR   # <state>/rl_docs/runs; prototype rl_docs/runs symlinks to it
-
-
-def render_run_md(entry: dict) -> None:
-    """Write rl_docs/runs/<run>.md from a ledger entry.
-
-    One generated file per run (operator ask, 2026-08-09): a browsable
-    directory of past runs instead of everyone appending to one big
-    RL_LOG.md and merge-conflicting. NEVER hand-edit these — they are
-    overwritten from experiments.json on every ledger update. Narrative
-    goes in the ledger's hypothesis/verdict fields (or W&B notes)."""
-    run = entry.get("run")
-    if not run:
-        return
-    RUNS_DIR.mkdir(parents=True, exist_ok=True)
-    lines = [f"# {run}", "",
-             "<!-- GENERATED from experiments.json by launch_run.py — "
-             "do not edit -->", ""]
-    order = ["status", "created", "pod", "steps", "parent", "git_sha",
-             "wandb_id", "checkpoint", "hardware_ready", "hypothesis",
-             "gate", "verdict", "failed_reason", "refused_reason", "note"]
-    for k in order:
-        v = entry.get(k)
-        if v in (None, "", []):
-            continue
-        lines.append(f"**{k}**: {v}")
-        lines.append("")
-    (RUNS_DIR / f"{run}.md").write_text("\n".join(lines) + "\n")
-
-
-def cmd_runsmd() -> int:
-    """Backfill/refresh rl_docs/runs/ for every ledger entry."""
-    led = load_ledger()
-    newest = {}
-    for e in led:
-        if e.get("run"):
-            newest[e["run"]] = e
-    for e in newest.values():
-        render_run_md(e)
-    print(f"rendered {len(newest)} run file(s) -> {RUNS_DIR}")
-    return 0
-
-
 def cmd_update(a: argparse.Namespace) -> int:
     """Locked field update on a ledger entry — the ONLY sanctioned way
     to edit experiments.json outside the launcher itself.
@@ -2942,7 +2895,6 @@ def cmd_update(a: argparse.Namespace) -> int:
                 entry["hardware_ready"] = hw
         entry["outcome"] = rl_index.outcome(entry)
         save_ledger(led)
-    render_run_md(entry)
     keys = [kv.partition("=")[0] for kv in a.set or []]
     print(f"updated {a.run}: set {keys}")
     # Mechanical W&B mirror (operator, 08-09): a verdict that only lives
@@ -2975,7 +2927,7 @@ def cmd_update(a: argparse.Namespace) -> int:
 
 def _publish_analysis_artifact(api_run, run_name: str, entry: dict) -> None:
     """Attach `analysis-<run>` (type run-analysis) to the W&B run:
-    the ledger entry, rl_docs/runs/<run>.md, logs/experiments/<run>/,
+    the ledger entry, its joined story (rl_index), logs/experiments/<run>/,
     and every logs/ckpt_eval/<run>_* harness output directory. Skips
     single files >100 MB (an eval reel gone wrong must not hang the
     verdict cycle)."""
@@ -2996,9 +2948,14 @@ def _publish_analysis_artifact(api_run, run_name: str, entry: dict) -> None:
                                      delete=False) as tf:
         json.dump(entry, tf, indent=2, default=str)
     art.add_file(tf.name, name="ledger_entry.json")
-    md = RUNS_DIR / f"{run_name}.md"
-    if md.exists():
-        art.add_file(str(md), name=f"{run_name}.md")
+    try:  # the joined story (lineage, cfg diff vs parent, exports, real walks)
+        runs = rl_index.load_runs()
+        story = rl_index.story_md(rl_index.story(run_name, runs))
+        with tempfile.NamedTemporaryFile("w", suffix=".md", delete=False) as sf:
+            sf.write(story)
+        art.add_file(sf.name, name=f"{run_name}.md")
+    except Exception:
+        pass
     n_files = 0
     dirs = [proto / "logs" / "experiments" / run_name]
     dirs += sorted((proto / "logs" / "ckpt_eval").glob(
@@ -3040,8 +2997,6 @@ def main() -> int:
                          "2026-08-09 shadow-ledger import)")
     dp = sub.add_parser("drain", help="push backlog items onto free "
                                       "GPU pods (self-repairing)")
-    sub.add_parser("runsmd", help="backfill rl_docs/runs/ summaries "
-                                  "from the ledger")
     bp = sub.add_parser("backlog", help="queue mechanical launch specs")
     bp.add_argument("action", choices=["add", "list"])
     bp.add_argument("--run")
@@ -3217,8 +3172,6 @@ def main() -> int:
         return cmd_backlog(a, extra)
     if a.cmd == "respec":
         return cmd_respec(g, a)
-    if a.cmd == "runsmd":
-        return cmd_runsmd()
     if a.cmd == "drain":
         return cmd_drain(g, a)
     return cmd_launch(g, a, extra)

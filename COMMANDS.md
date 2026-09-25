@@ -47,7 +47,6 @@ leave the next agent to rediscover it.
 | Rebuild the joined index files (INDEX.md, runs.jsonl, lineage.json, policies.json, real_walks.jsonl, promising.json, status_map.json, open_questions.md) | `ops.sh index build` — Mac: writes `~/.hexapod/rl_index/` and joins the Robot Lab folders + the robots' own `/api/rl/policies`; controller: `snapshot.sh` does it after every run (ledger-only) into `<state>/index/` |
 | **All runs about one skill (standing, lowering, turning, speed...) across RL AND the Robot Lab** | `ops.sh index topics` (table) then `ops.sh index topic <id>` — ids: stand rise hold lower walk turn joystick speed robustness sim2real current lifecycle bc-teacher amp cpg rl-only architecture exploration curriculum reward sysid instrumentation endurance scripted-gait. Each page: the lineages tried (one root = one approach), the lab experiments, every run. Files: `~/.hexapod/rl_index/topics/`; MCP `topic_index` |
 | **Everything about one gait / policy file** | `ops.sh index gaits` (table) / `ops.sh index gait <policy.json\|run>` — training run, whole lineage, exports, robots carrying it, every Robot Lab experiment that named it, drive-leg numbers |
-| A past run's story (generated prose) | `rl_docs/runs/<run>.md` — `ops.sh index story <run>` is the joined version |
 | Journals too big to read (CURRENT_TRUTHS / OPERATOR_QUESTIONS / RL_LOG / track STATUS) | `ops.sh compact --dry-run` then `ops.sh compact` — keeps the last 7 days of findings, every OPEN question, all operator rulings and the durable sections; everything else moves to `<state>/archive/doc_compaction_<date>/` (pre-edit copies included, nothing deleted). Pauses cycle spawns and waits for in-flight cycles first |
 | Yaw-command tracking (yawcmd lineage gate) | `uv run python -m rl_move.sim.eval_yaw <ckpt> --cfg-set … [--out j.json]` — scripted turn panel; reports turn-segment \|wz_err\| med, hold \|wz\| med, falls |
 | AMP M5 cross-engine suite (track DONE gate) | `uv run python -m rl_move.sim.eval_amp_m5 <ckpt> --out-dir logs/ckpt_eval/<name>_m5 --cfg-set <own cfg…>` — ONE invocation composing walk/yaw/push/fault sections in plain MuJoCo with pre-registered bars (amp-m5-v1, q_20260823T0130Z); run on a pod, read `m5_verdict.json`, watch the section strips before claiming. `ops.sh m5eval <run> [pod]` (08-23) does this end-to-end: derives the run's own cfg-set from the ledger (same logic as `evalcmd`), syncs code to the target pod, runs it, copies `logs/ckpt_eval/<run>_m5/` back — never hand-roll the kubectl plumbing |
@@ -180,7 +179,7 @@ report.json, and the W&B API for exactly these questions.
 - `ops.sh expdir <run>` — create `logs/experiments/<run>/` with the
   summary.md template. Only for DIG-IN runs (08-09 lightweight
   process): clear pass/fail needs just the ledger verdict (which
-  auto-renders `rl_docs/runs/<run>.md`) + `wandbnote`.
+  + `wandbnote`; `ops.sh index story <run>` renders the run).
 - `ops.sh wandbdump <run>` — cache the run's W&B summary/config/
   history into its experiment dir (query the cache, not the API).
 - `ops.sh triage [hours]` — "is anything lost/ignored?" table: every
@@ -314,7 +313,7 @@ report.json, and the W&B API for exactly these questions.
     artifact.** `launch_run.py update --set verdict=…` pushes the
     verdict under the `--- OUTCOME ---` marker on the run's W&B page
     and attaches `analysis-<run>` (type run-analysis) to the run:
-    ledger entry, `rl_docs/runs/<run>.md`, and every
+    ledger entry, the rl_index story, and every
     `logs/ckpt_eval/<run>_*` + `logs/experiments/<run>/` file
     (report.json, contact sheets, videos). So run your harness evals
     BEFORE setting the verdict — files that exist at verdict time are

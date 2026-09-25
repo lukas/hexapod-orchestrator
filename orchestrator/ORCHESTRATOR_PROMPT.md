@@ -16,16 +16,21 @@ Bare relative paths below (`rl_move/...`, `rl_docs/...`, `config.yaml`,
 `logs/...`) are relative to `{PROTO}`; the research-process docs named
 above live at `{ORCH_ROOT}/<name>`.
 
-**Where you WRITE (state dir, 09-08; symlinks gone 09-16).** Everything a
-cycle appends to lives in the state dir `{STATE_DIR}`, never in either
-code tree: `{STATE_DIR}/RL_LOG.md` (via `ops.sh logline` only),
-`{STATE_DIR}/OPERATOR_QUESTIONS.md`, `{STATE_DIR}/rl_docs/SKILLS.md`,
-`{STATE_DIR}/CURRENT_TRUTHS.md`, `{STATE_DIR}/rl_docs/tracks/<track>/STATUS.md`,
-`{STATE_DIR}/rl_docs/runs/`. The hexapod code tree no longer carries symlinks
-to these (a `cat rl_docs/tracks/<track>/STATUS.md` there finds nothing), so
-always open the `{STATE_DIR}/...` path to
-edit. `snapshot.sh` mirrors the state dir to the PVC after every code
-snapshot. Sim code and track design docs stay in `{PROTO}`; the
+**Where you WRITE (state dir, 09-08; symlinks gone 09-16; prose retired
+09-25).** The ledger is the record: a run's hypothesis, gate and verdict
+live ONLY in its ledger entry (`ops.sh verdict`, `launch_run.py update`) and
+are rendered on demand by `ops.sh index story|topic|lineage`. Beyond the
+ledger a cycle writes exactly: `{STATE_DIR}/RL_LOG.md` (one line, via
+`ops.sh logline` only), `{STATE_DIR}/OPERATOR_QUESTIONS.md` (questions),
+`{STATE_DIR}/rl_docs/SKILLS.md` (one row per PASSed capability),
+`{STATE_DIR}/CURRENT_TRUTHS.md` (OPERATOR RULINGS and durable contracts
+only -- never a run finding, never a "closed mechanism class" essay), and
+`{STATE_DIR}/rl_docs/tracks/<track>/STATUS.md` kept as a SHORT Goal / Now /
+Next queue (<= 40 lines, no dated entries: the verdicts already say what
+happened). Nothing under `{STATE_DIR}/rl_docs/runs/` (retired; the index
+renders stories). The hexapod code tree carries no symlinks to these, so
+always open the `{STATE_DIR}/...` path to edit. `snapshot.sh` mirrors the
+state dir to the PVC after every code snapshot. Sim code and track design docs stay in `{PROTO}`; the
 operator-owned research docs (`STATUS.md`, `RL_PLAN.md`,
 `RESEARCH_RULES.md`, ...) stay at `{ORCH_ROOT}`; both go through the
 normal snapshot (`snapshot.sh` commits both checkouts).
@@ -33,6 +38,7 @@ normal snapshot (`snapshot.sh` commits both checkouts).
 ## TWO PARENT GOALS, SEVEN METHODS (operator clarification, 2026-09-08)
 
 Read `RL_GOALS.md` first: it owns purpose and priorities. `CURRENT_TRUTHS.md`
+owns operator rulings and durable contracts; the ledger (via `ops.sh index`)
 owns evidence and past verdicts; `tracks.json` owns the stable method registry.
 
 1. **`any_means` — smooth joystick walking on the physical robot by any
@@ -243,11 +249,12 @@ policy files and every real-robot drive result recorded under them;
 [--track t]` the evidence-ranked candidates (walked on the robot >
 exported > sim PASS); `ops.sh index real [policy|run]` the real-world
 numbers. Filter on `outcome` (PASS/PARTIAL/FAIL/CANARY_PASS/...), never on
-the raw `status` spelling. `CURRENT_TRUTHS.md` (accepted facts — outranks anything
-inferred from history) and `RL_PLAN.md` (the registered-track operating
-plan) are the ones to consult when a decision turns on a RULING or
-the plan; the relevant `{STATE_DIR}/rl_docs/tracks/<track>/STATUS.md` when you need
-that track's recent story; `{ORCH_ROOT}/RESEARCH_RULES.md`/`{ORCH_ROOT}/RUN_INTERPRETATION_RULES.md`
+the raw `status` spelling. `CURRENT_TRUTHS.md` (operator rulings — outranks
+anything inferred from history) and `RL_PLAN.md` (the registered-track
+operating plan) are the ones to consult when a decision turns on a RULING or
+the plan; `ops.sh index topic <track-or-skill>` for a track's recent story
+(lineages tried, outcomes) and its short `{STATE_DIR}/rl_docs/tracks/<track>/STATUS.md`
+for the Next queue; `{ORCH_ROOT}/RESEARCH_RULES.md`/`{ORCH_ROOT}/RUN_INTERPRETATION_RULES.md`
 only for the clause in play; `{ORCH_ROOT}/COMMANDS.md` for ops.sh helpers.
 Read the SMALLEST slice that answers the question — `grep`/`tail`/`sed` a
 range for your run's lineage — never `cat` a doc end-to-end: these files
@@ -293,9 +300,11 @@ what the current decision needs, then act.
      plain words -> evidence -> why -> what's next. Never hand-edit
      experiments.json; extra fields (`hardware_ready=...`) go through
      `launch_run.py update --set`.
-   - A PASS updates `rl_docs/SKILLS.md` (one row) in the same cycle; a
-     verdict that changes a track's story refreshes that track's
-     STATUS.md and, if campaign-level, `STATUS.md`.
+   - A PASS updates `rl_docs/SKILLS.md` (one row) in the same cycle. The
+     verdict text IS the finding: do NOT restate it in CURRENT_TRUTHS.md or
+     the track STATUS.md (both were 400+ KB of restated verdicts by 09-20;
+     the index renders them from the ledger). Edit the track STATUS.md only
+     to change its Goal / Now / Next queue.
    - A verdict belongs only to a run you evaluated; class-stops name
      the evaluated run as evidence.
 

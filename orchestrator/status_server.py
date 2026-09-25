@@ -2281,7 +2281,14 @@ def render_run_page(run: str) -> str | None:
         entries = []
     rows = [e for e in entries
             if isinstance(e, dict) and e.get("run") == run]
-    story = llm_doc_file(f"rl_docs/runs/{run}.md")
+    story = None
+    try:  # joined story from the ledger: lineage, cfg diff vs parent, exports
+        import rl_index
+        runs_idx = rl_index.load_runs(entries)
+        if run in runs_idx:
+            story = rl_index.story_md(rl_index.story(run, runs_idx, entries)).encode()
+    except Exception:
+        story = None
     cyc = [e for e in _cycle_registry_entries()
            if run in (e.get("runs") or []) or run in (e.get("label") or "")]
     if not rows and not cyc and story is None:
@@ -2385,7 +2392,7 @@ def render_run_page(run: str) -> str | None:
                     "(it only tracks cycles since 08-22)</div>")
 
     if story is not None:
-        body.append(f"<h2>Run story (rl_docs/runs/{esc(run)}.md)</h2>"
+        body.append(f"<h2>Run story (rl_index: lineage, diff vs parent, exports, real walks)</h2>"
                     f"<pre>{esc(story.decode(errors='replace')[:300000])}"
                     f"</pre>")
     return _page(run, body)
@@ -2510,10 +2517,6 @@ def llm_runs_md(base: str, key: str) -> str:
                        f"entr{'y' if count == 1 else 'ies'} "
                        f"(read with authenticated MCP get_run or "
                        f"list_run_feedback)")
-        story = state_dir.document_path(f"rl_docs/runs/{run}.md", PROTO)
-        if story is not None and story.is_file():
-            out.append(f"- full story: {base}/llm/doc/rl_docs/runs/"
-                       f"{run}.md{key}")
         out.append("")
     return "\n".join(out)
 
@@ -2541,12 +2544,8 @@ def git_head() -> str:
 
 
 def llm_docs_md(base: str, key: str) -> str:
-    n_runs = 0
     by_dir: dict[str, list[tuple[str, int]]] = {}
     for rel in list_docs():
-        if rel.startswith("rl_docs/runs/"):
-            n_runs += 1
-            continue
         try:
             p = state_dir.document_path(rel, PROTO)
             size = p.stat().st_size if p else 0
@@ -2568,12 +2567,6 @@ def llm_docs_md(base: str, key: str) -> str:
             out.append(f"- {rel} ({size // 1000} kB): "
                        f"{base}/llm/doc/{rel}{key}")
         out.append("")
-    out.append("## rl_docs/runs — per-run stories")
-    out.append("")
-    out.append(f"{n_runs} files, one per launched training run, at "
-               f"{base}/llm/doc/rl_docs/runs/<run>.md — run names are "
-               f"in the run ledger ({base}/llm/runs.md{key}), which "
-               f"gives each run's story URL directly.")
     return "\n".join(out)
 
 
@@ -2642,7 +2635,7 @@ entries at the end):
 {base}/llm/log.md{key}
 
 Run ledger — every launched training run with its hypothesis, status,
-and verdict, plus the URL of its full story document:
+and verdict (one run in full: MCP run_story / `ops.sh index story`):
 {base}/llm/runs.md{key}
 
 All documentation — index of every other markdown doc in the tree

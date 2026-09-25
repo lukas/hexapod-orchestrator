@@ -36,7 +36,7 @@ Everything that touches a path resolves it through `orchestrator/roots.py`
 | `ORCH_ROOT` | this checkout: code, prompts, flags, the research docs | from `__file__` |
 | `HEXAPOD_REPO` | the hexapod checkout the loop edits, launches and snapshots | `$HEXAPOD_REPO`, else sibling `../hexapod`, else `/workspace/hexapod` |
 | `PROTO` | `HEXAPOD_REPO/hexapod_walker/prototype_sts3215`, the importable sim tree | derived |
-| `STATE_DIR` | runtime state: `ledger/`, `backlog.json`, `RL_LOG.md`, `CURRENT_TRUTHS.md`, `OPERATOR_QUESTIONS.md`, `rl_docs/runs|meta|tracks` | `$HEXAPOD_STATE_DIR`, else `ORCH_ROOT/.state` (never a git repo; mirrored to the `hexapod-state` PVC by `state_sync.sh`) |
+| `STATE_DIR` | runtime state: `ledger/`, `backlog.json`, `RL_LOG.md`, `CURRENT_TRUTHS.md`, `OPERATOR_QUESTIONS.md`, `rl_docs/meta|tracks` (`rl_docs/runs` retired 09-25: `ops.sh index story` renders runs) | `$HEXAPOD_STATE_DIR`, else `ORCH_ROOT/.state` (never a git repo; mirrored to the `hexapod-state` PVC by `state_sync.sh`) |
 
 Env vars: `HEXAPOD_REPO`, `HEXAPOD_STATE_DIR` (above), `HEXAPOD_ORCH_BRANCH`
 (branch of the hexapod checkout that `snapshot.sh` commits to; default

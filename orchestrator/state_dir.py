@@ -2,7 +2,7 @@
 
 The ledger (``ledger/``), the launch queue (``backlog.json`` /
 ``backlog_failed.json``), the eval inbox (``pending_evals.json``), the
-generated per-run stories (``rl_docs/runs/<run>.md``) and the append-only
+the append-only
 cycle log (``RL_LOG.md``) are rewritten by machines many times an hour.
 Until 2026-09-08 they were committed to ``lukas/hexapod`` ``main`` before
 every launch (~300 commits/day, a 27 MB JSON blob in the code history);
@@ -94,7 +94,6 @@ BACKLOG = STATE_DIR / "backlog.json"
 BACKLOG_LOCK = STATE_DIR / "backlog.json.lock"
 BACKLOG_FAILED = STATE_DIR / "backlog_failed.json"
 PENDING_EVALS = STATE_DIR / "pending_evals.json"
-RUNS_DIR = STATE_DIR / "rl_docs" / "runs"
 RL_LOG = STATE_DIR / "RL_LOG.md"
 
 
@@ -201,8 +200,6 @@ def document_paths(proto: Path | None = None,
     names.update(("RL_LOG.md", "CURRENT_TRUTHS.md", "rl_docs/SKILLS.md",
                   "rl_move/orchestrator/OPERATOR_QUESTIONS.md"))
     names.update(ORCH_DOCS)
-    names.update(f"rl_docs/runs/{p.name}"
-                 for p in (STATE_DIR / "rl_docs" / "runs").glob("*.md"))
     names.update(f"rl_docs/meta/{p.name}"
                  for p in (STATE_DIR / "rl_docs" / "meta").glob("*.md"))
     names.update(f"rl_docs/tracks/{p.parent.name}/STATUS.md"

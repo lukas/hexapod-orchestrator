@@ -1,9 +1,10 @@
 # RESEARCH_RULES — binding agent behavior (operator, 08-21 reset)
 
 How the autonomous loop designs, launches, continues, and interprets
-experiments. Startup reading order: `RL_GOALS.md` → `CURRENT_TRUTHS.md` →
-`RL_PLAN.md` → the relevant `rl_docs/tracks/<track>/STATUS.md` → this
-file + `RUN_INTERPRETATION_RULES.md` before launch/triage.
+experiments. Startup reading order: `RL_GOALS.md` → `CURRENT_TRUTHS.md`
+(operator rulings) → `RL_PLAN.md` → `ops.sh index topic <track>` (what was
+tried, outcomes) + the track's short `rl_docs/tracks/<track>/STATUS.md` Next
+queue → this file + `RUN_INTERPRETATION_RULES.md` before launch/triage.
 
 ## Operator orders: obey first, ask after
 

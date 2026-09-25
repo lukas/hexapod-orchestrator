@@ -97,6 +97,8 @@ def test_run_dry_then_execute_archives_everything(tmp_path, capsys):
     (state / "RL_LOG.md").write_text("# RL_LOG\n\nLast compacted: never\n\n## Recent Lines\n- 09-01 old\n- 09-20 new\n")
     track = "".join(_sec(f"## 2026-09-{d:02d} entry", f"T{d}\n") for d in range(19, 9, -1))
     (state / "rl_docs" / "tracks" / "walkcurr" / "STATUS.md").write_text(track)
+    (state / "rl_docs" / "runs").mkdir()
+    (state / "rl_docs" / "runs" / "cw-x.md").write_text("# cw-x\ngenerated\n")
     before = {p: p.read_text() for p in state.rglob("*.md")}
 
     dc.run(state, TODAY, execute=False)
@@ -116,5 +118,8 @@ def test_run_dry_then_execute_archives_everything(tmp_path, capsys):
     assert "- 09-01 old" in (arch / "RL_LOG__archived_entries.md").read_text()
     assert "T10\n" in (arch / "rl_docs__tracks__walkcurr__STATUS__archived_entries.md").read_text()
     assert (arch / "README.md").exists()
+    assert report["rl_docs/runs/"]["moved"] == 1
+    assert not (state / "rl_docs" / "runs").exists()
+    assert (arch / "rl_docs_runs" / "cw-x.md").exists()
     # second run is a no-op
     assert all(v["moved"] == 0 for v in dc.run(state, TODAY, execute=True).values())

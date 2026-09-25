@@ -5,7 +5,7 @@ Every verdict path (ops.sh verdict -> launch_run update) writes `outcome`
 hardware_ready to a bool when it is one of the historical spellings
 ("yes"/"no"/"True"/"False"); anything else is kept verbatim, never dropped.
 The raw `status` is untouched. Mechanics-only: temp ledger, no W&B (no
---set verdict=), run story rendering and the real lock file patched out.
+--set verdict=), the real lock file patched out.
 """
 from __future__ import annotations
 
@@ -19,7 +19,6 @@ import state_dir
 
 
 def _update(monkeypatch, tmp_path, run, *sets):
-    monkeypatch.setattr(launch_run, "render_run_md", lambda entry: None)
     monkeypatch.setattr(launch_run, "ledger_lock",
                         lambda: contextlib.nullcontext())
     ns = argparse.Namespace(run=run, set=list(sets), create=False, created=None)

@@ -60,7 +60,6 @@ def alternate_state(tmp_path, monkeypatch):
         "CURRENT_TRUTHS.md": "current truths journal\n",
         "rl_docs/SKILLS.md": "current skills\n",
         "OPERATOR_QUESTIONS.md": "current operator questions\n",
-        "rl_docs/runs/fixture.md": "unique run story marker\n",
         "rl_docs/meta/META_2026-01-01.md": "meta analysis note\n",
         "rl_docs/tracks/amp/STATUS.md": "current amp\n",
         "rl_docs/tracks/newtrack/STATUS.md": "current newtrack\n",
@@ -105,30 +104,20 @@ def test_story_discovery_and_search_include_state_without_following_other_links(
     (proto / "logs").mkdir()
     (proto / "logs/hidden.md").write_text("hidden log\n")
     outside = tmp_path / "outside.md"
-    (state / "rl_docs/runs/escape.md").symlink_to(outside)
+    (state / "rl_docs/meta/escape.md").symlink_to(outside)
     indexed = mcp_server._doc_paths()
     assert indexed == status_server.list_docs()
-    assert "rl_docs/runs/fixture.md" in indexed
     assert "rl_docs/tracks/newtrack/STATUS.md" in indexed
     assert "logs/hidden.md" not in indexed
     assert "README.md" not in indexed
-    assert "rl_docs/runs/escape.md" not in indexed
+    assert "rl_docs/meta/escape.md" not in indexed
     assert "escape.md" not in indexed
-    assert "rl_docs/runs/fixture.md:1: unique run story marker" in (
-        mcp_server.t_search_docs("unique run story marker"))
-    assert "1 per-run stories" in mcp_server.t_list_docs()
-
-
-def test_run_detail_surfaces_read_alternate_story(alternate_state, monkeypatch):
-    monkeypatch.setattr(mcp_server, "feedback_for_run", lambda run: [])
-    monkeypatch.setattr(status_server, "_cycle_registry_entries", lambda: [])
-    monkeypatch.setattr(status_server, "representative_videos", lambda *a: {})
-    assert "unique run story marker" in mcp_server.t_get_run("fixture")
-    assert "unique run story marker" in status_server.render_run_page("fixture")
+    assert "rl_docs/meta/META_2026-01-01.md:1: meta analysis note" in (
+        mcp_server.t_search_docs("meta analysis note"))
 
 
 @pytest.mark.parametrize("rel", ["../outside.md", "/outside.md",
-                                "rl_docs/runs/../SKILLS.md", "experiments.json"])
+                                "rl_docs/meta/../SKILLS.md", "experiments.json"])
 def test_document_path_rejects_non_doc_and_traversal(alternate_state, rel):
     assert state_dir.document_path(rel) is None
 

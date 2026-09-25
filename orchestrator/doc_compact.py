@@ -24,6 +24,8 @@ Rules (each one explicit, each one a pure function of the text):
   RL_LOG.md           keep the header and the last KEEP_DAYS of `- MM-DD ...` lines.
   tracks/*/STATUS.md  for journals made of `## YYYY-MM-DD ...` entries (newest
                       first): keep the head and the newest KEEP_ENTRIES entries.
+  rl_docs/runs/       retired 2026-09-25 (`ops.sh index story` renders a run from
+                      the ledger): the whole directory moves to the archive.
 
 Usage:  python3 doc_compact.py [--state DIR] [--today YYYY-MM-DD] [--execute]
 Dry-run by default: prints what would move and the before/after sizes.
@@ -198,6 +200,14 @@ def run(state: Path, today: date, execute: bool, out=None) -> dict:
         tmp = p.with_suffix(p.suffix + ".tmp-compact")
         tmp.write_text(new)
         os.replace(tmp, p)
+    runs_dir = state / "rl_docs" / "runs"
+    if runs_dir.is_dir() and any(runs_dir.iterdir()):
+        n = sum(1 for _ in runs_dir.glob("*.md"))
+        report["rl_docs/runs/"] = {"before": n, "after": 0, "moved": n}
+        print(f"{'rl_docs/runs/ (generated run stories)':42} {n:>8} files -> archive", file=out)
+        if execute:
+            archive.mkdir(parents=True, exist_ok=True)
+            shutil.move(str(runs_dir), str(archive / "rl_docs_runs"))
     if execute:
         (archive / "README.md").write_text(
             f"# doc_compaction_{stamp}\n\nWritten by orchestrator/doc_compact.py on {stamp}.\n"

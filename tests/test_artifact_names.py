@@ -71,7 +71,6 @@ def test_long_analysis_publishes_to_existing_run(tmp_path, monkeypatch):
     monkeypatch.setitem(sys.modules, "wandb", SimpleNamespace(
         Artifact=Artifact, init=init, Settings=lambda **kwargs: None))
     monkeypatch.setattr(lr, "HERE", tmp_path / "rl_move" / "orchestrator")
-    monkeypatch.setattr(lr, "RUNS_DIR", tmp_path / "runs")
     run_name = "cw-" + "long-" * 27
     lr._publish_analysis_artifact(SimpleNamespace(id="same-id", project="same-project"),
                                   run_name, {"verdict": "health pass", "status": "PASS"})
