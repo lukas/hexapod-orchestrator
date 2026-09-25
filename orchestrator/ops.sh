@@ -492,14 +492,46 @@ pullckpt)  # pullckpt <run> — prefer durable controller, then training pod; md
   dest="$PROTO/rl_move/sim/policies/$name"
   controller="hexapod-sweep-friction"
   controller_src="/workspace/hexapod/hexapod_walker/prototype_sts3215/rl_move/sim/policies/$name"
-  # The controller copy is tied to the archived run. Training pods are reused
-  # and can later contain different weights under a historical filename.
-  kubectl cp --retries=5 "$controller:$controller_src" "$dest" 2>/dev/null
-  if [ -s "$dest" ]; then
-    echo "(recovered from durable controller: $controller_src)"
-    md5sum "$dest"
-    wc -c < "$dest" | awk '{print "size: "$1" bytes"}'
-    exit 0
+  # ROOT-CAUSE FIX (found 2026-09-24, riseexperts-acq1): this agent's own
+  # controller pod IS "hexapod-sweep-friction" ($(hostname) matches) —
+  # controller_src and dest are the literal SAME FILE on the SAME
+  # filesystem, not two different hosts. `kubectl cp pod:path path` in
+  # that case is a self-copy race (remote tar reads the file while the
+  # local tar extraction is simultaneously truncating/overwriting that
+  # same inode) that silently produces a same-SIZE, zero-padded, wrong-
+  # content local file ("File shrank; padding with zeros", caught only
+  # by a later zipfile open raising BadZipFile) — corrupted the
+  # controller's own canonical checkpoint copy outright, not a transient
+  # network hiccup that --retries could paper over. When self-referential,
+  # skip the network round-trip entirely: the resident file (if any) IS
+  # already the durable copy, just validate it in place.
+  if [ "$controller" = "$(hostname)" ]; then
+    if [ -s "$dest" ] && uv run python -c "import zipfile,sys; zipfile.ZipFile(sys.argv[1])" "$dest" 2>/dev/null; then
+      echo "(already resident on durable controller, self-referential host — no copy needed: $dest)"
+      md5sum "$dest"
+      wc -c < "$dest" | awk '{print "size: "$1" bytes"}'
+      exit 0
+    fi
+    echo "self-referential host and no valid local copy at $dest; falling to training pod $pod" >&2
+    rm -f "$dest"
+  else
+    # The controller copy is tied to the archived run. Training pods are
+    # reused and can later contain different weights under a historical
+    # filename. --retries=5 for the genuine cross-host case.
+    kubectl cp --retries=5 "$controller:$controller_src" "$dest" 2>/dev/null
+    if [ -s "$dest" ]; then
+      # A same-size zero-padded corrupt copy passes the plain -s size
+      # check above; verify the zip container actually opens before
+      # trusting it.
+      if uv run python -c "import zipfile,sys; zipfile.ZipFile(sys.argv[1])" "$dest" 2>/dev/null; then
+        echo "(recovered from durable controller: $controller_src)"
+        md5sum "$dest"
+        wc -c < "$dest" | awk '{print "size: "$1" bytes"}'
+        exit 0
+      fi
+      echo "durable controller copy failed zip-open check (corrupt transfer); retrying training pod $pod" >&2
+      rm -f "$dest"
+    fi
   fi
   rm -f "$dest"
   echo "durable controller copy missing; trying original training pod $pod"
@@ -1317,18 +1349,32 @@ manualdrive)  # manualdrive <run> <out-dir> [extra manual_drive_session args...]
   done < <(uv run python - "$run" <<'EOF'
 import json, os, sys
 run = sys.argv[1]
+# Same 08-13 fix drivevideo/hybriddemo/evalcmd already apply (found
+# 2026-09-24 running feeltest --unified on riseexperts-acq1, a run
+# whose FIRST ledger match by plain run-name scan is a REFUSED
+# re-launch stub with no --out-name/--cfg-set at all): prefer an
+# entry that actually ran (wandb_id/pid) over an earlier thin stub,
+# and fall back to the standard ppo_goal_<run> naming convention
+# (evalcmd's own `name = "ppo_goal_" + run.replace("-", "_")`) when
+# no entry carries an explicit --out-name either.
+entry = None
+fallback = None
 for e in __import__("state_dir").load_ledger():
-    if isinstance(e, dict) and e.get("run") == run:
-        args = e.get("extra_args", [])
-        ck = None
-        for i, a in enumerate(args):
-            if a == "--cfg-set":
-                print(args[i + 1])
-            if a == "--out-name":
-                ck = args[i + 1]
-        if ck:
-            print(f"CKPT rl_move/sim/policies/{ck}.zip")
-        break
+    if isinstance(e, dict) and e.get("run") == run and e.get("extra_args"):
+        fallback = e
+        if e.get("wandb_id") or e.get("checks", {}).get("pid"):
+            entry = e
+entry = entry or fallback
+args = entry.get("extra_args", []) if entry else []
+ck = None
+for i, a in enumerate(args):
+    if a == "--cfg-set":
+        print(args[i + 1])
+    if a == "--out-name":
+        ck = args[i + 1]
+if ck is None:
+    ck = "ppo_goal_" + run.replace("-", "_")
+print(f"CKPT rl_move/sim/policies/{ck}.zip")
 EOF
 )
   ckpt=""; cargs=()
