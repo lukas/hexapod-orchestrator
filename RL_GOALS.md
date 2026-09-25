@@ -361,3 +361,14 @@ curriculum, GRU + transformer, scratch and warm-start.
   signature to watch is park-duty growth / sacrificed legs at full DR with clean DR-0 retention. If a new arm fails,
   isolate ONE added axis at a time on its working parent rather than re-dosing the whole envelope.
   Full review: ~/.hexapod/analysis/widedr_campaign_review_2026-09-25.md.
+- OPERATOR RULING (2026-09-25 ~16:1x PT, Lukas, chat): NO DR RAMPS. "The checkpointing and restarting IS the ramp."
+  env.dr_stage_ramp_steps always starts at frac 0 = the NOMINAL sim (sim_env.apply_dr_stage_frac / RandRanges.scaled),
+  so a "fromceil20" ramp arm put a 2.0deg-trained walker back into a zero-asymmetry world and re-widened ALL axes over
+  6M steps -- ~5M steps below the parent's own DR before ever seeing the new ceiling. The stepping-stone method is now:
+  warm-start --init-from the rung-N PASS checkpoint, set the rung-N+1 ranges as ABSOLUTE overrides, NO ramp
+  (env.dr_stage_ramp_steps=0); if it holds, that checkpoint is the next stone. First arms under this order:
+  cw-adapt50hz-tfh{16,64,128}-noramp-ceil225-fromceil20-s{0,1,2} (9 x 20M, from the 3/3 ceil20 PASS transformer
+  checkpoints, recipe otherwise identical to the ramped ceil225 arms = one-variable comparison). These SUPERSEDE the
+  "warm-start and ramp" rule for new arms -- do not kill them as violations, do not launch new ramp arms. Reading rule:
+  judge the final quarter against the PARENT's terminal reward at matched episode length; report the first-quarter
+  trough (warm-start shock); leg-2/ep4 reseed rule applies; no 2.5 fork without an operator order.
