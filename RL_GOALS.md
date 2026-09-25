@@ -475,3 +475,16 @@ RE-OPEN (this is a NEW recipe, not a re-run of a closed one):
   to find the max learnable magnitude — do NOT jump to that before the slow ramp is actually tested.
 - Do NOT re-close citing the prior slowramp arm — that was a 25M misconfig. Verify the launched
   env.dr_stage_ramp_steps is actually ~120M before trusting any 'slow ramp' label.
+
+
+## ADD 2026-09-24 — TRANSFORMER arm on the same slow-ramp wide-DR adaptive task (deploy gate WAIVED)
+Lukas: try a transformer too; do NOT gate it on deployability ("easy to deploy if it works"). The training
+code already supports it (rl_move/sim/transformer_policy.py, train_ppo_sim --transformer: causal transformer
+actor-critic over the env-side frame stack). Launch a TRANSFORMER research arm alongside the GRU slow-ramp arms:
+- --transformer --cfg-set obs.history_frames=16 (the K-frame attention window = its temporal memory)
+  --tf-width 256 --tf-layers 3 --tf-heads 4 (mid-size; scale if it trains well). FROM SCRATCH (a transformer
+  cannot warm-start from a GRU/MLP checkpoint).
+- SAME task as the GRU re-launch: REAL slow ramp env.dr_stage_ramp_steps ~= 120000000 over --steps ~= 160000000,
+  full wide per-leg asymmetric DR + terrain, safety.max_delta_q_deg=0.75, multiple seeds.
+- DEPLOYABILITY: WAIVED for now. If it wins in sim, build the torch-free numpy transformer runtime in
+  np_policy.py (like the single-GRU port a813b837) THEN; do not skip the arm for lack of a runtime today.
