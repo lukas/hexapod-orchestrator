@@ -202,7 +202,14 @@ compute:
     # non-fill launch above 40M while raised is a guardrail violation.
     # One-run-per-GPU stays binding. Do NOT preempt tf256h64/tf256h128/
     # tf256-s2 and do NOT relaunch the failed 3.0/0.04 GRU arms.
-    max_steps_per_run: 160000000
+    # RESTORED same cycle 2026-09-25: all 8 fill members RUNNING-verified
+    # (drceil15/20/25 gru256-scratch s0 [+s1 at 20/25] on train-1/4/5/0/7,
+    # gru128-warm-ratchet drceil15/20/25 s0 on train-9/10/12; 120M ramp +
+    # drceil DR values + terrain + inherited combo_s0 --init-from
+    # confirmed in live argv). Non-fill launches obey the 40M cap; any
+    # RETRY of a dead drceil fill member may relaunch at 160M under this
+    # same exception.
+    max_steps_per_run: 40000000
     # At ~20k fps the CPU-pod eval cadence would fire every 10 s; the MJX
     # trainer's eval is skip-if-busy in a background thread, but keep it
     # sane. Never launch below these on a GPU pod:
