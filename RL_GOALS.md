@@ -384,3 +384,11 @@ curriculum, GRU + transformer, scratch and warm-start.
   each rung's outcome against the parent checkpoint's terminal reward and own-cfg gait_valid. Do not let the fleet idle
   while any rung is unresolved; do not spend GPUs re-dosing closed ramp arms. The ONLY reason to stop climbing a family
   is an explicit operator order.
+- STANDING HYPOTHESIS + LEVER ORDER (2026-09-26 ~04:5x UTC, after Lukas's "lfg"; CURRENT_TRUTHS entry of the same
+  time): the walker cannot ADAPT to per-leg miscalibration because it cannot SENSE it (frame-mode bias is invisible in the
+  reads by design; link scale unobserved; no foot contact/load in obs; walk_obs_body_vel=2 feeds the COMMAND, not measured
+  motion). Training at a ceiling therefore ties the zero-shot parent. Levers in order, each judged by the n>=100 rate
+  gate vs the parent zero-shot (gait_valid_rate.py), a TIE = next lever, never "close": (a) reward.k_park_duty 2.0->8.0
+  (launched: ...-noramp-ceil225-park8-...); (b) goal.walk_obs_body_vel=3 measured-velocity feedback (same obs width,
+  deployable estimator; robot runner still feeds mode 2 -> sim-valid first); (c) BUILD per-foot contact/load obs (+6
+  dims, --obs-pad-transplant 6; robot proxy = per-servo current); (d) reward reshaping toward hard draws / retry credit.
