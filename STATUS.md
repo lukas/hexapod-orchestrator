@@ -237,10 +237,12 @@ Next item 4; blocker blk_7072945137ee resolved):
   CLOSED 2/2 FAIL (parent-identical on the required own-DR AND-clause);
   the structural-competition ablation (`...-stressmix-stage0-
   nophaselock`, single lever `train.bc_anchor_phase_lock` 1.0->0.0)
-  is now CLOSED for tf128 (regressed past both required baselines,
-  09-26 ~17:0x) with the tf64 twin's matching read pending a
-  concurrent cycle. No stress_mix/joystick-readiness lever remains
-  agent-doable on this recipe without a genuinely new structural idea
+  is now CLOSED 0/2 BOTH widths (tf128 regressed past both required
+  baselines 09-26 ~17:0x; tf64 twin confirmed 09-26 ~17:5x, active
+  regression on slip+course vs both zero-shot-parent and the
+  phase-lock=1 sibling, rateeval n=96 parent-identical z=-0.30). No
+  stress_mix/joystick-readiness lever remains agent-doable on this
+  recipe without a genuinely new structural idea
   (see `standwalk/STATUS.md` Next item 0/0b). **Current recommendation:
   treat the ceil20 deployable checkpoints as DR-robust-but-fixed-
   heading-only** -- still needing the per-act latency measurement
