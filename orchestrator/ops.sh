@@ -2028,6 +2028,19 @@ cycle)  # cycle ["focus text"] — OPERATOR: kick one decision session now.
   echo "or one-shot:   ops.sh activity | ops.sh cyclelog operator-kick"
   ;;
 
+rateeval)  # rateeval <run> [--parent auto|none|<run>] [--n 96] [--workers W]
+  #   [--pod POD] [--scripted] [--dry-run] — fresh-draw gait_valid RATE of a
+  # checkpoint vs its parent zero-shot, W parallel niced evals ON A TRAINING
+  # POD (seeds 1..W, W*n/W episodes, ~2 min for n=96 on an idle pod).
+  # Verdict standard for any per-leg-asymmetry ceiling arm (Lukas 09-26):
+  # the fixed 6-episode seed-0 panel is descriptive only. Reports under
+  # $PROTO/logs/ckpt_eval/rate_<run>_n<N>/ (summary.json + per-seed dirs).
+  # Works from the operator Mac (re-execs on the controller).
+  shift
+  [ -d /workspace/hexapod ] || remote_ops rateeval "$@"
+  cd "$PROTO" && PYTHONPATH="$HERE" uv run python "$HERE/pod_rate_eval.py" "$@"
+  ;;
+
 activity)  # activity — what the orchestrator is doing RIGHT NOW, in one
   # shot: watcher heartbeat, pending kicks, every running cycle WITH
   # the tail of its live narration (cycles stream every thought/tool

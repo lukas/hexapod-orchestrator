@@ -95,6 +95,13 @@ identical injection, seeds, horizon, evaluator
 (`eval_checkpoint.py --baseline <parent.zip>`). Otherwise no causal
 claim.
 
+**Per-leg-asymmetry ceilings (dr.joint_zero_bias_deg / dr.link_len_leg_pct overrides), 2026-09-26:** the parent
+comparison MUST be `ops.sh rateeval <run>` -- n>=96 fresh draws, child vs the --init-from parent zero-shot under the
+child's cfg on the same seeds, Wilson CI + two-proportion z, per-episode identity. Do not read the fixed 6-episode
+seed-0 count as evidence either way at these ceilings: an open-loop scripted tripod reproduces the RL sacrificed-leg
+pattern exactly on those draws (CURRENT_TRUTHS 09-26 ~14:2x), so the count measures the draws. A TIE (CIs overlap,
+|delta| < ~10 pp) is a real finding about the lever, not a failed eval.
+
 ## 6. Did protected skills survive?
 
 New skill up + protected skill down = **SKILL INTERFERENCE**, not a

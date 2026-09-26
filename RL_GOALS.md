@@ -392,3 +392,12 @@ curriculum, GRU + transformer, scratch and warm-start.
   (launched: ...-noramp-ceil225-park8-...); (b) goal.walk_obs_body_vel=3 measured-velocity feedback (same obs width,
   deployable estimator; robot runner still feeds mode 2 -> sim-valid first); (c) BUILD per-foot contact/load obs (+6
   dims, --obs-pad-transplant 6; robot proxy = per-servo current); (d) reward reshaping toward hard draws / retry credit.
+- VERDICT-EVAL STANDARD (2026-09-26 ~16:xx UTC, Lukas: "shouldn't there be more evaluations?" -> "great do it"): for ANY
+  arm whose cfg overrides dr.joint_zero_bias_deg / dr.link_len_leg_pct (or any per-leg-asymmetry ceiling), the verdict
+  cites `ops.sh rateeval <run>` (orchestrator/pod_rate_eval.py): n>=96 FRESH walk/det draws (seeds 1..W, W parallel niced
+  evals on a training pod, ~2 min) for the child AND its --init-from parent evaluated zero-shot under the child's cfg on
+  the SAME seeds, reported as rate + Wilson CI, delta in pp with a two-proportion z/p, prog median on valid episodes,
+  parked-leg fraction on hard draws and per-episode identity. The fixed 6-episode seed-0 panel stays as the ledger's
+  descriptive panel but is NOT a basis for PASS/FAIL at these ceilings (half of all draws lose a foot for any controller
+  there; a 6-count has a ~20 pp standard error). The tool reports; the arm's pre-registered gate decides. Optional
+  `--scripted` adds the open-loop tripod on the same seeds as context (Lukas: interesting, not a pass criterion).
