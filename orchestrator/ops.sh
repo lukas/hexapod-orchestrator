@@ -678,6 +678,79 @@ print(f"# next cycle: uv run python -m rl_move.sim.gait_valid_rate "
 EOF
   ;;
 
+joygate)  # joygate <run> [own_dr_scale=1.0] [suffix=joygate] [dir_err_metric=windowed_1s]
+  # THE standard randomized-60s joystick DONE-gate probe, automated
+  # end-to-end like rateprobe: composes the eval_joystick_gate cfg-set
+  # list from the run's own ledger extra_args (stripping goal.walk_cmd_mode/
+  # resample_s/resample_jitter so the harness's own held-out stress_mix
+  # session bundle governs, not the training-time command mode/cadence),
+  # launches it DETACHED on the run's own pod (checkpoint already there),
+  # and registers it via `evalpending add` so the watcher spawns a cycle
+  # when gate_verdict.json lands. After calling this, EXIT the cycle —
+  # never sleep-poll (same rule as rateprobe: a 60s x 48-episode panel is
+  # minutes of GPU-idle wall clock, not a controller nap).
+  run="${2:?usage: joygate <run> [own_dr_scale] [suffix] [dir_err_metric] [--dry-run]}"
+  drs="${3:-1.0}"; sfx="${4:-joygate}"; metric="${5:-windowed_1s}"; dry="${6:-}"
+  uv run python - "$run" "$drs" "$sfx" "$metric" "$dry" <<'EOF'
+import shlex, subprocess, sys, time
+run, drs, sfx, metric, dry = sys.argv[1:6]
+entry = fallback = None
+for e in __import__("state_dir").load_ledger():
+    if isinstance(e, dict) and e.get("run") == run and e.get("extra_args"):
+        fallback = e
+        if e.get("status") not in ("REFUSED", "KILLED"):
+            entry = e
+entry = entry or fallback
+assert entry, f"no ledger entry with extra_args for {run}"
+pod = entry.get("pod")
+assert pod, f"ledger entry for {run} has no pod"
+args = entry["extra_args"]
+def val(flag, default=None):
+    return args[args.index(flag) + 1] if flag in args else default
+task = val("--task", "joint_walk")
+_SKIP_PREFIX = ("goal.walk_cmd_mode", "goal.walk_cmd_resample_s",
+                "goal.walk_cmd_resample_jitter")
+cfg = []
+for i, a in enumerate(args):
+    if a == "--cfg-set":
+        k = args[i + 1].split("=", 1)[0]
+        if k not in _SKIP_PREFIX:
+            cfg += ["--extra-cfg-set", args[i + 1]]
+stem = val("--out-name") or "ppo_goal_" + run.replace("-", "_")
+label = run.replace("-", "_") + "_" + sfx
+out = f"logs/ckpt_eval/{label}"
+report = f"/workspace/prototype_sts3215/{out}/gate_verdict.json"
+inner = ("cd /workspace/prototype_sts3215 && "
+         f"test -f {out}/gate_verdict.json && echo ALREADY_DONE && exit 0; "
+         "setsid nohup uv run python -m rl_move.sim.eval_joystick_gate "
+         f"rl_move/sim/policies/{stem}.zip --task {task} "
+         f"--own-dr-scale {drs} --dir-err-metric {metric} "
+         f"{' '.join(shlex.quote(c) for c in cfg)} "
+         f"--out-dir {out} > /tmp/eval_{label}.log 2>&1 < /dev/null & "
+         "echo LAUNCHED")
+if dry == "--dry-run":
+    print(f"pod={pod}\n{inner}")
+    sys.exit(0)
+r = subprocess.run(["kubectl", "exec", pod, "--", "bash", "-c", inner],
+                   capture_output=True, text=True, timeout=120)
+print(r.stdout.strip() or r.stderr.strip())
+if "ALREADY_DONE" in r.stdout:
+    print(f"report already on {pod}: {report}")
+    sys.exit(0)
+assert "LAUNCHED" in r.stdout, f"launch failed on {pod}: {r.stderr[:400]}"
+time.sleep(3)
+chk = subprocess.run(["kubectl", "exec", pod, "--", "bash", "-c",
+                      f"tail -3 /tmp/eval_{label}.log 2>/dev/null"],
+                     capture_output=True, text=True, timeout=60)
+print(chk.stdout.strip()[:500])
+subprocess.run(["bash", __import__("os").path.join(
+    __import__("os").environ["HERE"], "ops.sh"), "evalpending", "add",
+    pod, report, label], check=True)
+print(f"# next cycle: read logs/ckpt_eval/{label}/gate_verdict.json "
+      f"# now EXIT the cycle; the watcher wakes on {label}")
+EOF
+  ;;
+
 pollreap)  # pollreap <run> [interval_s=300] [max_min=180] — for a run
   # whose gate/owncfg is STILL genuinely computing on its pod with no
   # local supervisor left alive to copy it back (the original prestage
