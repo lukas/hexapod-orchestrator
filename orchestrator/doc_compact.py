@@ -41,8 +41,8 @@ import sys
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
-KEEP_DAYS = 7
-KEEP_ENTRIES = 8
+KEEP_DAYS = 3   # was 7; meta 09-26: at ~120 loglines/day + multi-KB STATUS
+KEEP_ENTRIES = 4  # entries/day, 7d/8-entry journals cost ~30K tokens per cat
 RULING_WORDS = re.compile(r"\b(operator|RULING|ORDER|Lukas)\b")
 DATE_RE = re.compile(r"(2026-\d\d-\d\d)")
 QSTAMP_RE = re.compile(r"q_(\d{4})(\d\d)(\d\d)T")

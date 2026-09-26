@@ -603,6 +603,81 @@ podeval)  # podeval <run> [suffix] — run gate + own-DR evals ON the run's
   exec uv run python "$HERE/pod_eval.py" "$@"
   ;;
 
+rateprobe)  # rateprobe <run> [n=100] [suffix=raten] [dr_scale=1.0] [seed=0] [--dry-run]
+  # THE standard own-pod gait_valid rate probe, automated end-to-end: composes
+  # the walk/det eval from the run's own ledger cfg, launches it DETACHED on
+  # the run's own pod with --no-video, and registers it via `evalpending add`
+  # so the watcher spawns a cycle when report.json lands. After calling this,
+  # EXIT the cycle — never sleep-poll a probe (meta 09-26: 1,988 poll-wait
+  # lines in 24h; one 3h cycle timeout babysat an n=100 probe that rendered
+  # 88 mp4s a rate read never opens). Compare next cycle with
+  # gait_valid_rate.py against the cached parent report.
+  run="${2:?usage: rateprobe <run> [n] [suffix] [dr_scale] [seed] [--dry-run]}"
+  n="${3:-100}"; sfx="${4:-raten}"; drs="${5:-1.0}"; seed="${6:-0}"; dry="${7:-}"
+  uv run python - "$run" "$n" "$sfx" "$drs" "$seed" "$dry" <<'EOF'
+import shlex, subprocess, sys, time
+run, n, sfx, drs, seed, dry = sys.argv[1:7]
+entry = fallback = None
+for e in __import__("state_dir").load_ledger():
+    if isinstance(e, dict) and e.get("run") == run and e.get("extra_args"):
+        fallback = e
+        if e.get("status") not in ("REFUSED", "KILLED"):
+            entry = e
+entry = entry or fallback
+assert entry, f"no ledger entry with extra_args for {run}"
+pod = entry.get("pod")
+assert pod, f"ledger entry for {run} has no pod"
+args = entry["extra_args"]
+def val(flag, default=None):
+    return args[args.index(flag) + 1] if flag in args else default
+task = val("--task", "joint_walk")
+ep = val("--episode-seconds", "20")
+_SKIP = {"sched.key", "sched.v0", "sched.v1", "sched.t0_steps",
+         "sched.t1_steps", "sched.n_envs"}
+cfg = []
+for i, a in enumerate(args):
+    if a == "--cfg-set":
+        k = args[i + 1].split("=", 1)[0]
+        if not k.startswith("goal.walk_residual") and k not in _SKIP:
+            cfg += ["--cfg-set", args[i + 1]]
+stem = val("--out-name") or "ppo_goal_" + run.replace("-", "_")
+label = run.replace("-", "_") + "_" + sfx
+out = f"logs/ckpt_eval/{label}"
+report = f"/workspace/prototype_sts3215/{out}/report.json"
+inner = ("cd /workspace/prototype_sts3215 && "
+         f"test -f {out}/report.json && echo ALREADY_DONE && exit 0; "
+         "setsid nohup uv run python -m rl_move.sim.eval_checkpoint "
+         f"rl_move/sim/policies/{stem}.zip --task {task} --modes walk "
+         f"--per-mode {n} --dr-scale {drs} --seed {seed} "
+         f"--episode-seconds {ep} {' '.join(shlex.quote(c) for c in cfg)} "
+         f"--no-video --out {out} > /tmp/eval_{label}.log 2>&1 < /dev/null & "
+         "echo LAUNCHED")
+if dry == "--dry-run":
+    print(f"pod={pod}\n{inner}")
+    sys.exit(0)
+r = subprocess.run(["kubectl", "exec", pod, "--", "bash", "-c", inner],
+                   capture_output=True, text=True, timeout=120)
+print(r.stdout.strip() or r.stderr.strip())
+if "ALREADY_DONE" in r.stdout:
+    print(f"report already on {pod}: {report}")
+    sys.exit(0)
+assert "LAUNCHED" in r.stdout, f"launch failed on {pod}: {r.stderr[:400]}"
+time.sleep(3)
+chk = subprocess.run(["kubectl", "exec", pod, "--", "bash", "-c",
+                      f"tail -3 /tmp/eval_{label}.log 2>/dev/null; "
+                      f"ls /proc/*/cmdline >/dev/null 2>&1; "
+                      f"grep -l eval_checkpoint /proc/[0-9]*/cmdline 2>/dev/null | head -1"],
+                     capture_output=True, text=True, timeout=60)
+print(chk.stdout.strip()[:500])
+subprocess.run(["bash", __import__("os").path.join(
+    __import__("os").environ["HERE"], "ops.sh"), "evalpending", "add",
+    pod, report, label], check=True)
+print(f"# next cycle: uv run python -m rl_move.sim.gait_valid_rate "
+      f"--report logs/ckpt_eval/{label}/report.json --report <parent_report> "
+      f"# now EXIT the cycle; the watcher wakes on {label}")
+EOF
+  ;;
+
 pollreap)  # pollreap <run> [interval_s=300] [max_min=180] — for a run
   # whose gate/owncfg is STILL genuinely computing on its pod with no
   # local supervisor left alive to copy it back (the original prestage
@@ -2040,7 +2115,7 @@ compact)  # compact [--dry-run] — journal compaction (doc_compact.py) on the L
   echo "  compact [--dry-run] (archive stale journal entries on the controller; pauses+waits for cycles) |"
   echo "  status | census | triage [hours] | procs <pod> | trainlog <run> [n] |"
   echo "  entry <run> | wandb <run> | quarters <run> [key...] | pullckpt <run> | pushckpt <pod> <ckpt> |"
-  echo "  podeval <run> [sfx] | m5eval <run> [pod] | evalcmd <run> | evalcmdstress <run> | speedpanel <run> [pod] [pins] | speedretention <run> [pod] | drain | killrun <run> |"
+  echo "  podeval <run> [sfx] | rateprobe <run> [n] [sfx] [dr] [seed] (no-video own-pod rate probe + evalpending, then EXIT) | m5eval <run> [pod] | evalcmd <run> | evalcmdstress <run> | speedpanel <run> [pod] [pins] | speedretention <run> [pod] | drain | killrun <run> |"
   echo "  waitlog <file> <regex> [t] | podwaitlog <pod> <file> [regex] [t] (no regex = wait for file to exist; NEVER hand-roll kubectl-exec ls polls) | evalpending add <pod> <file> <label> |"
   echo "  handoff <run> (deferred-artifacts registry: training/artifacts_pending/evaluated) |"
   echo "  prune [--execute] (mechanical seed-prune audit; watcher runs it live) |"

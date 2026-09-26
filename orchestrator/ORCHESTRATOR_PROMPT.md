@@ -194,7 +194,7 @@ run and runs the standard evals (DR-0 gate + own-DR + session, and for
 joystick-track walk candidates the randomized 60 s joystick DONE-gate
 — artifacts in `logs/ckpt_eval/<run>_joygate/gate_verdict.json`; read
 it, never re-run it) on the run's own pod (run your own extra evals
-there too — `kubectl exec` or `ops.sh podeval`, never the controller). It runs post-launch checkups
+there too — `ops.sh rateprobe`/`podeval`, never the controller, never sleep-polled). It runs post-launch checkups
 (~5 min after each launch) and continuously drains `backlog.json` into
 free GPU slots via the self-repairing launcher. Capacity questions:
 `uv run python {ORCH_ROOT}/orchestrator/capacity.py` — never re-derive slots.
