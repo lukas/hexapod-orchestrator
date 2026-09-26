@@ -228,13 +228,23 @@ Next item 4; blocker blk_7072945137ee resolved):
   out-of-distribution gap the joystick track itself found and fixed on
   08-29 (`cw-walk-allheading-{mlp,tf}-stressmix-ft1`, single-lever fix:
   add `goal.walk_cmd_mode=stress_mix`, fine-tune, nothing else changed,
-  both PASS). Applied that exact proven recipe to all 4 checkpoints
-  this cycle: `cw-adapt50hz-tf{64,128}l2h16-noramp-ceil20-frombase-
-  s{0,1}-stressmixft1` (15M-step fine-tunes, VERIFIED RUNNING). A PASS
-  on these makes that checkpoint the first standwalk candidate actually
-  eligible for a bounded physical trial (still needing the per-act
-  latency measurement below); read next cycle
-  (`standwalk/STATUS.md` 2026-09-26 ~14:2x). No transfer manifest
+  both PASS). Applied that exact proven recipe to all 4 checkpoints:
+  `cw-adapt50hz-tf{64,128}l2h16-noramp-ceil20-frombase-s{0,1}-
+  stressmixft1` -- **CLOSED 4/4 FAIL, parent-identical on every
+  joygate scalar.** Two follow-up levers off the pre-declared
+  if-false fork were then also closed: the stage0-restricted curriculum
+  fork (`...-stressmix-stage0`, constant `goal.walk_cmd_stage=0`)
+  CLOSED 2/2 FAIL (parent-identical on the required own-DR AND-clause);
+  the structural-competition ablation (`...-stressmix-stage0-
+  nophaselock`, single lever `train.bc_anchor_phase_lock` 1.0->0.0)
+  is now CLOSED for tf128 (regressed past both required baselines,
+  09-26 ~17:0x) with the tf64 twin's matching read pending a
+  concurrent cycle. No stress_mix/joystick-readiness lever remains
+  agent-doable on this recipe without a genuinely new structural idea
+  (see `standwalk/STATUS.md` Next item 0/0b). **Current recommendation:
+  treat the ceil20 deployable checkpoints as DR-robust-but-fixed-
+  heading-only** -- still needing the per-act latency measurement
+  below before any bounded physical trial. No transfer manifest
   packaged yet; `ops.sh index promising --track standwalk` lists every
   exported checkpoint.
 - `[Robot Lab]` achievability review for `walkcurr`'s `lower` role
