@@ -216,11 +216,27 @@ Next item 4; blocker blk_7072945137ee resolved):
   mis-tagged `[Robot Lab]` — it is pure CPU MuJoCo simulation, not a
   physical dependency; a cloud refill cycle launched it this cycle for
   the 4 ceil20 PASS checkpoints (both seeds x both widths), detached on
-  each run's own idle pod, registered via `evalpending` — read next
-  cycle (`standwalk/STATUS.md` 2026-09-26 ~14:0x). No transfer manifest
+  each run's own idle pod, registered via `evalpending`.
+  **UPDATE 2026-09-26 ~14:2x: all 4 read — DECISIVE 4/4 FAIL** (zero
+  falls, but slip/m 8.1-9.8 vs cap 2.9 and dir_err 62-66deg vs allow 40,
+  gait_valid_frac 0.8125 on every checkpoint; the windowed_1s course-err
+  metric doesn't flip any of the 4 either). None of the 4 are joystick-
+  ready as-is — closes that half of this bullet outright, not just
+  "not yet measured". Root cause: this whole lineage trains on a
+  legacy fixed/continuous-heading command mode that never sees the
+  gate's stress_mix family (turns/stops/reversals), the identical
+  out-of-distribution gap the joystick track itself found and fixed on
+  08-29 (`cw-walk-allheading-{mlp,tf}-stressmix-ft1`, single-lever fix:
+  add `goal.walk_cmd_mode=stress_mix`, fine-tune, nothing else changed,
+  both PASS). Applied that exact proven recipe to all 4 checkpoints
+  this cycle: `cw-adapt50hz-tf{64,128}l2h16-noramp-ceil20-frombase-
+  s{0,1}-stressmixft1` (15M-step fine-tunes, VERIFIED RUNNING). A PASS
+  on these makes that checkpoint the first standwalk candidate actually
+  eligible for a bounded physical trial (still needing the per-act
+  latency measurement below); read next cycle
+  (`standwalk/STATUS.md` 2026-09-26 ~14:2x). No transfer manifest
   packaged yet; `ops.sh index promising --track standwalk` lists every
-  exported checkpoint. Recommend tf64l2h16 first (fastest, DR-robust
-  through ceil20 on both seeds).
+  exported checkpoint.
 - `[Robot Lab]` achievability review for `walkcurr`'s `lower` role
   (controlled RL descent to <20mm terminal height error): 16/16
   agent-doable mechanism classes now closed FAIL (reward pricing,
