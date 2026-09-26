@@ -201,23 +201,26 @@ Next item 4; blocker blk_7072945137ee resolved):
 - `[Robot Lab]` bounded physical joystick trials of the two GO bundles:
   `todaypolicy-50hz-v1` (any_means) and `walkcurr/bundle_rlonly_v2`
   (rl_only) — transfer manifests and trial plans already packaged.
-- `[Robot Lab]` NEW 2026-09-26: `standwalk`'s deployable-width transformer
-  grid is now sim-complete — `tf64l2h16` (2-layer/16-frame, ~5ms/act
-  projected) 6/6 PASS (base+ceil15+ceil20, 2 seeds) and `tf128l2h16`
-  (~9ms/act projected) 7/7 PASS (base+ceil15+ceil20x2seeds+ceil20-
-  stepping-stone) at the operator's per-leg-asymmetric DR ceilings, all
-  exported (`linux_control/policies/adapt50hz_tf{64,128}l2h16_noramp_
-  ceil{15,20}_*.json`, parity ~1.2-1.8e-7). Two things still missing
-  before a bounded trial: (1) the ~5/~9ms per-act figures are a same-
-  runtime-shape PROJECTION (measured on other widths on hexapod2's PR#10
-  numpy runtime), NOT yet measured on these exact exported weights —
-  measure first; (2) these PASSes are straight/moderate-heading own-cfg
-  walk evals, not the randomized 60s joystick DONE-gate the joystick
-  track's own candidates went through — no `*_joygate` artifact exists
-  for either width yet. No transfer manifest packaged yet (unlike the
-  two bundles above); `ops.sh index promising --track standwalk` lists
-  every exported checkpoint. Recommend tf64l2h16 first (fastest, DR-
-  robust through ceil20 on both seeds).
+- `[Robot Lab]` `standwalk`'s deployable-width transformer grid is
+  sim-complete — `tf64l2h16` (2-layer/16-frame, ~5ms/act projected)
+  6/6 PASS (base+ceil15+ceil20, 2 seeds) and `tf128l2h16` (~9ms/act
+  projected) 7/7 PASS (base+ceil15+ceil20x2seeds+ceil20-stepping-stone)
+  at the operator's per-leg-asymmetric DR ceilings, all exported
+  (`linux_control/policies/adapt50hz_tf{64,128}l2h16_noramp_ceil{15,20}_
+  *.json`, parity ~1.2-1.8e-7). One thing still missing before a
+  bounded trial, genuinely physical: the ~5/~9ms per-act figures are a
+  same-runtime-shape PROJECTION (measured on other widths on
+  hexapod2's PR#10 numpy runtime), NOT yet measured on these exact
+  exported weights — measure first. **UPDATE 2026-09-26 ~14:0x:** the
+  other named gap (the randomized 60s joystick DONE-gate) was
+  mis-tagged `[Robot Lab]` — it is pure CPU MuJoCo simulation, not a
+  physical dependency; a cloud refill cycle launched it this cycle for
+  the 4 ceil20 PASS checkpoints (both seeds x both widths), detached on
+  each run's own idle pod, registered via `evalpending` — read next
+  cycle (`standwalk/STATUS.md` 2026-09-26 ~14:0x). No transfer manifest
+  packaged yet; `ops.sh index promising --track standwalk` lists every
+  exported checkpoint. Recommend tf64l2h16 first (fastest, DR-robust
+  through ceil20 on both seeds).
 - `[Robot Lab]` achievability review for `walkcurr`'s `lower` role
   (controlled RL descent to <20mm terminal height error): 16/16
   agent-doable mechanism classes now closed FAIL (reward pricing,
