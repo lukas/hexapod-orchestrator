@@ -249,6 +249,23 @@ Next item 4; blocker blk_7072945137ee resolved):
   below before any bounded physical trial. No transfer manifest
   packaged yet; `ops.sh index promising --track standwalk` lists every
   exported checkpoint.
+- `[Robot Lab]` NEW (2026-09-27): `standwalk`'s tf64l2h16 walker trained
+  directly under the robot's REAL 2000/80 servo write-profile (not
+  synthetic asymmetry DR) now PASSes 2/2 seeds --
+  `cw-walk50hz-tf64l2h16-profilewrite2000-acq20m-{s0,s1}` (own-cfg
+  gait_valid 6/6 both, DR-0 gait_valid 5/6 both, prog med 0.56-0.57,
+  slip med 4.17-4.20, 0 sacrificed legs, no wrong-way, clean 6-leg
+  video both seeds), exported at the 2000/80 stamp
+  (`linux_control/policies/
+  walk50hz_tf64l2h16_profilewrite2000_acq20m_{s0,s1}.json`, parity
+  1.79e-7 each; already 5ms/act-measured deployable at this width per
+  the tf64l2h16 base grid above). Unlike the ceil20 deployable grid
+  above, this checkpoint's DR span targets the exact write-speed/
+  latency signature the servo bus actually exhibits, not a generic
+  asymmetry ceiling -- a plausible next physical-trial candidate
+  alongside (or instead of) the ceil20 pair, still needing the same
+  per-act latency re-measurement on these exact weights and the
+  randomized 60s joystick DONE-gate before a bounded trial.
 - `[Robot Lab]` achievability review for `walkcurr`'s `lower` role
   (controlled RL descent to <20mm terminal height error): 16/16
   agent-doable mechanism classes now closed FAIL (reward pricing,
