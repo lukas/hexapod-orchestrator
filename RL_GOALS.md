@@ -319,6 +319,30 @@ than another dose or seed of a refuted recipe. Preserve run evidence and use
 the current ledger and track journals to choose the next justified work.
 
 
+## SERVO WRITE-PROFILE CONTRACT (2026-09-27, Lukas: "shouldn't we move everything to 2000/80? confirmed")
+Finding (sim2real stance hunt, CURRENT_TRUTHS 09-26/27): the robot's scripted gait has written servo goals at
+speed 2000 / acc 80 since 09-01 and tracks with <= 30 ms lag; RL trained AND deployed at the config default 400/20
+(~300 ms cmd->q lag on a 1.33 Hz gait, which low-pass filtered the gait and hid stance sensitivity), and the 09-21 sim
+refit had folded that profile lag into a 130/125 ms yaw/hip latency. Hardware lag table (yaw/hip/knee ms): RL 400/20
+284/320/124; RL 800 154/154/115; RL 1400-2000 115/153/77; scripted 2000/80 <= 15/30/15-30.
+RULINGS (hexapod branch `claude/sim-servo-profile-2000`, PR pending merge):
+- The contract is 2000/80 for everything: config default bus.write_speed=2000 / write_acc=80 /
+  servo_vel_max_counts_s=write_speed; the robot's RL fallback reads the same cfg; the exporter stamps
+  bus_write_speed/acc into every artifact from the training sidecar so the robot drives the TRAINED profile.
+- New DR axis `dr.write_speed_counts_s=lo,hi` (acc tied 400->20 .. 2000->80; ceiling follows on CPU + warp).
+  Campaign recipe: `dr.write_speed_counts_s=400,2000 dr.latency_scale=0.5,1.5` centred on 2000/80 evaluation.
+- Sim actuator: latency 29.7/25.6/8.6 ms (bench), deadband 0.15/0.15/0.25 -- do NOT re-raise latency to match an
+  RL tape's lag; that lag is the profile ramp + deadband acting on jittery commands (replay fit reproduces the
+  800-2000 RL lags with 25 ms latency). Open: sim RL commands are smoother than the robot's, so RL-command lag at
+  2000/80 is 40-60 ms in sim vs 115-150 on hardware -- a matched-command replay item, not a latency knob.
+- Every pre-09-27 checkpoint trained at 400/20: evaluate it at 400/20 (eval_checkpoint pins from the sidecar; pass
+  it explicitly anyway). A 400/20-trained policy at 2000/80 is a regime change, not a fair eval (Sep 24 ws_step
+  ladder: tracking improved, gait did not).
+- First arm after merge: warm-start the tf64 ceil20 s0 checkpoint at 2000/80 with the profile DR above
+  (`bus.write_speed=2000 bus.write_acc=80 bus.servo_vel_max_counts_s=write_speed dr.write_speed_counts_s=400,2000
+  dr.latency_scale=0.5,1.5`, no ramp), gate = rateeval at 2000/80 + the scripted stance A/B split staying
+  reproduced, then export (meta 2000/80) and walk on hexapod2.
+
 ## ADAPTIVE-WALKER CAMPAIGN (current, 2026-09-24) — supersedes the intermediate 2026-09-23/24 directives that were here
 The RL sim2real transfer lever is ROBUSTNESS TO THE ROBOT'S OWN PER-LEG MISCALIBRATION. Established by the full
 2026-09-24 hardware+sim investigation (analysis/rl_sim2real_gap.md, servo_transfer_fit.md; memory hexapod-rl-sim2real-gap).

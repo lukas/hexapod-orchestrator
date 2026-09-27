@@ -169,7 +169,13 @@ These are binding. A cycle that violates them reverts its own test.
   servo_vel_max_counts_s` and `safety.max_delta_q_deg` (copy them from the
   ledger entry's `command` field). Without them the eval runs a different,
   incomparable dynamics regime and has produced false PASSes. `ops.sh` and
-  the prestage gate set them for you.
+  the prestage gate set them for you. Since 2026-09-27 (hexapod
+  `claude/sim-servo-profile-2000`) eval_checkpoint also pins a checkpoint's
+  TRAINED profile from its `<ckpt>.training_complete.json` sidecar when no
+  `bus.*` cfg-set is given (the cfg default moved 400/20 -> 2000/80; every
+  earlier run trained at 400/20). Passing the run's own values explicitly
+  remains the rule; the pin is the safety net, and `[motor-contract]
+  pinned ...` in the eval log is the evidence it fired.
 
 ## Reward routing
 
