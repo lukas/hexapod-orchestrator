@@ -262,10 +262,19 @@ Next item 4; blocker blk_7072945137ee resolved):
   the tf64l2h16 base grid above). Unlike the ceil20 deployable grid
   above, this checkpoint's DR span targets the exact write-speed/
   latency signature the servo bus actually exhibits, not a generic
-  asymmetry ceiling -- a plausible next physical-trial candidate
-  alongside (or instead of) the ceil20 pair, still needing the same
-  per-act latency re-measurement on these exact weights and the
-  randomized 60s joystick DONE-gate before a bounded trial.
+  asymmetry ceiling. **UPDATE 2026-09-27 ~13:1x:** the randomized 60s
+  joystick DONE-gate now reads on both seeds -- DECISIVE 2/2 FAIL,
+  same signature as the ceil20 grid (zero falls, but slip/m 8.5-8.6
+  vs cap 2.9, dir_err ~61.5deg vs allow 40, gait_valid_frac 0.833) --
+  the profilewrite2000 lineage inherits the identical legacy fixed/
+  continuous-heading training distribution as the ceil20 family, so
+  the already-closed stress_mix disposition applies without a new
+  probe. Treat both checkpoints as DR-robust/write-profile-matched but
+  **fixed-heading-only**, same as the ceil20 pair -- still needing the
+  per-act latency re-measurement below before any bounded trial; no
+  further joystick-readiness lever is agent-doable on this recipe
+  without a genuinely new structural idea. See `standwalk/STATUS.md`
+  2026-09-27 ~13:1x.
 - `[Robot Lab]` achievability review for `walkcurr`'s `lower` role
   (controlled RL descent to <20mm terminal height error): 16/16
   agent-doable mechanism classes now closed FAIL (reward pricing,
