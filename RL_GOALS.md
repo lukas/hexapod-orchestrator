@@ -450,3 +450,25 @@ curriculum, GRU + transformer, scratch and warm-start.
   descriptive panel but is NOT a basis for PASS/FAIL at these ceilings (half of all draws lose a foot for any controller
   there; a 6-count has a ~20 pp standard error). The tool reports; the arm's pre-registered gate decides. Optional
   `--scripted` adds the open-loop tripod on the same seeds as context (Lukas: interesting, not a pass criterion).
+- HARDWARE ENVELOPE + PHYSICAL CONTRACT FOR THE TEACHER-FREE LINE (2026-09-27 ~23:xx UTC, Lukas: "can you fix and
+  retrain"; hexapod PR #16 `hexapod_core/hardware_envelope.py`): every commanded pose is clipped to the MEASURED leg
+  stops -- hip >= -52 deg, knee HINGE (tibia relative to femur) <= 125 deg (hexapod2; MJCF allowed 150) -- by the shared
+  SafetyLayer in sim (config.yaml `safety.hip_min_deg` / `safety.knee_hinge_max_deg`) and on the robot (tightest of cfg,
+  artifact meta.safety, host stops).  The exporter now stamps meta.safety {max_delta_q_deg, hip_min_deg,
+  knee_hinge_max_deg} so a policy runs under the slew contract it trained with.  Background: the only BC-free walker
+  on hexapod2 (cw-walk50hz-rlonly-crutchoff-s0-warmadapt-acq1, track walkcurr) trained at bus 4096/1000,
+  max_delta_q_deg 7.2 (360 deg/s), max_current 100 -- a ~10x faster, unlimited servo -- and on the robot ran at
+  400/20 with the 0.75 deg/tick default: 13.5 mm/s, then over_load at hinge 147-149 vs the 135.6 stop.  Every walker
+  that works on the robot is BC-anchored to the scripted TripodGait (train.bc_anchor_*); NONE is teacher-free.
+  LAUNCHED (operator override, chat): `cw-walk50hz-rlonly-envelope-warm-s{0,1}` (warm start from the acq1 checkpoint,
+  20M) and `cw-walk50hz-rlonly-envelope-scratch-s{0,1}` (same recipe from scratch, 40M), all at the DEPLOYABLE
+  contract: control.hz 50, bus 2000/80 (servo_vel_max = write_speed), safety.max_delta_q_deg 0.75 (= the standing
+  37.5 deg/s order of 2026-08-24), safety.max_current_a 2.5, envelope -52/125, dr-scale 0 as the recipe.  Gate
+  (pre-registered): own-cfg walk/det gait_valid >= 5/6 with progress >= 0.25 under this contract; PASS -> ONE bounded
+  real walk on hexapod2 via the auto-eval protocol (ws_step / rl_gait_trial), reported against 13.5 mm/s (its own
+  pre-fix read) and ~52 mm/s (ps200dr armcombo) as CONTEXT ONLY -- beating the tripod is not a pass criterion.
+  OPEN DECISION for Lukas, do NOT act on it: the 37.5 deg/s slew contract was justified by the 400-count bus; PR #11
+  moved the bus to 2000 (176 deg/s) without revisiting it.  No relaxed-slew arm without an operator order.
+  Rule for any teacher-free / from-scratch arm from now on: it MUST train at the deployable contract above (envelope,
+  2000/80, 0.75/tick, 2.5 A) -- a run that pins bus 4096 or max_delta 7.2 is not comparable to hardware and gets no
+  real-robot slot.
