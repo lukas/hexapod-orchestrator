@@ -338,6 +338,11 @@ RULINGS (hexapod branch `claude/sim-servo-profile-2000`, PR pending merge):
 - Every pre-09-27 checkpoint trained at 400/20: evaluate it at 400/20 (eval_checkpoint pins from the sidecar; pass
   it explicitly anyway). A 400/20-trained policy at 2000/80 is a regime change, not a fair eval (Sep 24 ws_step
   ladder: tracking improved, gait did not).
+- PREREQUISITE for any 2000/80 training (found by the reward banks, 09-27): the reward's clean-teacher envelope
+  (reward.walk_sway_allow_mm, walk_course_income_deadband_deg, course charges) was calibrated on the 400-clamped,
+  130 ms-latency teacher; under the refit actuator the honest teacher sways more and pays course charges (-77/episode
+  vs the bank's -60 bound). Recalibrate on the 2000/80 teacher so the honest gait pays ~0 BEFORE launching, or the
+  arm learns to suppress the sway the real robot shows. The two banks are pinned to the 09-21 actuator meanwhile.
 - First arm after merge: warm-start the tf64 ceil20 s0 checkpoint at 2000/80 with the profile DR above
   (`bus.write_speed=2000 bus.write_acc=80 bus.servo_vel_max_counts_s=write_speed dr.write_speed_counts_s=400,2000
   dr.latency_scale=0.5,1.5`, no ramp), gate = rateeval at 2000/80 + the scripted stance A/B split staying
