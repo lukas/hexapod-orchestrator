@@ -284,10 +284,17 @@ Next item 4; blocker blk_7072945137ee resolved):
   exported; the joygate finding does not change that PASS, it just
   scopes it the same way as every other checkpoint on this lineage:
   DR/actuator-robust-but-fixed-heading-only, not yet omnidirectional-
-  joystick-ready. s1's own joygate has not landed yet (launched, same
-  expect-FAIL basis); read it next against this same disposition, do
-  not re-launch or re-run the closed stress_mix fix on either. See
-  `standwalk/STATUS.md` 2026-09-27 ~13:5x.
+  joystick-ready. **UPDATE 2026-09-27 ~14:1x: s1's own joygate now read
+  too -- FAIL, same signature (slip/m 8.345 vs cap 2.9, dir_err
+  60.42deg vs allow 40, course_err 14.57deg vs allow 12, gait_valid_frac
+  0.833, zero falls, per-leg sacrifice pattern identical to s0 and to
+  both tf64 seeds).** Both tf128l2h16 profilewrite2000 seeds now marked
+  `hardware_ready` (export already validated, parity 1.79e-7) and both
+  deployable widths' profilewrite2000 grids CLOSE 4/4 FAIL on the
+  joystick DONE-gate -- same disposition as the ceil20 four
+  (DR/actuator-robust-but-fixed-heading-only). No further joystick-
+  readiness lever is agent-doable on this recipe without a genuinely
+  new structural idea. See `standwalk/STATUS.md` 2026-09-27 ~14:1x.
 - `[Robot Lab]` achievability review for `walkcurr`'s `lower` role
   (controlled RL descent to <20mm terminal height error): 16/16
   agent-doable mechanism classes now closed FAIL (reward pricing,
