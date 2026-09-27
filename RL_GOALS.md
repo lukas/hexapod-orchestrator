@@ -347,6 +347,26 @@ RULINGS (hexapod branch `claude/sim-servo-profile-2000`, PR pending merge):
   (`bus.write_speed=2000 bus.write_acc=80 bus.servo_vel_max_counts_s=write_speed dr.write_speed_counts_s=400,2000
   dr.latency_scale=0.5,1.5`, no ramp), gate = rateeval at 2000/80 + the scripted stance A/B split staying
   reproduced, then export (meta 2000/80) and walk on hexapod2.
+- **UPDATE 09-27 ~10:4x: the "after merge" dependency was narrower than it read.** PR#11
+  (`claude/sim-servo-profile-2000`) bundles the config.yaml DEFAULT flip + bank-test actuator pinning
+  together with the one genuinely-missing piece, the `dr.write_speed_counts_s` DR axis -- but that axis
+  is a small, cleanly-additive, default-OFF `(0,0)` unit (`domain_rand.py`/`sim_env.py`/`mjx_host.py`/
+  `servo_model.write_acc_for_speed`), separable from the global-default question. Hand-ported just that
+  slice onto the orchestrator branch (commit this cycle, tag
+  `exp/cw-walk50hz-tf64l2h16-profilewrite2000-canary2m`) WITHOUT touching config.yaml's default (still
+  400/20 for every other track) or the bank-test pin (unaffected either way, since they never read the
+  config default). `test_domain_rand_write_speed.py` (5/5, ported verbatim) exercises the exact CPU+warp
+  ceiling-follows-sample path end to end. Also re-measured the PREREQUISITE bank finding
+  (`probe_dir_floor.py`, new `--bus-servo-params/--bus-write-speed/--bus-write-acc` flags, unset=bit-exact)
+  and found it's rate-scoped: the honest teacher's course-err/sway are WORSE under profilefit@2000/80 only
+  at the bank's 100Hz reference rate (course p95 4.3deg/sway p95 2.06mm vs legacy 1.4deg/1.27mm); at the
+  tf64l2h16 lineage's actual 50Hz training rate the fast actuator is TIGHTER, not worse (course p95
+  2.0deg/sway p95 1.3mm vs legacy-at-50Hz 22.6deg/8.2mm), comfortably inside the existing 6deg/5mm
+  envelope. Launched the "first arm" above as a bounded 2M canary
+  (`cw-walk50hz-tf64l2h16-profilewrite2000-canary2m`, VERIFIED RUNNING); read it before dosing further,
+  and before assuming the 100Hz recalibration is still needed for any 50Hz arm. The knee-convention /
+  extended-plant boundary question (needs Lukas, CURRENT_TRUTHS ~09:3x) is UNRELATED to this axis and
+  remains untouched.
 
 ## ADAPTIVE-WALKER CAMPAIGN (current, 2026-09-24) — supersedes the intermediate 2026-09-23/24 directives that were here
 The RL sim2real transfer lever is ROBUSTNESS TO THE ROBOT'S OWN PER-LEG MISCALIBRATION. Established by the full
