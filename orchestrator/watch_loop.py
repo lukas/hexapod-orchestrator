@@ -570,22 +570,29 @@ def acknowledge_pending_evals(ready: list[dict]) -> None:
 
 
 def board_fingerprint() -> str:
-    """Cheap hash of everything that can make new work runnable for a
-    partial-refill cycle: ledger file stamps, backlog bytes, code HEAD.
-    Measured at the 09-10 meta-analysis: 18/48 refill cycles in
-    24h ended "IDLE: nothing runnable" against a byte-identical board
-    (~$46 + 4 agent-hours of re-surveys) because zero-GPU doc work kept
-    resetting the grace backoff. After a refill declares IDLE, the
-    watcher skips further refills until this fingerprint changes; run
-    completions, verdicts, backlog adds and code snapshots all change
-    it. Idle kicks (4h-capped), operator/MCP kicks and finish-triggered
-    triage are NOT gated."""
+    """Cheap hash of what a partial-refill can ACT on: backlog bytes,
+    code HEADs, track STATUS Next queues, CURRENT_TRUTHS. 09-10 meta:
+    18/48 refills ended IDLE on a byte-identical board (~$46/day); the
+    first fix hashed ledger stamps too, but 09-27 meta measured 12
+    pure-IDLE refills ($25) re-armed purely by concurrent cycles'
+    ledger writes (verdicts/claims on runs a refill cannot touch), so
+    ledger stamps are now excluded — verdicting cycles refill
+    themselves (step 4) and re-arm via STATUS/backlog/HEAD when they
+    leave work behind. Idle kicks (4h-capped, 24h heartbeat),
+    operator/MCP kicks and finish-triggered triage are NOT gated."""
     h = hashlib.sha256()
-    h.update(state_dir.ledger_fingerprint().encode())
     try:
         h.update(BACKLOG.read_bytes())
     except OSError:
         h.update(b"?")
+    docs = sorted((state_dir.STATE_DIR / "rl_docs" / "tracks").glob("*/STATUS.md"))
+    docs.append(state_dir.STATE_DIR / "CURRENT_TRUTHS.md")
+    for p in docs:
+        try:
+            st = p.stat()
+            h.update(f"{p}:{st.st_size}:{st.st_mtime_ns}\n".encode())
+        except OSError:
+            h.update(f"{p}:?\n".encode())
     for repo in (ORCH_ROOT, HEXAPOD_REPO):
         try:
             head = subprocess.run(
@@ -604,11 +611,12 @@ IDLE_REFILL_REAPED: list[bool] = []
 
 
 def has_refill_owner(active: list[dict]) -> bool:
-    """A focused owner already checks capacity; ordinary triage may coexist."""
-    return any(c.get("label") in {
-        "refill", "partial-refill", "idle-kick", "operator-kick", "mcp-kick", "evalready",
-        META_LABEL,
-    } for c in active)
+    """ANY in-flight cycle defers a refill spawn: every cycle's step 4
+    is itself a refill pass, so a parallel partial-refill just re-derives
+    the same board (09-27 meta: refills spawned beside active walkcurr
+    triage cycles concluded "owned by concurrent cycle" all day). The
+    trigger re-fires within one poll of the last cycle exiting."""
+    return bool(active)
 
 
 def partial_idle_capacity() -> dict | None:
