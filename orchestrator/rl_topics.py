@@ -308,7 +308,7 @@ def gait_families(runs: dict, pols: dict, real: dict, lab: list[dict], lineage: 
             "lab_robots": sorted({x["robot"] for x in trials}),
             "real": agg,
         })
-    rows.sort(key=lambda r: (-(r["lab_trials"] + ((r["real"] or {}).get("legs", 0))), r["policy"]))
+    rows.sort(key=lambda r: (-(r["lab_trials"] + ((r["real"] or {}).get("drives", 0))), r["policy"]))
     return rows
 
 
@@ -364,10 +364,10 @@ def gaits_page(fams: list[dict]) -> str:
          "`lineage runs` = every RL run in the same family tree as the policy's training run "
          "(`ops.sh index lineage <run>` prints the tree; `ops.sh index gait <policy>` this row in full).", "",
          "| policy | training run (outcome) | track | lineage runs | lineage outcomes | on robots | lab trials | "
-         "drive legs / speed_ratio / tilt | sweep roll rms |", "|---|---|---|---|---|---|---|---|---|"]
+         "drives / speed_ratio / tilt | sweep roll rms |", "|---|---|---|---|---|---|---|---|---|"]
     for f in fams:
         rw = f["real"] or {}
-        legs = (f"{rw.get('legs', 0)} / {rl_index._fmt_ratio(rw.get('speed_ratio_med'))} / "
+        legs = (f"{rw.get('drives', 0)} / {rl_index._fmt_ratio(rw.get('speed_ratio_med'))} / "
                 f"{rw.get('tilt_max_deg_med') if rw.get('tilt_max_deg_med') is not None else '-'}") if rw else "-"
         lo = ", ".join(f"{k} {v}" for k, v in sorted(f["lineage_outcomes"].items(), key=lambda kv: -kv[1])[:4]) or "-"
         o.append(f"| {f['policy']} | {f['run'] or '?'} ({f['outcome'] or '?'}) | {f['track'] or '?'} | {f['lineage_runs']} | {lo} | "

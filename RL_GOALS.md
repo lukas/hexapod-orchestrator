@@ -491,8 +491,8 @@ curriculum, GRU + transformer, scratch and warm-start.
   export: trained slew x hz <= 176 deg/s and bus.write_speed <= 2000 (+15 %), runnable architecture (mlp / single or dual
   GRU; transformer until PR #10). Then: export on the owning pod (phase_hz from goal.walk_phase_hz / teacher period
   scale, source_run stamped) -> POST /api/rl/policies as `ae_<run>` -> lab session: RL stand, axis calibration, two
-  far-edge legs vx 80 x 20 s, sit, finish (registry) -> WRITE-BACK to the ledger: `real_walk` (JSON: straight_speed_mm_s
-  per leg, heading_change_deg, stop_reasons, max_current_a, temp_rise_max_c, foot_check, artifact, contract, session),
+  far-edge DRIVES (one drive = one forward command to the whole robot for 20 s; the robot's legs are 'leg 0..5') vx 80,
+  sit, finish (registry) -> WRITE-BACK to the ledger: `real_walk` (JSON: straight_speed_mm_s per drive, heading_change_deg, stop_reasons, max_current_a, temp_rise_max_c, foot_check, artifact, contract, session),
   `real_walk_label` in {WALKS (>=20 mm/s, |heading| < 20), WEAK (5-20), STALLS/TRIPS, NO WALK}, `hardware_ready=true`
   (artifact ran on the robot); undeployable -> `real_walk_skip=<reason>`. Plus an RL_LOG line and `ops.sh index build`.
   It never sets `verdict`. Gates per tick: lab free + quiet 3 min, robot web up / 18 servos live / no trip / max temp

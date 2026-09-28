@@ -20,7 +20,7 @@ Joins used (all by name, verified 2026-09-20 on every exported RL policy):
     -> checkpoint  rl_move/sim/policies/ppo_goal_cw_foo_bar.zip
     -> exported    linux_control/policies/<name>.json   (meta.source = that zip)
     -> robot       ~/.hexapod_policies/<name>.json       (same file)
-    -> real walk   <lab run>/walk_summary.json legs[].policy == <name>.json
+    -> real walk   <lab run>/walk_summary.json drives[].policy == <name>.json  ("legs" before 2026-09-28)
 
 Nothing here writes to the ledger; `launch_run.py update` uses `outcome()`
 and `coerce_hardware_ready()` so new verdicts carry the canonical fields.
@@ -82,7 +82,7 @@ OUTCOMES: dict[str, str] = {
     "REFUSED": "launcher guardrail blocked it; no GPU time spent",
     "OTHER": "status not recognised -- extend outcome() and status_map.json",
 }
-# A real drive leg that covers less than this fraction of the commanded speed
+# A real drive that covers less than this fraction of the commanded speed
 # is "barely moving": smooth or not, it is not a walking result yet.
 MIN_WALKING_RATIO = 0.15
 
@@ -429,10 +429,11 @@ def _lab_plans(db: Path | None = None) -> dict[str, dict]:
 
 
 def load_real_walks(dirs=None, plans: dict | None = None) -> list[dict]:
-    """One row per RL drive leg on the real robot, from every lab run folder.
+    """One row per RL DRIVE on the real robot (one commanded whole-robot move measured by the lab; the
+    robot's six legs are 'leg 0..5'), from every lab run folder.
 
     Sessions are deduplicated on session.json `id` (the Lab registry imports
-    the same folder the lab service wrote). Scripted legs (no `policy`) are
+    the same folder the lab service wrote). Scripted drives (no `policy`) are
     skipped: they are not RL experiments."""
     dirs = LAB_RUNS_DIRS if dirs is None else dirs
     plans = _lab_plans() if plans is None else plans
@@ -456,14 +457,14 @@ def load_real_walks(dirs=None, plans: dict | None = None) -> list[dict]:
                 continue
             seen.add(sid)
             plan = plans.get(d.name) or {}
-            for i, leg in enumerate(w.get("legs") or []):
+            for i, leg in enumerate(w.get("drives") or w.get("legs") or []):   # "legs" = run folders before 2026-09-28
                 pol = leg.get("policy")
                 if not pol:
                     mode = str(leg.get("mode") or "")
                     pol = mode[3:] if mode.startswith("RL:") else None
                 if not pol or not leg.get("seconds"):
                     continue
-                row = {"session": sid, "leg": i, "robot": s.get("robot") or w.get("robot"),
+                row = {"session": sid, "drive": i, "robot": s.get("robot") or w.get("robot"),
                        "when": s.get("created_iso"), "agent": s.get("agent"),
                        "purpose": first_sentence(s.get("purpose"), 160),
                        "lab_title": plan.get("title"), "lab_status": plan.get("status"),
@@ -472,7 +473,7 @@ def load_real_walks(dirs=None, plans: dict | None = None) -> list[dict]:
                     if k in leg:
                         row[k] = leg[k]
                 rows.append(row)
-    rows.sort(key=lambda r: (r.get("when") or "", r["session"], r["leg"]))
+    rows.sort(key=lambda r: (r.get("when") or "", r["session"], r["drive"]))
     return rows
 
 
@@ -555,7 +556,7 @@ def _median(vals):
 
 
 def summarise_real(rows: list[dict], sweeps: list[dict] | None = None) -> dict[str, dict]:
-    """Per-policy aggregate of the real drive legs (lab service) and the
+    """Per-policy aggregate of the real drives (lab service) and the
     older sweep exposures (IMU roll/pitch RMS)."""
     by: dict[str, list[dict]] = defaultdict(list)
     for r in rows:
@@ -568,7 +569,7 @@ def summarise_real(rows: list[dict], sweeps: list[dict] | None = None) -> dict[s
         legs, exps = by.get(pol, []), sw.get(pol, [])
         whens = sorted(x.get("when") or "" for x in legs + exps)
         out[pol] = {
-            "legs": len(legs),
+            "drives": len(legs),
             "sessions": len({x["session"] for x in legs}),
             "sweep_exposures": sum(int(x.get("exposures") or 1) for x in exps),
             "sweep_sessions": len({x["session"] for x in exps}),
@@ -594,13 +595,13 @@ def summarise_real(rows: list[dict], sweeps: list[dict] | None = None) -> dict[s
 # ------------------------------------------------------------ promising
 def walk_rank(rw: dict) -> tuple:
     """Sort key for real-world evidence, SMOOTHNESS first (the campaign goal
-    is a smooth walk, not a fast one): (1) policies whose drive legs reach
+    is a smooth walk, not a fast one): (1) policies whose drives reach
     >= MIN_WALKING_RATIO of the commanded speed, lowest median tilt first,
     speed_ratio as tiebreaker; (2) policies that barely move, by tilt;
-    (3) sweep-only evidence (no drive legs), lowest IMU roll RMS first. A
+    (3) sweep-only evidence (no drives), lowest IMU roll RMS first. A
     'poor' harness verdict sinks a policy to the end of its group."""
     ratio = rw.get("speed_ratio_med")
-    if rw.get("legs"):
+    if rw.get("drives"):
         group = 0 if (ratio or 0) >= MIN_WALKING_RATIO else 1
         smooth = rw.get("tilt_max_deg_med")
     else:
@@ -608,7 +609,7 @@ def walk_rank(rw: dict) -> tuple:
         smooth = rw.get("roll_rms_deg_med")
     poor = 1 if (rw.get("sweep_verdicts") or {}).get("poor") else 0
     return (group, poor, smooth if smooth is not None else 999.0, -(ratio or 0.0),
-            -(rw.get("legs", 0) + rw.get("sweep_exposures", 0)))
+            -(rw.get("drives", 0) + rw.get("sweep_exposures", 0)))
 
 
 def promising(runs: dict, policies: dict, real: dict, track: str = "",
@@ -763,8 +764,8 @@ def story_md(s: dict) -> str:
 
 def _real_line(pol: str, rw: dict) -> str:
     parts = [f"- {pol}: on {', '.join(rw['robots'])} {(rw['first'] or '')[:10]}..{(rw['last'] or '')[:10]}"]
-    if rw["legs"]:
-        parts.append(f"{rw['legs']} drive legs / {rw['sessions']} sessions: speed_ratio med "
+    if rw["drives"]:
+        parts.append(f"{rw['drives']} drives / {rw['sessions']} sessions: speed_ratio med "
                      f"{_fmt_ratio(rw['speed_ratio_med'])}, straight {rw['straight_speed_mm_s_med']} of "
                      f"{rw['commanded_speed_mm_s_med']} mm/s commanded, tilt max med {rw['tilt_max_deg_med']} deg, "
                      f"|heading change| med {rw['heading_change_deg_med']} deg, stops {rw['stop_reasons']}")
@@ -817,7 +818,7 @@ def index_md(meta: dict, runs: dict, pols: dict, real: dict, prom: dict,
          f"Built {meta['built_at']} from ledger fingerprint {meta['ledger_fingerprint'][:12]} "
          f"({meta['ledger_entries']} entries, {meta['runs']} runs, {meta['tracks']} tracks). "
          f"Real-world sources: {', '.join(meta['real_sources']) or 'none reachable from here'} "
-         f"({meta['real_legs']} RL drive legs in {meta['real_sessions']} sessions).", "",
+         f"({meta['real_legs']} RL drives in {meta['real_sessions']} sessions).", "",
          "Everything here is DERIVED from the ledger, the exported policy files and the Robot Lab "
          "run folders; nothing is hand-edited. Rebuild: `ops.sh index build`. Query one run: "
          "`ops.sh index story <run>` (lineage, what changed vs parent, hypothesis/gate/verdict, "
@@ -830,7 +831,7 @@ def index_md(meta: dict, runs: dict, pols: dict, real: dict, prom: dict,
          f"everything recorded. ORDER: smoothness first -- policies whose legs reach >= {MIN_WALKING_RATIO:.2f} "
          "of the commanded speed, lowest tilt first (speed as tiebreaker); then policies that barely move; "
          "then sweep-only evidence by roll RMS; a 'poor' harness verdict sinks a row within its group.", "",
-         "| policy | source run (sim outcome) | track | drive legs / sessions | speed_ratio | straight mm/s | "
+         "| policy | source run (sim outcome) | track | drives / sessions | speed_ratio | straight mm/s | "
          "tilt max deg | sweep exposures | roll rms deg | harness verdicts | robots | last |",
          "|---|---|---|---|---|---|---|---|---|---|---|---|"]
     for w in prom["walked_on_robot"]:
@@ -843,7 +844,7 @@ def index_md(meta: dict, runs: dict, pols: dict, real: dict, prom: dict,
                  f"{', '.join(f'{k} {v}' for k, v in rw['sweep_verdicts'].items()) or '-'} | "
                  f"{', '.join(rw['robots'])} | {(rw['last'] or '')[:10]} |")
     if not prom["walked_on_robot"]:
-        o.append("| (no real RL drive legs found from this machine) | | | | | | | | | | | |")
+        o.append("| (no real RL drives found from this machine) | | | | | | | | | | | |")
     o += ["", "## 2. Exported for the robot, not yet walked", "",
           "| policy | source run | track | sim outcome | phase | hz | on robots | manifests |",
           "|---|---|---|---|---|---|---|---|"]
@@ -999,7 +1000,7 @@ def real_md(rows: list[dict], key: str = "", limit: int = 50, pols: dict | None 
         rows = [r for r in rows if r["policy"] in names or key in r["policy"]]
         sweeps = [r for r in sweeps if r["policy"] in names or key in r["policy"]]
     agg = summarise_real(rows, sweeps)
-    o = [f"{len(rows)} RL drive legs in {len({r['session'] for r in rows})} lab sessions + "
+    o = [f"{len(rows)} RL drives in {len({r['session'] for r in rows})} lab sessions + "
          f"{len(sweeps)} sweep exposures in {len({r['session'] for r in sweeps})} harness runs, "
          f"{len(agg)} policies" + (f" matching {key!r}" if key else "")]
     for pol, a in sorted(agg.items(), key=lambda kv: -(kv[1]["speed_ratio_med"] or 0)):
@@ -1054,7 +1055,7 @@ def main(argv=None) -> int:
     p.add_argument("--track", default="")
     p.add_argument("--limit", type=int, default=20)
     p.add_argument("--json", action="store_true")
-    r = sub.add_parser("real", help="real-robot RL drive legs, per policy")
+    r = sub.add_parser("real", help="real-robot RL drives (whole-robot moves), per policy")
     r.add_argument("key", nargs="?", default="", help="policy file name or ledger run")
     r.add_argument("--limit", type=int, default=50)
     sub.add_parser("topics", help="topic table over RL runs + Robot Lab experiments")

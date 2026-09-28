@@ -146,13 +146,13 @@ def _policy_file(path, source, notes=""):
                                 "W1": [[0.0]], "b1": [0.0]}))
 
 
-def _lab_session(root, sid, robot, policy, legs):
+def _lab_session(root, sid, robot, policy, legs, legacy=False):
     d = root / sid
     d.mkdir(parents=True)
     (d / "session.json").write_text(json.dumps({"id": sid, "robot": robot, "agent": "endurance.py",
                                                 "purpose": f"endurance {policy}",
                                                 "created_iso": "2026-09-20T12:00:00-0700"}))
-    (d / "walk_summary.json").write_text(json.dumps({"robot": robot, "legs": [
+    (d / "walk_summary.json").write_text(json.dumps({"robot": robot, ("legs" if legacy else "drives"): [
         {"label": f"leg{i}", "mode": f"RL:{policy}", "policy": policy, "seconds": 6.0,
          "commanded_speed_mm_s": 100.0, "straight_speed_mm_s": v, "speed_ratio": v / 100.0,
          "mean_speed_mm_s": v + 5, "tilt_max_deg": 8.0, "heading_change_deg": -3.0,
@@ -173,7 +173,7 @@ def test_policies_join_runs_and_real_walks(state_ledger, tmp_path, monkeypatch):
              "exported_np_policy": "linux_control/policies/acq_50hz.json"}]}))
     lab = tmp_path / "lab_runs"
     _lab_session(lab, "s-1", "hexapod2", "acq_50hz.json", [30.0, 40.0, 50.0])
-    _lab_session(lab, "s-2", "hexapod2", "acq_50hz.json", [20.0])
+    _lab_session(lab, "s-2", "hexapod2", "acq_50hz.json", [20.0], legacy=True)   # a pre-2026-09-28 folder still says "legs"
     mirror = tmp_path / "registry"
     _lab_session(mirror, "s-1", "hexapod2", "acq_50hz.json", [30.0, 40.0, 50.0])  # same id: deduped
     _lab_session(lab, "s-3", "hexapod2", "unknown_policy.json", [10.0])
@@ -196,7 +196,7 @@ def test_policies_join_runs_and_real_walks(state_ledger, tmp_path, monkeypatch):
     assert len(rows) == 5                      # 3 + 1 (+0 dedup) + 1 unknown; scripted skipped
     agg = rl_index.summarise_real(rows)
     a = agg["acq_50hz.json"]
-    assert a["legs"] == 4 and a["sessions"] == 2 and a["speed_ratio_med"] == 0.35
+    assert a["drives"] == 4 and a["sessions"] == 2 and a["speed_ratio_med"] == 0.35
     assert a["robots"] == ["hexapod2"]
 
     for name, ag in agg.items():
@@ -208,9 +208,9 @@ def test_policies_join_runs_and_real_walks(state_ledger, tmp_path, monkeypatch):
     assert prom["by_track"]["walkcurr"]["walked_policies"] == ["acq_50hz.json"]
 
     s = rl_index.story("cw-root-acq", runs, state_dir.load_ledger(), pols, rows, [])
-    assert s["real_walks"]["acq_50hz.json"]["legs"] == 4
+    assert s["real_walks"]["acq_50hz.json"]["drives"] == 4
     md = rl_index.story_md(s)
-    assert "exported as acq_50hz.json" in md and "4 drive legs / 2 sessions" in md
+    assert "exported as acq_50hz.json" in md and "4 drives / 2 sessions" in md
 
 
 def test_sweep_folders(tmp_path, monkeypatch):
@@ -240,11 +240,11 @@ def test_sweep_folders(tmp_path, monkeypatch):
     assert sweeps[1]["roll_rms_deg"] == 3.0 and sweeps[1]["max_current_a"] == 0.3
     agg = rl_index.summarise_real([], sweeps)["wt.json"]
     assert agg["sweep_exposures"] == 4 and agg["sweep_verdicts"] == {"promising": 1}
-    assert agg["roll_rms_deg_med"] == 2.1 and agg["legs"] == 0
+    assert agg["roll_rms_deg_med"] == 2.1 and agg["drives"] == 0
 
 
 def _agg(**kw):
-    base = {"legs": 0, "sessions": 0, "sweep_exposures": 0, "sweep_sessions": 0,
+    base = {"drives": 0, "sessions": 0, "sweep_exposures": 0, "sweep_sessions": 0,
             "speed_ratio_med": None, "tilt_max_deg_med": None, "roll_rms_deg_med": None,
             "sweep_verdicts": {}}
     base.update(kw)
@@ -252,10 +252,10 @@ def _agg(**kw):
 
 
 def test_walk_rank_prefers_smooth_walking_over_fast_rocking():
-    smooth_walker = _agg(legs=29, speed_ratio_med=0.34, tilt_max_deg_med=7.9)
-    fast_rocker = _agg(legs=23, speed_ratio_med=0.36, tilt_max_deg_med=16.0,
+    smooth_walker = _agg(drives=29, speed_ratio_med=0.34, tilt_max_deg_med=7.9)
+    fast_rocker = _agg(drives=23, speed_ratio_med=0.36, tilt_max_deg_med=16.0,
                        sweep_exposures=11, roll_rms_deg_med=3.8, sweep_verdicts={"poor": 1})
-    smooth_but_stuck = _agg(legs=3, speed_ratio_med=0.06, tilt_max_deg_med=5.2)
+    smooth_but_stuck = _agg(drives=3, speed_ratio_med=0.06, tilt_max_deg_med=5.2)
     sweep_only = _agg(sweep_exposures=3, roll_rms_deg_med=3.3)
     sweep_only_poor = _agg(sweep_exposures=13, roll_rms_deg_med=5.2, sweep_verdicts={"poor": 1})
     order = sorted([sweep_only_poor, fast_rocker, sweep_only, smooth_but_stuck, smooth_walker],
