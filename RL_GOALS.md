@@ -472,3 +472,14 @@ curriculum, GRU + transformer, scratch and warm-start.
   Rule for any teacher-free / from-scratch arm from now on: it MUST train at the deployable contract above (envelope,
   2000/80, 0.75/tick, 2.5 A) -- a run that pins bus 4096 or max_delta 7.2 is not comparable to hardware and gets no
   real-robot slot.
+- SLEW CONTRACT OPENED (2026-09-27 ~23:4x UTC, Lukas, chat: "what does it mean to move the bus? I think we should open
+  it up for faster movement"): the per-tick slew cap now follows the servo bus profile -- write_speed 2000 counts/s =
+  175.8 deg/s -> `safety.max_delta_q_deg` 1.76 @100 Hz / 3.52 @50 Hz (hexapod PR #18, config.yaml default). The
+  37.5 deg/s order of 2026-08-24 is SUPERSEDED for new runs. Old artifacts and checkpoints keep the slew they trained
+  at (runtime: unstamped artifact = 37.5 deg/s; eval_checkpoint pins the sidecar's trained slew), so nothing already
+  deployed changes behaviour. The four `cw-walk50hz-rlonly-envelope-*` arms (0.75 deg/tick) were KILLED and relaunched
+  as `cw-walk50hz-rlonly-slew352-warm-s{0,1}` (warm from acq1, 20M) and `cw-walk50hz-rlonly-slew352-scratch-s{0,1}`
+  (40M) with safety.max_delta_q_deg=3.52, everything else as the envelope arms (bus 2000/80, 2.5 A, envelope -52/125,
+  50 Hz, dr-scale 0); same gate. Rule: from now on the deployable contract for ANY new arm is bus 2000/80 + slew 3.52
+  @50 Hz (1.76 @100 Hz) + 2.5 A + the hardware envelope; a run that pins the old 0.75/0.375 is a legacy continue, not
+  a new arm.
