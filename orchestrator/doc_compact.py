@@ -68,6 +68,37 @@ def _headline_date(headline: str, year_hint: int = 2026) -> date | None:
     return None
 
 
+INTRADAY_RE = re.compile(r"~(\d{1,2}):(\d)x")
+
+
+def _intraday_key(headline: str) -> tuple[int, int]:
+    """(hour, decile) from a '~HH:Dx' tag, e.g. '~11:5x' -> (11, 5); missing
+    tag sorts before any tagged entry on the same date."""
+    m = INTRADAY_RE.search(headline)
+    return (int(m.group(1)), int(m.group(2))) if m else (-1, -1)
+
+
+def newest_track_entry(text: str, n: int = 1) -> str:
+    """Return the opening `n` non-blank lines of the truly NEWEST dated
+    entry in a track journal, by PARSED headline date + intraday '~HH:Dx'
+    tag -- not by file position. Found 2026-09-28 (standwalk, ops.sh
+    `board`): some track journals prepend (newest entry first) and others
+    APPEND (newest entry last); a position-based 'first heading in the
+    file' read (the old `ops.sh board` behavior) silently showed a stale
+    entry for any appending track. This is the read-side twin of
+    `compact_track`'s same-day date-not-position fix -- correct under
+    EITHER convention, self-healing if a track ever mixes the two, and
+    resolves same-day ties with the '~HH:Dx' intraday tag every entry
+    already carries."""
+    matches = list(re.finditer(r"(?:^## .+|^Update, .+|^Last updated: .+)$", text, re.M))
+    if not matches:
+        return ""
+    best = max(matches, key=lambda m: (_headline_date(text[m.start():m.end()]) or date.min,
+                                        _intraday_key(text[m.start():m.end()])))
+    lines = [l.strip() for l in text[best.start():].splitlines() if l.strip()][:n]
+    return "\n".join(lines)
+
+
 def _note(kind: str, today: date, archive_rel: str, what: str) -> str:
     return (f"<!-- compacted {today.isoformat()} by orchestrator/doc_compact.py: {what} "
             f"moved to {archive_rel}; nothing deleted. Run-level facts: `ops.sh index story <run>`. -->\n")

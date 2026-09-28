@@ -201,6 +201,7 @@ print(f"backlog={backlog}  ledger RUNNING/INTENT={len(live)}  "
       f"FINISHED-unverdicted={len(unverd)}")
 for s, r in sorted(live): print(f"  {s:8s} {r}")
 for r in sorted(unverd): print(f"  UNVERDICTED {r}")
+import doc_compact
 def head(p, n=1):
     # FIX 2026-09-12 (meta): tracks write newest-first entries as
     # "Update, <date>" / "Last updated:" paragraphs, not "## " headings,
@@ -210,15 +211,21 @@ def head(p, n=1):
     # 20-40x/cycle. Match all three conventions, first hit wins, and
     # show the entry's opening lines (the state + next lever), not just
     # its heading.
+    # FIX 2026-09-28 (meta): "first hit wins" assumed every track
+    # prepends (newest entry first); standwalk APPENDS (newest last),
+    # so this showed a stale ~04:1x entry all day while ~11:5x closures
+    # landed underneath it -- same bug doc_compact.compact_track hit and
+    # fixed the same day. Delegate to the shared date+intraday-tag-based
+    # picker instead of a bare first-match `re.search`.
     try:
         txt = p.read_text(errors="ignore")
     except OSError:
         return "(missing)"
     age = (time.time() - p.stat().st_mtime) / 3600
-    m = re.search(r"^(## .+|Update, .+|Last updated: .+)$", txt, re.M)
-    if not m:
+    entry = doc_compact.newest_track_entry(txt, n=n)
+    if not entry:
         return f"[{age:5.1f}h] (no entry heading)"
-    lines = [l.strip() for l in txt[m.start():].splitlines() if l.strip()][:n]
+    lines = entry.splitlines()
     out = f"[{age:5.1f}h] {lines[0][:220]}"
     for l in lines[1:]:
         out += f"\n{'':11s} | {l[:220]}"

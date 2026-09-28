@@ -113,6 +113,37 @@ def test_track_keeps_newest_entries_by_date_when_appended():
     assert kept_order == sorted(kept_order)
 
 
+def test_newest_track_entry_picks_by_date_not_position():
+    """Regression for the 2026-09-28 ops.sh `board` bug: `board` used a
+    bare first-`re.search` match to summarize a track's latest state,
+    which is only correct for prepending (newest-first) tracks. An
+    appending track (standwalk) showed a stale ~04:1x entry all day
+    while ~11:5x closures landed underneath it. `newest_track_entry`
+    must find the true newest by parsed date under either convention."""
+    prepended = ("".join(_sec(f"## 2026-09-{d:02d} ~10:0x -- entry {d}", f"e{d}\n")
+                          for d in range(20, 17, -1)))
+    assert dc.newest_track_entry(prepended).startswith("## 2026-09-20 ~10:0x -- entry 20")
+
+    appended = ("".join(_sec(f"## 2026-09-{d:02d} ~10:0x -- entry {d}", f"e{d}\n")
+                         for d in range(18, 21)))
+    assert dc.newest_track_entry(appended).startswith("## 2026-09-20 ~10:0x -- entry 20")
+
+    # same-day tie broken by the intraday '~HH:Dx' tag, not file position --
+    # the later tag wins whichever order the two entries appear in the file
+    later_first = (_sec("## 2026-09-28 ~11:5x -- later same day", "later\n")
+                   + _sec("## 2026-09-28 ~04:1x -- earlier same day", "earlier\n"))
+    assert "later same day" in dc.newest_track_entry(later_first)
+    earlier_first = (_sec("## 2026-09-28 ~04:1x -- earlier same day", "earlier\n")
+                      + _sec("## 2026-09-28 ~11:5x -- later same day", "later\n"))
+    assert "later same day" in dc.newest_track_entry(earlier_first)
+
+    assert dc.newest_track_entry("no dated entries here\n") == ""
+
+    multi = dc.newest_track_entry(appended, n=2)
+    assert multi.splitlines()[0].startswith("## 2026-09-20")
+    assert multi.splitlines()[1] == "e20"
+
+
 def test_run_dry_then_execute_archives_everything(tmp_path, capsys):
     state = tmp_path / "state"
     (state / "ledger").mkdir(parents=True)
