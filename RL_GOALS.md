@@ -483,3 +483,19 @@ curriculum, GRU + transformer, scratch and warm-start.
   50 Hz, dr-scale 0); same gate. Rule: from now on the deployable contract for ANY new arm is bus 2000/80 + slew 3.52
   @50 Hz (1.76 @100 Hz) + 2.5 A + the hardware envelope; a run that pins the old 0.75/0.375 is a legacy continue, not
   a new arm.
+- CLOSED LOOP TO THE REAL ROBOT (2026-09-28, Lukas: "make a complete closed loop where new RL runs get run in the real
+  robot hexapod2"): `robot-lab/auto_eval/auto_real_eval.py` (Mac Studio; launchd com.lukas.hexapod-auto-real-eval once
+  Lukas loads it, else `--once` ticks) OWNS real evals from now on -- do not dispatch lukas-ef / the manual protocol in
+  parallel. Trigger: ledger status PASS + track in {walkcurr, standwalk, speed} + task joint_walk with a walk goal + not
+  canary/discovery under 10M + control.hz 50/100 + created after 2026-09-27, not yet walked. Deployability gate BEFORE
+  export: trained slew x hz <= 176 deg/s and bus.write_speed <= 2000 (+15 %), runnable architecture (mlp / single or dual
+  GRU; transformer until PR #10). Then: export on the owning pod (phase_hz from goal.walk_phase_hz / teacher period
+  scale, source_run stamped) -> POST /api/rl/policies as `ae_<run>` -> lab session: RL stand, axis calibration, two
+  far-edge legs vx 80 x 20 s, sit, finish (registry) -> WRITE-BACK to the ledger: `real_walk` (JSON: straight_speed_mm_s
+  per leg, heading_change_deg, stop_reasons, max_current_a, temp_rise_max_c, foot_check, artifact, contract, session),
+  `real_walk_label` in {WALKS (>=20 mm/s, |heading| < 20), WEAK (5-20), STALLS/TRIPS, NO WALK}, `hardware_ready=true`
+  (artifact ran on the robot); undeployable -> `real_walk_skip=<reason>`. Plus an RL_LOG line and `ops.sh index build`.
+  It never sets `verdict`. Gates per tick: lab free + quiet 3 min, robot web up / 18 servos live / no trip / max temp
+  <= 40 C / IMU ok / idle, >= 60 GB free for recordings, >= 15 min between walks, <= 3 per hour, no PAUSE file
+  (~/.hexapod/auto_eval/PAUSE = kill switch). Read `real_walk*` when judging an arm; the label is context, the numbers
+  are the evidence; a STALLS/TRIPS on a rung run trained above the 2.5 A trip is expected information, not a fault.
