@@ -151,15 +151,32 @@ def compact_rl_log(text: str, today: date, archive_rel: str) -> tuple[str, list[
 
 # ------------------------------------------------------------ track STATUS
 def compact_track(text: str, today: date, archive_rel: str, track: str) -> tuple[str, list[str]]:
+    """Keep the KEEP_ENTRIES most-recent dated entries, by PARSED headline
+    date -- not by file position. Found 2026-09-28 (standwalk): several
+    track journals are actually appended (oldest right after the head,
+    newest at the bottom), the opposite of the newest-first/prepend
+    convention this function used to assume (`entries[:KEEP_ENTRIES]`) --
+    that silently archived the newest ~18 standwalk entries (all of
+    09-27/09-28) while keeping four stale 09-26 ones live. Sorting by the
+    same `_headline_date` every other compactor already uses (file-order
+    as a tiebreak for same-day entries, so a doc's own internal order is
+    preserved when dates tie) makes this correct under EITHER convention,
+    and self-healing if a track ever mixes the two."""
     head, sections = _split_sections(text, r"(?:## \d{4}-\d\d-\d\d|# \(compacted)")
     entries = [s for s in sections if s.startswith("## ")]
     if len(entries) <= KEEP_ENTRIES:
         return text, []
-    keep, moved = entries[:KEEP_ENTRIES], entries[KEEP_ENTRIES:]
+    ranked = sorted(range(len(entries)),
+                     key=lambda i: (_headline_date(entries[i].splitlines()[0])
+                                    or date.min, i))
+    keep_idx = set(ranked[-KEEP_ENTRIES:])
+    keep = [s for i, s in enumerate(entries) if i in keep_idx]
+    moved = [s for i, s in enumerate(entries) if i not in keep_idx]
     # older compaction markers (`# (compacted ...)`) travel with the archive
-    moved_text = [s for s in sections if s not in keep]
+    keep_set = set(keep)
+    moved_text = [s for s in sections if s not in keep_set]
     if not head.strip():
-        head = f"# {track} — track journal (newest first)\n\n"
+        head = f"# {track} — track journal\n\n"
     out = (head.rstrip("\n") + "\n" + _note("track", today, archive_rel,
                                             f"{len(moved)} entries older than the newest {KEEP_ENTRIES}")
            + "\n" + "".join(keep))

@@ -1,11 +1,12 @@
 """doc_compact: journal compaction moves stale entries to archive/, loses nothing."""
 from __future__ import annotations
 
+import re
 from datetime import date
 
 import doc_compact as dc
 
-TODAY = date(2026, 9, 20)          # cutoff = 2026-09-13
+TODAY = date(2026, 9, 20)          # KEEP_DAYS=3 -> cutoff = 2026-09-17
 ARCH = "archive/doc_compaction_2026-09-20/"
 
 
@@ -63,26 +64,53 @@ def test_questions_keep_open_and_recent_archive_the_rest():
 
 
 def test_rl_log_keeps_header_and_recent_lines():
+    # KEEP_DAYS=3, TODAY=2026-09-20 -> cutoff=2026-09-17 (`< cutoff` moves).
     text = ("# RL_LOG - recent cycle log\n\nLast compacted: 2026-09-14 UTC. This active file keeps only recent cycle\n"
-            "lines.\n\n## Recent Lines\n- 09-10 12:00 old line\n- 09-12 23:59 old line 2\n"
-            "- 09-13 00:00 boundary kept\n- 09-20 16:09 IDLE: nothing runnable\n")
+            "lines.\n\n## Recent Lines\n- 09-14 12:00 old line\n- 09-16 23:59 old line 2\n"
+            "- 09-17 00:00 boundary kept\n- 09-20 16:09 IDLE: nothing runnable\n")
     out, moved = dc.compact_rl_log(text, TODAY, ARCH)
-    assert moved == ["- 09-10 12:00 old line\n", "- 09-12 23:59 old line 2\n"]
-    assert "- 09-13 00:00 boundary kept" in out and "- 09-20 16:09" in out
+    assert moved == ["- 09-14 12:00 old line\n", "- 09-16 23:59 old line 2\n"]
+    assert "- 09-17 00:00 boundary kept" in out and "- 09-20 16:09" in out
     assert "Last compacted: 2026-09-20 UTC" in out and "## Recent Lines\n<!-- compacted" in out
 
 
-def test_track_keeps_newest_entries_and_adds_a_title_when_missing():
+def test_track_keeps_newest_entries_by_date_when_prepended():
     entries = [_sec(f"## 2026-09-{d:02d} ~10:0x (refill cycle) -- entry {d}", f"e{d}\n") for d in range(20, 8, -1)]
     text = "".join(entries[:5]) + "# (compacted 2026-09-14)\n\n" + "".join(entries[5:])
     out, moved = dc.compact_track(text, TODAY, ARCH, "walkcurr")
-    assert out.startswith("# walkcurr — track journal (newest first)\n")
+    assert out.startswith("# walkcurr — track journal\n")
     assert out.count("\n## 2026-09-") == dc.KEEP_ENTRIES
-    assert "e20\n" in out and "e13\n" in out and "e12\n" not in out
+    # KEEP_ENTRIES=4: the newest 4 by date are 20,19,18,17 regardless of KEEP_ENTRIES's
+    # historical value -- pin to the constant, not a hardcoded day, so a future
+    # KEEP_ENTRIES tweak doesn't silently desync this assertion again.
+    kept_days = {20 - k for k in range(dc.KEEP_ENTRIES)}
+    for d in range(20, 8, -1):
+        assert (f"e{d}\n" in out) == (d in kept_days)
     assert any(m.startswith("# (compacted 2026-09-14)") for m in moved)   # old marker travels along
     assert sum(1 for m in moved if m.startswith("## ")) == len(entries) - dc.KEEP_ENTRIES
     short = "# amp\n\nprose only, no dated entries\n"
     assert dc.compact_track(short, TODAY, ARCH, "amp") == (short, [])
+
+
+def test_track_keeps_newest_entries_by_date_when_appended():
+    """Regression for the 2026-09-28 standwalk bug: that track's cycles
+    APPEND new entries (oldest right after the head, newest at the
+    bottom) rather than prepending, so a position-based `entries[:N]`
+    kept four stale entries and archived ~18 genuinely-newer ones
+    (09-27/09-28 gait-timing work) out from under every later cycle.
+    Compaction must key on the parsed headline date, not file position,
+    so it behaves correctly under this convention too."""
+    entries = [_sec(f"## 2026-09-{d:02d} ~10:0x (refill cycle) -- entry {d}", f"e{d}\n")
+               for d in range(9, 21)]   # ascending: oldest (9) first, newest (20) last
+    text = "".join(entries)
+    out, moved = dc.compact_track(text, TODAY, ARCH, "standwalk")
+    assert out.count("\n## 2026-09-") == dc.KEEP_ENTRIES
+    kept_days = {20 - k for k in range(dc.KEEP_ENTRIES)}
+    for d in range(9, 21):
+        assert (f"e{d}\n" in out) == (d in kept_days)
+    # original within-file order is preserved among the kept entries
+    kept_order = [int(m.group(1)) for m in re.finditer(r"entry (\d+)", out)]
+    assert kept_order == sorted(kept_order)
 
 
 def test_run_dry_then_execute_archives_everything(tmp_path, capsys):
