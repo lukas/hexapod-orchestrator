@@ -1223,6 +1223,55 @@ else:
 EOF
   ;;
 
+podbg)  # podbg <pod> <label> <done_file> -- <command...> — launch ANY custom
+  # eval/probe DETACHED on a pod (cwd $POD_PROTO, log /tmp/eval_<label>.log),
+  # register <done_file> via evalpending, then EXIT the cycle. rateprobe/joygate
+  # already do this for the standard evals; use THIS for hand-composed ones
+  # (meta 09-28: one triage cycle burned ~120 calls/$13.7 kubectl-polling a
+  # hand-launched own-cfg eval_checkpoint control). Idempotent per done_file.
+  pod="${2:?usage: podbg <pod> <label> <done_file> -- <command...>}"
+  label="${3:?usage: podbg <pod> <label> <done_file> -- <command...>}"
+  done_file="${4:?done_file (absolute path on the pod)}"
+  shift 4; [ "${1:-}" = "--" ] && shift
+  [ -n "${1:-}" ] || { echo "no command given after --"; exit 1; }
+  inner="cd $POD_PROTO && if test -e $(printf %q "$done_file"); then echo ALREADY_DONE; exit 0; fi; setsid nohup bash -c $(printf %q "$*") > /tmp/eval_${label}.log 2>&1 < /dev/null & echo LAUNCHED"
+  out=$(kubectl exec "$pod" -- bash -c "$inner"); echo "$out"
+  case "$out" in
+    *ALREADY_DONE*) echo "done file already present: $pod:$done_file"; exit 0;;
+    *LAUNCHED*) ;;
+    *) echo "launch failed on $pod"; exit 1;;
+  esac
+  sleep 3
+  kubectl exec "$pod" -- bash -c "tail -3 /tmp/eval_${label}.log 2>/dev/null" | head -5
+  bash "$HERE/ops.sh" evalpending add "$pod" "$done_file" "$label"
+  echo "# registered — EXIT the cycle now; the watcher kicks when $done_file lands"
+  ;;
+
+testdiff)  # testdiff [pytest-q-log] — run rl_move/tests -m 'not slow' ONCE
+  # (or parse an already-captured `pytest -q` log) and diff FAILED/ERROR ids
+  # against rl_move/tests/known_failures.txt. Replaces the run-twice +
+  # per-test `git stash` pre-existing-failure ritual (meta 09-28: 5 cycles/24h,
+  # ~10 min each). Exit 0 = failures ⊆ baseline; nonzero lists regressions.
+  # Newly-fixed baseline tests print as FIXED — remove them from the manifest.
+  log="${2:-}"
+  base="$PROTO/rl_move/tests/known_failures.txt"
+  if [ -z "$log" ]; then
+    log=$(mktemp /tmp/testdiff.XXXXXX.log)
+    echo "running full 'not slow' suite once -> $log"
+    (cd "$PROTO" && uv run pytest rl_move/tests/ -m "not slow" -q >"$log" 2>&1)
+  fi
+  grep -Eo '^(FAILED|ERROR) [^ ]+' "$log" | awk '{print $2}' | sort -u > /tmp/testdiff.now
+  { grep -v '^#' "$base" 2>/dev/null || :; } | sort -u > /tmp/testdiff.base
+  new=$(comm -23 /tmp/testdiff.now /tmp/testdiff.base)
+  fixed=$(comm -13 /tmp/testdiff.now /tmp/testdiff.base)
+  tail -2 "$log"
+  [ -n "$fixed" ] && printf 'FIXED (now passing — remove from known_failures.txt):\n%s\n' "$fixed"
+  if [ -n "$new" ]; then
+    printf 'NEW FAILURES (regressions vs baseline):\n%s\n' "$new"; exit 1
+  fi
+  echo "OK: all failures are in the known_failures.txt baseline"
+  ;;
+
 expdir)  # expdir <run> — per-experiment log dir with summary.md template
   run="$2"; d="$PROTO/logs/experiments/$run"
   mkdir -p "$d"
@@ -2201,7 +2250,7 @@ compact)  # compact [--dry-run] — journal compaction (doc_compact.py) on the L
   echo "  compact [--dry-run] (archive stale journal entries on the controller; pauses+waits for cycles) |"
   echo "  status | census | triage [hours] | procs <pod> | trainlog <run> [n] |"
   echo "  entry <run> | wandb <run> | quarters <run> [key...] | pullckpt <run> | pushckpt <pod> <ckpt> |"
-  echo "  podeval <run> [sfx] | rateprobe <run> [n] [sfx] [dr] [seed] (no-video own-pod rate probe + evalpending, then EXIT) | m5eval <run> [pod] | evalcmd <run> | evalcmdstress <run> | speedpanel <run> [pod] [pins] | speedretention <run> [pod] | drain | killrun <run> |"
+  echo "  podeval <run> [sfx] | rateprobe <run> [n] [sfx] [dr] [seed] (no-video own-pod rate probe + evalpending, then EXIT) | podbg <pod> <label> <done_file> -- <cmd> (ANY custom eval, detached+registered) | testdiff [log] (suite once vs known_failures.txt) | m5eval <run> [pod] | evalcmd <run> | evalcmdstress <run> | speedpanel <run> [pod] [pins] | speedretention <run> [pod] | drain | killrun <run> |"
   echo "  waitlog <file> <regex> [t] | podwaitlog <pod> <file> [regex] [t] (no regex = wait for file to exist; NEVER hand-roll kubectl-exec ls polls) | evalpending add <pod> <file> <label> |"
   echo "  handoff <run> (deferred-artifacts registry: training/artifacts_pending/evaluated) |"
   echo "  prune [--execute] (mechanical seed-prune audit; watcher runs it live) |"
