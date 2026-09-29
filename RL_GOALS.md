@@ -499,3 +499,20 @@ curriculum, GRU + transformer, scratch and warm-start.
   <= 40 C / IMU ok / idle, >= 60 GB free for recordings, >= 15 min between walks, <= 3 per hour, no PAUSE file
   (~/.hexapod/auto_eval/PAUSE = kill switch). Read `real_walk*` when judging an arm; the label is context, the numbers
   are the evidence; a STALLS/TRIPS on a rung run trained above the 2.5 A trip is expected information, not a fault.
+- LIFECYCLE ON THE REAL ROBOT (2026-09-29, Lukas: "take the strongest RL gait and get it to stand up, sit down and
+  turn"): the strongest walkers are the teacher-anchored ones (tf128 profilewrite2000 = 70 mm/s on hexapod2); the
+  teacher-free slew352 arms all SEED-PRUNED and the rlonly-envelope ladder stalls on hardware, so the lifecycle builds on
+  the anchored lineage. Pieces: (1) STAND/LOWER = learned obs-68 stance policies through the runner's stand/lower ROLES
+  (`_ROLE_OBS` accepts obs 68 only -- the obs-81 dual-GRU lifecycle lineage cannot stand/lower the real robot via roles
+  without a runner change; open decision); candidate exported: cw-stand50hz-gru-dr07-lowerentrybank020-qvelrestore-s1
+  (rise/hold/lower GRU, PASS 09-23, trained at 400/20 + 0.75). Every learned-stand verdict on the real robot predates
+  the 09-27 knee fix -> unjudged, re-test first. LAUNCHED: `cw-stand50hz-gru-dr07-contract2000-s{0,1}` = the same
+  stance policy warm-started at the deployable contract (bus 2000/80, servo_vel_max=write_speed, slew 3.52, 2.5 A,
+  envelope -52/125), 8M, own eval_modeseq gate. (2) TURN = a yaw-command walker (goal.walk_yaw_cmd=1, obs 75): candidates
+  already PASSED and exported for a hardware turn test: ps200dr armcombo (obs 75), cw-adapt50hz-popup-tripodteach-
+  ceil15-s0 (wide-DR adapted, 40M). LAUNCHED: `cw-walk50hz-tf128l2h16-yaw-contract-s{0,1}` = the tf128 recipe from
+  scratch with goal.walk_yaw_cmd=1 at the deployable contract (20M). (3) Runner arc-turn for walk-only policies
+  (rl_policy turn=left/right) is being read; if it works, tf128 turns without retraining. Hardware protocol (attended,
+  robot currently OFF since 09-28 ~17:30 UTC): upload stance artifact -> POST /api/rl/roles stand+lower -> learned
+  stand from belly -> walk -> omega bursts -> learned lower; NOT part of auto_real_eval (operator must watch learned
+  stance per the runner). Exporter gaps: SAC policies and RiseKind rise heads do not pack.
