@@ -239,20 +239,28 @@ print(f"{'TRUTHS':11s} {head(state / 'CURRENT_TRUTHS.md')}")
 # IDLE-VALID (2026-09-18 meta): if the LAST RL_LOG line already concluded
 # "IDLE: nothing runnable" and nothing an idle decision reads has changed
 # since it was written (track STATUS docs, questions/truths, backlog,
-# ledger dir, operator STATUS/GOALS/PLAN) with zero live/unverdicted
-# work, say so here mechanically — an idle kick can cite this line and
+# ledger dir, operator STATUS/GOALS/PLAN) with zero unverdicted work,
+# say so here mechanically — an idle kick can cite this line and
 # exit instead of re-tailing 7 closed STATUS docs (measured 09-18: 8
 # consecutive idle cycles, 17-23 tool calls each, re-derived exactly
 # this conclusion from unchanged files).
+# 2026-09-29 meta: RUNNING/INTENT entries no longer block IDLE-VALID —
+# the common overnight state is "sole in-flight lever, everything else
+# closed", and 7 refills re-surveyed 8 tracks to re-derive exactly that
+# (~30-45 turns each). Any launch/finish-verdict/status flip rewrites
+# the ledger dir (rename-into-dir bumps its mtime) -> IDLE-STALE; a run
+# FINISH additionally gets its own watcher-triggered triage cycle, whose
+# trigger names the run and is exempt from citing this line.
 try:
     rl_log = state / "RL_LOG.md"
     log_lines = [l for l in rl_log.read_text(errors="ignore").splitlines()
                  if l.strip()]
     if (log_lines and "IDLE: nothing runnable" in log_lines[-1]
-            and not live and not unverd and backlog == 0):
+            and not unverd and backlog == 0):
         t0 = rl_log.stat().st_mtime
         watched = ([state / "OPERATOR_QUESTIONS.md",
                     state / "CURRENT_TRUTHS.md", state / "backlog.json",
+                    state / "pending_evals.json",
                     state / "ledger", orch_root / "STATUS.md",
                     orch_root / "RL_GOALS.md", orch_root / "RL_PLAN.md"]
                    + [state / "rl_docs" / "tracks" / t / "STATUS.md"
@@ -292,9 +300,11 @@ try:
                   "(re-survey ONLY these): " + ", ".join(changed))
         else:
             stamp = time.strftime("%m-%d %H:%M", time.localtime(t0))
+            inflight = (f" ({len(live)} in-flight run(s) unchanged since "
+                        f"then — leave them alone)" if live else "")
             print(f"IDLE-VALID: last RL_LOG line ({stamp}) is an IDLE "
-                  f"verdict and none of its inputs changed since — an idle "
-                  f"cycle may cite this line and exit IDLE without "
+                  f"verdict and none of its inputs changed since{inflight} — "
+                  f"an idle cycle may cite this line and exit IDLE without "
                   f"re-surveying (unless its trigger names new work).")
 except OSError:
     pass
@@ -1251,6 +1261,29 @@ podbg)  # podbg <pod> <label> <done_file> -- <command...> — launch ANY custom
   sleep 3
   kubectl exec "$pod" -- bash -c "tail -3 /tmp/eval_${label}.log 2>/dev/null" | head -5
   bash "$HERE/ops.sh" evalpending add "$pod" "$done_file" "$label"
+  echo "# registered — EXIT the cycle now; the watcher kicks when $done_file lands"
+  ;;
+
+localbg)  # localbg <label> <done_file> -- <command...> — controller twin of
+  # podbg: launch a slow CPU job (audit, comparison, BC fit) DETACHED on the
+  # controller (cwd $PROTO, log /tmp/eval_<label>.log), register <done_file>
+  # via `evalpending add local`, then EXIT the cycle — the watcher kicks a
+  # cycle when the file lands. NEVER babysit a local job with sleep/until
+  # loops (meta 09-29: one refill burned $34.55/402 turns polling its own
+  # controller audits; podbg existed for pods, nothing existed for local).
+  # Idempotent per done_file.
+  label="${2:?usage: localbg <label> <done_file> -- <command...>}"
+  done_file="${3:?done_file (absolute path on the controller)}"
+  shift 3; [ "${1:-}" = "--" ] && shift
+  [ -n "${1:-}" ] || { echo "no command given after --"; exit 1; }
+  if test -e "$done_file"; then
+    echo "done file already present: $done_file"
+  else
+    ( cd "$PROTO" && setsid nohup bash -c "$*" > "/tmp/eval_${label}.log" 2>&1 < /dev/null & )
+    echo "LAUNCHED (log /tmp/eval_${label}.log)"
+    sleep 3; tail -3 "/tmp/eval_${label}.log" 2>/dev/null | head -5
+  fi
+  bash "$HERE/ops.sh" evalpending add local "$done_file" "$label"
   echo "# registered — EXIT the cycle now; the watcher kicks when $done_file lands"
   ;;
 
@@ -2257,7 +2290,7 @@ compact)  # compact [--dry-run] — journal compaction (doc_compact.py) on the L
   echo "  compact [--dry-run] (archive stale journal entries on the controller; pauses+waits for cycles) |"
   echo "  status | census | triage [hours] | procs <pod> | trainlog <run> [n] |"
   echo "  entry <run> | wandb <run> | quarters <run> [key...] | pullckpt <run> | pushckpt <pod> <ckpt> |"
-  echo "  podeval <run> [sfx] | rateprobe <run> [n] [sfx] [dr] [seed] (no-video own-pod rate probe + evalpending, then EXIT) | podbg <pod> <label> <done_file> -- <cmd> (ANY custom eval, detached+registered) | testdiff [log] (suite once vs known_failures.txt) | m5eval <run> [pod] | evalcmd <run> | evalcmdstress <run> | speedpanel <run> [pod] [pins] | speedretention <run> [pod] | drain | killrun <run> |"
+  echo "  podeval <run> [sfx] | rateprobe <run> [n] [sfx] [dr] [seed] (no-video own-pod rate probe + evalpending, then EXIT) | podbg <pod> <label> <done_file> -- <cmd> (ANY custom eval, detached+registered) | localbg <label> <done_file> -- <cmd> (same, on the controller — never sleep-poll a local job) | testdiff [log] (suite once vs known_failures.txt) | m5eval <run> [pod] | evalcmd <run> | evalcmdstress <run> | speedpanel <run> [pod] [pins] | speedretention <run> [pod] | drain | killrun <run> |"
   echo "  waitlog <file> <regex> [t] | podwaitlog <pod> <file> [regex] [t] (no regex = wait for file to exist; NEVER hand-roll kubectl-exec ls polls) | evalpending add <pod> <file> <label> |"
   echo "  handoff <run> (deferred-artifacts registry: training/artifacts_pending/evaluated) |"
   echo "  prune [--execute] (mechanical seed-prune audit; watcher runs it live) |"
