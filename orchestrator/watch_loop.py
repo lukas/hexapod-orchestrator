@@ -2016,6 +2016,20 @@ def main() -> None:
             # Ready reports must be noticed even while scratch training or
             # unrelated analysis continues. Acknowledge only after spawn.
             ready_evals, evals_in_flight = check_pending_evals()
+            if ready_evals:
+                # 09-30 meta: evalready cycles spawned for runs a live
+                # cycle already had claimed (3 no-op cycles 09-29, each
+                # exited "already claimed/verdicted by concurrent
+                # cycle"). Defer those entries until the claim clears;
+                # `ops.sh verdict <run>` consumes a run's pending evals
+                # outright once the decision they fed is recorded.
+                claimed = claimed_runs()
+                held = [e for e in ready_evals if e.get("run") in claimed]
+                if held:
+                    log("holding ready evals for claimed runs: "
+                        + ", ".join(repr(e.get("label")) for e in held))
+                    ready_evals = [e for e in ready_evals if e not in held]
+                    evals_in_flight += len(held)
             eval_trigger = None
             if ready_evals and not any(c.get("label") == "evalready" for c in active):
                 eval_trigger = (

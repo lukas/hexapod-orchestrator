@@ -688,7 +688,7 @@ chk = subprocess.run(["kubectl", "exec", pod, "--", "bash", "-c",
 print(chk.stdout.strip()[:500])
 subprocess.run(["bash", __import__("os").path.join(
     __import__("os").environ["HERE"], "ops.sh"), "evalpending", "add",
-    pod, report, label], check=True)
+    pod, report, label, run], check=True)
 print(f"# next cycle: uv run python -m rl_move.sim.gait_valid_rate "
       f"--report logs/ckpt_eval/{label}/report.json --report <parent_report> "
       f"# now EXIT the cycle; the watcher wakes on {label}")
@@ -762,7 +762,7 @@ chk = subprocess.run(["kubectl", "exec", pod, "--", "bash", "-c",
 print(chk.stdout.strip()[:500])
 subprocess.run(["bash", __import__("os").path.join(
     __import__("os").environ["HERE"], "ops.sh"), "evalpending", "add",
-    pod, report, label], check=True)
+    pod, report, label, run], check=True)
 print(f"# next cycle: read logs/ckpt_eval/{label}/gate_verdict.json "
       f"# now EXIT the cycle; the watcher wakes on {label}")
 EOF
@@ -1213,26 +1213,32 @@ print(f"# ops.sh evalpending add <pod> /workspace/prototype_sts3215/{out}/sessio
 EOF
   ;;
 
-evalpending)  # evalpending add <pod|local> <file> <label> | list — register a
-  # long on-pod OR controller-local eval/BC job. The watcher holds idle kicks
+evalpending)  # evalpending add <pod|local> <file> <label> [run] | list — register
+  # a long on-pod OR controller-local eval/BC job. The watcher holds idle kicks
   # while any entry is in flight and spawns a cycle the moment the file exists
   # (8h TTL). Register ANY slow detached eval this way instead of ps-polling it
   # (meta 09-24: one cycle burned 99 ps calls / $11 waiting on a local eval).
-  sub="${2:-list}"; pod="${3:-}"; file="${4:-}"; label="${5:-}"
+  # Pass [run] when the eval belongs to one run: the watcher then defers the
+  # wake while a live cycle has that run claimed, and `ops.sh verdict <run>`
+  # consumes the entry (meta 09-30: 3 no-op evalready cycles raced live claims).
+  sub="${2:-list}"; pod="${3:-}"; file="${4:-}"; label="${5:-}"; run="${6:-}"
   [ "$pod" = "local" ] && pod="hexapod-sweep-friction"
-  uv run python - "$sub" "$pod" "$file" "$label" <<'EOF'
+  uv run python - "$sub" "$pod" "$file" "$label" "$run" <<'EOF'
 import datetime, json, os, sys
-sub, pod, file, label = sys.argv[1:5]
+sub, pod, file, label, run = sys.argv[1:6]
 path = os.path.join(os.environ["STATE_DIR"], "pending_evals.json")
 try:
     entries = json.load(open(path))
 except (OSError, ValueError):
     entries = []
 if sub == "add":
-    assert pod and file and label, "usage: evalpending add <pod> <remote_file> <label>"
+    assert pod and file and label, "usage: evalpending add <pod> <remote_file> <label> [run]"
     entries = [e for e in entries if e.get("label") != label]
-    entries.append({"pod": pod, "file": file, "label": label,
-                    "added": datetime.datetime.now().isoformat(timespec="seconds")})
+    entry = {"pod": pod, "file": file, "label": label,
+             "added": datetime.datetime.now().isoformat(timespec="seconds")}
+    if run:
+        entry["run"] = run
+    entries.append(entry)
     json.dump(entries, open(path, "w"), indent=1)
     print(f"registered: {label} ({pod}:{file})")
 else:
@@ -1880,6 +1886,21 @@ verdict)  # verdict <run> <status> "<verdict text>" ["logline text"] —
   fi
   uv run python "$HERE/launch_run.py" update --run "$run" \
     --set "status=$st" --set "verdict=$text" || exit 1
+  # A verdict consumes the run's registered pending evals (meta 09-30):
+  # the decision they were for is now recorded — no evalready wake needed.
+  uv run python - "$run" <<'EOF' || true
+import json, os, sys
+run = sys.argv[1]
+path = os.path.join(os.environ["STATE_DIR"], "pending_evals.json")
+try:
+    entries = json.load(open(path))
+except (OSError, ValueError):
+    entries = []
+keep = [e for e in entries if e.get("run") != run]
+if len(keep) != len(entries):
+    json.dump(keep, open(path, "w"), indent=1)
+    print(f"(consumed {len(entries) - len(keep)} pending eval(s) for {run})")
+EOF
   bash "$0" wandbnote "$run" "$text" \
     || echo "(wandbnote failed — ledger verdict is recorded; continue)"
   if [ -z "$line" ]; then
