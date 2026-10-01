@@ -1544,12 +1544,21 @@ testfull)  # testfull [extra pytest args] — the full regression suite,
   # PARALLEL (meta 09-14: serial full-suite is >60 min and cycles ran it
   # 51x/24h inside sleep-poll loops; xdist -n 32 --dist loadfile runs it
   # in ~5 min, same tests, per-file grouping keeps fixture ordering).
+  # meta 10-01: run FOREGROUND (~5 min, one tool call). Output goes to a
+  # log; only failures + the summary print (one cycle background-polled
+  # the dot-stream with `tail -c 15000` 110x = ~1.6MB context, $17).
   shift
   # cap per-worker BLAS/OMP threads: 32 workers x default-128 threads
   # thrashes the box and the long-tail files dominate anyway
-  exec env OMP_NUM_THREADS=2 OPENBLAS_NUM_THREADS=2 MKL_NUM_THREADS=2 \
+  tf_log="/tmp/testfull_$(date -u +%Y%m%dT%H%M%S).log"
+  env OMP_NUM_THREADS=2 OPENBLAS_NUM_THREADS=2 MKL_NUM_THREADS=2 \
     uv run pytest rl_move/tests/ -q -n 32 --dist loadfile \
-    --ignore=rl_move/tests/test_metaagent_server.py "$@"
+    --ignore=rl_move/tests/test_metaagent_server.py "$@" >"$tf_log" 2>&1
+  tf_rc=$?
+  grep -E "^(FAILED|ERROR) " "$tf_log" | head -50
+  tail -15 "$tf_log"
+  echo "(full output: $tf_log)"
+  exit $tf_rc
   ;;
 
 logline)  # logline "text" — append ONE timestamped line to RL_LOG.md
@@ -1567,6 +1576,11 @@ logline)  # logline "text" — append ONE timestamped line to RL_LOG.md
     # Skip an exact duplicate of the newest line (09-23 meta: a re-run
     # verdict double-recorded the same correction at 05:57 and 05:58).
     new="$(echo "$text" | tr '\n' ' ')"
+    # meta 10-01: RL_LOG is a 1-line INDEX (lines averaged 473 chars,
+    # max 2068 -- essays). Detail belongs in the ledger verdict.
+    if [ "${#new}" -gt 700 ]; then
+      new="${new:0:700} ...[truncated at 700; detail goes in the ledger verdict]"
+    fi
     last="$(tail -1 "$STATE_DIR/RL_LOG.md" 2>/dev/null | cut -d' ' -f4-)"
     if [ "$last" = "$new" ]; then
       echo "(identical to newest RL_LOG line -- not appended again)"
