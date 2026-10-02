@@ -1551,10 +1551,15 @@ testfull)  # testfull [extra pytest args] — the full regression suite,
   # cap per-worker BLAS/OMP threads: 32 workers x default-128 threads
   # thrashes the box and the long-tail files dominate anyway
   tf_log="/tmp/testfull_$(date -u +%Y%m%dT%H%M%S).log"
+  # meta 10-02: hard 25-min cap -- a single hung xdist worker wedged a
+  # cycle into ~35 ps/sleep polling turns on 10-01; timeout kills the
+  # whole process group so stragglers can't outlive the call.
   env OMP_NUM_THREADS=2 OPENBLAS_NUM_THREADS=2 MKL_NUM_THREADS=2 \
+    timeout -k 30 1500 \
     uv run pytest rl_move/tests/ -q -n 32 --dist loadfile \
     --ignore=rl_move/tests/test_metaagent_server.py "$@" >"$tf_log" 2>&1
   tf_rc=$?
+  [ $tf_rc -eq 124 ] && echo "testfull: TIMED OUT at 25 min (straggler worker killed; see log)"
   grep -E "^(FAILED|ERROR) " "$tf_log" | head -50
   tail -15 "$tf_log"
   echo "(full output: $tf_log)"

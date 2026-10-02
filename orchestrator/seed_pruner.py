@@ -86,6 +86,10 @@ MIN_WINDOW_STEPS = 1_000_000       # never judge on windows finer than this
 WINDOWS_PER_BUDGET = 16            # window = max(MIN_WINDOW_STEPS, budget/16)
 BURN_IN_FRAC = 0.25                # operator: protect >= 25% of budget
 MIN_WINDOWS = 3                    # operator: 3 adjacent report windows
+CURRICULUM_SLACK_WINDOWS = 3       # dip-then-recover slack past a stage boundary
+# cfg keys whose value is a global-step curriculum boundary with a known
+# dip-then-recover reward transient (see decide() docstring)
+CURRICULUM_BOUNDARY_KEYS = ("env.dr_stage_ramp_steps",)
 STOP_CONFIRM_TRIES = 5             # confirm-stop polls after kill
 STOP_CONFIRM_SLEEP_S = 6.0
 
@@ -165,11 +169,20 @@ def _adjacent(windows: list[Window]) -> bool:
 
 
 def decide(windows: list[Window], budget_steps: int,
-           thr: Thresholds | None = None) -> Decision:
+           thr: Thresholds | None = None,
+           boundaries: tuple[int, ...] | list[int] = ()) -> Decision:
     """Pure decision function -- unit-tested, no I/O.
 
     `windows` must be COMPLETE report windows (partial/future windows
     already excluded by assemble_windows) in step order.
+
+    `boundaries`: curriculum-stage step boundaries from the run's own
+    cfg (e.g. env.dr_stage_ramp_steps). Crossing one produces a known
+    recipe-inherent dip-then-recover reward transient (measured 4x on
+    walkcurr drramp arms 2026-10-01/02: every mid-dip prune was false
+    and the resumed run recovered); deciding windows overlapping
+    [boundary, boundary + CURRICULUM_SLACK_WINDOWS windows] are not
+    stagnation evidence.
     """
     thr = thr or Thresholds()
     windows = sorted(windows, key=lambda w: w.index)
@@ -252,6 +265,20 @@ def decide(windows: list[Window], budget_steps: int,
         return Decision("KEEP", "improving (learning-valley veto): "
                         f"reward_improving={reward_improving}, "
                         f"behavior={improving}", ev)
+
+    # ---- curriculum-boundary veto: a known dip-then-recover zone -------
+    tailw = windows[-MIN_WINDOWS:]
+    win_w = max((w.step - w.start) for w in tailw)
+    for b in boundaries:
+        zone_hi = b + CURRICULUM_SLACK_WINDOWS * win_w
+        if any(w.start < zone_hi and w.step > b for w in tailw):
+            ev["curriculum_boundary"] = b
+            return Decision(
+                "KEEP",
+                f"curriculum-boundary veto: deciding windows overlap "
+                f"[{b}, {zone_hi}] around cfg stage boundary {b} -- "
+                "known recipe-inherent dip-then-recover transient, not "
+                "stagnation evidence", ev)
 
     # ---- immediate collapse kills (no burn-in protection) --------------
     v3 = _last3(windows, "v_along")
@@ -466,6 +493,18 @@ def fetch_windows(entry: dict, budget_steps: int
 # ---------------------------------------------------------------------------
 # Executor
 # ---------------------------------------------------------------------------
+
+def _curriculum_boundaries(entry: dict) -> tuple[int, ...]:
+    """Curriculum-stage step boundaries declared in the run's own command
+    (--cfg-set env.dr_stage_ramp_steps=N etc). Pure string parse."""
+    import re
+    cmd = entry.get("command") or ""
+    out = set()
+    for key in CURRICULUM_BOUNDARY_KEYS:
+        for m in re.finditer(re.escape(key) + r"=(\d+)", cmd):
+            out.add(int(m.group(1)))
+    return tuple(sorted(out))
+
 
 def _running_entries(track: str) -> list[dict]:
     led = state_dir.load_ledger()
@@ -830,7 +869,8 @@ def audit(run_names: list[str] | None, track: str, execute: bool,
         if not windows:
             print(f"{run}: SKIP (no complete report windows yet)")
             continue
-        dec = decide(windows, budget)
+        dec = decide(windows, budget,
+                     boundaries=_curriculum_boundaries(e))
         line = f"{run}: {dec.action} -- {dec.reason}"
         print(line if not as_json else json.dumps(
             {"run": run, "action": dec.action, "reason": dec.reason,

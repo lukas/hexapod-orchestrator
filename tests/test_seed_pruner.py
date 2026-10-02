@@ -200,6 +200,41 @@ def test_unknown_index_refuses_to_judge():
     assert d.action == "KEEP"
 
 
+def test_curriculum_boundary_vetoes_slope_prune():
+    # verified live incident (2026-10-01/02): drramp arms with
+    # env.dr_stage_ramp_steps=4M were slope-pruned at ~5-5.5M on the
+    # recipe-inherent dip at the 4M boundary; all recovered on resume.
+    # Here: 40M budget, 2.5M windows, boundary 25M, deciding windows
+    # 27.5-35M overlap [25M, 25M+3*2.5M=32.5M] -> KEEP.
+    ws = flat_run(14)
+    d = decide(ws, BUDGET, boundaries=(25_000_000,))
+    assert d.action == "KEEP" and "curriculum-boundary" in d.reason
+
+
+def test_curriculum_boundary_vetoes_collapse_kill_in_zone():
+    ws = flat_run(14)
+    for w in ws[-3:]:
+        w.v_along = -0.01          # wrong-direction would normally kill
+    d = decide(ws, BUDGET, boundaries=(25_000_000,))
+    assert d.action == "KEEP" and "curriculum-boundary" in d.reason
+
+
+def test_curriculum_boundary_past_zone_still_kills():
+    # same stagnant run, but the boundary + slack lies entirely before
+    # the deciding windows -> the veto must NOT suppress a real prune.
+    ws = flat_run(14)               # deciding windows 27.5M..35M
+    d = decide(ws, BUDGET, boundaries=(10_000_000,))  # zone ends 17.5M
+    assert d.action == "KILL"
+
+
+def test_curriculum_boundaries_parsed_from_command():
+    e = {"command": "train --cfg-set env.dr_stage_ramp_steps=4000000 "
+                    "--cfg-set env.dr_stage_ramp_steps=4000000 x"}
+    assert sp._curriculum_boundaries(e) == (4_000_000,)
+    assert sp._curriculum_boundaries({"command": "train x"}) == ()
+    assert sp._curriculum_boundaries({}) == ()
+
+
 # ---------------------------------------------------------------------------
 # real window assembly (verified reproductions)
 # ---------------------------------------------------------------------------
