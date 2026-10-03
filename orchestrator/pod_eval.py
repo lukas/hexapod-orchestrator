@@ -142,10 +142,46 @@ LIFECYCLE_RECIPE = ("rl_move/sim/cfg_recipe_stance50hz_rlonly_"
 LIFECYCLEGATE_TIMEOUT_S = 7200
 
 
+# BUG FOUND + FIXED 2026-10-03 (lowerrole_holdonly100_evalcfg_confound):
+# these goal.lower_* keys are EPISODE-SAMPLING CURRICULUM knobs
+# (goal_task.py: "with probability X, this episode instead starts
+# already at/near the target" — a strictly EASIER start distribution
+# than the real target task of a full standing->descending->belly-rest
+# episode). Blindly replaying a candidate's own training --cfg-set at
+# eval time is correct for physics/reward/safety keys (the original
+# hippitchmax precedent this function cites) but WRONG for these: it
+# silently makes the "composed gate" test an easier task for ANY
+# checkpoint trained with one of these curricula turned on, inflating
+# its score against a baseline (delta=[]) scored on the true harder
+# task. Concretely confirmed: the holdonly100-s3 "33/36 (92%) forward"
+# number backing the 2026-10-03 ADOPTED-recipe decision was measured
+# with goal.lower_hold_only_frac=1.0 auto-replayed at eval (every
+# episode starts already crouched at the target depth, skipping the
+# descent entirely) — a byte-for-byte reproduction confirmed this
+# exactly (16/18 + 17/18 == the archived gate_seed{0,100}.json). The
+# TRUE matched-seed comparison (zero lower-cfg, both recipes, same 3
+# seeds) has holdonly100 NOT beating plain at any seed (2 vs 5, 7 vs
+# 12, 1 vs 2 on n=36) — reversing the PASS-MECHANISM verdict; see
+# rl_docs/tracks/walkcurr/lowerrole_holdonly100_evalcfg_confound_
+# 2026-10-03/SUMMARY.md. These keys are therefore ALWAYS excluded from
+# the eval-time replay now, regardless of what the candidate trained
+# with — the composed gate must always test the real target task.
+_LOWER_CURRICULUM_ONLY_KEYS = (
+    "goal.lower_hold_only_frac",
+    "goal.lower_partial_frac",
+    "goal.lower_belly_start_frac",
+    "goal.lower_start_bank",
+    "goal.lower_start_bank_frac",
+)
+
+
 def lifecycle_lower_cfg_delta(all_cfgs: list[str]) -> list[str]:
     """Experimental --lower-cfg delta for the lifecycle composed gate:
     the run's own --cfg-set entries minus the versioned lower-role
-    recipe's CFG_ARGS (see LIFECYCLE_RECIPE comment block above)."""
+    recipe's CFG_ARGS (see LIFECYCLE_RECIPE comment block above), MINUS
+    the episode-sampling-curriculum keys in _LOWER_CURRICULUM_ONLY_KEYS
+    (see that tuple's comment — these must never be eval-replayed,
+    they change task difficulty, not physics)."""
     import ast
     base: set[str] = set()
     try:
@@ -166,7 +202,8 @@ def lifecycle_lower_cfg_delta(all_cfgs: list[str]) -> list[str]:
               "passing full cfg stack")
     return [c for c in all_cfgs
             if c not in base
-            and not c.startswith("env.dr_stage_ramp_steps=")]
+            and not c.startswith("env.dr_stage_ramp_steps=")
+            and not c.split("=", 1)[0].strip() in _LOWER_CURRICULUM_ONLY_KEYS]
 
 
 def mode_seq_frac(cfgs: list[str]) -> float:
