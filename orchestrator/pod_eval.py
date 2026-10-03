@@ -118,6 +118,56 @@ LEGACY_MAX_DELTA_Q_DEG = 1.5
 # Scale it like the others at the call site.
 MIXEDSESSION_TIMEOUT_S = 7200
 
+# LIFECYCLE composed gate auto-launch (meta 2026-10-03): every walkcurr
+# lower-role arm's pre-registered gate is the COMPOSED direct-arm
+# lower_ok (rl_move.sim.eval_lifecycle_handoff_rlonly, 18 ep x seed
+# {0,100} vs the drramp-acq1 baseline) — NOT the core DR-0/own-cfg
+# probe, which every verdict of this family has called uninformative.
+# In the 24h before 10-03, NINE separate cycles each re-derived and
+# podbg-launched this exact command by hand (loadeven{2,8,16},
+# currentsense, lowerramp{3,8}, stancecount{01,03}, extpush1) at ~2
+# extra cycles per arm. Wired here like joygate/mixedsession, but the
+# WAIT happens BEFORE core_synced: these runs cannot be verdicted
+# without this artifact, so releasing triage earlier only split the
+# work across extra cycles. The candidate's experimental cfg delta
+# (its --cfg-set list minus the versioned recipe module's CFG_ARGS,
+# minus env.dr_stage_ramp_steps which the recipe always drops at eval)
+# is passed via --lower-cfg — the 10-02 hippitchmax harness-bug-fix
+# convention.
+LIFECYCLE_STANCE = ("ppo_goal_cw_stance50hz_rlonly_currentcap29_s5_"
+                    "klrollback05_acq15m.zip")
+LIFECYCLE_WALK = "ppo_goal_cw_walk50hz_slew_smooth_s0.zip"
+LIFECYCLE_RECIPE = ("rl_move/sim/cfg_recipe_stance50hz_rlonly_"
+                    "lowerrole_scratch_sac_drramp.py")
+LIFECYCLEGATE_TIMEOUT_S = 7200
+
+
+def lifecycle_lower_cfg_delta(all_cfgs: list[str]) -> list[str]:
+    """Experimental --lower-cfg delta for the lifecycle composed gate:
+    the run's own --cfg-set entries minus the versioned lower-role
+    recipe's CFG_ARGS (see LIFECYCLE_RECIPE comment block above)."""
+    import ast
+    base: set[str] = set()
+    try:
+        tree = ast.parse((PROTO / LIFECYCLE_RECIPE).read_text())
+        for node in ast.walk(tree):
+            # CFG_ARGS: list[str] = [...] is an AnnAssign (single
+            # .target), a bare CFG_ARGS = [...] an Assign (.targets).
+            targets = ([node.target] if isinstance(node, ast.AnnAssign)
+                       else node.targets if isinstance(node, ast.Assign)
+                       else [])
+            if any(getattr(t, "id", "") == "CFG_ARGS" for t in targets):
+                base = set(ast.literal_eval(node.value))
+        if not base:
+            print("lifecyclegate: CFG_ARGS not found in recipe — "
+                  "passing full cfg stack")
+    except (OSError, SyntaxError, ValueError) as exc:
+        print(f"lifecyclegate: recipe parse failed ({exc!r}) — "
+              "passing full cfg stack")
+    return [c for c in all_cfgs
+            if c not in base
+            and not c.startswith("env.dr_stage_ramp_steps=")]
+
 
 def mode_seq_frac(cfgs: list[str]) -> float:
     """Value of ``goal.mode_seq`` in an UNSTRIPPED cfg-set list, else
@@ -726,6 +776,61 @@ def main() -> int:
                   f"gate, own-dr {dr}) -> {j_log}")
             joygate = (j_out_rel, j_log, j_p, j_fh)
 
+    # LIFECYCLE composed gate (see LIFECYCLEGATE_TIMEOUT_S comment
+    # block): walkcurr lower-role candidates' own pre-registered gate.
+    # Launched here in parallel with the core passes; waited on BEFORE
+    # core_synced below (triage can't verdict these runs without it).
+    lifegate = None  # (out_rel, logpath, proc, fh)
+    if (task == "joint_goal" and "lowerrole" in run
+            and (entry.get("track") or tracks.infer(run)) == "walkcurr"):
+        l_out_rel = f"logs/ckpt_eval/{run_us}_lifecyclegate{suffix}"
+        l_log = f"/tmp/eval_{run}_lifecyclegate.log"
+        # Keyed on the LAST artifact (seed100 json) so a half-finished
+        # attempt stays retryable.
+        if (PROTO / l_out_rel / "gate_seed100.json").is_file():
+            print(f"lifecyclegate: {l_out_rel} already on controller "
+                  "— skipping")
+        elif remote_eval_running(
+                pod, l_out_rel,
+                "rl_move.sim.eval_lifecycle_handoff_rlonly"):
+            print(f"lifecyclegate: eval already RUNNING on {pod} for "
+                  f"{l_out_rel} — NOT launching a duplicate")
+        elif remote_report_exists(pod, l_out_rel, "gate_seed100.json"):
+            print(f"lifecyclegate: {l_out_rel} finished on {pod} with "
+                  "nobody watching — reaping (copy-back only)")
+            lifegate = (l_out_rel, l_log, None, None)
+        else:
+            l_st = push_local(pod, LIFECYCLE_STANCE)
+            l_wk = push_local(pod, LIFECYCLE_WALK)
+            if l_st is None or l_wk is None:
+                print("lifecyclegate: stance/walk partner checkpoint "
+                      "unavailable on pod/controller — skipped")
+            else:
+                lcfg = "".join(
+                    f" --lower-cfg {shlex.quote(c)}"
+                    for c in lifecycle_lower_cfg_delta(all_cfgs))
+                passes = " && ".join(
+                    f"nice -n 19 uv run python -m "
+                    f"rl_move.sim.eval_lifecycle_handoff_rlonly"
+                    f" --stance {shlex.quote(l_st)}"
+                    f" --walk {shlex.quote(l_wk)}"
+                    f" --walk-recipe slew_smooth_s0"
+                    f" --lower {shlex.quote(ckpt)}{lcfg}"
+                    f" --episodes 18 --seed {s}"
+                    f" --current-trace-dir {l_out_rel}/traces_seed{s}"
+                    f" --out {l_out_rel}/gate_seed{s}.json"
+                    for s in (0, 100))
+                l_cmd = (f"cd {POD_PROTO} && mkdir -p {l_out_rel} && "
+                         f"{passes}")
+                l_fh = open(l_log, "w")
+                l_p = subprocess.Popen(
+                    ["kubectl", "exec", pod, "--", "bash", "-c", l_cmd],
+                    stdout=l_fh, stderr=subprocess.STDOUT, text=True)
+                print(f"lifecyclegate: started on {pod} (composed "
+                      f"direct-arm lower_ok, 18 ep x seed 0/100) -> "
+                      f"{l_log}")
+                lifegate = (l_out_rel, l_log, l_p, l_fh)
+
     worst = 0
     for tag, out_rel, logpath, p, fh in jobs:
         if p is None:
@@ -755,6 +860,33 @@ def main() -> int:
             fh.close()
         print(f"{tag}: rc={rc}{note} artifacts -> {out_rel}")
         worst = max(worst, abs(rc))
+
+    if lifegate:
+        out_rel, logpath, p, fh = lifegate
+        if p is None:
+            rc = 0  # reap-only path — finished remotely, just copy back
+        else:
+            try:
+                rc = p.wait(timeout=LIFECYCLEGATE_TIMEOUT_S * timeout_scale)
+            except subprocess.TimeoutExpired:
+                p.kill()
+                rc = -1
+        if rc in (0, 1):
+            (PROTO / out_rel).parent.mkdir(parents=True, exist_ok=True)
+            subprocess.run(
+                ["kubectl", "cp", f"{pod}:{POD_PROTO}/{out_rel}",
+                 str(PROTO / out_rel)],
+                capture_output=True, text=True, timeout=600)
+        has_v = (PROTO / out_rel / "gate_seed100.json").is_file()
+        status = "SYNCED" if has_v else f"ERROR rc={rc}"
+        line = (f"LIFECYCLEGATE (composed direct-arm lower_ok, 18 ep x "
+                f"seed 0/100): {status} artifacts -> {out_rel}")
+        if fh is not None:
+            fh.write(f"\nSYNCED {line}\n")
+            fh.close()
+        print(line)
+        # Informational only (PASS/FAIL vs the baseline is the triage
+        # cycle's judgment call): never folds into pod_eval's exit code.
 
     # Core passes settled (synced or skipped): the verdict cycle may
     # spawn now. Session + joygate below are informational riders.

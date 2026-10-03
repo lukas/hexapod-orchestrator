@@ -1156,7 +1156,8 @@ def _prestage_wrapper_timeout(run: str) -> int:
         # eval before the inner wait ever got the chance to. Add it.
         worst = (pod_eval.PASS_TIMEOUT_S * scale
                  + pod_eval.JOYGATE_TIMEOUT_S * scale
-                 + pod_eval.MIXEDSESSION_TIMEOUT_S * scale)
+                 + pod_eval.MIXEDSESSION_TIMEOUT_S * scale
+                 + getattr(pod_eval, "LIFECYCLEGATE_TIMEOUT_S", 0) * scale)
         return max(PRESTAGE_WRAPPER_TIMEOUT_S, int(worst + 1800))
     except Exception as exc:
         log(f"_prestage_wrapper_timeout({run}) failed: {exc!r} "
