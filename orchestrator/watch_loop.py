@@ -1577,6 +1577,32 @@ def spawn_cycle(newly_finished: set[str], still_running: set[str],
 _digin_spawned: dict[str, float] = {}  # run -> last deep-escalation time
 
 
+def _cycle_cost_fields(c: dict) -> dict:
+    """Cost/turn totals from the cycle's raw stream-json, so cycles.json
+    alone answers "what did the day cost" (10-04 meta: the nightly
+    analysis had to hand-parse 34 .jsonl files because registry rows
+    carried no cost fields). Best-effort; {} on any trouble."""
+    try:
+        raw = pathlib.Path(str(c["out"]).rsplit(".log", 1)[0] + ".jsonl")
+        res = None
+        with raw.open() as fh:
+            for line in fh:
+                if '"result"' not in line:
+                    continue
+                try:
+                    ev = json.loads(line)
+                except Exception:
+                    continue
+                if ev.get("type") == "result":
+                    res = ev
+        if not res:
+            return {}
+        return {"cost_usd": round(float(res.get("total_cost_usd") or 0), 4),
+                "turns": res.get("num_turns")}
+    except Exception:
+        return {}
+
+
 def reap_cycles(active: list[dict], processed: set[str]) -> tuple[list[dict], int, int]:
     """Collect finished cycles. Returns (still_active, n_ok, n_failed).
 
@@ -1631,7 +1657,7 @@ def reap_cycles(active: list[dict], processed: set[str]) -> tuple[list[dict], in
         registry_update(
             c.get("stamp", ""), status="done" if rc == 0 else "failed",
             rc=rc, ended=datetime.datetime.now().isoformat(timespec="seconds"),
-            duration_s=int(time.time() - c["t0"]))
+            duration_s=int(time.time() - c["t0"]), **_cycle_cost_fields(c))
         if rc == 0:
             processed |= c["runs"]
             n_ok += 1
