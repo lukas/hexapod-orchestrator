@@ -2101,6 +2101,18 @@ def cmd_checkup(g: dict, a: argparse.Namespace) -> int:
                 m = re.search(r"history_frames=(\d+)", blob)
                 if m and int(m.group(1)) > 8:
                     floor *= 8.0 / int(m.group(1))
+                # Recurrent SAC (GRU actor+critic, --recurrent-sac,
+                # 10-04): per-tick hidden-state rollout + sequence
+                # replay updates are legitimately far slower than
+                # feedforward MJX throughput. Measured healthy:
+                # recurrentsac-s0-canary2m median 240 / final 234 fps,
+                # drramp-acq1 199 fps — both false-SUSPECTed against
+                # the 312 floor (solo, GPU busy, CPU busy). 0.25x
+                # keeps the floor (~78 at n-envs=256) well below
+                # healthy steady-state while a genuine 4-5x
+                # starvation (~40-60 fps) still catches.
+                if "--recurrent-sac" in blob:
+                    floor *= 0.25
             else:
                 floor = 500.0 if (solo and limit >= 48) else 60.0
                 facts["placement"] = (
