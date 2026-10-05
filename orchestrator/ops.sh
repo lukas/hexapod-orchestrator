@@ -1303,8 +1303,11 @@ testdiff)  # testdiff [pytest-q-log] — run rl_move/tests -m 'not slow' ONCE
   base="$PROTO/rl_move/tests/known_failures.txt"
   if [ -z "$log" ]; then
     log=$(mktemp /tmp/testdiff.XXXXXX.log)
-    echo "running full 'not slow' suite once -> $log"
-    (cd "$PROTO" && uv run pytest rl_move/tests/ -m "not slow" -q >"$log" 2>&1)
+    echo "running full 'not slow' suite once (parallel, ~5 min) -> $log"
+    (cd "$PROTO" && env OMP_NUM_THREADS=2 OPENBLAS_NUM_THREADS=2 MKL_NUM_THREADS=2 \
+      timeout -k 30 1500 uv run pytest rl_move/tests/ -m "not slow" -q \
+      -n 32 --dist loadfile --ignore=rl_move/tests/test_metaagent_server.py \
+      >"$log" 2>&1)
   fi
   grep -Eo '^(FAILED|ERROR) [^ ]+' "$log" | awk '{print $2}' | sort -u > /tmp/testdiff.now
   { grep -v '^#' "$base" 2>/dev/null || :; } | sort -u > /tmp/testdiff.base
