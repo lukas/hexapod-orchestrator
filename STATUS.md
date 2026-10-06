@@ -63,16 +63,25 @@ BC/AMP/demo/gait-clock in any component), both sim-only so far:**
   (`joystick_demo1.mp4`, 7-segment forward/turn-left/forward/turn-right/
   reverse/curve-left/stop script, `rl_move/sim/joystick_demo_compose.py`)
   — the sim half of the RL_GOALS demo requirement for this candidate.
-  Known limit: no rise/lower grammar (mode stays "walk" throughout); a
-  2/48 single-leg-unload-during-hold quirk in the turn role (its own
-  stance asymmetry, non-gating, 0 falls). Manifest:
-  `walkcurr/bundle_rlonly_curvewalk_v1/`.
+  Known limit: no rise/lower grammar (mode stays "walk" throughout).
+  **10-06 caveat (as-registered numbers above do NOT currently
+  reproduce on HEAD):** the 2026-10-02 `safety.hip_pitch_max_deg`
+  adoption silently regresses this gate's turn segments to 7/24
+  `gait_valid` (0 falls/full yaw convergence still hold; root-caused
+  by matched cfg-override A/B) — needs a turn-role fine-tune or gate
+  re-registration before further reliance; see `walkcurr/STATUS.md`
+  Next item 4. Manifest: `walkcurr/bundle_rlonly_curvewalk_v1/`.
 
 No single checkpoint/manifest yet stitches rise+walk+turn+lower in one
 session (lifecycle_v2 has no turn; curvewalk_v1 has no rise/lower) —
-both pieces are proven independently and share the same walk role.
-Neither has had physical robot motion. Robot Lab briefing for the
-current lower-role candidate: expect occasional (~1-in-20) height-miss-
+both use the same walk LINEAGE (`slew_smooth_s0` warm-starts from
+curvewalk_v1's `crutchoff_s0_warmadapt_acq1`) but different specific
+checkpoints; swapping in `slew_smooth_s0` costs a further, smaller
+compose-quality drop (23/24->20/24 turn `gait_valid`, matched
+conditions) on top of the regression above — unifying the two bundles
+needs that resolved first. Neither has had physical robot motion.
+Robot Lab briefing for the current lower-role candidate: expect occasional
+(~1-in-20) height-miss-
 without-fall or tilt_roll, not the old ~1-in-4 over_current stop.
 
 Full derivations/history: `walkcurr/STATUS.md`, `todaypolicy/STATUS.md`,
@@ -132,7 +141,9 @@ WAITING-ON (refreshed 2026-10-06):
   lifecycle_v2` (rl_only, rise->walk->lower, 95.6% full-direction,
   accepted 2026-10-03/06 as sufficient for a guarded trial), and
   `bundle_rlonly_curvewalk_v1` (rl_only, walk+turn, 0 falls/124
-  episodes, has an interactive sim demo video) — transfer manifests and
+  episodes as registered 09-30, has an interactive sim demo video, BUT
+  see its 10-06 gait_valid re-verification caveat above before this one
+  specifically goes to a physical session) — transfer manifests and
   briefings packaged for all three; none has had physical motion.
 - `[Robot Lab]` `standwalk`'s fixed-heading-only deployable exports
   (tf64l2h16/tf128l2h16 ceil20, profilewrite2000, yaw_contract_phaseclk,
