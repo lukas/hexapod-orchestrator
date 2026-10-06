@@ -64,25 +64,42 @@ BC/AMP/demo/gait-clock in any component), both sim-only so far:**
   reverse/curve-left/stop script, `rl_move/sim/joystick_demo_compose.py`)
   — the sim half of the RL_GOALS demo requirement for this candidate.
   Known limit: no rise/lower grammar (mode stays "walk" throughout).
-  **10-06 caveat (as-registered numbers above do NOT currently
-  reproduce on HEAD):** the 2026-10-02 `safety.hip_pitch_max_deg`
-  adoption silently regresses this gate's turn segments to 7/24
-  `gait_valid` (0 falls/full yaw convergence still hold; root-caused
-  by matched cfg-override A/B) — needs a turn-role fine-tune or gate
-  re-registration before further reliance; see `walkcurr/STATUS.md`
-  Next item 4. Manifest: `walkcurr/bundle_rlonly_curvewalk_v1/`.
+  **10-06 regression + fix (RESOLVED same day):** the 2026-10-02
+  `safety.hip_pitch_max_deg` adoption had silently regressed this
+  gate's turn segments to 7/24 `gait_valid` (0 falls/full yaw
+  convergence held throughout); a short fine-tune of the turn
+  checkpoint under the corrected envelope
+  (`cw-walkyaw50hz-rlonly-scratch-sac-s5-acq5-seedsweep-hippitchfix-ft1`,
+  PASS) fully recovers it — 24/24 `gait_valid`/`turn_success`, 12/12
+  zero-fall, re-registered. The `slew_smooth_s0` walk-role swap (vs.
+  curvewalk_v1's original `crutchoff_s0_warmadapt_acq1` partner) ALSO
+  reads 24/24 against this new turn checkpoint (was 20/24 under the
+  stale-hip ablation) — the walk-role choice is no longer gated by
+  this composition. Manifest: `walkcurr/bundle_rlonly_curvewalk_v1/`.
 
-No single checkpoint/manifest yet stitches rise+walk+turn+lower in one
-session (lifecycle_v2 has no turn; curvewalk_v1 has no rise/lower) —
-both use the same walk LINEAGE (`slew_smooth_s0` warm-starts from
-curvewalk_v1's `crutchoff_s0_warmadapt_acq1`) but different specific
-checkpoints; swapping in `slew_smooth_s0` costs a further, smaller
-compose-quality drop (23/24->20/24 turn `gait_valid`, matched
-conditions) on top of the regression above — unifying the two bundles
-needs that resolved first. Neither has had physical robot motion.
-Robot Lab briefing for the current lower-role candidate: expect occasional
-(~1-in-20) height-miss-
-without-fall or tilt_roll, not the old ~1-in-4 over_current stop.
+**`bundle_rlonly_lifecycle_full_v1` (NEW 2026-10-06):** first single
+session stitching all FOUR roles — rise+hold -> walk -> turn-and-hold
+-> controlled lower — closing the gap this section used to name as
+open. Built by generalizing the two pairwise composition tools above
+into one new tool (`rl_move/sim/eval_lifecycle_full_rlonly.py`, zero
+new training/weights, same cross-env physical-state-reanchor
+plumbing). Forward-heading (0deg) read: 33/36 (91.7%) zero-fall
+end-to-end — rise/walk/turn all 36/36, lower 33/36 matching that
+role's own already-accepted standalone rate bit-for-bit, same
+already-characterized residual failure signature (height-miss +
+rare tilt_roll, zero over_current) — the turn segment costs nothing
+extra. 8-heading off-axis confirmation sweep launched same cycle
+(zero GPU, CPU-only, `ops.sh localbg`); first heading back
+(-135deg) already reads 18/20 (90%), consistent with no off-axis
+collapse so far — read the rest before citing this as full-direction
+evidence. Manifest: `todaypolicy/bundle_rlonly_lifecycle_full_v1/`.
+No video/physical evidence yet; no robot motion performed. Each
+role's own motor/safety contract still differs, so any physical
+runtime must switch contracts at each of the three handoffs (not yet
+built, Robot-Lab-owned). Robot Lab briefing for the current
+lower-role candidate (any bundle): expect occasional (~1-in-20)
+height-miss-without-fall or tilt_roll, not the old ~1-in-4
+over_current stop.
 
 Full derivations/history: `walkcurr/STATUS.md`, `todaypolicy/STATUS.md`,
 `ops.sh index story <bundle-or-checkpoint>`, `CURRENT_TRUTHS.md` 09-10 /
