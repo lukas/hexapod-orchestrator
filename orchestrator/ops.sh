@@ -2312,6 +2312,11 @@ index)  # index build|story <run>|lineage <run>|promising [--track t]|real [poli
   uv run python "$HERE/rl_index.py" "$@"
   ;;
 
+snapshot)  # snapshot <name> — commit/tag/push both checkouts + mirror state (snapshot.sh passthrough)
+  shift
+  exec bash "$HERE/snapshot.sh" "$@"
+  ;;
+
 compact)  # compact [--dry-run] — journal compaction (doc_compact.py) on the LIVE
   # state: CURRENT_TRUTHS / OPERATOR_QUESTIONS / RL_LOG / track STATUS keep
   # recent findings + rulings, older entries move to archive/doc_compaction_<date>/
@@ -2330,7 +2335,7 @@ compact)  # compact [--dry-run] — journal compaction (doc_compact.py) on the L
   sed -n '2,6p' "$0"
   echo "subcommands: review <run> (START HERE for triage) | report <run|json> |"
   echo "  index story <run> | index promising | index real [policy] | index build (joined campaign index) |"
-  echo "  compact [--dry-run] (archive stale journal entries on the controller; pauses+waits for cycles) |"
+  echo "  snapshot <name> (snapshot.sh passthrough) | compact [--dry-run] (archive stale journals; pauses+waits for cycles) |"
   echo "  status | census | triage [hours] | procs <pod> | trainlog <run> [n] |"
   echo "  entry <run> | wandb <run> | quarters <run> [key...] | pullckpt <run> | pushckpt <pod> <ckpt> |"
   echo "  podeval <run> [sfx] | rateprobe <run> [n] [sfx] [dr] [seed] (no-video own-pod rate probe + evalpending, then EXIT) | podbg <pod> <label> <done_file> -- <cmd> (ANY custom eval, detached+registered) | localbg <label> <done_file> -- <cmd> (same, on the controller — never sleep-poll a local job) | testdiff [log] (suite once vs known_failures.txt) | m5eval <run> [pod] | evalcmd <run> | evalcmdstress <run> | speedpanel <run> [pod] [pins] | speedretention <run> [pod] | drain | killrun <run> |"

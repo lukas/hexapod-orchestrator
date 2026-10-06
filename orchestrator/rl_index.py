@@ -1021,6 +1021,15 @@ def real_md(rows: list[dict], key: str = "", limit: int = 50, pols: dict | None 
     return "\n".join(o)
 
 
+def resolve_run_name(q: str, runs: dict) -> tuple[str | None, list[str]]:
+    """Exact name, else unique substring match (newest-first candidates)."""
+    if q in runs:
+        return q, []
+    cands = sorted((r for r in runs if q in r),
+                   key=lambda r: runs[r].get("created") or "", reverse=True)
+    return (cands[0], []) if len(cands) == 1 else (None, cands[:10])
+
+
 def lineage_md(run: str, runs: dict) -> str:
     if run not in runs:
         return f"no ledger run named {run!r}"
@@ -1099,15 +1108,17 @@ def main(argv=None) -> int:
         else:
             print(rl_topics.gait_page(a.key, d["gaits"], runs, d["lab"], d["lineage"]))
         return 0
-    if a.cmd == "story":
-        try:
-            st = story(a.run, runs, entries, pols, rows, sweeps)
-        except KeyError:
-            print(f"no ledger run named {a.run!r}")
+    if a.cmd in ("story", "lineage"):
+        name, cands = resolve_run_name(a.run, runs)
+        if name is None:
+            print(f"no ledger run named {a.run!r}"
+                  + ("; candidates:\n  " + "\n  ".join(cands) if cands else ""))
             return 1
-        print(json.dumps(st, indent=1, default=str) if a.json else story_md(st))
-    elif a.cmd == "lineage":
-        print(lineage_md(a.run, runs))
+        if a.cmd == "story":
+            st = story(name, runs, entries, pols, rows, sweeps)
+            print(json.dumps(st, indent=1, default=str) if a.json else story_md(st))
+        else:
+            print(lineage_md(name, runs))
     elif a.cmd == "promising":
         prom = promising(runs, pols, summarise_real(rows, sweeps), a.track)
         print(json.dumps(prom, indent=1, default=str) if a.json else promising_md(prom, a.limit))
