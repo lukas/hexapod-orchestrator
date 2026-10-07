@@ -77,27 +77,31 @@ BC/AMP/demo/gait-clock in any component), both sim-only so far:**
   stale-hip ablation) — the walk-role choice is no longer gated by
   this composition. Manifest: `walkcurr/bundle_rlonly_curvewalk_v1/`.
 
-**`bundle_rlonly_lifecycle_full_v1` (NEW 2026-10-06):** first single
-session stitching all FOUR roles — rise+hold -> walk -> turn-and-hold
--> controlled lower — closing the gap this section used to name as
-open. Built by generalizing the two pairwise composition tools above
-into one new tool (`rl_move/sim/eval_lifecycle_full_rlonly.py`, zero
-new training/weights, same cross-env physical-state-reanchor
-plumbing). Forward-heading (0deg) read: 33/36 (91.7%) zero-fall
-end-to-end — rise/walk/turn all 36/36, lower 33/36 matching that
-role's own already-accepted standalone rate bit-for-bit, same
-already-characterized residual failure signature (height-miss +
-rare tilt_roll, zero over_current) — the turn segment costs nothing
-extra. 8-heading off-axis confirmation sweep launched same cycle
-(zero GPU, CPU-only, `ops.sh localbg`); first heading back
-(-135deg) already reads 18/20 (90%), consistent with no off-axis
-collapse so far — read the rest before citing this as full-direction
-evidence. Manifest: `todaypolicy/bundle_rlonly_lifecycle_full_v1/`.
-No video/physical evidence yet; no robot motion performed. Each
-role's own motor/safety contract still differs, so any physical
-runtime must switch contracts at each of the three handoffs (not yet
-built, Robot-Lab-owned). Robot Lab briefing for the current
-lower-role candidate (any bundle): expect occasional (~1-in-20)
+**`bundle_rlonly_lifecycle_full_v1` (2026-10-06, confirmed+video 10-07):**
+first single session stitching all FOUR roles — rise+hold -> walk ->
+turn-and-hold -> controlled lower — closing the gap this section used
+to name as open. Built by generalizing the two pairwise composition
+tools above into one new tool (`rl_move/sim/eval_lifecycle_full_rlonly.py`,
+zero new training/weights, same cross-env physical-state-reanchor
+plumbing). Full 8-heading sweep (n=20/heading) read and folded in
+same-day 10-06: 148/160 (92.5%) zero-fall end-to-end, FLAT across all
+headings (85-100% band, no sign collapse) — rise/walk/turn all 160/160
+every heading, lower 148/160 matching that role's own already-accepted
+standalone rate, same already-characterized residual failure signature
+(height-miss + rare tilt_roll, zero over_current). This IS full-direction
+evidence, not forward-only. A reproducible interactive joystick demo
+video exists (`rl_move/sim/joystick_demo_lifecycle.py --script demo1`
+-> `logs/ckpt_eval/joystick_demo_lifecycle_demo1.mp4`, ~79.5s, these
+exact 4 checkpoints, zero_fall, all 8 walk/turn segments gait_valid;
+the final lower segment misses height by -17mm, the known non-fall
+miss mode) — the Goal 2 sim-demo deliverable for this candidate.
+Manifest: `todaypolicy/bundle_rlonly_lifecycle_full_v1/` (naming vs.
+`lifecycle_v2` resolved 10-07: kept as separate named candidates,
+see manifest `next[]`). No physical evidence yet; no robot motion
+performed. Each role's own motor/safety contract still differs, so
+any physical runtime must switch contracts at each of the three
+handoffs (not yet built, Robot-Lab-owned). Robot Lab briefing for the
+current lower-role candidate (any bundle): expect occasional (~1-in-20)
 height-miss-without-fall or tilt_roll, not the old ~1-in-4
 over_current stop.
 
@@ -170,17 +174,6 @@ WAITING-ON (refreshed 2026-10-06):
   bounded FIXED-HEADING trial only, not omnidirectional joystick
   control. `ops.sh index promising --track standwalk` lists every
   exported checkpoint.
-
-Resolved since last refresh (left here so nobody re-reads the old
-framing from a cached copy): the `walkcurr` `lower`-role achievability
-question (16/16 mechanism classes closed as of 09-17) is ANSWERED — the
-17th family (`motor.thermal_derate_enable`) passed a 3-seed population
-10-06, see Sim-demo readiness above. The `walkyaw` turn-in-place freeze
-(09-18, 27/27 closed, parked on an operator scope ruling) is also
-superseded — the later `bothleggate`+`yaw_offset` SAC recipe
-(`acq5-seedsweep`) finds real stationary turning + curved walking
-cleanly (now the turn role in `bundle_rlonly_curvewalk_v1`); no operator
-ruling was needed in the end.
 
 ## Doc rules
 
