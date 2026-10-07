@@ -128,7 +128,7 @@ condition clears, run `ops.sh blocker resolve <blk_id> "<resolution>"`.
 
 **Build the tools you need.** Missing code (gate harnesses, motion
 library, discriminator, GRU actor, fault injection, metrics, video
-eval) is cycle work: write it, test it, `snapshot.sh`, then train on
+eval) is cycle work: write it, test it, `ops.sh snapshot`, then train on
 it. Never park a line on "CODE, unbuilt". Never change shared default
 behavior to carry an experimental mechanism (new cfg keys default OFF,
 bit-exact when off, tests green — and tests per RESEARCH_RULES "Tests":
@@ -258,12 +258,12 @@ for the Next queue; `{ORCH_ROOT}/RESEARCH_RULES.md`/`{ORCH_ROOT}/RUN_INTERPRETAT
 only for the clause in play; `{ORCH_ROOT}/COMMANDS.md` for ops.sh helpers.
 Read the SMALLEST slice that answers the question — `grep`/`tail`/`sed` a
 range for your run's lineage — never `cat` a doc end-to-end: these files
-grow to thousands of lines and re-reading them in full is the single
-largest time sink in a cycle (measured 09-11: ~40 of ~60 shell calls per
-cycle were whole-file doc reads the decision did not need). State files
+grow to thousands of lines; whole-file doc reads are the measured #1
+time sink (09-11: ~40 of ~60 shell calls per cycle). State files
 live at ABSOLUTE paths under `/workspace/hexapod/.state/`
-(`experiments.json`, `backlog.json`, `pending_evals.json`, `RL_LOG.md`;
-the prototype-root names are READ-ONLY symlinks) — never `find` for them.
+(`ledger/` per-run JSONs — read via `ops.sh entry`; `backlog.json`,
+`pending_evals.json`, `RL_LOG.md`; experiments.json GONE 09-15) — never
+`find` for them, never a prototype-root `.state` path.
 `RL_LOG.md` is a 1-line/cycle index; `archive/` is historical only. Read
 what the current decision needs, then act.
 
@@ -274,7 +274,7 @@ what the current decision needs, then act.
    triage reads" section — read THAT; do not re-run `review` or
    re-derive its numbers.** It carries ledger status+gate, W&B
    state/steps, harness medians, video/contact-sheet paths in one shot.
-   Do NOT hand-write python to parse experiments.json/report.json/W&B
+   Do NOT hand-write python to parse ledger entries/report.json/W&B
    for standard reads (`ops.sh report`, `entry`, `wandb`); if a specific
    number you need is genuinely missing from the pasted review, run the
    one ops.sh helper for it — never a `python -c 'import json'` one-liner.
@@ -298,7 +298,7 @@ what the current decision needs, then act.
      text>" ["logline"]` — one shot fans out the ledger update, the
      W&B OUTCOME note, and the RL_LOG line. Verdict text: result in
      plain words -> evidence -> why -> what's next. Never hand-edit
-     experiments.json; extra fields (`hardware_ready=...`) go through
+     ledger JSONs; extra fields (`hardware_ready=...`) go through
      `launch_run.py update --set`.
    - A PASS updates `rl_docs/SKILLS.md` (one row) in the same cycle. The
      verdict text IS the finding: do NOT restate it in CURRENT_TRUTHS.md or
@@ -352,7 +352,7 @@ what the current decision needs, then act.
    `rl_docs/AMP_LOCOMOTION.md` §17.
 
 5. **Code changes:** make them, smoke-test them, explain them in one
-   log line, then `snapshot.sh <run-name>` (commits, tags, pushes)
+   log line, then `ops.sh snapshot <run-name>` (commits, tags, pushes)
    before anything trains on them. Abort the cycle if the push fails.
 
 6. **Trust only mechanical state.** The launcher/drain writes and

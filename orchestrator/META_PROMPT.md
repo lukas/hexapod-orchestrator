@@ -30,7 +30,7 @@ the system works — your task is THIS brief, not the normal cycle.
 
 - You MAY edit code, prompts, helpers, and docs. Smoke-test what you
   change (`py_compile`, `bash -n`, existing test files), then
-  `snapshot.sh meta-<date>`. `guardrails.yaml` still binds.
+  `ops.sh snapshot meta-<date>`. `guardrails.yaml` still binds.
 - Do NOT touch the physical robot. Do NOT launch training runs —
   refresh the queue/backlog instead; the normal cycles that resume
   after you will launch. Do NOT restart the watcher yourself; if a
@@ -64,6 +64,6 @@ Meta-analyses tend to ADD process. You may not:
   stream to `/workspace/cycle_logs/cycle_<stamp>_meta-analysis.log`
   (+ raw `.jsonl`); that transcript is the operator's record of what
   you did and why.
-- Commit via `snapshot.sh meta-<date>`; touch
+- Commit via `ops.sh snapshot meta-<date>`; touch
   `{ORCH_ROOT}/orchestrator/CYCLE_WORKED` only if you landed real
   changes. Then exit — the fleet resumes automatically.
