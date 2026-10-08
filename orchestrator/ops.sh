@@ -168,6 +168,17 @@ print(' '.join(sorted(p for p in pods if p)))"); do
   tail -3 /workspace/orchestrator.log 2>/dev/null || true
   ;;
 
+track)  # track <name> [name...] — cat track STATUS.md(s) from the state
+  # dir's ABSOLUTE path (meta 10-08: kicks kept guessing relative
+  # .state paths, wasting calls on ENOENT + find).
+  shift
+  [ "$#" -ge 1 ] || { ls "$STATE_DIR/rl_docs/tracks"; exit 0; }
+  for t in "$@"; do
+    echo "===== $t ====="
+    cat "$STATE_DIR/rl_docs/tracks/$t/STATUS.md"
+  done
+  ;;
+
 board)  # board — one-screen refill digest: free slots, backlog count,
   # unverdicted ledger runs, and the LATEST journal heading per track
   # (journals are reverse-chron, top heading = newest state). Built at

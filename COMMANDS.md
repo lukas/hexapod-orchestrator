@@ -51,6 +51,7 @@ leave the next agent to rediscover it.
 | Yaw-command tracking (yawcmd lineage gate) | `uv run python -m rl_move.sim.eval_yaw <ckpt> --cfg-set … [--out j.json]` — scripted turn panel; reports turn-segment \|wz_err\| med, hold \|wz\| med, falls |
 | AMP M5 cross-engine suite (track DONE gate) | `uv run python -m rl_move.sim.eval_amp_m5 <ckpt> --out-dir logs/ckpt_eval/<name>_m5 --cfg-set <own cfg…>` — ONE invocation composing walk/yaw/push/fault sections in plain MuJoCo with pre-registered bars (amp-m5-v1, q_20260823T0130Z); run on a pod, read `m5_verdict.json`, watch the section strips before claiming. `ops.sh m5eval <run> [pod]` (08-23) does this end-to-end: derives the run's own cfg-set from the ledger (same logic as `evalcmd`), syncs code to the target pod, runs it, copies `logs/ckpt_eval/<run>_m5/` back — never hand-roll the kubectl plumbing |
 | Are results being lost/ignored? | `ops.sh triage [hours]` |
+| Read a track's STATUS (Goal/Now/Next) | `ops.sh track <name> [name...]` (no arg = list) — correct absolute state-dir path; never guess a relative `.state/...` path |
 | Finished but not yet analyzed? | ledger `triage` field (watcher-stamped: `awaiting…` → `in-cycle…` → `done` on verdict); shown on the status page "Analysis pipeline" |
 | Write the cycle's RL_LOG line | `ops.sh logline "c<N>: …"` — the ONLY way; never `cat >>` RL_LOG |
 | Frames from a video | harness already wrote `*.png` sheets; else `ops.sh frames <mp4> [n]` |
