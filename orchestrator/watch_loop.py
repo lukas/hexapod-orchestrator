@@ -88,6 +88,10 @@ def pending_mcp_kicks() -> list[pathlib.Path]:
 # deserves the full 15-min cadence again. Pure re-verify no-ops must
 # NOT touch it; that is exactly the case backoff exists for.
 WORKED = HERE / "CYCLE_WORKED"
+# Persistent stamp of the last CYCLE_WORKED consumption (meta 10-09):
+# WORKED itself is unlinked every poll, so this file is the durable
+# "when did a cycle last do real work" signal _meta_idle_skip reads.
+LAST_WORKED = HERE / "LAST_WORKED_AT"
 BACKLOG = state_dir.BACKLOG
 LOG = pathlib.Path("/workspace/orchestrator.log")
 STATE = pathlib.Path("/workspace/orchestrator_state.json")
@@ -697,6 +701,44 @@ def idle_kick_suppressed() -> bool:
     except Exception as e:
         log(f"idle-suppress check failed ({e}); kicking normally")
         return False
+
+
+def _meta_idle_skip() -> str:
+    """Return a reason string when the nightly deep meta session may be
+    replaced by an auto-stub report, else "". Conditions (all must
+    hold): an unresolved watcher blocker is open; no cycle has reported
+    real work (CYCLE_WORKED -> LAST_WORKED stamp) since the newest
+    META_*.md report was written; and `ops.sh board` still says
+    IDLE-VALID (which itself verifies ledger/backlog/questions/truths/
+    track STATUS/repo-HEAD unchanged since the last IDLE verdict). Any
+    verdict, launch, code snapshot, or watched-file change disables the
+    skip and the full deep session runs. Meta 10-09: two consecutive
+    $4.4-4.5 deep sessions audited a byte-identical fully-parked board
+    (zero cycles, zero training, blocker open) — the stub keeps the
+    nightly record at ~$0 while preserving the operator's unblock
+    channel."""
+    try:
+        import blocker_state
+        if not [b for b in blocker_state.list_blockers()
+                if not b.get("resolved_at")]:
+            return ""
+        reports = sorted((PROTO / "rl_docs" / "meta").glob("META_*.md"),
+                         key=lambda p: p.stat().st_mtime)
+        if not reports:
+            return ""
+        t_meta = reports[-1].stat().st_mtime
+        if LAST_WORKED.exists() and LAST_WORKED.stat().st_mtime > t_meta:
+            return ""
+        out = subprocess.run(["bash", str(HERE / "ops.sh"), "board"],
+                             capture_output=True, text=True, timeout=300)
+        if "IDLE-VALID:" not in out.stdout:
+            return ""
+        return ("no cycle reported real work since the last META report "
+                f"({reports[-1].name}), an unresolved blocker is open, "
+                "and the board is mechanically IDLE-VALID")
+    except Exception as e:
+        log(f"meta idle-skip check failed ({e}); running meta normally")
+        return ""
 
 
 def log(msg: str) -> None:
@@ -1797,6 +1839,10 @@ def main() -> None:
                     "further refills until the board fingerprint changes")
 
             if WORKED.exists():
+                try:
+                    LAST_WORKED.touch()
+                except OSError:
+                    pass
                 WORKED.unlink(missing_ok=True)
                 if idle_kick_streak:
                     log("cycle reported real work (CYCLE_WORKED); "
@@ -1906,6 +1952,39 @@ def main() -> None:
                         + (out.stdout.strip().splitlines() or ["no output"])[-1])
                 except (OSError, subprocess.SubprocessError) as exc:
                     log(f"doc_compact failed (non-fatal): {exc!r}")
+                # Meta 10-09: skip the deep session over a provably
+                # frozen board — stub report + logline instead (see
+                # _meta_idle_skip; any non-IDLE RL_LOG line since the
+                # last META re-enables the full session).
+                skip_reason = _meta_idle_skip()
+                if skip_reason:
+                    try:
+                        stub = (PROTO / "rl_docs" / "meta"
+                                / f"META_{today}.md")
+                        stub.parent.mkdir(parents=True, exist_ok=True)
+                        if not stub.exists():
+                            stub.write_text(
+                                f"# META {today} (auto-stub — deep "
+                                f"session skipped by the watcher)\n\n"
+                                f"Reason: {skip_reason}.\n"
+                                "Board byte-identical to the previous "
+                                "full META report — see the newest "
+                                "non-stub META_*.md for the standing "
+                                "analysis and the open blocker for the "
+                                "operator actions that unblock work.\n")
+                        subprocess.run(
+                            ["bash", str(HERE / "ops.sh"), "logline",
+                             f"META {today}: deep session auto-skipped "
+                             f"(stub report written) — {skip_reason}. "
+                             "IDLE: nothing runnable — no change in "
+                             "inputs since the last full META."],
+                            capture_output=True, timeout=120,
+                            cwd=str(PROTO))
+                    except Exception as exc:  # noqa: BLE001
+                        log(f"meta stub write failed (non-fatal): {exc!r}")
+                    log(f"meta-analysis auto-skipped: {skip_reason}")
+                    sleep_poll()
+                    continue
                 now = time.time()
                 cycle_times = [t for t in cycle_times if now - t < 86400]
                 if len(cycle_times) >= daily_cycle_cap():

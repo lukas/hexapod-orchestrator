@@ -247,7 +247,15 @@ def run(state: Path, today: date, execute: bool, out=None) -> dict:
             f"(original order; nothing edited)\n\n" + "".join(moved))
         tmp = p.with_suffix(p.suffix + ".tmp-compact")
         tmp.write_text(new)
+        # FIX 2026-10-09 (meta): preserve the file's mtime — compaction
+        # moves old lines to the archive but adds no new information, so
+        # it must be invisible to the mtime-based IDLE-VALID staleness
+        # check in `ops.sh board` (pre-fix it bumped RL_LOG's mtime,
+        # advancing t0 ~24h/night and masking real operator edits made
+        # between the last IDLE line and the nightly compaction).
+        st = p.stat()
         os.replace(tmp, p)
+        os.utime(p, (st.st_atime, st.st_mtime))
     runs_dir = state / "rl_docs" / "runs"
     if runs_dir.is_dir() and any(runs_dir.iterdir()):
         n = sum(1 for _ in runs_dir.glob("*.md"))

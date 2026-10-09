@@ -268,7 +268,22 @@ try:
                  if l.strip()]
     if (log_lines and "IDLE: nothing runnable" in log_lines[-1]
             and not unverd and backlog == 0):
+        # FIX 2026-10-09 (meta): doc_compact rewrites RL_LOG nightly,
+        # bumping its mtime; t0 from mtime alone silently advances ~24h
+        # and masks watched-file changes (e.g. an operator TRUTHS edit)
+        # made between the last IDLE line and the compaction. Use the
+        # line's OWN stamp when parseable, the older of the two.
         t0 = rl_log.stat().st_mtime
+        m = re.match(r"- (\d\d)-(\d\d) (\d\d):(\d\d) ", log_lines[-1])
+        if m:
+            yr = time.localtime().tm_year
+            for y in (yr, yr - 1):
+                cand = time.mktime((y, int(m.group(1)), int(m.group(2)),
+                                    int(m.group(3)), int(m.group(4)),
+                                    0, 0, 0, -1))
+                if cand <= time.time() + 60:
+                    t0 = min(t0, cand)
+                    break
         watched = ([state / "OPERATOR_QUESTIONS.md",
                     state / "CURRENT_TRUTHS.md", state / "backlog.json",
                     state / "pending_evals.json",
