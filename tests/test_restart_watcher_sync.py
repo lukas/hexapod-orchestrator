@@ -39,8 +39,8 @@ case "$name" in
     exit 1
     ;;
   flock)
-    if [ "$1" = "-n" ]; then
-      "$REAL_UV" run --no-project --offline --python "$TEST_PYTHON" python - "$4" <<'PY'
+    if [ "$1" = "-n" ] || [ "$2" = "1800" ]; then
+      "$REAL_UV" run --no-project --offline --python "$TEST_PYTHON" python - "${!#}" <<'PY'
 import fcntl, sys
 try:
     fcntl.flock(int(sys.argv[1]), fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -165,9 +165,10 @@ def test_successful_sync_is_locked_merge_of_main_without_autostash(tmp_path):
     # Existing wrapup cadence/drain survives: three cycles polls, drain at #2.
     assert events.count("sleep|60") == 3
     drains = [i for i, event in enumerate(events)
-              if event == "uv|run|--no-project|python|orchestrator/launch_run.py|drain"]
+              if event == "uv|run|--frozen|python|orchestrator/launch_run.py|drain"]
     assert len(drains) == 1 and drains[0] < events.index(git)
     assert not any(event.startswith("pkill|") for event in events)
+    assert not any("--no-project" in event for event in events if event.startswith(("uv|", "tmux|")))
 
 
 def test_parse_failure_still_preserves_old_watcher(tmp_path):
@@ -176,6 +177,18 @@ def test_parse_failure_still_preserves_old_watcher(tmp_path):
     assert old.exists() and not new.exists()
     assert "watch_loop.py failed to parse" in result.stdout
     assert not any(event.startswith("tmux|") for event in events)
+
+
+def test_stop_waits_for_cycles_without_syncing_or_resuming(tmp_path):
+    script, env, orch, trace, old, new = _setup_restart(tmp_path, active_polls=1)
+    result = subprocess.run(["bash", str(script), "--stop"], cwd=tmp_path,
+                            env=env, capture_output=True, text=True, timeout=15)
+    assert result.returncode == 0, result.stderr
+    events = trace.read_text().splitlines()
+    assert events.index("sleep|60") < events.index("tmux|kill-session|-t|orchestrator")
+    assert not old.exists() and not new.exists()
+    assert (orch / "PAUSE").exists() and (orch / "WRAPUP").exists()
+    assert not any(event.startswith(("git|", "uv|")) for event in events)
 
 
 def test_wrapup_deadline_still_terminates_only_stragglers_before_sync(tmp_path):

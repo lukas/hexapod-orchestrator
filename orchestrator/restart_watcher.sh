@@ -20,24 +20,27 @@
 # repo lukas/hexapod at /workspace/hexapod (sim code, on the `orchestrator`
 # branch). Both are brought up to date before the restart.
 set -u
+mode="${1:-restart}"
+case "$mode" in restart|--stop) ;; *) echo 'usage: restart_watcher.sh [--stop]' >&2; exit 2;; esac
 # Detached watchers must not reuse a dead parent W&B service socket.
 unset WANDB_SERVICE
-export UV_PYTHON=/usr/local/bin/python
 ORCH_REPO=/workspace/hexapod-orchestrator
 ORCH=$ORCH_REPO/orchestrator
 HEXAPOD=/workspace/hexapod
-# Both repo roots carry a pyproject.toml/uv.lock for LAPTOP development.
-# The controller runs on its system Python with `uv pip install --system`
-# packages; never let `uv run` discover a project here (it would build a
-# full venv on the controller). /root/orchestrator.env also exports this.
-export UV_NO_PROJECT=1
+# Each checkout uses its own locked environment on the persistent workspace.
+# Old restored environment files must not select the retired system Python.
+unset UV_NO_PROJECT UV_PROJECT UV_PROJECT_ENVIRONMENT
 
 log() { echo "[$(date -u +%FT%TZ)] $*"; }
 
 # One lifetime owner across both automatic and manual restart entry points.
 # Duplicates must exit before touching another owner's pause/wrapup flags.
 exec 8>/workspace/restart_watcher.lock || exit 1
-flock -n -E 75 8
+if [ "$mode" = --stop ]; then
+  flock -w 1800 -E 75 8
+else
+  flock -n -E 75 8
+fi
 case $? in
   0) ;;
   75) log "restart already owned; leaving existing restart untouched"; exit 0 ;;
@@ -88,11 +91,20 @@ while cycles_alive; do
   if [ $((i % 2)) -eq 0 ]; then
     (set -a; source "$HEXAPOD/hexapod_walker/prototype_sts3215/rl_move/sim/wandb.env" 2>/dev/null;
      source /root/orchestrator.env 2>/dev/null; set +a
-     cd "$ORCH_REPO" && uv run --no-project python orchestrator/launch_run.py drain \
+     unset UV_NO_PROJECT UV_PROJECT UV_PROJECT_ENVIRONMENT
+     cd "$ORCH_REPO" && uv run --frozen python orchestrator/launch_run.py drain \
        >> /tmp/pause_drain.log 2>&1) || true
   fi
 done
 log "cycles ended"
+
+# Container termination uses the same wrap-up protocol, preserving the hold
+# flags so the next pod does not resume a campaign during an unfinished cutover.
+if [ "$mode" = --stop ]; then
+  tmux kill-session -t orchestrator 8>&- 2>/dev/null || true
+  log "STOPPED; PAUSE+WRAPUP retained"
+  exit 0
+fi
 
 # Bring BOTH checkouts up to date under the snapshot lock: this repo with a
 # plain merge-pull of its tracking branch (no auto-deploy from main here, so
@@ -113,7 +125,7 @@ if ! (
   rm -f "$ORCH/PAUSE" "$ORCH/WRAPUP"
   exit 1
 fi
-uv run --no-project python -c "import ast; ast.parse(open('$ORCH/watch_loop.py').read())" || {
+uv run --frozen --project "$ORCH_REPO" python -c "import ast; ast.parse(open('$ORCH/watch_loop.py').read())" || {
   log "watch_loop.py failed to parse; leaving old watcher running"
   rm -f "$ORCH/PAUSE" "$ORCH/WRAPUP"
   exit 1
@@ -125,7 +137,7 @@ rm -f "$ORCH/PAUSE" "$ORCH/WRAPUP"
 # Keep the lifetime lock in this supervisor, never in the tmux server/watcher.
 tmux new-session -d -s orchestrator \
   "source /root/orchestrator.env && cd $ORCH_REPO && \
-   env -u WANDB_SERVICE UV_PYTHON=/usr/local/bin/python uv run --no-project python orchestrator/watch_loop.py" 8>&-
+   env -u WANDB_SERVICE -u UV_NO_PROJECT -u UV_PROJECT -u UV_PROJECT_ENVIRONMENT uv run --frozen python orchestrator/watch_loop.py" 8>&-
 sleep 5
 if tmux has-session -t orchestrator 8>&- 2>/dev/null; then
   log "RESTARTED ok (tmux session up)"

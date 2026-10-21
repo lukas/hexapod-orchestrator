@@ -47,7 +47,7 @@ import tracks
 # Same convention as launch_run.py / ops.sh: the controller's default
 # in-cluster serviceaccount cannot exec pods.
 os.environ.setdefault(
-    "KUBECONFIG", str(pathlib.Path.home() / ".kube" / "coreweave.yaml"))
+    "KUBECONFIG", str(pathlib.Path.home() / ".kube" / "puget1.yaml"))
 
 HERE = pathlib.Path(__file__).resolve().parent
 from roots import PROTO  # noqa: E402  (hexapod sim tree: logs/, policies/)

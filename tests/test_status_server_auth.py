@@ -54,3 +54,18 @@ def test_expired_or_unverifiable_cookie_is_rejected(credentials, monkeypatch):
 @pytest.mark.parametrize("signature", ["é" * 64, "z" * 64, "a", ""])
 def test_malformed_signatures_fail_closed(credentials, signature):
     assert status.sso_verify("bHVrYXM=." + signature) is None
+
+
+@pytest.mark.parametrize("target,expected", [
+    ("/run/example", "/run/example"),
+    ("https://buildviz.l2k.dev/", "https://buildviz.l2k.dev/"),
+    ("https://camera.cwd1f0-new-cluster.coreweave.app/", "https://camera.cwd1f0-new-cluster.coreweave.app/"),
+    ("https://buildviz.l2k.dev.evil.test/", "/now"),
+    ("https://evil.test/", "/now"),
+    ("http://buildviz.l2k.dev/", "/now"),
+    ("//evil.test/", "/now"),
+])
+def test_domain_migration_keeps_redirects_within_the_configured_labs(monkeypatch, target, expected):
+    monkeypatch.setattr(status, "SSO_REDIRECT_DOMAINS",
+                        (".l2k.dev", ".cwd1f0-new-cluster.coreweave.app"))
+    assert status._sso_safe_next(target) == expected

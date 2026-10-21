@@ -12,7 +12,7 @@ pods. State that matters (results, decisions, lineage) lives in the repo;
 this file only remembers which finished runs were already handled.
 
 Run on the controller pod inside tmux:
-    cd /workspace/hexapod-orchestrator && uv run --no-project python orchestrator/watch_loop.py
+    cd /workspace/hexapod-orchestrator && uv run --frozen python orchestrator/watch_loop.py
 Kill switch: `touch orchestrator/PAUSE` (loop idles until removed).
 
 Roots (roots.py): ORCH_ROOT is this checkout (code, prompts, flags);
@@ -401,7 +401,8 @@ PARTIAL_IDLE_GRACE_S = 600
 # (measured: verdicts sat unread for hours awaiting the next kick).
 PENDING_EVALS = state_dir.PENDING_EVALS
 PENDING_EVAL_TTL_S = 8 * 3600  # expiry so a dead eval can't deadlock kicks
-KUBECONFIG = str(pathlib.Path.home() / ".kube" / "coreweave.yaml")
+KUBECONFIG = os.environ.get(
+    "KUBECONFIG", str(pathlib.Path.home() / ".kube" / "puget1.yaml"))
 
 
 def _own_code_hash() -> str:
@@ -538,10 +539,13 @@ def check_pending_evals() -> tuple[list[dict], int]:
             expired.append(e)
             continue
         try:
-            rc = subprocess.run(
-                ["kubectl", "--kubeconfig", KUBECONFIG, "exec",
-                 str(e["pod"]), "--", "test", "-f", str(e["file"])],
-                capture_output=True, timeout=60).returncode
+            if e["pod"] == "local":
+                rc = 0 if pathlib.Path(e["file"]).is_file() else 1
+            else:
+                rc = subprocess.run(
+                    ["kubectl", "--kubeconfig", KUBECONFIG, "exec",
+                     str(e["pod"]), "--", "test", "-f", str(e["file"])],
+                    capture_output=True, timeout=60).returncode
         except (subprocess.TimeoutExpired, OSError, KeyError):
             keep.append(e)  # pod unreachable: still in flight until TTL
             continue

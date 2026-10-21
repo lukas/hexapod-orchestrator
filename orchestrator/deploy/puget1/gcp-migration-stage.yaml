@@ -1,0 +1,70 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: controller-migration
+  namespace: l2k
+spec:
+  restartPolicy: Always
+  automountServiceAccountToken: false
+  nodeSelector:
+    l2k-pool: services
+  initContainers:
+    - name: prepare
+      image: alpine:3.23.2
+      command: [/bin/sh, -ec]
+      args: ["mkdir -p /workspace/.tailscale /workspace/migration; chmod 700 /workspace/.tailscale /workspace/migration"]
+      volumeMounts:
+        - name: workspace
+          mountPath: /workspace
+  containers:
+    - name: migrate
+      image: ghcr.io/astral-sh/uv:python3.12-bookworm-slim@sha256:e5b65587bce7de595f299855d7385fe7fca39b8a74baa261ba1b7147afa78e58
+      command: [/bin/bash, -ec]
+      args:
+        - |
+          rm -f /workspace/.migration-client-ready
+          export DEBIAN_FRONTEND=noninteractive
+          apt-get update -qq
+          apt-get install -y --no-install-recommends ca-certificates curl git procps rsync
+          cd /tmp
+          curl -fsSL --retry 4 https://dl.k8s.io/release/v1.36.3/bin/linux/amd64/kubectl -o kubectl
+          curl -fsSL --retry 4 https://dl.k8s.io/release/v1.36.3/bin/linux/amd64/kubectl.sha256 -o kubectl.sha256
+          printf '%s  kubectl\n' "$(cat kubectl.sha256)" | sha256sum --check
+          install -m 0755 kubectl /usr/local/bin/kubectl
+          touch /workspace/.migration-client-ready
+          exec sleep infinity
+      resources:
+        requests:
+          cpu: 500m
+          memory: 1Gi
+        limits:
+          cpu: '2'
+          memory: 4Gi
+      readinessProbe:
+        exec:
+          command: [test, -f, /workspace/.migration-client-ready]
+      volumeMounts:
+        - name: workspace
+          mountPath: /workspace
+    - name: tailscale
+      image: tailscale/tailscale:v1.104.2@sha256:b11583ad2e93e4671128538c88cf11f460444a5d7e449311dd1933a400ab849d
+      command: [tailscaled]
+      args:
+        - --tun=userspace-networking
+        - --state=/var/lib/tailscale/tailscaled.state
+        - --socket=/tmp/tailscaled.sock
+        - --outbound-http-proxy-listen=127.0.0.1:1055
+      resources:
+        requests:
+          cpu: 100m
+          memory: 128Mi
+        limits:
+          memory: 512Mi
+      volumeMounts:
+        - name: workspace
+          mountPath: /var/lib/tailscale
+          subPath: .tailscale
+  volumes:
+    - name: workspace
+      persistentVolumeClaim:
+        claimName: controller-workspace

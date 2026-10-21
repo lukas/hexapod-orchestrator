@@ -3,6 +3,7 @@
 PAUSE
 LAUNCH_HOLD
 *.lock
+!deploy/puget1/runtime/uv.lock
 CYCLE_WORKED
 KICK
 WRAPUP

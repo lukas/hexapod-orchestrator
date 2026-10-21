@@ -40,6 +40,7 @@ from __future__ import annotations
 import argparse
 import fcntl
 import json
+import os
 import shlex
 import subprocess
 import sys
@@ -47,10 +48,12 @@ from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
+import state_dir
+
 HERE = Path(__file__).resolve().parent
-CAPFILE = HERE / "pod_torch_capability.json"
-CAPFILE_LOCK = HERE / "pod_torch_capability.json.lock"
-KUBECONFIG = str(Path.home() / ".kube" / "coreweave.yaml")
+CAPFILE = state_dir.STATE_DIR / "pod_torch_capability.json"
+CAPFILE_LOCK = CAPFILE.with_suffix(".json.lock")
+KUBECONFIG = os.environ.get("KUBECONFIG", str(Path.home() / ".kube" / "puget1.yaml"))
 DEFAULT_VERSION = "2.11.0+cu128"
 # +cuXXX local-version wheels only exist on PyTorch's own index, not
 # plain PyPI (pods' default pip index has plain "torch==2.11.0" with no
@@ -137,6 +140,7 @@ def load() -> dict:
 
 
 def _save(data: dict) -> None:
+    CAPFILE.parent.mkdir(parents=True, exist_ok=True)
     with _file_lock(CAPFILE_LOCK):
         CAPFILE.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n")
 

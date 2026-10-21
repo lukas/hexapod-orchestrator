@@ -17,8 +17,8 @@ Run on the controller pod (tmux session `statusweb`):
     uv run python orchestrator/status_server.py          # port 8090
 
 View from the laptop:
-    kubectl --kubeconfig=$HOME/.kube/coreweave.yaml \
-        port-forward hexapod-sweep-friction 8090:8090
+    kubectl --kubeconfig=$HOME/.kube/gcp.yaml -n l2k \
+        port-forward deploy/hexapod-controller 8090:8090
     open http://127.0.0.1:8090/now
 
 LLM-readable mirror (for GPT/Claude web fetchers assessing the
@@ -2735,6 +2735,9 @@ TOKEN = _load_token()
 # controller pod, never in the repo.
 SSO_COOKIE = "hexapod_sso"
 SSO_DOMAIN = os.environ.get("SSO_COOKIE_DOMAIN", ".cwd1f0-new-cluster.coreweave.app")
+SSO_REDIRECT_DOMAINS = tuple(
+    domain.strip().lower() for domain in
+    os.environ.get("SSO_REDIRECT_DOMAINS", SSO_DOMAIN).split(",") if domain.strip())
 SSO_LOGIN_HOST = os.environ.get("SSO_LOGIN_HOST", "hexapod.cwd1f0-new-cluster.coreweave.app")
 SSO_MAX_AGE = 365 * 24 * 3600
 SSO_SECRET_PATH = pathlib.Path(os.environ.get("SSO_SECRET_PATH", "/workspace/.sso_secret"))
@@ -2814,7 +2817,7 @@ def sso_cookie_user(cookie_header: str) -> str | None:
 
 
 def _sso_safe_next(value: str) -> str:
-    """Only send people to lab hosts on the cookie's own domain."""
+    """Only return to explicitly configured lab domains during a domain move."""
     from urllib.parse import urlparse
     if not value:
         return "/now"
@@ -2822,7 +2825,10 @@ def _sso_safe_next(value: str) -> str:
         return value
     u = urlparse(value)
     host = (u.hostname or "").lower()
-    if u.scheme == "https" and host.endswith(SSO_DOMAIN) and "." + host.split(".", 1)[-1] == SSO_DOMAIN:
+    if u.scheme == "https" and any(
+        host.endswith(domain) and "." + host.split(".", 1)[-1] == domain
+        for domain in SSO_REDIRECT_DOMAINS
+    ):
         return value
     return "/now"
 

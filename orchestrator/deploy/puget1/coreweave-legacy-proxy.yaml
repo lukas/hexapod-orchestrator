@@ -1,0 +1,48 @@
+# Stage separately. Patch the old hexapod-status Service selector only after
+# rl.l2k.dev and this proxy are healthy and the old workspace is backed up.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hexapod-status-legacy
+  namespace: default
+data:
+  Caddyfile: |
+    {
+      storage file_system /tls
+    }
+    hexapod.cwd1f0-new-cluster.coreweave.app {
+      reverse_proxy https://rl.l2k.dev {
+        header_up Host rl.l2k.dev
+        header_down Set-Cookie "Domain=[^; ]+" "Domain=.cwd1f0-new-cluster.coreweave.app"
+        header_down Location "https://rl.l2k.dev" "https://hexapod.cwd1f0-new-cluster.coreweave.app"
+      }
+    }
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: hexapod-status-legacy
+  namespace: default
+  labels: {app: hexapod-status-legacy}
+spec:
+  restartPolicy: Always
+  automountServiceAccountToken: false
+  containers:
+    - name: caddy
+      image: caddy:2@sha256:df7f1c2fb114453b951de51a98efc010db1655a92c2e86be6706714e2417a78d
+      ports:
+        - {name: http, containerPort: 80}
+        - {name: https, containerPort: 443}
+      resources:
+        requests: {cpu: 50m, memory: 64Mi}
+        limits: {cpu: 500m, memory: 256Mi}
+      readinessProbe:
+        tcpSocket: {port: 443}
+      volumeMounts:
+        - {name: config, mountPath: /etc/caddy/Caddyfile, subPath: Caddyfile}
+        - {name: tls, mountPath: /tls, subPath: controller-legacy-caddy}
+  volumes:
+    - name: config
+      configMap: {name: hexapod-status-legacy}
+    - name: tls
+      persistentVolumeClaim: {claimName: hexapod-state}

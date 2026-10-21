@@ -84,6 +84,22 @@ def test_ready_evaluation_remains_durable_until_acknowledged(registry):
     assert watch.check_pending_evals() == ([], 1)
 
 
+def test_controller_local_eval_does_not_use_worker_cluster(tmp_path, monkeypatch):
+    result = tmp_path / "done.json"
+    result.write_text("{}")
+    registry = tmp_path / "pending_evals.json"
+    entry = {"pod": "local", "file": str(result), "label": "controller",
+             "added": datetime.datetime.now(datetime.timezone.utc).isoformat()}
+    registry.write_text(json.dumps([entry]))
+    monkeypatch.setattr(watch, "PENDING_EVALS", registry)
+    def no_cluster(*args, **kwargs):
+        raise AssertionError("controller-local eval contacted the worker cluster")
+    monkeypatch.setattr(watch.subprocess, "run", no_cluster)
+    assert watch.check_pending_evals() == ([entry], 0)
+    result.unlink()
+    assert watch.check_pending_evals() == ([], 1)
+
+
 def test_ack_preserves_new_registration_of_same_named_evaluation(registry):
     path, ready, waiting = registry
     watch.check_pending_evals()

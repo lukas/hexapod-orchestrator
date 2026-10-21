@@ -63,7 +63,7 @@ LAUNCH_HOLD = HERE / "LAUNCH_HOLD"
 BACKLOG = state_dir.BACKLOG
 BACKLOG_LOCK = state_dir.BACKLOG_LOCK
 BACKLOG_FAILED = state_dir.BACKLOG_FAILED
-KUBECONFIG = str(Path.home() / ".kube" / "coreweave.yaml")
+KUBECONFIG = os.environ.get("KUBECONFIG", str(Path.home() / ".kube" / "puget1.yaml"))
 # Established launch pattern on the training pods: module invocation from
 # the project root (NOT `uv run python train_ppo_sim.py` from the sim dir).
 WORKDIR = "/workspace/prototype_sts3215"

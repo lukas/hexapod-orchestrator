@@ -37,7 +37,7 @@ cd "$HEXAPOD_REPO"
 
 if [ "${1:-}" = "--sync" ]; then
   POD="$2"
-  KC="${KUBECONFIG:-$HOME/.kube/coreweave.yaml}"
+  KC="${KUBECONFIG:-$HOME/.kube/puget1.yaml}"
   # Unique per-invocation temp name (was a fixed /tmp/proto_sync.tgz on
   # BOTH the local controller and every remote pod): concurrent cycles
   # syncing at the same time raced on that one shared local path, one

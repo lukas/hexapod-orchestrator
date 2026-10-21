@@ -1,0 +1,14 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: l2k
+resources:
+  - gcp-controller.yaml
+  - gcp-certificate.yaml
+  - gcp-web.yaml
+configMapGenerator:
+  - name: controller-bootstrap
+    files:
+      - controller-start.sh
+      - Caddyfile
+generatorOptions:
+  disableNameSuffixHash: true

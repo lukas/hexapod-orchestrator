@@ -1,0 +1,19 @@
+:8080 {
+    respond /__health "ok" 200
+    # Preserve the old site's destination during the compatibility-proxy phase.
+    map {header.X-Hexapod-Original} {lab_original} {
+        "" https://rl.l2k.dev{uri}
+        default {header.X-Hexapod-Original}
+    }
+    @browser {
+        not header Authorization *
+        not path / /hub /hub.json /llms.txt /llm /llm/* /robots.txt /mcp /login /logout /auth /__health
+        not query key=*
+    }
+    forward_auth @browser 127.0.0.1:8090 {
+        uri /auth
+        copy_headers X-Hexapod-User
+        header_up X-Hexapod-Original {lab_original}
+    }
+    reverse_proxy 127.0.0.1:8090
+}

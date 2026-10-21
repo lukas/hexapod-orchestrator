@@ -29,7 +29,7 @@ set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$HERE/roots.sh"                    # ORCH_ROOT, HEXAPOD_REPO, STATE_DIR
 STATE="$STATE_DIR"                    # $HEXAPOD_STATE_DIR, else ORCH_ROOT/.state
-KC="${KUBECONFIG:-$HOME/.kube/coreweave.yaml}"
+KC="${KUBECONFIG:-$HOME/.kube/puget1.yaml}"
 CONTROLLER_POD="${HEXAPOD_CONTROLLER_POD:-hexapod-sweep-friction}"
 CONTROLLER_STATE="${HEXAPOD_CONTROLLER_STATE_DIR:-/workspace/hexapod/.state}"
 MIRROR_TARGET="${HEXAPOD_STATE_MIRROR:-deploy/hexapod-state}"   # kubectl exec target

@@ -1,6 +1,6 @@
 # Autonomous experiment orchestrator
 
-A self-driving loop that keeps the CoreWeave RL campaign running while
+A self-driving loop that keeps the hexapod RL campaign running while
 the operator is away. Mechanical software owns state and throughput;
 an LLM cycle owns judgment (verdicts + what to try next). If this file
 and the code disagree, the code is right — fix this file.
@@ -36,7 +36,7 @@ regular file that appears at those paths, e.g. a new track's STATUS.md).
 ## Architecture (2026-08-09)
 
 ```
-controller pod (hexapod-sweep-friction, tmux session "orchestrator")
+GCP controller (l2k/deploy/hexapod-controller, tmux session "orchestrator")
   watch_loop.py — polls W&B every 5 min, plus three background workers:
     • backlog worker: every 2 min, `launch_run.py drain` pushes queued
       specs from backlog.json onto free GPU pods (self-repairing:
@@ -55,10 +55,11 @@ controller pod (hexapod-sweep-friction, tmux session "orchestrator")
     queueing specs into the backlog. Logs: /workspace/cycle_logs/
 ```
 
-Training pods: `hexapod-mjx-train-0..15` (1 H200 + 24 cores each; see
-`CAPACITY.md`, live truth via `capacity.py`). New pods are initialized
-by `bootstrap_train_pod.sh`, which writes the `.bootstrapped` marker
-the drain requires before treating a pod as a slot.
+Training: one `hexapod-mjx-train-puget1` pod on Puget1's RTX 5090. See
+`CAPACITY.md` and `deploy/puget1/README.md`; live truth comes from
+`capacity.py`. The worker manifest installs its locked environment and writes
+the `.bootstrapped` marker only after both GPU libraries pass their checks.
+The retired CoreWeave bootstrap scripts refuse to recreate that fleet.
 
 ## State — machines own facts, the LLM owns interpretation
 

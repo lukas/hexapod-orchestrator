@@ -1,0 +1,32 @@
+[project]
+name = "hexapod-gpu-worker"
+version = "0.1.0"
+requires-python = ">=3.11,<3.12"
+dependencies = [
+    "numpy==2.4.6",
+    "mujoco==3.11.0",
+    "mujoco-mjx==3.11.0",
+    "mujoco-warp==3.11.0",
+    "warp-lang==1.16.0",
+    "jax[cuda12]==0.10.2",
+    "torch==2.11.0+cu128",
+    "stable-baselines3==2.9.0",
+    "sb3-contrib==2.9.0",
+    "wandb==0.28.1",
+    "tensorboard",
+    "imageio",
+    "imageio-ffmpeg",
+    "pyyaml",
+]
+
+[tool.uv]
+package = false
+environments = ["sys_platform == 'linux' and platform_machine == 'x86_64'"]
+
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cu128" }

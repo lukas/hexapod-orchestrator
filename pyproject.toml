@@ -21,8 +21,7 @@ dev = [
 
 [tool.uv]
 # Plain scripts + two importable packages run from the checkout root; nothing
-# is installed as a wheel (the controller runs on system Python with
-# UV_NO_PROJECT=1 and the Mac metaagent service uses `uv run --frozen`).
+# is installed as a wheel. Controller and Mac services use this locked project.
 package = false
 
 [tool.uv.sources]

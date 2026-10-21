@@ -7,7 +7,7 @@
 # If you figure out a new slow/tricky command, ADD IT HERE (standing
 # rule in rl_docs/README.md).
 set -uo pipefail
-export KUBECONFIG="${KUBECONFIG:-$HOME/.kube/coreweave.yaml}"
+export KUBECONFIG="${KUBECONFIG:-$HOME/.kube/puget1.yaml}"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Roots (roots.sh = roots.py): ORCH_ROOT is this checkout, HEXAPOD_REPO the
 # hexapod checkout, PROTO its hexapod_walker/prototype_sts3215 sim tree.
@@ -21,6 +21,13 @@ LEDGER="$STATE_DIR/ledger"                   # a DIRECTORY of per-entry files (s
 export PYTHONPATH="$HERE${PYTHONPATH:+:$PYTHONPATH}"
 WANDB_PROJECT="l2k2/hexapod-balance"
 POD_PROTO=/workspace/prototype_sts3215      # pods' tree (NOT the controller's)
+CONTROLLER_TARGET="${HEXAPOD_CONTROLLER_TARGET:-deploy/hexapod-controller}"
+
+controller_kubectl() {
+  # The GCP controller and Puget1 worker have distinct credentials/permissions.
+  kubectl --kubeconfig="${HEXAPOD_CONTROLLER_KUBECONFIG:-$HOME/.kube/gcp.yaml}" \
+    --namespace="${HEXAPOD_CONTROLLER_NAMESPACE:-l2k}" "$@"
+}
 
 list_procs() {  # list_procs <pod> — training/eval processes (pods have NO ps)
   kubectl exec "$1" -- sh -c '
@@ -37,8 +44,9 @@ remote_ops() {  # re-run this ops.sh subcommand ON the controller pod.
   # observability commands (activity, cyclelog, waitcycle) work from
   # the operator Mac by re-execing themselves remotely. kubectl exec
   # streams stdout, so even the live-follow waitcycle works.
-  exec kubectl exec hexapod-sweep-friction -- bash \
+  controller_kubectl exec "$CONTROLLER_TARGET" -c controller -- bash \
     /workspace/hexapod-orchestrator/orchestrator/ops.sh "$@"
+  exit $?
 }
 
 entry_out_name() {  # entry_out_name <run> — the run's OWN explicit --out-name
@@ -533,7 +541,7 @@ pullckpt)  # pullckpt <run> — prefer durable controller, then training pod; md
     name="ppo_goal_$(echo "$run" | tr - _).zip"
   fi
   dest="$PROTO/rl_move/sim/policies/$name"
-  controller="hexapod-sweep-friction"
+  controller="$CONTROLLER_TARGET"
   controller_src="/workspace/hexapod/hexapod_walker/prototype_sts3215/rl_move/sim/policies/$name"
   # ROOT-CAUSE FIX (found 2026-09-24, riseexperts-acq1): this agent's own
   # controller pod IS "hexapod-sweep-friction" ($(hostname) matches) —
@@ -548,7 +556,7 @@ pullckpt)  # pullckpt <run> — prefer durable controller, then training pod; md
   # network hiccup that --retries could paper over. When self-referential,
   # skip the network round-trip entirely: the resident file (if any) IS
   # already the durable copy, just validate it in place.
-  if [ "$controller" = "$(hostname)" ]; then
+  if [ -d /workspace/hexapod ]; then
     if [ -s "$dest" ] && uv run python -c "import zipfile,sys; zipfile.ZipFile(sys.argv[1])" "$dest" 2>/dev/null; then
       echo "(already resident on durable controller, self-referential host — no copy needed: $dest)"
       md5sum "$dest"
@@ -561,7 +569,8 @@ pullckpt)  # pullckpt <run> — prefer durable controller, then training pod; md
     # The controller copy is tied to the archived run. Training pods are
     # reused and can later contain different weights under a historical
     # filename. --retries=5 for the genuine cross-host case.
-    kubectl cp --retries=5 "$controller:$controller_src" "$dest" 2>/dev/null
+    controller_pod=$(controller_kubectl get pod -l app=hexapod-controller -o jsonpath='{.items[0].metadata.name}') || exit 1
+    controller_kubectl cp --retries=5 -c controller "$controller_pod:$controller_src" "$dest" 2>/dev/null
     if [ -s "$dest" ]; then
       # A same-size zero-padded corrupt copy passes the plain -s size
       # check above; verify the zip container actually opens before
@@ -1248,7 +1257,6 @@ evalpending)  # evalpending add <pod|local> <file> <label> [run] | list — regi
   # wake while a live cycle has that run claimed, and `ops.sh verdict <run>`
   # consumes the entry (meta 09-30: 3 no-op evalready cycles raced live claims).
   sub="${2:-list}"; pod="${3:-}"; file="${4:-}"; label="${5:-}"; run="${6:-}"
-  [ "$pod" = "local" ] && pod="hexapod-sweep-friction"
   uv run python - "$sub" "$pod" "$file" "$label" "$run" <<'EOF'
 import datetime, json, os, sys
 sub, pod, file, label, run = sys.argv[1:6]
@@ -2152,16 +2160,17 @@ oplaunch)  # oplaunch <launch_run.py args...> — run a launcher command ON
     bash "$0" waitlog "$log" "$done_pat" 1800 || exit 1
     tail -15 "$log"
   else
-    CTL=hexapod-sweep-friction
-    kubectl cp "$runner" "$CTL:$runner" || exit 1
-    kubectl exec "$CTL" -- bash -c "nohup bash '$runner' > '$log' 2>&1 < /dev/null &"
+    CTL="$CONTROLLER_TARGET"
+    controller_pod=$(controller_kubectl get pod -l app=hexapod-controller -o jsonpath='{.items[0].metadata.name}') || exit 1
+    controller_kubectl cp -c controller "$runner" "$controller_pod:$runner" || exit 1
+    controller_kubectl exec "$CTL" -c controller -- bash -c "nohup bash '$runner' > '$log' 2>&1 < /dev/null &"
     echo "oplaunch running on $CTL -> $log (launch verification takes minutes)"
     el=0
-    until kubectl exec "$CTL" -- grep -qE "$done_pat" "$log" 2>/dev/null; do
+    until controller_kubectl exec "$CTL" -c controller -- grep -qE "$done_pat" "$log" 2>/dev/null; do
       sleep 20; el=$((el+20))
-      [ "$el" -ge 1800 ] && { echo "TIMEOUT after ${el}s; tail:"; kubectl exec "$CTL" -- tail -8 "$log"; exit 1; }
+      [ "$el" -ge 1800 ] && { echo "TIMEOUT after ${el}s; tail:"; controller_kubectl exec "$CTL" -c controller -- tail -8 "$log"; exit 1; }
     done
-    kubectl exec "$CTL" -- tail -15 "$log"
+    controller_kubectl exec "$CTL" -c controller -- tail -15 "$log"
     echo "record it: kubectl exec $CTL -- bash /workspace/hexapod-orchestrator/orchestrator/ops.sh logline \"...\""
   fi
   ;;
@@ -2178,8 +2187,8 @@ cycle)  # cycle ["focus text"] — OPERATOR: kick one decision session now.
   if [ -d /workspace/hexapod ]; then      # already on the controller
     printf '%s\n' "$note" > "$KICKPATH"
   else
-    CTL=hexapod-sweep-friction
-    printf '%s\n' "$note" | kubectl exec -i "$CTL" -- bash -c "cat > '$KICKPATH'" || exit 1
+    CTL="$CONTROLLER_TARGET"
+    printf '%s\n' "$note" | controller_kubectl exec -i "$CTL" -c controller -- bash -c "cat > '$KICKPATH'" || exit 1
   fi
   echo "KICK written — watcher picks it up within ~2 s"
   echo "watch it live: ops.sh waitcycle operator-kick   (streams the session's narration until it ends)"
@@ -2352,8 +2361,9 @@ compact)  # compact [--dry-run] — journal compaction (doc_compact.py) on the L
   if [ -d /workspace/hexapod-orchestrator ]; then
     bash "$HERE/compact_journals.sh" "$@"
   else
-    exec kubectl exec hexapod-sweep-friction -- bash \
+    controller_kubectl exec "$CONTROLLER_TARGET" -c controller -- bash \
       /workspace/hexapod-orchestrator/orchestrator/compact_journals.sh "$@"
+    exit $?
   fi
   ;;
 

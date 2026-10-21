@@ -6,8 +6,8 @@
 
 Live truth, queried from the cluster every time: nodes, GPUs, train
 pods, what's running where, and how many slots are FREE right now.
-Policy (operator, 2026-08-09): the cluster is ONE POOL, at least 4
-train slots per machine, one run per slot. If this script and any doc
+Policy (operator, 2026-10-21): Puget1 is one GPU slot, one run at a time.
+The configured pool lives in guardrails.yaml. If this script and any doc
 disagree, this script is right — fix the doc.
 """
 from __future__ import annotations
@@ -96,7 +96,7 @@ def main() -> int:
 
     print("=== CLUSTER CAPACITY (live) — one pool, one run per slot ===")
     for name, info in sorted(report["nodes"].items()):
-        print(f"{name}: {info['gpus']} H200s, cpu {info['cpus']}, "
+        print(f"{name}: {info['gpus']} GPUs, cpu {info['cpus']}, "
               f"train pods: {', '.join(info['train_pods']) or 'NONE'}")
     print(f"slots: {report['slots_total']} total, "
           f"{report['slots_ready']} ready, {report['slots_free']} FREE")

@@ -1,0 +1,75 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: hexapod-state
+spec:
+  capacity:
+    storage: 20Gi
+  volumeMode: Filesystem
+  accessModes: [ReadWriteOnce]
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ''
+  local:
+    path: /srv/hexapod/state
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: kubernetes.io/hostname
+              operator: In
+              values: [puget1]
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: hexapod-state
+  namespace: default
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: ''
+  volumeName: hexapod-state
+  resources:
+    requests:
+      storage: 20Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hexapod-state
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hexapod-state
+  template:
+    metadata:
+      labels:
+        app: hexapod-state
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
+      containers:
+        - name: state
+          image: alpine:3.23.2
+          command: [sleep, infinity]
+          resources:
+            requests:
+              cpu: 25m
+              memory: 32Mi
+            limits:
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: state
+              mountPath: /state
+      volumes:
+        - name: state
+          persistentVolumeClaim:
+            claimName: hexapod-state

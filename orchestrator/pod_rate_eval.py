@@ -50,7 +50,7 @@ import sys
 import time
 
 os.environ.setdefault(
-    "KUBECONFIG", str(pathlib.Path.home() / ".kube" / "coreweave.yaml"))
+    "KUBECONFIG", str(pathlib.Path.home() / ".kube" / "puget1.yaml"))
 HERE = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 from roots import PROTO  # noqa: E402
@@ -286,9 +286,10 @@ def entry_by_out_name(entries, stem: str) -> dict | None:
 
 
 def idle_pods(entries) -> list[str]:
+    from launch_run import load_guardrails
+
     busy = {e.get("pod") for e in entries if e.get("status") in ("RUNNING", "INTENT")}
-    return [f"hexapod-mjx-train-{i}" for i in range(16)
-            if i != 6 and f"hexapod-mjx-train-{i}" not in busy]
+    return [pod for pod in load_guardrails()["compute"]["gpu_pods"] if pod not in busy]
 
 
 def remote_exists(pod: str, path: str) -> bool:
