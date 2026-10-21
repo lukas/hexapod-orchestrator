@@ -62,6 +62,9 @@ and synchronizes each checkout from its lockfile. It installs the same Claude
 Code version as the source controller. It does not reset login passwords,
 MCP keys or research history. The sanctioned restart script also handles
 container shutdown with `--stop`, allowing in-flight cycles to wrap up.
+Remove the temporary CoreWeave kubeconfig and credential-transfer bundle
+from Cloud Shell and the staging directory after copying and verifying the
+backups. Keep only the service credentials and limited Puget1 worker config.
 
 Delete the staging Pod, then apply this directory with `kubectl apply -k`.
 Its shared Ingress contains both BuildViz and RL routes and certificates.

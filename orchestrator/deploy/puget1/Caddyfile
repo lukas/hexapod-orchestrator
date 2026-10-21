@@ -7,7 +7,7 @@
     }
     @browser {
         not header Authorization *
-        not path / /hub /hub.json /llms.txt /llm /llm/* /robots.txt /mcp /login /logout /auth /__health
+        not path / /hub /llms.txt /llm /llm/* /robots.txt /mcp /login /logout /auth /__health
         not query key=*
     }
     forward_auth @browser 127.0.0.1:8090 {
