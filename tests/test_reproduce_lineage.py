@@ -146,3 +146,33 @@ def test_behavioral_miss_is_collected_but_stale_report_cannot_hide_a_crash(tmp_p
         str(tmp_path / "log"), str(report), validation, sys.executable)
     assert subprocess.run(["bash", "-c", shell], capture_output=True).returncode != 0
     assert len(list(tmp_path.glob("result.json.previous-*"))) == 1
+
+
+def test_throughput_excludes_first_rollout_startup_and_requires_advancement():
+    log = "| time_elapsed | 100 |\n| total_timesteps | 524288 |\n| time_elapsed | 120 |\n| total_timesteps | 1048576 |"
+    assert repro.steady_throughput(log) == 524288 / 20
+    with pytest.raises(RuntimeError):
+        repro.steady_throughput("| time_elapsed | 100 |\n| total_timesteps | 524288 |")
+
+
+def test_worker_selection_requires_gain_larger_than_repeat_noise():
+    trials = [dict(workers=12, steady_steps_s=100), dict(workers=24, steady_steps_s=108),
+              dict(workers=16, steady_steps_s=105), dict(workers=12, steady_steps_s=102)]
+    assert repro.worker_choice(trials)["selected_workers"] == 12
+    trials[1]["steady_steps_s"] = 130
+    assert repro.worker_choice(trials)["selected_workers"] == 24
+    trials[-1]["steady_steps_s"] = 120
+    assert repro.worker_choice(trials)["selected_workers"] == 12
+
+
+def test_tuned_parallelism_does_not_change_small_sac_roles_or_optimizer_batches():
+    stage = repro.stages(plan())[0]
+    progress = {"worker_benchmark": {"selected_workers": 24}}
+    count = repro.runtime_workers(stage, progress)
+    assert count == 24
+    args = repro.training_args(stage, {}, count)
+    assert repro.option(args, "--host-workers") == "24"
+    assert repro.option(args, "--n-envs") == "4096"
+    assert repro.option(args, "--batch-size") == "131072"
+    stage["argv"][stage["argv"].index("--n-envs") + 1] = "256"
+    assert repro.runtime_workers(stage, progress) == 12

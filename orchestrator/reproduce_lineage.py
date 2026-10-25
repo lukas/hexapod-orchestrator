@@ -16,6 +16,7 @@ import os
 from pathlib import Path
 import re
 import shlex
+import statistics
 import subprocess
 import sys
 import tempfile
@@ -82,7 +83,7 @@ def option(args, key):
     return args[args.index(key) + 1] if key in args else None
 
 
-def training_args(stage, outputs):
+def training_args(stage, outputs, workers=12):
     args, result, i = stage["argv"], [], 0
     owned = {"--run-name", "--steps", "--out-name", "--notes", "--host-workers", "--init-from"}
     while i < len(args):
@@ -93,7 +94,7 @@ def training_args(stage, outputs):
         else:
             result.append(args[i])
             i += 1
-    result += ["--host-workers", "12", "--out-name", stage["output"],
+    result += ["--host-workers", str(workers), "--out-name", stage["output"],
                "--notes", f"Fresh Puget reproduction of {stage['original']}; "
                f"source {stage['source_code_sha']}; only reproduced ancestors used. "
                "Post-training artifacts drain cooperatively: Puget AppArmor blocks "
@@ -245,6 +246,99 @@ def wait_for_stage(pod, stage, entry):
     return checkpoint
 
 
+def steady_throughput(log):
+    """One optimizer update plus rollout, excluding first-rollout startup/JIT."""
+    steps = [int(x) for x in re.findall(r"total_timesteps\s*\|\s*(\d+)", log)]
+    elapsed = [int(x) for x in re.findall(r"time_elapsed\s*\|\s*(\d+)", log)]
+    if len(steps) < 2 or len(steps) != len(elapsed) or elapsed[-1] <= elapsed[0]:
+        raise RuntimeError("worker benchmark needs at least two advancing rollout timing records")
+    return (steps[-1] - steps[0]) / (elapsed[-1] - elapsed[0])
+
+
+def worker_choice(trials):
+    baselines = [r["steady_steps_s"] for r in trials if r["workers"] == 12]
+    if len(baselines) != 2:
+        raise ValueError("worker benchmark requires before/after baseline repeats")
+    baseline = statistics.mean(baselines)
+    noise = abs(baselines[1] - baselines[0]) / baseline
+    minimum_gain = max(0.10, 2 * noise)
+    best = max(trials, key=lambda r: r["steady_steps_s"])
+    selected = best["workers"] if best["steady_steps_s"] / baseline - 1 > minimum_gain else 12
+    return dict(selected_workers=selected, baseline_steps_s=baseline,
+                baseline_spread_fraction=noise, minimum_gain_fraction=minimum_gain,
+                best_observed_gain_fraction=best["steady_steps_s"] / baseline - 1)
+
+
+def runtime_workers(stage, progress):
+    # This benchmark covers the 4096-world PPO workload. Do not extrapolate
+    # it to the 256-world SAC roles, which have different CPU/GPU proportions.
+    if option(stage["argv"], "--n-envs") == "4096":
+        return progress.get("worker_benchmark", {}).get("selected_workers", 12)
+    return 12
+
+
+def prepare_log(pod, run):
+    launch_run.kexec(pod, "mkdir -p /workspace/reproduction-logs && " +
+        shlex.join(["ln", "-s", f"/workspace/reproduction-logs/train_{run}.log",
+                    f"/tmp/train_{run}.log"]))
+
+
+def benchmark_workers(plan, stage, progress, progress_path):
+    """Bounded, W&B-disabled replicas; their weights never enter the lineage."""
+    if stage.get("initialization_run") or option(stage["argv"], "--n-envs") != "4096":
+        raise ValueError("worker benchmark must use the fresh 4096-world walking root")
+    pod = plan["pod"]
+    worker_root = Path(plan["worker_root"])
+    if (worker_root / ".code_sha").read_text().strip() != stage["source_code_sha"]:
+        sync_source(pod, stage["source_code_sha"], worker_root)
+    benchmark = progress.setdefault("worker_benchmark", {"trials": []})
+    for label, workers in (("12a", 12), ("24", 24), ("16", 16), ("12b", 12)):
+        if any(r["label"] == label for r in benchmark["trials"]):
+            continue
+        name = plan["prefix"].removeprefix("cw-") + "-workers-" + label
+        trial = dict(stage, run=name, output="ppo_goal_" + name.replace("-", "_"),
+                     steps=983040, original="Systems throughput benchmark of " + stage["original"])
+        progress.update(status="benchmarking", current=name)
+        save(progress_path, progress)
+        entry = ledger_entry(name)
+        if not entry:
+            prepare_log(pod, name)
+            extra, raw, i = [], training_args(trial, {}, workers), 0
+            while i < len(raw):
+                if raw[i] in {"--eval-every", "--video-every"}:
+                    i += 2
+                elif raw[i] == "--best-ckpt":
+                    i += 1
+                else:
+                    extra.append(raw[i])
+                    i += 1
+            extra += ["--eval-every", "2000000", "--video-every", "2000000", "--no-canary", "--no-wandb"]
+            command([sys.executable, HERE / "launch_run.py", "status"])
+            command([sys.executable, HERE / "launch_run.py", "launch", "--pod", pod,
+                     "--run", name, "--steps", str(trial["steps"]), "--smoke",
+                     "--hypothesis", "Measure CPU worker parallelism with unchanged optimizer batch sizes. "
+                     "Fresh benchmark weights are isolated from the requested reproduction.",
+                     "--gate", "Two completed PPO rollouts, finite weights; compare steady interval with repeated baseline.",
+                     "--allow-no-log-std-final", "--", *extra])
+            entry = ledger_entry(name)
+        elif entry.get("status") not in {"RUNNING", "FINISHED"}:
+            raise RuntimeError(f"benchmark {name} previously {entry.get('status')}; inspect before retrying")
+        result = wait_for_stage(pod, trial, entry)
+        log = launch_run.kexec(pod, "cat " + shlex.quote(f"/tmp/train_{name}.log"))
+        rate = steady_throughput(log)
+        benchmark["trials"].append(dict(label=label, workers=workers, steady_steps_s=rate,
+                                         checkpoint_sha256=result["sha256"]))
+        update(name, note="Systems throughput test only. No behavioral claim; checkpoint excluded from reproduction ancestry.",
+               benchmark_steady_steps_s=rate, benchmark_host_workers=workers)
+        save(progress_path, progress)
+    benchmark.update(worker_choice(benchmark["trials"]), complete=True,
+                     source_sha=stage["source_code_sha"], n_envs=4096,
+                     optimizer_batch_size=option(stage["argv"], "--batch-size"))
+    progress["execution_policy"]["host_workers_for_4096"] = benchmark["selected_workers"]
+    save(progress_path, progress)
+    print("CPU worker benchmark:", json.dumps(benchmark), flush=True)
+
+
 def evaluate(plan, pipeline, progress, progress_path):
     spec = plan["evaluation"]
     pod = plan["pod"]
@@ -306,13 +400,18 @@ def run(plan, path):
         "plan_sha256": digest, "status": "training", "completed": {}, "total_steps": sum(s["steps"] for s in pipeline)}
     if progress["plan_sha256"] != digest:
         raise RuntimeError("plan changed since start; inspect existing progress before proceeding")
-    progress["execution_policy"] = dict(host_workers=12, defer_final_artifacts=False,
+    progress["execution_policy"] = dict(host_workers_default=12,
+        host_workers_for_4096=progress.get("worker_benchmark", {}).get("selected_workers", 12), defer_final_artifacts=False,
         reason="Cooperative post-training drain avoids Puget AppArmor signal denial; optimizer settings unchanged.")
     progress.pop("error", None)
     outputs = {s["original"]: s["output"] for s in pipeline}
     for stage in pipeline:
         if stage["run"] in progress["completed"]:
             continue
+        if (stage["role"] == "walk" and not stage.get("initialization_run")
+                and (path.parent / "benchmark-workers.request").exists()
+                and not progress.get("worker_benchmark", {}).get("complete")):
+            benchmark_workers(plan, stage, progress, progress_path)
         progress.update(status="training", current=stage["run"], original=stage["original"])
         save(progress_path, progress)
         entry = ledger_entry(stage["run"])
@@ -325,10 +424,7 @@ def run(plan, path):
                 if actual["sha256"] != recorded["sha256"]:
                     raise RuntimeError("reproduced parent changed since verification; refusing initialization")
             sync_source(plan["pod"], stage["source_code_sha"], Path(plan["worker_root"]))
-            log = f"/tmp/train_{stage['run']}.log"
-            durable = f"/workspace/reproduction-logs/train_{stage['run']}.log"
-            launch_run.kexec(plan["pod"], "mkdir -p /workspace/reproduction-logs && "
-                f"ln -s {shlex.quote(durable)} {shlex.quote(log)}")
+            prepare_log(plan["pod"], stage["run"])
             command([sys.executable, HERE / "launch_run.py", "status"])
             args = [sys.executable, HERE / "launch_run.py", "launch", "--pod", plan["pod"],
                     "--run", stage["run"], "--steps", str(stage["steps"]),
@@ -343,7 +439,7 @@ def run(plan, path):
                     "--allow-no-log-std-final"]
             if stage.get("initialization_run"):
                 args += ["--parent", next(s["run"] for s in pipeline if s["original"] == stage["initialization_run"])]
-            command([*args, "--", *training_args(stage, outputs)])
+            command([*args, "--", *training_args(stage, outputs, runtime_workers(stage, progress))])
             entry = ledger_entry(stage["run"])
         elif entry.get("status") not in {"RUNNING", "FINISHED"}:
             raise RuntimeError(f"{stage['run']} previously {entry.get('status')}; inspect rather than duplicate")
