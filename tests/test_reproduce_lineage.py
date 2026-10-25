@@ -1,4 +1,5 @@
 import copy
+import subprocess
 
 import pytest
 
@@ -89,3 +90,44 @@ def test_marker_recovery_requires_integrity_and_confirmed_artifact_publication()
     for bad in [dict(good, marker_verified=False), dict(good, artifact_phase="artifacts_pending")]:
         with pytest.raises(RuntimeError):
             repro.completion("", 2000000, bad)
+
+
+def test_revision_sync_preserves_generated_outputs_at_unexpected_paths(monkeypatch, tmp_path):
+    repo = tmp_path / "source"
+    proto = repo / "hexapod_walker/prototype_sts3215"
+    proto.mkdir(parents=True)
+
+    def git(*args):
+        return subprocess.check_output(["git", "-C", str(repo), *args], text=True).strip()
+
+    git("init", "-q")
+    git("config", "user.name", "Mechanical Test")
+    git("config", "user.email", "test@example.invalid")
+    (proto / "old.py").write_text("old source")
+    git("add", ".")
+    git("commit", "-qm", "initial source")
+    first = git("rev-parse", "HEAD")
+    (proto / "old.py").unlink()
+    (proto / "new.py").write_text("new source")
+    git("add", "-u")
+    git("add", "hexapod_walker/prototype_sts3215/new.py")
+    git("commit", "-qm", "replace source")
+    second = git("rev-parse", "HEAD")
+    worker = tmp_path / "worker"
+    worker.mkdir()
+    (worker / ".code_sha").write_text(first)
+    (worker / "old.py").write_text("old source")
+    generated = worker / "wandb/run/files/video.mp4"
+    generated.parent.mkdir(parents=True)
+    generated.write_bytes(b"training video")
+    checkpoint = worker / "rl_move/sim/policies/new.zip"
+    checkpoint.parent.mkdir(parents=True)
+    checkpoint.write_bytes(b"newly trained model")
+    monkeypatch.setattr(repro, "HEXAPOD_REPO", repo)
+    monkeypatch.setattr(repro, "PROTO", proto)
+    monkeypatch.setattr(repro.launch_run, "pod_trainers", lambda _: [])
+    repro.sync_source("pod", second, worker)
+    assert not (worker / "old.py").exists()
+    assert (worker / "new.py").read_text() == "new source"
+    assert generated.read_bytes() == b"training video"
+    assert checkpoint.read_bytes() == b"newly trained model"

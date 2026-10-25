@@ -18,6 +18,7 @@ import re
 import shlex
 import subprocess
 import sys
+import tempfile
 import time
 
 import launch_run
@@ -136,12 +137,40 @@ def sync_source(pod, sha, worker_root):
         ["git", "-C", str(HEXAPOD_REPO), "status", "--porcelain", "--untracked-files=no"], text=True)
     if dirty:
         raise RuntimeError("runtime source checkout has tracked modifications; inspect before retrying")
+    def tracked(revision):
+        listing = subprocess.check_output(["git", "-C", str(HEXAPOD_REPO),
+            "ls-tree", "-r", "-z", revision + ":hexapod_walker/prototype_sts3215"])
+        names = set()
+        for item in listing.split(b"\0"):
+            if not item:
+                continue
+            header, name = item.split(b"\t", 1)
+            path = name.decode()
+            # Gitlinks and runtime output are never deployed as source files.
+            if b" blob " in header and not any(part in {
+                    ".venv", "__pycache__", "wandb", "logs", "policies", "wandb.env"
+                    } for part in Path(path).parts):
+                names.add(path)
+        return names
+
+    previous = (worker_root / ".code_sha").read_text().strip()
+    before, after = tracked(previous), tracked(sha)
     command(["git", "-C", HEXAPOD_REPO, "switch", "--detach", sha])
-    excludes = [".venv", "__pycache__", "*.pyc", ".code_sha", ".bootstrapped",
-                "hexapod-tracker", "wandb.env", "/rl_move/sim/policies/",
-                "/rl_move/sim/logs/", "/rl_move/sim/wandb/", "/linux_control/logs/"]
-    command(["rsync", "-a", "--delete", *["--exclude=" + p for p in excludes],
-             str(PROTO) + "/", str(worker_root) + "/"])
+    # Only retire files known to belong to the previous Git snapshot. Broad
+    # rsync --delete can erase training output at an unexpected runtime path.
+    for name in before - after:
+        target = worker_root / name
+        if not target.parent.resolve().is_relative_to(worker_root.resolve()):
+            raise RuntimeError(f"source removal escapes worker directory: {name}")
+        if target.is_symlink() or target.is_file():
+            target.unlink()
+        elif target.exists():
+            raise RuntimeError(f"expected old source file, found directory: {name}")
+    with tempfile.TemporaryDirectory(prefix="hexapod-source-") as temporary:
+        manifest = Path(temporary) / "files"
+        manifest.write_bytes(b"\0".join(p.encode() for p in sorted(after)) + b"\0")
+        command(["rsync", "-a", "--from0", "--files-from=" + str(manifest),
+                 str(PROTO) + "/", str(worker_root) + "/"])
     (worker_root / ".code_sha").write_text(sha + "\n")
 
 
