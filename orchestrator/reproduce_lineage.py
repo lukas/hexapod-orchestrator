@@ -190,7 +190,7 @@ def wait_for_stage(pod, stage, entry):
         active = launch_run.pod_trainers(pod)
         if run not in active and run + "+finalizer" not in active:
             break
-        if not checked and time.monotonic() - started >= 300:
+        if not checked and run in active and time.monotonic() - started >= 300:
             command([sys.executable, HERE / "launch_run.py", "checkup", "--run", run])
             update(run, reproduction_checkup=True)
             checked = True
