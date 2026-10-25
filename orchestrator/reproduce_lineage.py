@@ -132,9 +132,9 @@ def sync_source(pod, sha, worker_root):
 
 def completion(log, steps, checkpoint):
     """A checkpoint alone may be a periodic/early-abort save, not completion."""
-    if not re.search(r"\[mjx-train\] done\s+" + f"{steps:,}" + r"\s+steps", log):
+    if not re.search(r"\[mjx-train\] done:?\s+" + f"{steps:,}" + r"\s+steps", log):
         # Older trainers omit thousands separators.
-        if not re.search(r"\[mjx-train\] done\s+" + str(steps) + r"\s+steps", log):
+        if not re.search(r"\[mjx-train\] done:?\s+" + str(steps) + r"\s+steps", log):
             raise RuntimeError("trainer exited without its full-budget completion line")
     if not checkpoint.get("finite") or checkpoint.get("timesteps", 0) < steps:
         raise RuntimeError("checkpoint is nonfinite or has fewer timesteps than requested")
@@ -246,6 +246,13 @@ def run(plan, path):
         save(progress_path, progress)
         entry = ledger_entry(stage["run"])
         if not entry:
+            parent = stage.get("initialization_run")
+            if parent:
+                previous = next(s for s in pipeline if s["original"] == parent)
+                recorded = progress["completed"][previous["run"]]
+                actual = inspect_checkpoint(plan["pod"], previous["output"])
+                if actual["sha256"] != recorded["sha256"]:
+                    raise RuntimeError("reproduced parent changed since verification; refusing initialization")
             sync_source(plan["pod"], stage["source_code_sha"], Path(plan["worker_root"]))
             command([sys.executable, HERE / "launch_run.py", "status"])
             args = [sys.executable, HERE / "launch_run.py", "launch", "--pod", plan["pod"],
@@ -286,6 +293,11 @@ def main():
             run(json.loads(args.plan.read_text()), args.plan)
         except Exception as error:
             save(args.plan.parent / "error.json", {"error": str(error), "time": time.time()})
+            progress_path = args.plan.parent / "progress.json"
+            if progress_path.exists():
+                progress = json.loads(progress_path.read_text())
+                progress.update(status="needs_attention", error=str(error))
+                save(progress_path, progress)
             raise
 
 

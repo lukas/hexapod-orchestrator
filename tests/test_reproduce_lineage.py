@@ -52,7 +52,7 @@ def test_untrusted_or_inconsistent_initialization_is_rejected(mutation):
 
 def test_partial_checkpoint_and_nonfinite_weights_cannot_advance_curriculum():
     good = dict(finite=True, timesteps=2097152)
-    repro.completion("[mjx-train] done 2,000,000 steps in 100s", 2000000, good)
+    repro.completion("[mjx-train] done: 2,000,000 steps in 100s", 2000000, good)
     repro.completion("[mjx-train] done 2000000 steps in 100s", 2000000, good)
     with pytest.raises(RuntimeError):
         repro.completion("saved periodic checkpoint", 2000000, good)
