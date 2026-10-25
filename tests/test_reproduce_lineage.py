@@ -73,3 +73,19 @@ def test_matched_evaluation_replays_lower_actuator_contract_for_arbitrary_paths(
     overrides = [args[i+1] for i, value in enumerate(args) if value == "--lower-cfg"]
     assert overrides == ["motor.thermal_derate_enable=1", "motor.thermal_derate_max_frac=0.5"]
     assert "--rot60" in args
+
+
+def test_original_deferred_recipe_uses_cooperative_post_training_drain():
+    stage = repro.stages(plan())[0]
+    stage["argv"] += ["--defer-final-artifacts"]
+    args = repro.training_args(stage, {})
+    assert "--defer-final-artifacts" not in args
+    assert args.count("--no-defer-final-artifacts") == 1
+
+
+def test_marker_recovery_requires_integrity_and_confirmed_artifact_publication():
+    good = dict(finite=True, timesteps=2097152, marker_verified=True, artifact_phase="evaluated")
+    repro.completion("", 2000000, good)
+    for bad in [dict(good, marker_verified=False), dict(good, artifact_phase="artifacts_pending")]:
+        with pytest.raises(RuntimeError):
+            repro.completion("", 2000000, bad)

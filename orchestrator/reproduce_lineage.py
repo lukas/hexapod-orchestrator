@@ -87,18 +87,22 @@ def training_args(stage, outputs):
     while i < len(args):
         if args[i] in owned:
             i += 2
+        elif args[i] in {"--defer-final-artifacts", "--no-defer-final-artifacts"}:
+            i += 1
         else:
             result.append(args[i])
             i += 1
     result += ["--host-workers", "12", "--out-name", stage["output"],
                "--notes", f"Fresh Puget reproduction of {stage['original']}; "
-               f"source {stage['source_code_sha']}; only reproduced ancestors used."]
+               f"source {stage['source_code_sha']}; only reproduced ancestors used. "
+               "Post-training artifacts drain cooperatively: Puget AppArmor blocks "
+               "the deferred worker's terminate signal; learning settings are preserved."]
     parent = stage.get("initialization_run")
     if parent:
         result += ["--init-from", f"{POLICIES}/{outputs[parent]}.zip"]
-    if "--defer-final-artifacts" not in args:
-        # Launcher-only sentinel: preserve the old trainer's default behavior.
-        result.append("--no-defer-final-artifacts")
+    # No security relaxation or trainer patch: the ordinary completion path
+    # drains results and sends the worker its existing queue sentinel.
+    result.append("--no-defer-final-artifacts")
     return result
 
 
@@ -146,7 +150,9 @@ def completion(log, steps, checkpoint):
     if not re.search(r"\[mjx-train\] done:?\s+" + f"{steps:,}" + r"\s+steps", log):
         # Older trainers omit thousands separators.
         if not re.search(r"\[mjx-train\] done:?\s+" + str(steps) + r"\s+steps", log):
-            raise RuntimeError("trainer exited without its full-budget completion line")
+            if not (checkpoint.get("marker_verified") and
+                    checkpoint.get("artifact_phase") == "evaluated"):
+                raise RuntimeError("trainer exited without a full-budget completion line or verified, finalized marker")
     if not checkpoint.get("finite") or checkpoint.get("timesteps", 0) < steps:
         raise RuntimeError("checkpoint is nonfinite or has fewer timesteps than requested")
 
@@ -159,9 +165,19 @@ with zipfile.ZipFile(p) as z:
  assert z.testzip() is None
  data=json.loads(z.read('data'))
  tensors=torch.load(io.BytesIO(z.read('policy.pth')),map_location='cpu',weights_only=True)
- print(json.dumps(dict(sha256=hashlib.sha256(open(p,'rb').read()).hexdigest(),
+ result=dict(sha256=hashlib.sha256(open(p,'rb').read()).hexdigest(),
    timesteps=data.get('num_timesteps',0),finite=all(bool(torch.isfinite(t).all()) for t in tensors.values()),
-   tensors=len(tensors))))
+   tensors=len(tensors))
+from pathlib import Path
+marker=Path(p).with_suffix('.training_complete.json')
+if marker.exists():
+ m=json.loads(marker.read_text())
+ result['marker_verified']=(m.get('schema')==1 and m.get('checkpoint_path')==p and
+  m.get('checkpoint_md5')==hashlib.md5(open(p,'rb').read()).hexdigest() and
+  m.get('steps')==result['timesteps'] and m.get('run_name')=={output.removeprefix('ppo_goal_').replace('_', '-')!r})
+ state=Path(p).parent/'artifact_handoff'/m['run_name']/'state.json'
+ if state.exists():result['artifact_phase']=json.loads(state.read_text()).get('phase')
+print(json.dumps(result))
 """
     return json.loads(launch_run.kexec(pod, "/workspace/runtime/.venv/bin/python - <<'PY'\n" + script + "PY", timeout=180))
 
@@ -179,7 +195,8 @@ def wait_for_stage(pod, stage, entry):
             update(run, reproduction_checkup=True)
             checked = True
         time.sleep(30)
-    log = launch_run.kexec(pod, "tail -c 40000 " + shlex.quote(f"/tmp/train_{run}.log"))
+    path = shlex.quote(f"/tmp/train_{run}.log")
+    log = launch_run.kexec(pod, f"if test -f {path}; then tail -c 40000 {path}; fi")
     checkpoint = inspect_checkpoint(pod, stage["output"])
     completion(log, stage["steps"], checkpoint)
     update(run, status="FINISHED", checkpoint_sha256=checkpoint["sha256"],
@@ -246,6 +263,9 @@ def run(plan, path):
         "plan_sha256": digest, "status": "training", "completed": {}, "total_steps": sum(s["steps"] for s in pipeline)}
     if progress["plan_sha256"] != digest:
         raise RuntimeError("plan changed since start; inspect existing progress before proceeding")
+    progress["execution_policy"] = dict(host_workers=12, defer_final_artifacts=False,
+        reason="Cooperative post-training drain avoids Puget AppArmor signal denial; optimizer settings unchanged.")
+    progress.pop("error", None)
     outputs = {s["original"]: s["output"] for s in pipeline}
     for stage in pipeline:
         if stage["run"] in progress["completed"]:
@@ -262,6 +282,10 @@ def run(plan, path):
                 if actual["sha256"] != recorded["sha256"]:
                     raise RuntimeError("reproduced parent changed since verification; refusing initialization")
             sync_source(plan["pod"], stage["source_code_sha"], Path(plan["worker_root"]))
+            log = f"/tmp/train_{stage['run']}.log"
+            durable = f"/workspace/reproduction-logs/train_{stage['run']}.log"
+            launch_run.kexec(plan["pod"], "mkdir -p /workspace/reproduction-logs && "
+                f"ln -s {shlex.quote(durable)} {shlex.quote(log)}")
             command([sys.executable, HERE / "launch_run.py", "status"])
             args = [sys.executable, HERE / "launch_run.py", "launch", "--pod", plan["pod"],
                     "--run", stage["run"], "--steps", str(stage["steps"]),
