@@ -1,5 +1,6 @@
 import copy
 import subprocess
+import sys
 
 import pytest
 
@@ -131,3 +132,17 @@ def test_revision_sync_preserves_generated_outputs_at_unexpected_paths(monkeypat
     assert (worker / "new.py").read_text() == "new source"
     assert generated.read_bytes() == b"training video"
     assert checkpoint.read_bytes() == b"newly trained model"
+
+
+def test_behavioral_miss_is_collected_but_stale_report_cannot_hide_a_crash(tmp_path):
+    report = tmp_path / "result.json"
+    validation = f"import json; print(json.load(open({str(report)!r}))['zero_fall'])"
+    args = [sys.executable, "-c", f"import pathlib; pathlib.Path({str(report)!r}).write_text('{{\"zero_fall\": false}}'); raise SystemExit(1)"]
+    shell = repro.report_shell(args, str(tmp_path / "log"), str(report), validation, sys.executable)
+    result = subprocess.run(["bash", "-c", shell], check=True, capture_output=True, text=True)
+    assert result.stdout.strip() == "False"
+    # The previous valid miss must not mask an infrastructure failure on retry.
+    shell = repro.report_shell([sys.executable, "-c", "raise RuntimeError('failed before output')"],
+        str(tmp_path / "log"), str(report), validation, sys.executable)
+    assert subprocess.run(["bash", "-c", shell], capture_output=True).returncode != 0
+    assert len(list(tmp_path.glob("result.json.previous-*"))) == 1

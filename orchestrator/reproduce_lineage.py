@@ -118,6 +118,15 @@ def evaluation_args(models):
             "--lower-cfg", "motor.thermal_derate_max_frac=0.5"]
 
 
+def report_shell(args, log, report, validation, python="/workspace/runtime/.venv/bin/python"):
+    """Behavioral misses are results; missing output is an execution failure."""
+    quoted = shlex.quote(report)
+    previous = shlex.quote(report + ".previous-" + str(time.time_ns()))
+    return (f"if test -f {quoted}; then mv {quoted} {previous}; fi; " +
+            shlex.join(args) + " > " + shlex.quote(log) + " 2>&1; " +
+            shlex.join([python, "-c", validation]))
+
+
 def ledger_entry(run):
     return next((e for e in reversed(state_dir.load_ledger()) if e.get("run") == run), None)
 
@@ -261,8 +270,7 @@ def evaluate(plan, pipeline, progress, progress_path):
         shell = f"cd {POD_ROOT}; export OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MUJOCO_GL=egl; "
         # The harness exits nonzero for behavioral misses; require its report,
         # then preserve those misses in the comparison instead of hiding them.
-        shell += shlex.join(args) + f" > {shlex.quote(destination + '/' + name + '.log')} 2>&1; "
-        shell += "/workspace/runtime/.venv/bin/python -c " + shlex.quote(
+        shell += report_shell(args, destination + '/' + name + '.log', report,
             f"import json; d=json.load(open({report!r})); assert len(d['episodes'])==20; print(json.dumps(d['summary']))")
         return name, json.loads(launch_run.kexec(pod, shell, timeout=14400))
 
@@ -280,8 +288,14 @@ def evaluate(plan, pipeline, progress, progress_path):
         args += [*evaluation_args(models), "--script", "demo1",
                  "--seed", "0", "--out", f"{destination}/{label}-demo.mp4",
                  "--summary-out", f"{destination}/{label}-demo.json"]
-        launch_run.kexec(pod, f"cd {POD_ROOT}; export OMP_NUM_THREADS=1 MUJOCO_GL=egl; " +
-                         shlex.join(args) + f" > {destination}/{label}-demo.log 2>&1", timeout=7200)
+        report = f"{destination}/{label}-demo.json"
+        summary = launch_run.kexec(pod, f"cd {POD_ROOT}; export OMP_NUM_THREADS=1 MUJOCO_GL=egl; " +
+            report_shell(args, f"{destination}/{label}-demo.log", report,
+                f"import json,pathlib; d=json.load(open({report!r})); "
+                f"assert pathlib.Path({destination + '/' + label + '-demo.mp4'!r}).stat().st_size>0; "
+                "print(json.dumps(d))"), timeout=7200)
+        progress.setdefault("demos", {})[label] = json.loads(summary)
+        save(progress_path, progress)
 
 
 def run(plan, path):
