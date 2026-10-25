@@ -102,6 +102,17 @@ def training_args(stage, outputs):
     return result
 
 
+def evaluation_args(models):
+    args = []
+    for role, path in models.items():
+        args += ["--" + role, path]
+    # The harness infers thermal derating only for its exact default relative
+    # filename. Both restored references and new checkpoints have other paths.
+    return [*args, "--walk-recipe", "slew_smooth_s0", "--rot60",
+            "--lower-cfg", "motor.thermal_derate_enable=1",
+            "--lower-cfg", "motor.thermal_derate_max_frac=0.5"]
+
+
 def ledger_entry(run):
     return next((e for e in reversed(state_dir.load_ledger()) if e.get("run") == run), None)
 
@@ -199,9 +210,7 @@ def evaluate(plan, pipeline, progress, progress_path):
         name = f"{label}-{heading:03}"
         report = f"{destination}/{name}.json"
         args = ["/workspace/runtime/.venv/bin/python", "-m", "rl_move.sim.eval_lifecycle_full_rlonly"]
-        for role, path in models.items():
-            args += ["--" + role, path]
-        args += ["--walk-recipe", "slew_smooth_s0", "--rot60", "--episodes", "20",
+        args += [*evaluation_args(models), "--episodes", "20",
                  "--heading-deg", str(heading), "--seed", "0", "--out", report]
         shell = f"cd {POD_ROOT}; export OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MUJOCO_GL=egl; "
         # The harness exits nonzero for behavioral misses; require its report,
@@ -212,7 +221,8 @@ def evaluate(plan, pipeline, progress, progress_path):
         return name, json.loads(launch_run.kexec(pod, shell, timeout=14400))
 
     tasks = [(label, models, h) for label, models in (("reference", ref), ("puget", new))
-             for h in range(0, 360, 45) if f"{label}-{h:03}" not in evaluations]
+             for h in (-135, -90, -45, 0, 45, 90, 135, 180)
+             if f"{label}-{h:03}" not in evaluations]
     with ThreadPoolExecutor(max_workers=4) as pool:
         from concurrent.futures import as_completed
         for future in as_completed([pool.submit(one, *task) for task in tasks]):
@@ -221,9 +231,7 @@ def evaluate(plan, pipeline, progress, progress_path):
             save(progress_path, progress)
     for label, models in (("reference", ref), ("puget", new)):
         args = ["/workspace/runtime/.venv/bin/python", "-m", "rl_move.sim.joystick_demo_lifecycle"]
-        for role, path in models.items():
-            args += ["--" + role, path]
-        args += ["--walk-recipe", "slew_smooth_s0", "--rot60", "--script", "demo1",
+        args += [*evaluation_args(models), "--script", "demo1",
                  "--seed", "0", "--out", f"{destination}/{label}-demo.mp4",
                  "--summary-out", f"{destination}/{label}-demo.json"]
         launch_run.kexec(pod, f"cd {POD_ROOT}; export OMP_NUM_THREADS=1 MUJOCO_GL=egl; " +

@@ -66,3 +66,10 @@ def test_source_sync_refuses_to_replace_code_used_by_a_live_trainer(monkeypatch,
     monkeypatch.setattr(repro, "command", lambda *a, **k: pytest.fail("must not mutate code"))
     with pytest.raises(RuntimeError, match="cannot replace"):
         repro.sync_source("pod", "a" * 40, tmp_path)
+
+
+def test_matched_evaluation_replays_lower_actuator_contract_for_arbitrary_paths():
+    args = repro.evaluation_args({"lower": "/restored/champion.zip", "walk": "/new/walker.zip"})
+    overrides = [args[i+1] for i, value in enumerate(args) if value == "--lower-cfg"]
+    assert overrides == ["motor.thermal_derate_enable=1", "motor.thermal_derate_max_frac=0.5"]
+    assert "--rot60" in args
